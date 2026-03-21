@@ -149,8 +149,7 @@ export async function POST(request, { params }) {
             WHERE sal.association_id = ${s.org_id}
           `;
 
-          const playerList = unreviewed_flags.map(p => `- ${p.first_name} ${p.last_name} — ${p.overall_agreement}% agreement`).join("
-");
+          const playerList = unreviewed_flags.map(p => `- ${p.first_name} ${p.last_name} — ${p.overall_agreement}% agreement`).join("\n");
           const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
             <h2 style="color:#f59e0b;">⚠️ Consensus Not Reviewed</h2>
             <p>Evaluators closed <strong>${s.category_name} — Group ${s.group_number}</strong> on ${s.scheduled_date?.toString().split("T")[0]} without reviewing all flagged players.</p>
