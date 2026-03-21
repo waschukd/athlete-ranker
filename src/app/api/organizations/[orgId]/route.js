@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import sql from "@/lib/db";
+
+export async function GET(request, { params }) {
+  try {
+    const orgs = await sql`SELECT * FROM organizations WHERE id = ${params.orgId}`;
+    if (!orgs.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ organization: orgs[0] });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(request, { params }) {
+  try {
+    const body = await request.json();
+    const { name, contact_email, contact_name, contact_phone, address } = body;
+    const result = await sql`
+      UPDATE organizations SET
+        name = COALESCE(${name}, name),
+        contact_email = COALESCE(${contact_email}, contact_email),
+        contact_name = COALESCE(${contact_name}, contact_name),
+        contact_phone = COALESCE(${contact_phone}, contact_phone),
+        address = COALESCE(${address}, address),
+        updated_at = NOW()
+      WHERE id = ${params.orgId} RETURNING *
+    `;
+    return NextResponse.json({ organization: result[0] });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
