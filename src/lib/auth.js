@@ -46,3 +46,14 @@ export async function getAppUserId(session) {
   const users = await sql`SELECT id FROM users WHERE email = ${session.email}`;
   return users[0]?.id || null;
 }
+
+export async function resolveSpOrgId(session, orgParamId) {
+  if (session?.role === "super_admin" && orgParamId) {
+    const org = await sql`SELECT id FROM organizations WHERE id = ${orgParamId} AND type = 'service_provider' LIMIT 1`;
+    return org[0]?.id || null;
+  }
+  const byContact = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} AND type = 'service_provider' LIMIT 1`;
+  if (byContact.length) return byContact[0].id;
+  const byMembership = await sql`SELECT em.organization_id as id FROM evaluator_memberships em JOIN organizations o ON o.id = em.organization_id JOIN users u ON u.id = em.user_id WHERE u.email = ${session.email} AND o.type = 'service_provider' LIMIT 1`;
+  return byMembership[0]?.id || null;
+}

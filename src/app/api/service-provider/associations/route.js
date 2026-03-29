@@ -1,35 +1,14 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 
-async function getSpId(email) {
-  // Try contact_email on organizations first
-  const byContact = await sql`
-    SELECT id FROM organizations
-    WHERE contact_email = ${email} AND type = 'service_provider'
-    LIMIT 1
-  `;
-  if (byContact.length) return byContact[0].id;
-
-  // Fall back to evaluator_memberships
-  const byMembership = await sql`
-    SELECT em.organization_id as id
-    FROM evaluator_memberships em
-    JOIN organizations o ON o.id = em.organization_id
-    JOIN users u ON u.id = em.user_id
-    WHERE u.email = ${email} AND o.type = 'service_provider'
-    LIMIT 1
-  `;
-  if (byMembership.length) return byMembership[0].id;
-  return null;
-}
-
-export async function GET() {
+export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const spId = await getSpId(session.email);
+    const { searchParams } = new URL(request.url);
+    const spId = await resolveSpOrgId(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "No service provider found for this user" }, { status: 403 });
 
     const spInfo = await sql`SELECT id, name FROM organizations WHERE id = ${spId} LIMIT 1`;
@@ -64,11 +43,7 @@ export async function GET() {
       WHERE em.organization_id = ${spId} AND em.status = 'active'
     `;
 
-    return NextResponse.json({
-      sp: spInfo[0],
-      associations,
-      evaluatorStats: evaluatorStats[0],
-    });
+    return NextResponse.json({ sp: spInfo[0], associations, evaluatorStats: evaluatorStats[0] });
   } catch (error) {
     console.error("SP associations error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -83,10 +58,10 @@ export async function POST(request) {
     const { association_id } = await request.json();
     if (!association_id) return NextResponse.json({ error: "association_id required" }, { status: 400 });
 
-    const spId = await getSpId(session.email);
+    const { searchParams } = new URL(request.url);
+    const spId = await resolveSpOrgId(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "No service provider found" }, { status: 403 });
 
-    // Check if already linked
     const existing = await sql`
       SELECT id FROM sp_association_links
       WHERE service_provider_id = ${spId} AND association_id = ${association_id}
