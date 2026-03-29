@@ -530,6 +530,7 @@ function SPDashboard() {
                   <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                     <Plus size={15} /> New Client
                   </button>
+                )}
               </div>
             </div>
 
@@ -825,7 +826,4 @@ export default function ServiceProviderDashboardPage() {
     </QueryClientProvider>
   );
 }
-
-
-
 
