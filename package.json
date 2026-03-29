@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.9.0",
+    "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.0.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.0.0",
