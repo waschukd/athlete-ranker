@@ -7,7 +7,6 @@ export async function GET(request) {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
-
     const users = roleFilter
       ? await sql`
           SELECT u.*,
@@ -31,7 +30,6 @@ export async function GET(request) {
           LEFT JOIN evaluator_assignments ea ON ea.user_id = u.id
           GROUP BY u.id, o.name, o.type ORDER BY u.created_at DESC
         `;
-
     const stats = await sql`
       SELECT
         COUNT(*) as total,
@@ -42,7 +40,6 @@ export async function GET(request) {
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as new_this_week
       FROM users
     `;
-
     return NextResponse.json({
       users: users.map((u) => ({
         ...u,
@@ -60,14 +57,29 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    const { name, email, phone, role } = await request.json();
+    const { name, email, phone, role, orgName } = await request.json();
     const user = await sql`
       INSERT INTO users (name, email, phone, role)
       VALUES (${name}, ${email}, ${phone || null}, ${role})
       RETURNING *
     `;
+    await sql`INSERT INTO auth_users (email, name) VALUES (${email}, ${name}) ON CONFLICT (email) DO NOTHING`;
+    const { createHash } = await import("node:crypto");
+    const tempPassword = Math.random().toString(36).slice(2, 10) + "A1!";
+    const hashedPassword = createHash("sha256").update(tempPassword).digest("hex");
+    const authUser = await sql`SELECT id FROM auth_users WHERE email = ${email}`;
+    if (authUser.length) {
+      await sql`INSERT INTO auth_accounts ("userId", provider, password, type) VALUES (${authUser[0].id}, 'credentials', ${hashedPassword}, 'credentials') ON CONFLICT DO NOTHING`;
+    }
+    const { emailWelcomeServiceProvider, emailWelcomeAssociation } = await import("@/lib/email");
+    if (role === "service_provider_admin") {
+      await emailWelcomeServiceProvider({ name, email, tempPassword, orgName: orgName || "your organization" });
+    } else if (role === "association_admin") {
+      await emailWelcomeAssociation({ name, email, tempPassword, orgName: orgName || "your organization" });
+    }
     return NextResponse.json({ user: user[0] }, { status: 201 });
   } catch (error) {
+    console.error("POST user error:", error);
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }
