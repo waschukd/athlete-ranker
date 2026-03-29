@@ -94,7 +94,7 @@ export async function POST(request) {
           VALUES (${authUser.id}, 'credentials', 'credentials', ${contact_email}, ${hashPassword(password)})
           ON CONFLICT DO NOTHING
         `;
-        const role = type === "service_provider" ? "sp_admin" : "association_admin";
+        const role = type === "service_provider" ? "service_provider_admin" : "association_admin";
         await sql`
           INSERT INTO users (email, name, role, organization_id)
           VALUES (${contact_email}, ${contact_name}, ${role}, ${org.id})
