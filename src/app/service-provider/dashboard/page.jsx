@@ -526,7 +526,7 @@ function SPDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Client Associations</h2>
               <div className="flex items-center gap-3">
                 <p className="text-sm text-gray-400">{associations.length} clients</p>
-                {!orgParam && (
+                (
                   <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                     <Plus size={15} /> New Client
                   </button>
@@ -826,3 +826,4 @@ export default function ServiceProviderDashboardPage() {
     </QueryClientProvider>
   );
 }
+
