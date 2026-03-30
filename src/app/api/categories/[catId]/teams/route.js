@@ -69,7 +69,7 @@ export async function POST(request, { params }) {
       // position_balanced = true/false
 
       // Get live rankings
-      const rankRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/categories/${catId}/rankings`);
+      const rankRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/categories/${catId}/rankings`, { headers: { cookie: request.headers.get("cookie") || "" } });
       const rankData = await rankRes.json();
 
       if (!rankData.has_scores) {
@@ -247,3 +247,4 @@ function assignAthletes(athletes, teamConfig, method, snakeRange, perTeamLimits)
 
   return assignments;
 }
+
