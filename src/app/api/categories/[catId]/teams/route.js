@@ -90,7 +90,7 @@ export async function POST(request, { params }) {
       const createdTeams = [];
       for (let i = 0; i < teamConfig.length; i++) {
         const [team] = await sql`
-          INSERT INTO teams (age_category_id, name, size, rank_order)
+          INSERT INTO teams (age_category_id, name, max_roster_size, rank_order)
           VALUES (${catId}, ${teamConfig[i].name}, ${teamConfig[i].size}, ${i + 1})
           RETURNING *
         `;
@@ -247,4 +247,5 @@ function assignAthletes(athletes, teamConfig, method, snakeRange, perTeamLimits)
 
   return assignments;
 }
+
 
