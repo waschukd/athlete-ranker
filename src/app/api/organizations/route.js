@@ -79,7 +79,7 @@ export async function POST(request) {
         await sql`
           INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
           VALUES (${authUser.id}, 'credentials', 'credentials', ${contact_email}, ${hashPassword(password)})
-          ON CONFLICT DO NOTHING
+          ON CONFLICT ("providerAccountId", provider) DO UPDATE SET password = EXCLUDED.password
         `;
         const role = type === "service_provider" ? "service_provider_admin" : "association_admin";
         await sql`
@@ -132,3 +132,4 @@ export async function DELETE(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
