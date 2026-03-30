@@ -390,6 +390,7 @@ function DirectorDashboardInner() {
                             </td>
                           );
                         })}
+                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors whitespace-nowrap">View Report</a></td>
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900 tabular-nums">{a.weighted_total?.toFixed(1) || "—"}</td>}
                         {hasScores && (
                           <td className="px-4 py-3 text-center">
@@ -854,6 +855,7 @@ export default function DirectorDashboardPage() {
     </QueryClientProvider>
   );
 }
+
 
 
 

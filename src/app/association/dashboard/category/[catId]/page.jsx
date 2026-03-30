@@ -359,6 +359,7 @@ function CategoryHub() {
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}
+                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors whitespace-nowrap">View Report</a></td>
                         {hasScores && <td className="px-4 py-3 text-center">{a.rank_history?.length > 0 ? <div className="flex items-center justify-center gap-1 flex-wrap">{a.rank_history.map((r, i) => <span key={i} className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${i === a.rank_history.length - 1 ? "bg-[#FF6B35] text-white" : "bg-gray-100 text-gray-600"}`}>{r}</span>)}</div> : <span className="text-gray-200">-</span>}</td>}
                       </tr>
                     ))}
@@ -716,6 +717,8 @@ export default function CategoryPage() {
     </QueryClientProvider>
   );
 }
+
+
 
 
 
