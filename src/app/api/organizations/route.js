@@ -1,7 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 import { emailWelcomeServiceProvider, emailWelcomeAssociation } from "@/lib/email";
 import { createHash } from "node:crypto";
 
@@ -13,13 +12,11 @@ export async function GET() {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const organizations = await sql`SELECT * FROM organizations ORDER BY name`;
-
     const orgIds = organizations.map((o) => o.id);
     let stats = [];
     if (orgIds.length > 0) {
       stats = await sql`
-        SELECT
-          o.id,
+        SELECT o.id,
           COUNT(DISTINCT ac.id) as age_categories_count,
           COUNT(DISTINCT a.id) as athletes_count,
           COUNT(DISTINCT CASE WHEN es.status IN ('scheduled', 'in_progress') THEN es.id END) as active_evaluations
@@ -31,17 +28,10 @@ export async function GET() {
         GROUP BY o.id
       `;
     }
-
     const enriched = organizations.map((org) => {
       const stat = stats.find((s) => s.id === org.id);
-      return {
-        ...org,
-        age_categories_count: parseInt(stat?.age_categories_count) || 0,
-        athletes_count: parseInt(stat?.athletes_count) || 0,
-        active_evaluations: parseInt(stat?.active_evaluations) || 0,
-      };
+      return { ...org, age_categories_count: parseInt(stat?.age_categories_count) || 0, athletes_count: parseInt(stat?.athletes_count) || 0, active_evaluations: parseInt(stat?.active_evaluations) || 0 };
     });
-
     return NextResponse.json({ organizations: enriched });
   } catch (error) {
     console.error("GET organizations error:", error);
@@ -63,7 +53,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "Type must be service_provider or association" }, { status: 400 });
     }
 
-    // Generate unique org code
     let orgCode = null;
     for (let i = 0; i < 10; i++) {
       const candidate = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -76,10 +65,8 @@ export async function POST(request) {
       VALUES (${name}, ${type}, ${contact_email}, ${contact_name || null}, ${contact_phone || null}, ${address || null}, ${orgCode})
       RETURNING *
     `;
-
     const org = result[0];
 
-    // Create admin user account for the org if contact_email provided
     if (contact_email && contact_name) {
       const password = tempPass();
       try {
@@ -96,12 +83,10 @@ export async function POST(request) {
         `;
         const role = type === "service_provider" ? "service_provider_admin" : "association_admin";
         await sql`
-          INSERT INTO users (email, name, role, organization_id)
-          VALUES (${contact_email}, ${contact_name}, ${role}, ${org.id})
-          ON CONFLICT (email) DO UPDATE SET role = ${role}, organization_id = ${org.id}
+          INSERT INTO users (email, name, role)
+          VALUES (${contact_email}, ${contact_name}, ${role})
+          ON CONFLICT (email) DO UPDATE SET role = ${role}
         `;
-
-        // Send welcome email
         if (type === "service_provider") {
           await emailWelcomeServiceProvider({ name: contact_name, email: contact_email, tempPassword: password, orgName: name });
         } else {
@@ -126,8 +111,6 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get("id");
     if (!orgId) return NextResponse.json({ error: "id required" }, { status: 400 });
-
-    // Delete in safe order to avoid FK violations
     await sql`DELETE FROM evaluator_session_signups WHERE schedule_id IN (SELECT es.id FROM evaluation_schedule es JOIN age_categories ac ON ac.id = es.age_category_id WHERE ac.organization_id = ${orgId})`;
     await sql`DELETE FROM player_checkins WHERE schedule_id IN (SELECT es.id FROM evaluation_schedule es JOIN age_categories ac ON ac.id = es.age_category_id WHERE ac.organization_id = ${orgId})`;
     await sql`DELETE FROM checkin_sessions WHERE schedule_id IN (SELECT es.id FROM evaluation_schedule es JOIN age_categories ac ON ac.id = es.age_category_id WHERE ac.organization_id = ${orgId})`;
@@ -143,7 +126,6 @@ export async function DELETE(request) {
     await sql`DELETE FROM admin_invites WHERE organization_id = ${orgId}`;
     await sql`DELETE FROM user_organization_roles WHERE organization_id = ${orgId}`;
     await sql`DELETE FROM organizations WHERE id = ${orgId}`;
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE organization error:", error);
