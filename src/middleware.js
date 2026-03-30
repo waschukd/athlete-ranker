@@ -28,6 +28,7 @@ const ROLE_ROUTES = {
   "/admin/god-mode": ["super_admin"],
   "/service-provider": ["service_provider_admin", "super_admin"],
   "/association/dashboard": ["association_admin", "super_admin", "service_provider_admin"],
+  "/association": ["association_admin", "super_admin", "service_provider_admin"],
   "/director/dashboard": ["director", "association_admin", "super_admin"],
   "/evaluator": ["association_evaluator", "service_provider_evaluator", "super_admin", "association_admin", "service_provider_admin", "director", "volunteer"],
 };
@@ -78,3 +79,4 @@ export async function middleware(request) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+
