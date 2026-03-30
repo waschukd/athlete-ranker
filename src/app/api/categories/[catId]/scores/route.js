@@ -69,3 +69,69 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { catId } = params;
+    const { evaluatorName, sessionNumber, rows } = await request.json();
+
+    if (!evaluatorName || !sessionNumber || !rows?.length) {
+      return NextResponse.json({ error: "evaluatorName, sessionNumber, and rows required" }, { status: 400 });
+    }
+
+    // Find or create a user record for this evaluator name
+    let evaluatorUser = await sql`SELECT id FROM users WHERE name = ${evaluatorName} LIMIT 1`;
+    if (!evaluatorUser.length) {
+      const fakeEmail = `manual_${evaluatorName.toLowerCase().replace(/\s+/g, "_")}@manual.upload`;
+      await sql`INSERT INTO auth_users (email, name) VALUES (${fakeEmail}, ${evaluatorName}) ON CONFLICT (email) DO NOTHING`;
+      const [newUser] = await sql`
+        INSERT INTO users (email, name, role) VALUES (${fakeEmail}, ${evaluatorName}, 'association_evaluator')
+        ON CONFLICT (email) DO UPDATE SET name = ${evaluatorName}
+        RETURNING id
+      `;
+      evaluatorUser = [newUser];
+    }
+    const evaluatorId = evaluatorUser[0].id;
+
+    // Get scoring categories for this age category in order
+    const scoringCats = await sql`SELECT id, name FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order`;
+
+    // Delete existing scores from this evaluator for this session (overwrite)
+    await sql`DELETE FROM category_scores WHERE age_category_id = ${catId} AND session_number = ${sessionNumber} AND evaluator_id = ${evaluatorId}`;
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const { first_name, last_name, scores } = row;
+      const athlete = await sql`
+        SELECT id FROM athletes WHERE age_category_id = ${catId}
+          AND LOWER(first_name) = LOWER(${first_name})
+          AND LOWER(last_name) = LOWER(${last_name})
+          AND is_active = true
+        LIMIT 1
+      `;
+      if (!athlete.length) { skipped++; continue; }
+      const athleteId = athlete[0].id;
+
+      for (let i = 0; i < scoringCats.length; i++) {
+        const score = parseFloat(scores[i]);
+        if (isNaN(score)) continue;
+        await sql`
+          INSERT INTO category_scores (athlete_id, age_category_id, session_number, evaluator_id, scoring_category_id, score, scored_via, updated_at)
+          VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${scoringCats[i].id}, ${score}, 'manual_upload', NOW())
+          ON CONFLICT (athlete_id, session_number, evaluator_id, scoring_category_id)
+          DO UPDATE SET score = ${score}, scored_via = 'manual_upload', updated_at = NOW()
+        `;
+      }
+      imported++;
+    }
+
+    return NextResponse.json({ success: true, imported, skipped });
+  } catch (error) {
+    console.error("Manual score upload error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
