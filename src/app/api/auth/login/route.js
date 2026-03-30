@@ -66,6 +66,8 @@ export async function POST(request) {
     });
 
     const role = appUser?.role || "association_evaluator";
+    const orgRow = await sql`SELECT id FROM organizations WHERE contact_email = ${email} LIMIT 1`;
+    const orgId = orgRow[0]?.id;
     const redirectMap = {
       super_admin: "/admin/god-mode",
       service_provider_admin: "/service-provider/dashboard",
@@ -96,3 +98,4 @@ export async function POST(request) {
     return NextResponse.json({ error: "Login failed: " + error.message }, { status: 500 });
   }
 }
+
