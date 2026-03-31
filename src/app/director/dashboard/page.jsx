@@ -89,6 +89,123 @@ function ManualScoreUpload({ catId, sessions, scoringCategories }) {
   );
 }
 
+function FlagsPanel({ catId }) {
+  const [flags, setFlags] = useState([]);
+  const [detecting, setDetecting] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const loadFlags = async () => {
+    const res = await fetch(`/api/categories/${catId}/flags`);
+    const data = await res.json();
+    setFlags(data.flags || []);
+  };
+
+  const detect = async () => {
+    setDetecting(true);
+    setMsg("");
+    const res = await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "detect" }) });
+    const data = await res.json();
+    setMsg(`Detection complete - ${data.flags_created} new flag${data.flags_created !== 1 ? "s" : ""} found`);
+    loadFlags();
+    setDetecting(false);
+  };
+
+  const acknowledge = async (flagId) => {
+    await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "acknowledge", flag_id: flagId }) });
+    loadFlags();
+  };
+
+  useState(() => { loadFlags(); }, []);
+
+  const unacknowledged = flags.filter(f => !f.acknowledged);
+  const bySession = flags.reduce((acc, f) => { const k = f.session_number; if (!acc[k]) acc[k] = []; acc[k].push(f); return acc; }, {});
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-gray-900">Athlete Flags</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Outlier detection - significant drops or session anomalies</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {msg && <span className="text-xs text-green-600 font-medium">{msg}</span>}
+          <button onClick={detect} disabled={detecting} className="px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+            {detecting ? "Detecting..." : "Run Detection"}
+          </button>
+        </div>
+      </div>
+
+      {flags.length === 0 ? (
+        <div className="bg-white border border-dashed border-gray-200 rounded-xl px-5 py-8 text-center text-sm text-gray-400">No flags detected yet - click Run Detection after scores are uploaded</div>
+      ) : (
+        <>
+          {unacknowledged.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-red-100 flex items-center justify-between">
+                <span className="text-sm font-semibold text-red-800">{unacknowledged.length} Unreviewed Flag{unacknowledged.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="divide-y divide-red-100">
+                {unacknowledged.map(f => (
+                  <div key={f.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
+                        <span className="text-sm font-semibold text-gray-900">{f.first_name} {f.last_name}</span>
+                        <span className="text-xs text-gray-400">Session {f.session_number}</span>
+                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {f.flag_type === "personal_drop"
+                          ? `Previous avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score} (drop of ${f.details?.drop})`
+                          : `Score: ${f.details?.athlete_score} vs session mean: ${f.details?.session_mean} (z: ${f.details?.z_score})`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#FF6B35] hover:text-[#FF6B35]">Report</a>
+                      <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.entries(bySession).sort(([a],[b]) => Number(a)-Number(b)).map(([sNum, sFlags]) => (
+            <div key={sNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+                <span className="text-sm font-semibold text-gray-700">Session {sNum} - {sFlags.length} flag{sFlags.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {sFlags.map(f => (
+                  <div key={f.id} className={`flex items-center justify-between px-5 py-3 ${f.acknowledged ? "opacity-50" : ""}`}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
+                        <span className="text-sm font-medium text-gray-900">{f.first_name} {f.last_name}</span>
+                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {f.flag_type === "personal_drop"
+                          ? `Prev avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score}`
+                          : `Score: ${f.details?.athlete_score} vs mean: ${f.details?.session_mean}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {f.acknowledged
+                        ? <span className="text-xs text-gray-400">Reviewed by {f.acknowledged_by_name}</span>
+                        : <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function DirectorDashboardInner() {
   const [activeTab, setActiveTab] = useState("rankings");
   const [positionFilter, setPositionFilter] = useState("all");
@@ -855,6 +972,8 @@ export default function DirectorDashboardPage() {
     </QueryClientProvider>
   );
 }
+
+
 
 
 
