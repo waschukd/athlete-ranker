@@ -346,8 +346,7 @@ function CategoryHub() {
   const sendVolunteers = async () => {
     if (!volunteerEmails.trim()) return;
     setVolunteerSending(true);
-    const emails = volunteerEmails.split(/[,
-]/).map(e => e.trim()).filter(Boolean);
+    const emails = volunteerEmails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
     const res = await fetch("/api/categories/" + catId + "/notify-volunteers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
