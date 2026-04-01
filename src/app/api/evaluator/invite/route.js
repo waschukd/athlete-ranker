@@ -34,7 +34,7 @@ export async function POST(request) {
                 <p style="margin: 0 0 4px; color: #555;">${session_info.scheduled_date?.toString().split("T")[0]}</p>
                 <p style="margin: 0; color: #555;">${session_info.location || ""}</p>
               </div>
-              <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #FF6B35; color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">
+              <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">
                 View & Sign Up →
               </a>
               <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · Hockey Evaluation Platform</p>

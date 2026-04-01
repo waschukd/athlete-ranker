@@ -79,7 +79,7 @@ function Dashboard() {
 
   if (orgLoading || catLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
     </div>
   );
 
@@ -99,7 +99,7 @@ function Dashboard() {
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center shadow-md">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
                   <Zap className="w-7 h-7 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900">{org?.name || "Association Dashboard"}</h1>
@@ -116,7 +116,7 @@ function Dashboard() {
               </button>
               {categories.length > 0 && (
                 <a href={`/association/dashboard/add-category?org=${orgId}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white font-semibold text-sm hover:shadow-lg transition-shadow">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold text-sm hover:shadow-lg transition-shadow">
                   <Plus size={16} /> Add Age Category
                 </a>
               )}
@@ -146,7 +146,7 @@ function Dashboard() {
               {[
                 { label: "Age Categories", value: categories.length, color: "from-[#3B82F6] to-[#8B5CF6]", icon: Trophy },
                 { label: "Total Athletes", value: totalAthletes, color: "from-[#22C55E] to-[#10B981]", icon: Users },
-                { label: "Total Sessions", value: totalSessions, color: "from-[#F7931E] to-[#FBBF24]", icon: Calendar },
+                { label: "Total Sessions", value: totalSessions, color: "from-[#4D8FFF] to-[#FBBF24]", icon: Calendar },
               ].map(({ label, value, color, icon: Icon }) => (
                 <div key={label} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-center justify-between">
@@ -185,7 +185,7 @@ function Dashboard() {
                     });
                     refetchCodes();
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-xs font-semibold"
                 >
                   + Generate
                 </button>
@@ -233,7 +233,7 @@ function Dashboard() {
                   <div>
                     <div className="text-sm font-medium text-gray-900">{p.name}</div>
                     <div className="text-xs text-gray-400">{p.email}</div>
-                    {p.evaluator_id && <div className="text-xs font-mono text-[#FF6B35]">{p.evaluator_id}</div>}
+                    {p.evaluator_id && <div className="text-xs font-mono text-[#1A6BFF]">{p.evaluator_id}</div>}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -277,18 +277,18 @@ function Dashboard() {
             <h3 className="text-2xl font-bold text-gray-900 mb-2">No age categories yet</h3>
             <p className="text-gray-500 mb-8 max-w-sm mx-auto">Create your first age category to start organizing athletes and evaluations.</p>
             <a href={`/association/dashboard/add-category?org=${orgId}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white font-semibold hover:shadow-lg transition-shadow">
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold hover:shadow-lg transition-shadow">
               <Plus size={18} /> Add Age Category
             </a>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
-              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#FF6B35]/50 transition-all relative">
+              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#1A6BFF]/50 transition-all relative">
                 <a href={cat.setup_complete ? `/association/dashboard/category/${cat.id}?org=${orgId}` : `/association/dashboard/category/${cat.id}/setup?cat=${cat.id}&org=${orgId}`} className="block">
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="text-xl font-bold text-gray-900">{cat.name}</h3>
-                    <ChevronRight className="text-gray-300 group-hover:text-[#FF6B35] transition-colors" size={22} />
+                    <ChevronRight className="text-gray-300 group-hover:text-[#1A6BFF] transition-colors" size={22} />
                   </div>
                   <p className="text-sm text-gray-400 mb-5">Ages {cat.min_age}–{cat.max_age}</p>
                   <div className="grid grid-cols-2 gap-4">
@@ -302,7 +302,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="mt-5 pt-5 border-t border-gray-100">
-                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF6B35] border border-orange-200">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-[#1A6BFF] border border-orange-200">
                       Manage →
                     </span>
                   </div>
@@ -346,7 +346,7 @@ function Dashboard() {
                       </div>
                     )}
                     <button onClick={() => { setShowInvite(false); setInviteResult(null); setInviteEmail(""); setInviteName(""); }}
-                      className="mt-4 px-5 py-2 bg-[#FF6B35] text-white rounded-lg text-sm font-medium hover:bg-[#E55A2E]">Done</button>
+                      className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-[#0F4FCC]">Done</button>
                   </>
                 ) : (
                   <>
@@ -360,18 +360,18 @@ function Dashboard() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]" placeholder="Their full name" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" placeholder="Their full name" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
                   <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]" placeholder="admin@association.com" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" placeholder="admin@association.com" />
                 </div>
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowInvite(false)}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
                   <button type="submit" disabled={inviteLoading}
-                    className="flex-1 px-4 py-2.5 bg-[#FF6B35] text-white rounded-lg hover:bg-[#E55A2E] text-sm font-medium disabled:opacity-50">
+                    className="flex-1 px-4 py-2.5 bg-[#1A6BFF] text-white rounded-lg hover:bg-[#0F4FCC] text-sm font-medium disabled:opacity-50">
                     {inviteLoading ? "Sending..." : "Send Invite"}
                   </button>
                 </div>
@@ -387,7 +387,7 @@ function Dashboard() {
 export default function AssociationDashboard() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <Dashboard />
       </Suspense>
     </QueryClientProvider>

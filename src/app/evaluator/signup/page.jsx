@@ -48,7 +48,7 @@ function SignupForm() {
 
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
             <p className="text-xs text-gray-400 mb-1">Your Evaluator ID</p>
-            <p className="text-2xl font-mono font-bold text-[#FF6B35] tracking-widest">{result.evaluator_id}</p>
+            <p className="text-2xl font-mono font-bold text-[#1A6BFF] tracking-widest">{result.evaluator_id}</p>
             <p className="text-xs text-gray-400 mt-1">Save this — it uniquely identifies you on the platform</p>
           </div>
 
@@ -62,7 +62,7 @@ function SignupForm() {
           </div>
 
           <a href="/account/signin"
-            className="block w-full py-3 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">
+            className="block w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">
             Sign In →
           </a>
         </div>
@@ -75,7 +75,7 @@ function SignupForm() {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -107,7 +107,7 @@ function SignupForm() {
               placeholder="e.g. ABC-DEF"
               required
               maxLength={10}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#FF6B35] uppercase bg-gray-50"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] uppercase bg-gray-50"
             />
             <p className="text-xs text-gray-400 mt-1">Ask your service provider or association admin for this code</p>
           </div>
@@ -121,7 +121,7 @@ function SignupForm() {
                 onChange={e => set("name", e.target.value)}
                 placeholder="Dan Waschuk"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
               />
             </div>
 
@@ -133,7 +133,7 @@ function SignupForm() {
                 onChange={e => set("email", e.target.value)}
                 placeholder="dan@email.com"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
               />
             </div>
 
@@ -147,7 +147,7 @@ function SignupForm() {
                   placeholder="Min. 8 characters"
                   required
                   minLength={8}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35] pr-10"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] pr-10"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -158,14 +158,14 @@ function SignupForm() {
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60 flex items-center justify-center gap-2 mt-2">
+            className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60 flex items-center justify-center gap-2 mt-2">
             {loading ? <><Loader size={16} className="animate-spin" /> Creating account...</> : "Create Account"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-400 mt-5">
           Already have an account?{" "}
-          <a href="/account/signin" className="text-[#FF6B35] font-medium hover:underline">Sign in</a>
+          <a href="/account/signin" className="text-[#1A6BFF] font-medium hover:underline">Sign in</a>
         </p>
       </div>
     </div>
@@ -174,7 +174,7 @@ function SignupForm() {
 
 export default function EvaluatorSignupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
       <SignupForm />
     </Suspense>
   );

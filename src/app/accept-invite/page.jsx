@@ -49,7 +49,7 @@ function AcceptInviteForm() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B35]" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF]" />
     </div>
   );
 
@@ -57,7 +57,7 @@ function AcceptInviteForm() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] items-center justify-center mb-4">
+          <div className="inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Athlete Ranker</h1>
@@ -105,7 +105,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#FF6B35] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -119,7 +119,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#FF6B35] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -134,7 +134,7 @@ function AcceptInviteForm() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white font-semibold disabled:opacity-50 transition-opacity"
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold disabled:opacity-50 transition-opacity"
                 >
                   {submitting ? "Setting up your account..." : "Create Account & Sign In"}
                 </button>
@@ -149,7 +149,7 @@ function AcceptInviteForm() {
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B35]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF]" /></div>}>
       <AcceptInviteForm />
     </Suspense>
   );

@@ -85,7 +85,7 @@ function CheckinPageInner() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
     </div>
   );
 
@@ -120,7 +120,7 @@ function CheckinPageInner() {
           {/* Progress bar */}
           <div className="flex items-center gap-3 mb-3">
             <div className="flex-1 h-3 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#FF6B35] to-[#F7931E] rounded-full transition-all duration-500"
+              <div className="h-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-full transition-all duration-500"
                 style={{ width: `${pct}%` }} />
             </div>
             <span className="text-sm font-bold text-white whitespace-nowrap">
@@ -154,7 +154,7 @@ function CheckinPageInner() {
             <div className="flex bg-gray-700 rounded-xl overflow-hidden">
               {["all", "unchecked", "checked"].map(f => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`px-3 py-2 text-xs font-medium transition-colors ${filter === f ? "bg-[#FF6B35] text-white" : "text-gray-400 hover:text-white"}`}>
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${filter === f ? "bg-[#1A6BFF] text-white" : "text-gray-400 hover:text-white"}`}>
                   {f === "all" ? "All" : f === "checked" ? "✓ In" : "Out"}
                 </button>
               ))}
@@ -209,7 +209,7 @@ function CheckinPageInner() {
                     </button>
                   ) : (
                     <button onClick={() => openEdit(a)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-[#FF6B35] text-white rounded-lg text-xs font-semibold hover:bg-[#E55A2E] transition-colors">
+                      className="flex items-center gap-1.5 px-3 py-2 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC] transition-colors">
                       Check In <ChevronRight size={13} />
                     </button>
                   )}
@@ -231,7 +231,7 @@ function CheckinPageInner() {
                       value={jerseyInput}
                       onChange={e => setJerseyInput(e.target.value)}
                       placeholder="Enter jersey #"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2.5 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#FF6B35]"
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2.5 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#1A6BFF]"
                       autoFocus
                     />
                   </div>
@@ -246,7 +246,7 @@ function CheckinPageInner() {
                           <button key={color} onClick={() => setColorInput(color)}
                             className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                               colorInput === color
-                                ? "border-[#FF6B35] " + (color === "Dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900")
+                                ? "border-[#1A6BFF] " + (color === "Dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900")
                                 : "border-gray-600 " + (color === "Dark" ? "bg-gray-900 text-gray-400" : "bg-gray-700 text-gray-400")
                             }`}>
                             {color}
@@ -262,7 +262,7 @@ function CheckinPageInner() {
                       Cancel
                     </button>
                     <button onClick={submitCheckin}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-xl text-sm font-bold">
+                      className="flex-1 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-bold">
                       ✓ Confirm Check-in
                     </button>
                   </div>
@@ -279,7 +279,7 @@ function CheckinPageInner() {
 export default function CheckinPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <CheckinPageInner />
       </Suspense>
     </QueryClientProvider>

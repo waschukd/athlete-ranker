@@ -27,7 +27,7 @@ export async function POST(request) {
               <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
               <p style="color: #555; font-size: 15px;">${sp_name || "A hockey organization"} has invited you to join their evaluator pool.</p>
               <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for sessions.</p>
-              <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #FF6B35; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">
+              <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">
                 Accept Invitation →
               </a>
               <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · Hockey Evaluation Platform</p>
@@ -106,7 +106,7 @@ export async function POST(request) {
                   <p style="margin: 0 0 4px; color: #555;">${sessionDate}</p>
                   <p style="margin: 0; color: #555;">${sched.location || ""}</p>
                 </div>
-                <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #FF6B35; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
                   Sign Up Now →
                 </a>
                 <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · ${admin_name}</p>

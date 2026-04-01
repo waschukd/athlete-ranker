@@ -102,7 +102,7 @@ export async function POST(request) {
           <tr><td align="center">
             <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
               <tr>
-                <td style="background:linear-gradient(135deg,#FF6B35,#F7931E);padding:28px 40px;text-align:center;">
+                <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;">
                   <div style="font-size:22px;font-weight:800;color:#ffffff;">AthleteRanker</div>
                   <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">Athlete Evaluation Platform</div>
                 </td>
@@ -119,7 +119,7 @@ export async function POST(request) {
                     <tr>
                       <td style="padding:6px 0;font-size:13px;color:#6b7280;">Temp Password</td>
                       <td style="padding:6px 0;font-size:13px;font-weight:600;">
-                        <code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#FF6B35;">${tempPassword}</code>
+                        <code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#1A6BFF;">${tempPassword}</code>
                       </td>
                     </tr>
                     <tr>
@@ -129,7 +129,7 @@ export async function POST(request) {
                   </table>
                 </div>
                 <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
-                <a href="${BASE_URL}/account/signin" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#FF6B35,#F7931E);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign In to AthleteRanker</a>
+                <a href="${BASE_URL}/account/signin" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign In to AthleteRanker</a>
               </td></tr>
               <tr>
                 <td style="padding:16px 40px;border-top:1px solid #f3f4f6;text-align:center;">

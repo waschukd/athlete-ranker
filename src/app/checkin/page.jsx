@@ -49,7 +49,7 @@ export default function CheckinEntryPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] items-center justify-center mb-4 shadow-lg">
+          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] items-center justify-center mb-4 shadow-lg">
             <ClipboardList className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Player Check-in</h1>
@@ -76,7 +76,7 @@ export default function CheckinEntryPage() {
                 placeholder="e.g. S1G2-XKJ"
                 required
                 autoFocus
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent uppercase"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent uppercase"
                 maxLength={10}
               />
               <p className="text-xs text-gray-400 mt-1.5 text-center">
@@ -95,7 +95,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setName(e.target.value)}
                     placeholder="First and last name"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
                   />
                 </div>
                 <div>
@@ -106,7 +106,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="your@email.com"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
                   />
                 </div>
               </div>
@@ -115,7 +115,7 @@ export default function CheckinEntryPage() {
             <button
               type="submit"
               disabled={loading || !code || !name || !email}
-              className="w-full py-3 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
+              className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
             >
               {loading ? "Verifying..." : "Enter Check-in"}
             </button>

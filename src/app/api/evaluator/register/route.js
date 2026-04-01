@@ -125,7 +125,7 @@ export async function POST(request) {
           <p style="color: #555;"><strong>${name}</strong> (${email}) has signed up to join <strong>${joinCode.org_name}</strong> as an evaluator.</p>
           <p style="color: #555;">Their evaluator ID is: <strong style="font-family: monospace; background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">${evaluatorId}</strong></p>
           <p style="color: #555;">Please log in to approve or deny their access.</p>
-          <a href="${dashboardUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: #FF6B35; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          <a href="${dashboardUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
             Review Now →
           </a>
         </div>`

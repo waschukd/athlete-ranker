@@ -32,13 +32,13 @@ export async function POST(request) {
 
     await sendEmail(email, "Reset your AthleteRanker password", `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
-        <div style="background:linear-gradient(135deg,#FF6B35,#F7931E);padding:28px 40px;text-align:center;border-radius:12px 12px 0 0;">
+        <div style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;border-radius:12px 12px 0 0;">
           <div style="font-size:22px;font-weight:800;color:#fff;">AthleteRanker</div>
         </div>
         <div style="background:#fff;padding:36px 40px;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
           <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#111;">Reset your password</h2>
           <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Click the button below to set a new password. This link expires in 1 hour.</p>
-          <a href="${resetUrl}" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#FF6B35,#F7931E);color:#fff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Reset Password →</a>
+          <a href="${resetUrl}" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#fff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Reset Password →</a>
           <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;">If you didn't request this, ignore this email. Your password won't change.</p>
         </div>
       </div>

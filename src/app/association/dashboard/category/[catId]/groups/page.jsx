@@ -143,7 +143,7 @@ function GroupsManagerInner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#FF6B35] mb-4 text-sm font-medium transition-colors">
+            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#1A6BFF] mb-4 text-sm font-medium transition-colors">
             <ArrowLeft size={15} /> Back to Category
           </a>
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -168,7 +168,7 @@ function GroupsManagerInner() {
                 onClick={() => setSelectedSession(s.session_number)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                   selectedSession === s.session_number
-                    ? "border-[#FF6B35] text-[#FF6B35]"
+                    ? "border-[#1A6BFF] text-[#1A6BFF]"
                     : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 Session {s.session_number}
@@ -216,7 +216,7 @@ function GroupsManagerInner() {
               </button>
               <button
                 onClick={() => autoAssign("ranking", false)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
               >
                 <Shuffle size={14} /> By Ranking
               </button>
@@ -232,7 +232,7 @@ function GroupsManagerInner() {
 
         {groupsLoading ? (
           <div className="py-12 text-center text-gray-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B35] mx-auto mb-3" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF] mx-auto mb-3" />
             Loading groups...
           </div>
         ) : groups.length === 0 ? (
@@ -259,14 +259,14 @@ function GroupsManagerInner() {
                   onDragLeave={() => setDragOver(null)}
                   className={`bg-white border-2 rounded-2xl overflow-hidden transition-all ${
                     isDropTarget
-                      ? "border-[#FF6B35] shadow-lg shadow-orange-100"
+                      ? "border-[#1A6BFF] shadow-lg shadow-orange-100"
                       : "border-gray-200"
                   }`}
                 >
                   {/* Group header */}
                   <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center text-white text-sm font-bold">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-sm font-bold">
                         {group.group_number}
                       </div>
                       <div>
@@ -289,7 +289,7 @@ function GroupsManagerInner() {
                           </button>
                           {scheduleId && (
                             <a href={`/checkin/${scheduleId}`} target="_blank"
-                              className="p-1 text-[#FF6B35] hover:text-[#E55A2E] rounded"
+                              className="p-1 text-[#1A6BFF] hover:text-[#0F4FCC] rounded"
                               title="Open check-in">
                               <ExternalLink size={11} />
                             </a>
@@ -374,7 +374,7 @@ function GroupsManagerInner() {
 
                     {/* Drop zone indicator */}
                     {isDropTarget && players.length > 0 && (
-                      <div className="py-2 text-center text-xs text-[#FF6B35] bg-orange-50 font-medium">
+                      <div className="py-2 text-center text-xs text-[#1A6BFF] bg-orange-50 font-medium">
                         Drop to add to this group
                       </div>
                     )}
@@ -429,7 +429,7 @@ export default function GroupsPage() {
     <QueryClientProvider client={qc}>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
         </div>
       }>
         <GroupsManagerInner />

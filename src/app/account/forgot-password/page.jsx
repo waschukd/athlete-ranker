@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
           <div className="mb-6 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-[#FF6B35] flex items-center justify-center mb-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-[#1A6BFF] flex items-center justify-center mb-3">
               <Mail className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl font-semibold text-gray-900">Forgot password?</h1>
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
               </div>
               <p className="text-gray-700 font-medium">Check your inbox</p>
               <p className="text-sm text-gray-500">If an account exists for <strong>{email}</strong>, you'll receive a reset link shortly. Check your spam folder too.</p>
-              <a href="/account/signin" className="inline-flex items-center gap-2 text-sm text-[#FF6B35] hover:underline mt-2">
+              <a href="/account/signin" className="inline-flex items-center gap-2 text-sm text-[#1A6BFF] hover:underline mt-2">
                 <ArrowLeft size={14} /> Back to sign in
               </a>
             </div>
@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#FF6B35] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
                   <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading || !email}
-                className="w-full py-3 bg-[#FF6B35] hover:bg-[#E55A2E] text-white rounded-lg font-medium text-sm disabled:opacity-50 transition-colors">
+                className="w-full py-3 bg-[#1A6BFF] hover:bg-[#0F4FCC] text-white rounded-lg font-medium text-sm disabled:opacity-50 transition-colors">
                 {loading ? "Sending..." : "Send Reset Link"}
               </button>
               <div className="text-center">

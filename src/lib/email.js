@@ -32,7 +32,7 @@ function emailWrapper(content) {
       <tr><td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:linear-gradient(135deg,#FF6B35,#F7931E);padding:28px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;">
               <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AthleteRanker</div>
               <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">Athlete Evaluation Platform</div>
             </td>
@@ -51,7 +51,7 @@ function emailWrapper(content) {
 }
 
 function btn(url, label) {
-  return `<a href="${url}" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#FF6B35,#F7931E);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">${label}</a>`;
+  return `<a href="${url}" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">${label}</a>`;
 }
 
 function credBox(rows) {
@@ -59,7 +59,7 @@ function credBox(rows) {
     `<tr>
       <td style="padding:6px 0;font-size:13px;color:#6b7280;width:140px;">${label}</td>
       <td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">
-        ${highlight ? `<code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#FF6B35;">${value}</code>` : value}
+        ${highlight ? `<code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#1A6BFF;">${value}</code>` : value}
       </td>
     </tr>`
   ).join("");

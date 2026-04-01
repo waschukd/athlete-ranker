@@ -49,7 +49,7 @@ export async function POST(request) {
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <div style="text-align: center; margin-bottom: 32px;">
-                <div style="display: inline-flex; width: 48px; height: 48px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 16px;">
+                <div style="display: inline-flex; width: 48px; height: 48px; background: linear-gradient(135deg, #1A6BFF, #4D8FFF); border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 16px;">
                   <span style="color: white; font-size: 20px;">⚡</span>
                 </div>
                 <h1 style="font-size: 24px; font-weight: 700; color: #111; margin: 0;">You're invited!</h1>
@@ -63,7 +63,7 @@ export async function POST(request) {
               </p>
 
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${inviteUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #FF6B35, #F7931E); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                <a href="${inviteUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #1A6BFF, #4D8FFF); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
                   Accept Invitation →
                 </a>
               </div>

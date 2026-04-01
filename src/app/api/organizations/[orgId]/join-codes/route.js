@@ -107,7 +107,7 @@ export async function POST(request, { params }) {
               <p>Hi ${evalUser[0].name}, you've been approved as an evaluator for <strong>${org[0]?.name}</strong>.</p>
               <p>You can now sign in and start signing up for sessions.</p>
               <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/signin" 
-                style="display: inline-block; padding: 12px 24px; background: #FF6B35; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                style="display: inline-block; padding: 12px 24px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
                 Sign In Now →
               </a>
             </div>`,

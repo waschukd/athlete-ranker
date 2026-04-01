@@ -190,7 +190,7 @@ export async function DELETE(request, { params }) {
         </table>
       </div>
       <p style="font-size:13px;color:#6b7280;">Check your dashboard for other available sessions.</p>
-      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#FF6B35,#F7931E);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Available Sessions →</a>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Available Sessions →</a>
     </div>`;
     for (const eval_ of signedUp) {
       await sendEmail(eval_.email, `Session Cancelled — ${e.category_name} G${e.group_number} (${dateStr})`, evalHtml);

@@ -33,7 +33,7 @@ function CopyCode({ code, scheduleId }) {
         className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
         {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
       </button>
-      <a href={`/checkin/${scheduleId}`} target="_blank" className="text-xs text-[#FF6B35] hover:underline whitespace-nowrap">Open →</a>
+      <a href={`/checkin/${scheduleId}`} target="_blank" className="text-xs text-[#1A6BFF] hover:underline whitespace-nowrap">Open →</a>
     </div>
   );
 }
@@ -72,17 +72,17 @@ function ManualScoreUpload({ catId, sessions, scoringCategories }) {
         <div className="px-5 pb-5 space-y-4 border-t border-gray-200">
           <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">Backup only. Use if the app was unavailable during a session. Each evaluator uploads one file. Overwrites their previous scores for the selected session.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-gray-500 mb-1">Evaluator Name *</label><input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} placeholder="e.g. John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]" /></div>
+            <div><label className="block text-xs font-medium text-gray-500 mb-1">Evaluator Name *</label><input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} placeholder="e.g. John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
             <div><label className="block text-xs font-medium text-gray-500 mb-1">Session *</label>
-              <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]">
+              <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]">
                 <option value="">Select session...</option>
                 {sessions.map(s => <option key={s.session_number} value={s.session_number}>Session {s.session_number} - {s.name}</option>)}
               </select>
             </div>
           </div>
-          <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First, Last, {scoringCategories.map(c => c.name).join(", ")})</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#FF6B35] file:text-white hover:file:bg-[#E55A2E]" /></div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First, Last, {scoringCategories.map(c => c.name).join(", ")})</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" /></div>
           {result && <div className={`text-xs px-3 py-2 rounded-lg font-medium ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{result.success ? `Imported ${result.imported} athletes${result.skipped > 0 ? `, ${result.skipped} not matched` : ""}` : result.error}</div>}
-          <button onClick={handleUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#FF6B35] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#E55A2E]">{loading ? "Uploading..." : "Upload Scores"}</button>
+          <button onClick={handleUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">{loading ? "Uploading..." : "Upload Scores"}</button>
         </div>
       )}
     </div>
@@ -129,7 +129,7 @@ function FlagsPanel({ catId }) {
         </div>
         <div className="flex items-center gap-3">
           {msg && <span className="text-xs text-green-600 font-medium">{msg}</span>}
-          <button onClick={detect} disabled={detecting} className="px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+          <button onClick={detect} disabled={detecting} className="px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
             {detecting ? "Detecting..." : "Run Detection"}
           </button>
         </div>
@@ -161,7 +161,7 @@ function FlagsPanel({ catId }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#FF6B35] hover:text-[#FF6B35]">Report</a>
+                      <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF]">Report</a>
                       <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>
                     </div>
                   </div>
@@ -324,7 +324,7 @@ function DirectorDashboardInner() {
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  if (dirLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>;
+  if (dirLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
 
   if (!assignment) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -343,7 +343,7 @@ function DirectorDashboardInner() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center shadow-md">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -369,7 +369,7 @@ function DirectorDashboardInner() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
             {[
               { label: "Athletes", value: athletes.length, color: "text-blue-600", icon: Users },
-              { label: "Sessions", value: sessions.length, color: "text-[#FF6B35]", icon: Trophy },
+              { label: "Sessions", value: sessions.length, color: "text-[#1A6BFF]", icon: Trophy },
               { label: "Completed", value: completedSessions.length, color: "text-green-600", icon: CheckCircle },
               { label: "Upcoming", value: upcomingSchedule.length, color: "text-purple-600", icon: Calendar },
             ].map(({ label, value, color, icon: Icon }) => (
@@ -392,7 +392,7 @@ function DirectorDashboardInner() {
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                    activeTab === tab.id ? "border-[#FF6B35] text-[#FF6B35]" : "border-transparent text-gray-500 hover:text-gray-700"
+                    activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}>
                   <Icon size={14} /> {tab.label}
                 </button>
@@ -414,16 +414,16 @@ function DirectorDashboardInner() {
                   const isComplete = completedSessions.includes(s.session_number);
                   return (
                     <div key={s.id} className="flex items-center gap-4">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#FF6B35] to-[#F7931E]"}`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>
                         {isComplete ? <CheckCircle size={13} /> : s.session_number}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-gray-700">{s.name} <span className="text-xs text-gray-400 ml-1.5 capitalize">({s.session_type})</span></span>
-                          <span className="text-sm font-bold text-[#FF6B35]">{s.weight_percentage}%</span>
+                          <span className="text-sm font-bold text-[#1A6BFF]">{s.weight_percentage}%</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#FF6B35] to-[#F7931E]"}`} style={{ width: `${s.weight_percentage}%` }} />
+                          <div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"}`} style={{ width: `${s.weight_percentage}%` }} />
                         </div>
                       </div>
                     </div>
@@ -481,13 +481,13 @@ function DirectorDashboardInner() {
                         <td className="px-4 py-3"><RankBadge rank={a.rank} /></td>
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`}
-                            className="text-gray-900 font-medium hover:text-[#FF6B35] transition-colors">
+                            className="text-gray-900 font-medium hover:text-[#1A6BFF] transition-colors">
                             {a.first_name}
                           </a>
                         </td>
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`}
-                            className="text-gray-900 font-semibold hover:text-[#FF6B35] transition-colors">
+                            className="text-gray-900 font-semibold hover:text-[#1A6BFF] transition-colors">
                             {a.last_name}
                           </a>
                         </td>
@@ -507,14 +507,14 @@ function DirectorDashboardInner() {
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#FF6B35] hover:text-[#FF6B35] transition-colors whitespace-nowrap">View Report</a></td>
+                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF] transition-colors whitespace-nowrap">View Report</a></td>
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900 tabular-nums">{a.weighted_total?.toFixed(1) || "—"}</td>}
                         {hasScores && (
                           <td className="px-4 py-3 text-center">
                             {a.rank_history?.length > 0 ? (
                               <div className="flex items-center justify-center gap-1 flex-wrap">
                                 {a.rank_history.map((r, i) => (
-                                  <span key={i} className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${i === a.rank_history.length - 1 ? "bg-[#FF6B35] text-white" : "bg-gray-100 text-gray-600"}`}>{r}</span>
+                                  <span key={i} className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${i === a.rank_history.length - 1 ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600"}`}>{r}</span>
                                 ))}
                               </div>
                             ) : <span className="text-gray-200">—</span>}
@@ -535,17 +535,17 @@ function DirectorDashboardInner() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Group Management</h2>
               <a href={`/association/dashboard/category/${catId}/groups?org=${assignment.organization_id}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-shadow">
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-shadow">
                 Manage Groups →
               </a>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sessions.map(s => (
-                <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#FF6B35]/50 hover:shadow-md transition-all cursor-pointer"
+                <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1A6BFF]/50 hover:shadow-md transition-all cursor-pointer"
                   onClick={() => window.location.href = `/association/dashboard/category/${catId}/groups?org=${assignment.organization_id}&session=${s.session_number}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${completedSessions.includes(s.session_number) ? "bg-green-500" : "bg-gradient-to-br from-[#FF6B35] to-[#F7931E]"}`}>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${completedSessions.includes(s.session_number) ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>
                         {completedSessions.includes(s.session_number) ? <CheckCircle size={16} /> : s.session_number}
                       </div>
                       <div>
@@ -571,7 +571,7 @@ function DirectorDashboardInner() {
                   className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
                   ↓ Template
                 </a>
-                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
+                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
                   ↑ Upload / Update CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
                     const file = e.target.files[0];
@@ -615,11 +615,11 @@ function DirectorDashboardInner() {
                     <div key={sessionNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center text-white text-xs font-bold">{sessionNum}</div>
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-xs font-bold">{sessionNum}</div>
                           <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` · ${sess.name} · ${sess.session_type} · ${sess.weight_percentage}%` : ""}</span>
                         </div>
                         <a href={`/association/dashboard/category/${catId}/groups?org=${assignment.organization_id}&session=${sessionNum}`}
-                          className="text-xs px-3 py-1.5 bg-[#FF6B35]/10 text-[#FF6B35] rounded-lg font-medium hover:bg-[#FF6B35]/20">
+                          className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">
                           Manage Groups →
                         </a>
                       </div>
@@ -665,7 +665,7 @@ function DirectorDashboardInner() {
                   <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#FF6B35] to-[#F7931E]"}`}>
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>
                           {isComplete ? <CheckCircle size={16} /> : s.session_number}
                         </div>
                         <div>
@@ -673,10 +673,10 @@ function DirectorDashboardInner() {
                           <div className="text-xs text-gray-400 capitalize">{s.session_type}</div>
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-[#FF6B35]">{s.weight_percentage}%</span>
+                      <span className="text-sm font-bold text-[#1A6BFF]">{s.weight_percentage}%</span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
-                      <div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#FF6B35] to-[#F7931E]"}`} style={{ width: `${s.weight_percentage}%` }} />
+                      <div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"}`} style={{ width: `${s.weight_percentage}%` }} />
                     </div>
 
                     {/* Testing upload */}
@@ -684,7 +684,7 @@ function DirectorDashboardInner() {
                       <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="text-xs text-gray-500">Upload testing results</span>
-                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer bg-[#FF6B35] text-white hover:bg-[#E55A2E]">
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]">
                             ↑ Upload CSV
                             <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
                               const file = e.target.files[0]; if (!file) return;
@@ -754,7 +754,7 @@ function DirectorDashboardInner() {
                   className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
                   ↓ Template
                 </a>
-                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
+                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
                   ↑ Upload CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
                     const file = e.target.files[0];
@@ -833,7 +833,7 @@ function DirectorDashboardInner() {
               {/* Overall Rankings */}
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
                     <BarChart3 size={18} className="text-white" />
                   </div>
                   <div>
@@ -843,7 +843,7 @@ function DirectorDashboardInner() {
                 </div>
                 <p className="text-xs text-gray-500 mb-4">Exports current rankings with session scores and weighted totals for all {rankedAthletes.length} athletes.</p>
                 <button onClick={exportRankingsCSV} disabled={!hasScores}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:shadow-md transition-shadow">
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:shadow-md transition-shadow">
                   <Download size={14} /> Download CSV
                 </button>
                 {!hasScores && <p className="text-xs text-gray-400 mt-2 text-center">No scores entered yet</p>}
@@ -966,7 +966,7 @@ function DirectorDashboardInner() {
 export default function DirectorDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <DirectorDashboardInner />
       </Suspense>
     </QueryClientProvider>

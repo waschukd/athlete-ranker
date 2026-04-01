@@ -449,7 +449,7 @@ function ScoringInterface() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
     </div>
   );
 
@@ -490,7 +490,7 @@ function ScoringInterface() {
             <button key={t} onClick={() => setTeamFilter(t)}
               className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${
                 teamFilter === t
-                  ? "text-white border-b-2 border-[#FF6B35]"
+                  ? "text-white border-b-2 border-[#1A6BFF]"
                   : "text-gray-500 border-b-2 border-transparent"
               }`}>
               {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
@@ -533,7 +533,7 @@ function ScoringInterface() {
                 onClick={() => setSelected(isActive ? null : athlete)}
                 className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none
                   ${isActive
-                    ? "bg-[#FF6B35] border-2 border-orange-300 ring-4 ring-[#FF6B35]/40 scale-105 shadow-xl shadow-orange-900/40"
+                    ? "bg-[#1A6BFF] border-2 border-orange-300 ring-4 ring-[#1A6BFF]/40 scale-105 shadow-xl shadow-orange-900/40"
                     : status === "complete"
                     ? "bg-green-600 border-2 border-green-400"
                     : status === "partial"
@@ -593,7 +593,7 @@ function ScoringInterface() {
                     <div className="flex items-center gap-2">
                       {current !== null && current !== undefined && (
                         <>
-                          <span className="text-xl font-bold text-[#FF6B35]">{current}</span>
+                          <span className="text-xl font-bold text-[#1A6BFF]">{current}</span>
                           <button onClick={() => updateScore(selected.id, cat.id, null)}
                             className="text-gray-600 hover:text-gray-400">
                             <RotateCcw size={13} />
@@ -614,9 +614,9 @@ function ScoringInterface() {
                       className="flex-1 h-3 rounded-full appearance-none cursor-pointer"
                       style={{
                         background: current
-                          ? `linear-gradient(to right, #FF6B35 0%, #FF6B35 ${((current - increment) / (scale - increment)) * 100}%, #374151 ${((current - increment) / (scale - increment)) * 100}%, #374151 100%)`
+                          ? `linear-gradient(to right, #1A6BFF 0%, #1A6BFF ${((current - increment) / (scale - increment)) * 100}%, #374151 ${((current - increment) / (scale - increment)) * 100}%, #374151 100%)`
                           : "#374151",
-                        accentColor: "#FF6B35"
+                        accentColor: "#1A6BFF"
                       }}
                     />
                     <input
@@ -630,7 +630,7 @@ function ScoringInterface() {
                         if (!isNaN(val) && val >= increment && val <= scale) updateScore(selected.id, cat.id, val);
                       }}
                       placeholder="—"
-                      className="w-16 bg-gray-800 border border-gray-600 rounded-xl text-center text-lg font-bold text-white focus:outline-none focus:border-[#FF6B35] py-2"
+                      className="w-16 bg-gray-800 border border-gray-600 rounded-xl text-center text-lg font-bold text-white focus:outline-none focus:border-[#1A6BFF] py-2"
                     />
                   </div>
                 </div>
@@ -648,7 +648,7 @@ function ScoringInterface() {
                 onChange={e => updateNotes(selected.id, e.target.value)}
                 placeholder={voiceOn ? `Voice active — say "Notes" to dictate, or type here` : "Type notes here, or use voice..."}
                 rows={3}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6B35] resize-none"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#1A6BFF] resize-none"
               />
             </div>
 
@@ -734,7 +734,7 @@ export default function ScorePage() {
     <QueryClientProvider client={qc}>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
         </div>
       }>
         <ScoringInterface />

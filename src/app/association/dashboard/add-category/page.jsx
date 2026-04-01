@@ -42,14 +42,14 @@ function AddCategoryForm() {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <a
           href={`/association/dashboard?org=${orgId}`}
-          className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#FF6B35] mb-8 text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#1A6BFF] mb-8 text-sm font-medium transition-colors"
         >
           <ArrowLeft size={15} /> Back to Dashboard
         </a>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -75,7 +75,7 @@ function AddCategoryForm() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 placeholder="e.g. U11 AAA, U15 AA"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
               />
             </div>
 
@@ -89,7 +89,7 @@ function AddCategoryForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-50 hover:shadow-lg transition-shadow"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50 hover:shadow-lg transition-shadow"
               >
                 <Plus size={15} />
                 {loading ? "Creating..." : "Create Category"}
@@ -108,7 +108,7 @@ export default function AddCategoryPage() {
       <Suspense
         fallback={
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B35]" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF]" />
           </div>
         }
       >

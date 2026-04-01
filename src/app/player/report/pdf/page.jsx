@@ -68,7 +68,7 @@ function PDFReportInner() {
     return { session: s, sd, byEval, catAvgs };
   });
 
-  const ORANGE = "#FF6B35";
+  const ORANGE = "#1A6BFF";
   const LIGHT = "#fff7f4";
   const agreementColor = (pct) => pct >= 95 ? "#16a34a" : pct >= 80 ? "#d97706" : "#dc2626";
   const agreementBg = (pct) => pct >= 95 ? "#f0fdf4" : pct >= 80 ? "#fffbeb" : "#fef2f2";
@@ -77,7 +77,7 @@ function PDFReportInner() {
     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 800, margin: "0 auto", padding: "32px 24px", color: "#111827", fontSize: 13 }}>
 
       {/* Header */}
-      <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #F7931E)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
+      <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #4D8FFF)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>AthleteRanker · Player Report</div>

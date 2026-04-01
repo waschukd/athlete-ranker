@@ -51,7 +51,7 @@ function JoinCodesPanel({ orgId, data, refetch }) {
           <h3 className="text-sm font-semibold text-gray-900">Evaluator Join Codes</h3>
           <p className="text-xs text-gray-400 mt-0.5">Share with evaluators so they can join</p>
         </div>
-        <button onClick={generateCode} disabled={generating} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+        <button onClick={generateCode} disabled={generating} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
           {generating ? "Generating..." : "+ Generate Code"}
         </button>
       </div>
@@ -101,11 +101,11 @@ function BlastButton({ scheduleId, spotsOpen }) {
             {result ? (
               <div className="text-center py-4">
                 <p className="font-semibold text-gray-900 mb-2">{result.message}</p>
-                <button onClick={() => { setShowModal(false); setResult(null); }} className="px-5 py-2 bg-[#FF6B35] text-white rounded-lg text-sm">Done</button>
+                <button onClick={() => { setShowModal(false); setResult(null); }} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm">Done</button>
               </div>
             ) : (
               <>
-                <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Optional message..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35] resize-none mb-4" rows={3} />
+                <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Optional message..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] resize-none mb-4" rows={3} />
                 <div className="flex gap-3">
                   <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm">Cancel</button>
                   <button onClick={sendBlast} disabled={sending} className="flex-1 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50">{sending ? "Sending..." : "Send Blast"}</button>
@@ -218,7 +218,7 @@ function StaffingReports() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="font-semibold text-gray-900 mb-1">Weekly Staffing Report</div>
           <p className="text-xs text-gray-500 mb-4">All sessions for the next 7 days with evaluator rosters.</p>
-          <button onClick={() => run("weekly_report")} disabled={loading === "weekly_report"} className="w-full py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+          <button onClick={() => run("weekly_report")} disabled={loading === "weekly_report"} className="w-full py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">
             {loading === "weekly_report" ? "Sending..." : "Send Weekly Report Now"}
           </button>
         </div>
@@ -318,7 +318,7 @@ function SPDashboard() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#F7931E] flex items-center justify-center shadow-md">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
               <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -334,7 +334,7 @@ function SPDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Client Associations", value: associations.length, icon: Building2, color: "text-blue-600" },
-              { label: "Upcoming Sessions", value: totalUpcoming, icon: Calendar, color: "text-[#FF6B35]" },
+              { label: "Upcoming Sessions", value: totalUpcoming, icon: Calendar, color: "text-[#1A6BFF]" },
               { label: "Needs Evaluators", value: needsEvaluators, icon: AlertCircle, color: "text-amber-500" },
               { label: "Evaluator Pool", value: evaluatorStats.total_evaluators || 0, icon: Users, color: "text-green-600" },
             ].map(({ label, value, icon: Icon, color }) => (
@@ -348,7 +348,7 @@ function SPDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
             {[{ id: "associations", label: "Associations" }, { id: "schedule", label: "Master Schedule" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "reports", label: "Reports" }].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#FF6B35] text-[#FF6B35]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {tab.label}
               </button>
             ))}
@@ -364,7 +364,7 @@ function SPDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Client Associations</h2>
               <div className="flex items-center gap-3">
                 <p className="text-sm text-gray-400">{associations.length} clients</p>
-                <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <Plus size={15} /> New Client
                 </button>
               </div>
@@ -378,14 +378,14 @@ function SPDashboard() {
                     <button onClick={() => setShowNewClient(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
                   </div>
                   <div className="space-y-3">
-                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Organization Name *</label><input type="text" placeholder="e.g. Calgary Minor Hockey" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Organization Name *</label><input type="text" placeholder="e.g. Calgary Minor Hockey" value={newClient.name} onChange={e => setNewClient(p => ({ ...p, name: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Contact Name *</label><input type="text" placeholder="Jane Smith" value={newClient.contact_name} onChange={e => setNewClient(p => ({ ...p, contact_name: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" /></div>
-                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Contact Email *</label><input type="email" placeholder="jane@org.com" value={newClient.contact_email} onChange={e => setNewClient(p => ({ ...p, contact_email: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" /></div>
+                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Contact Name *</label><input type="text" placeholder="Jane Smith" value={newClient.contact_name} onChange={e => setNewClient(p => ({ ...p, contact_name: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" /></div>
+                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Contact Email *</label><input type="email" placeholder="jane@org.com" value={newClient.contact_email} onChange={e => setNewClient(p => ({ ...p, contact_email: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Phone</label><input type="text" placeholder="403-555-1234" value={newClient.contact_phone} onChange={e => setNewClient(p => ({ ...p, contact_phone: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" /></div>
-                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">City / Address</label><input type="text" placeholder="Calgary, AB" value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" /></div>
+                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">Phone</label><input type="text" placeholder="403-555-1234" value={newClient.contact_phone} onChange={e => setNewClient(p => ({ ...p, contact_phone: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" /></div>
+                      <div><label className="text-xs font-medium text-gray-500 mb-1 block">City / Address</label><input type="text" placeholder="Calgary, AB" value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" /></div>
                     </div>
                     {newClientMsg && <p className={`text-xs font-medium ${newClientMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{newClientMsg.text}</p>}
                     <div className="flex gap-3 pt-2">
@@ -404,7 +404,7 @@ function SPDashboard() {
                           queryClient.invalidateQueries(["sp-associations"]);
                           setTimeout(() => setShowNewClient(false), 1500);
                         }}
-                        className="flex-1 px-4 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                        className="flex-1 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
                         {newClientSaving ? "Creating..." : "Create and Link"}
                       </button>
                     </div>
@@ -424,10 +424,10 @@ function SPDashboard() {
                   const assocSessions = schedule.filter(s => s.org_id === assoc.id && s.scheduled_date >= today);
                   const needsEval = assocSessions.filter(s => s.spots_open > 0).length;
                   return (
-                    <div key={assoc.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#FF6B35]/50 hover:shadow-md transition-all">
+                    <div key={assoc.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1A6BFF]/50 hover:shadow-md transition-all">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center"><Building2 size={18} className="text-[#FF6B35]" /></div>
+                          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center"><Building2 size={18} className="text-[#1A6BFF]" /></div>
                           <div><h3 className="font-bold text-gray-900">{assoc.name}</h3><p className="text-xs text-gray-400">{assoc.contact_email}</p></div>
                         </div>
                         {needsEval > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">{needsEval} needs eval</span>}
@@ -437,7 +437,7 @@ function SPDashboard() {
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.athletes || 0}</div><div className="text-xs text-gray-400">Athletes</div></div>
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assocSessions.length}</div><div className="text-xs text-gray-400">Upcoming</div></div>
                       </div>
-                      <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                      <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                         <ExternalLink size={14} /> Open Dashboard
                       </a>
                     </div>
@@ -568,7 +568,7 @@ function SPDashboard() {
               </div>
               <div className="p-5">
                 <div className="flex items-center gap-3">
-                  <input type="email" placeholder="Evaluator email address" value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/30" />
+                  <input type="email" placeholder="Evaluator email address" value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" />
                   <button disabled={!evalInviteEmail || evalInviteSending}
                     onClick={async () => {
                       const activeCode = joinCodeData?.codes?.find(c => c.uses < c.max_uses);
@@ -581,7 +581,7 @@ function SPDashboard() {
                       if (data.success) { setEvalInviteMsg({ type: "success", text: `Invite sent to ${evalInviteEmail}` }); setEvalInviteEmail(""); }
                       else { setEvalInviteMsg({ type: "error", text: data.error || "Failed" }); }
                     }}
-                    className="px-5 py-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
+                    className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
                     {evalInviteSending ? "Sending..." : "Send Invite"}
                   </button>
                 </div>
@@ -606,7 +606,7 @@ function SPDashboard() {
                     <tr key={ev.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 cursor-pointer" onClick={() => window.location.href = `/service-provider/evaluator/${ev.id}`}>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900 hover:text-[#FF6B35]">{ev.name}</span>
+                          <span className="font-medium text-gray-900 hover:text-[#1A6BFF]">{ev.name}</span>
                           {ev.membership_status === "pending" && <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">Pending</span>}
                           {ev.membership_status === "suspended" && <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full">Suspended</span>}
                         </div>
@@ -638,7 +638,7 @@ function SPDashboard() {
 export default function ServiceProviderDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF6B35]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <SPDashboard />
       </Suspense>
     </QueryClientProvider>
