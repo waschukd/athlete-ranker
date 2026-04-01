@@ -36,7 +36,8 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{background:"#080E1A"}}>
       <div className="w-full max-w-md rounded-xl p-8" style={{background:"#0F1A2E",border:"1px solid rgba(255,255,255,0.08)"}}>
         <div className="mb-6 text-center">
-          <img src="/logo-dark.png" alt="Sideline Star" className="mx-auto mb-6" style={{height:"80px",objectFit:"contain"}} />
+          <img src="/icon-dark.png" alt="Sideline Star" className="mx-auto mb-4" style={{height:"72px",width:"72px",objectFit:"contain"}} />
+          <p className="text-lg font-light tracking-widest mb-2" style={{color:"#4D8FFF",letterSpacing:"0.15em"}}>SIDELINE STAR</p>
           <h1 className="text-2xl font-semibold" style={{color:"#E8F0FF"}}>Sign in</h1>
           <p className="text-sm mt-1" style={{color:"#4D8FFF"}}>Access your admin and evaluator tools</p>
         </div>
