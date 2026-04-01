@@ -123,7 +123,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {org?.org_code && (
+          {org?.org_code && !serviceProvider && (
             <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-gray-700">Organization Join Code</p>
