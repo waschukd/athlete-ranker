@@ -47,11 +47,11 @@ export default function CheckinEntryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/s-mark-dark.svg" style={{width:"56px",height:"56px",objectFit:"contain"}} />
           <h1 className="text-2xl font-bold text-gray-900 mt-4">Player Check-in</h1>
           <p className="text-gray-500 text-sm mt-1">Enter your session code to begin</p>
-        </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
