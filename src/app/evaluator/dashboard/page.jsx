@@ -332,8 +332,7 @@ function EvaluatorDashboard() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-white" />
+            <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">Evaluator Dashboard</h1>

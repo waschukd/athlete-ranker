@@ -75,8 +75,7 @@ function SignupForm() {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
-            <Zap className="w-5 h-5 text-white" />
+              <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}} />
           </div>
           <div>
             <h1 className="text-lg font-bold text-gray-900">Sideline Star</h1>

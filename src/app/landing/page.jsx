@@ -9,8 +9,7 @@ export default function LandingPage() {
       <header className="w-full border-b border-gray-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
+              <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
             </div>
             <span className="text-xl font-semibold">Sideline Star</span>
           </div>

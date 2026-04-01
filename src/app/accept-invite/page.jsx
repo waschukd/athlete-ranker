@@ -57,8 +57,7 @@ function AcceptInviteForm() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] items-center justify-center mb-4">
-            <Zap className="w-6 h-6 text-white" />
+            <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Sideline Star</h1>
         </div>
