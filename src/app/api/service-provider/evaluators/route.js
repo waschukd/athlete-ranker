@@ -60,15 +60,11 @@ export async function POST(request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { action, evaluator_id, schedule_id, hours_id, rating, notes, flag_id } = await request.json();
-    const spMembership = await sql`
-      SELECT em.organization_id as sp_id, u.id as admin_id
-      FROM evaluator_memberships em
-      JOIN organizations o ON o.id = em.organization_id
-      JOIN users u ON u.email = ${session.email}
-      WHERE u.email = ${session.email} AND em.status = 'active' AND o.type = 'service_provider' LIMIT 1
-    `;
-    if (!spMembership.length) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    const { sp_id, admin_id } = spMembership[0];
+    const { searchParams } = new URL(request.url);
+    const sp_id = await resolveSpOrgId(session, searchParams.get("org"));
+    if (!sp_id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    const adminRes = await sql`SELECT id FROM users WHERE email = ${session.email} LIMIT 1`;
+    const admin_id = adminRes[0]?.id;
     if (action === "approve_hours") {
       await sql`UPDATE evaluator_hours SET status = 'approved', approved_by = ${admin_id}, approved_at = NOW() WHERE id = ${hours_id}`;
       return NextResponse.json({ success: true });
