@@ -37,12 +37,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md rounded-xl p-8" style={{background:"#0F1A2E",border:"1px solid rgba(255,255,255,0.08)"}}>
         <div className="mb-6 text-center">
           <div className="mx-auto mb-5 flex flex-col items-center gap-3">
-            <div style={{width:"56px",height:"56px",background:"#1A6BFF",borderRadius:"14px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M70 15 Q80 15 80 25 L80 38 Q80 45 73 45 L45 45 Q38 45 38 52 L38 58 Q38 65 45 65 L72 65 L72 55 L85 55 L85 75 Q85 85 75 85 L30 85 Q20 85 20 75 L20 62 Q20 55 27 55 L55 55 Q62 55 62 48 L62 42 Q62 35 55 35 L28 35 L28 45 L15 45 L15 25 Q15 15 25 15 Z" fill="white"/>
-              </svg>
-            </div>
-            <p style={{color:"#E8F0FF",fontSize:"15px",fontWeight:"300",letterSpacing:"0.2em"}}>SIDELINE STAR</p>
+            <img src="/s-mark-dark.svg" style={{width:"72px",height:"72px",objectFit:"contain"}} />
           </div>
           <h1 className="text-2xl font-semibold" style={{color:"#E8F0FF"}}>Sign in</h1>
           <p className="text-sm mt-1" style={{color:"#4D8FFF"}}>Access your admin and evaluator tools</p>
