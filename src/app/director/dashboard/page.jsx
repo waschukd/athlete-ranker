@@ -318,10 +318,8 @@ function DirectorDashboardInner() {
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
         { id: "schedule", label: "Schedule", icon: Calendar },
-    { id: "sessions", label: "Sessions", icon: Trophy },
     { id: "athletes", label: "Athletes", icon: Users },
     { id: "reports", label: "Reports", icon: FileText },
-    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   if (dirLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
