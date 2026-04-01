@@ -75,8 +75,7 @@ function SignupForm() {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-              <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}} />
-          </div>
+          <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
           <div>
             <h1 className="text-lg font-bold text-gray-900">Sideline Star</h1>
             <p className="text-xs text-gray-400">Evaluator Sign Up</p>

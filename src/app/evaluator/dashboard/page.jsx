@@ -333,7 +333,6 @@ function EvaluatorDashboard() {
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
-            </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">Evaluator Dashboard</h1>
               <p className="text-xs text-gray-400">Sideline Star</p>
