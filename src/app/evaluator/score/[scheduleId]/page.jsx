@@ -265,8 +265,14 @@ function ScoringInterface() {
 
   // ── Voice ─────────────────────────────────────────────────────────────────
   const parseVoice = useCallback((text) => {
-    const t = text.trim().toLowerCase();
-    setVoiceStatus(`"${text}"`);
+    const wordNums = {
+      'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5',
+      'six':'6','seven':'7','eight':'8','nine':'9','ten':'10',
+      'to':'2','too':'2','for':'4','won':'1','ate':'8','nein':'9','tu':'2','fore':'4'
+    };
+    const normalized = text.trim().toLowerCase().replace(/\b(zero|one|two|to|too|tu|three|four|for|fore|five|six|seven|eight|ate|nine|nein|ten|won)\b/gi, m => wordNums[m.toLowerCase()] || m);
+    const t = normalized.trim().toLowerCase();
+    setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
 
     // ── Mic off ──────────────────────────────────────────
     if (/^(mic off|microphone off|stop listening|turn off mic)$/i.test(t)) {
