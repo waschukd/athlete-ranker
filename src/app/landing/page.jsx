@@ -12,7 +12,7 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-semibold">Athlete Ranker</span>
+            <span className="text-xl font-semibold">Sideline Star</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/account/signin" className="px-5 py-2.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors">
@@ -48,7 +48,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-gray-200 py-8 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} Athlete Ranker. All rights reserved.
+        © {new Date().getFullYear()} Sideline Star. All rights reserved.
       </footer>
     </div>
   );

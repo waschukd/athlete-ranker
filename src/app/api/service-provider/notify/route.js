@@ -20,7 +20,7 @@ export async function POST(request) {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
           body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@athleteranker.com",
+            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
             to: email,
             subject: `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
             html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
@@ -30,7 +30,7 @@ export async function POST(request) {
               <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">
                 Accept Invitation →
               </a>
-              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · Hockey Evaluation Platform</p>
+              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
             </div>`,
           }),
         });
@@ -90,7 +90,7 @@ export async function POST(request) {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
           body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@athleteranker.com",
+            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
             to: evaluator.email,
             subject: `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sessionDate}`,
             html: `
@@ -109,7 +109,7 @@ export async function POST(request) {
                 <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
                   Sign Up Now →
                 </a>
-                <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · ${admin_name}</p>
+                <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${admin_name}</p>
               </div>
             `,
           }),

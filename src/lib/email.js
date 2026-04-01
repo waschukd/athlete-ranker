@@ -1,4 +1,4 @@
-const FROM = process.env.EMAIL_FROM || "noreply@athleteranker.com";
+const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 export async function sendEmail(to, subject, html) {
@@ -33,14 +33,14 @@ function emailWrapper(content) {
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AthleteRanker</div>
+              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Sideline Star</div>
               <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">Athlete Evaluation Platform</div>
             </td>
           </tr>
           <tr><td style="padding:36px 40px;">${content}</td></tr>
           <tr>
             <td style="padding:16px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#9ca3af;">© AthleteRanker · athleteranker.com</p>
+              <p style="margin:0;font-size:11px;color:#9ca3af;">© Sideline Star · sidelinestar.com</p>
             </td>
           </tr>
         </table>
@@ -72,24 +72,24 @@ function credBox(rows) {
 
 export async function emailWelcomeServiceProvider({ name, email, tempPassword, orgName }) {
   const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to AthleteRanker</h2>
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your service provider account for <strong style="color:#111827;">${orgName}</strong> has been created.</p>
     ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
-    ${btn(`${BASE_URL}/account/signin`, "Sign In to AthleteRanker →")}
+    ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
   `);
-  await sendEmail(email, `Welcome to AthleteRanker — ${orgName}`, html);
+  await sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
 }
 
 export async function emailWelcomeAssociation({ name, email, tempPassword, orgName }) {
   const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to AthleteRanker</h2>
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your association account for <strong style="color:#111827;">${orgName}</strong> has been created.</p>
     ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
-    ${btn(`${BASE_URL}/account/signin`, "Sign In to AthleteRanker →")}
+    ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
   `);
-  await sendEmail(email, `Welcome to AthleteRanker — ${orgName}`, html);
+  await sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
 }
 
 export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId }) {
@@ -126,7 +126,7 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
 export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, spName, assocName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Association Linked</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${spAdminName}</strong>, <strong style="color:#111827;">${assocName}</strong> has been linked to <strong style="color:#111827;">${spName}</strong> on AthleteRanker.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${spAdminName}</strong>, <strong style="color:#111827;">${assocName}</strong> has been linked to <strong style="color:#111827;">${spName}</strong> on Sideline Star.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "View Dashboard →")}
   `);
   await sendEmail(spAdminEmail, `New Association Linked — ${assocName}`, html);
@@ -162,7 +162,7 @@ export async function emailDirectorInvite({ name, email, catName, orgName, tempP
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, you've been assigned as director for <strong style="color:#111827;">${catName}</strong> at <strong style="color:#111827;">${orgName}</strong>.</p>
     ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Please sign in and update your password.</p>
-    ${btn(loginUrl, "Sign In to AthleteRanker →")}
+    ${btn(loginUrl, "Sign In to Sideline Star →")}
   `);
   await sendEmail(email, `Director Invitation — ${catName} at ${orgName}`, html);
 }

@@ -21,7 +21,7 @@ export async function POST(request) {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "noreply@athleteranker.com",
+          from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
           to: email,
           subject: `${session.name || "An evaluator"} invited you to evaluate at ${session_info.org_name}`,
           html: `
@@ -37,7 +37,7 @@ export async function POST(request) {
               <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">
                 View & Sign Up →
               </a>
-              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Athlete Ranker · Hockey Evaluation Platform</p>
+              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
             </div>
           `,
         }),

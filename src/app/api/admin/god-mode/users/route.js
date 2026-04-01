@@ -80,7 +80,7 @@ export async function POST(request) {
 
     const org = orgName || "your organization";
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const FROM = process.env.EMAIL_FROM || "noreply@athleteranker.com";
+    const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
 
     const roleLabels = {
       super_admin: "Super Admin",
@@ -103,12 +103,12 @@ export async function POST(request) {
             <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
               <tr>
                 <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;">
-                  <div style="font-size:22px;font-weight:800;color:#ffffff;">AthleteRanker</div>
+                  <div style="font-size:22px;font-weight:800;color:#ffffff;">Sideline Star</div>
                   <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">Athlete Evaluation Platform</div>
                 </td>
               </tr>
               <tr><td style="padding:36px 40px;">
-                <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to AthleteRanker</h2>
+                <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
                 <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your account has been created with the role of <strong style="color:#111827;">${roleLabel}</strong>${org !== "your organization" ? ` for <strong style="color:#111827;">${org}</strong>` : ""}.</p>
                 <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
                   <table width="100%" cellpadding="0" cellspacing="0">
@@ -129,11 +129,11 @@ export async function POST(request) {
                   </table>
                 </div>
                 <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
-                <a href="${BASE_URL}/account/signin" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign In to AthleteRanker</a>
+                <a href="${BASE_URL}/account/signin" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign In to Sideline Star</a>
               </td></tr>
               <tr>
                 <td style="padding:16px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-                  <p style="margin:0;font-size:11px;color:#9ca3af;">AthleteRanker - athleteranker.com</p>
+                  <p style="margin:0;font-size:11px;color:#9ca3af;">Sideline Star - sidelinestar.com</p>
                 </td>
               </tr>
             </table>
@@ -151,7 +151,7 @@ export async function POST(request) {
         body: JSON.stringify({
           from: FROM,
           to: email,
-          subject: `Welcome to AthleteRanker - Your account is ready`,
+          subject: `Welcome to Sideline Star - Your account is ready`,
           html,
         }),
       });

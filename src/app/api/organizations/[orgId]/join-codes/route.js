@@ -99,7 +99,7 @@ export async function POST(request, { params }) {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
           body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@athleteranker.com",
+            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
             to: evalUser[0].email,
             subject: `✅ You've been approved — ${org[0]?.name}`,
             html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">

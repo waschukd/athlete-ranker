@@ -60,7 +60,7 @@ function AcceptInviteForm() {
           <div className="inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Athlete Ranker</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Sideline Star</h1>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">

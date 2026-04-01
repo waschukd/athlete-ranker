@@ -43,9 +43,9 @@ export async function POST(request) {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "noreply@athleteranker.com",
+          from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
           to: email,
-          subject: `You've been invited to manage ${org.name} on Athlete Ranker`,
+          subject: `You've been invited to manage ${org.name} on Sideline Star`,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <div style="text-align: center; margin-bottom: 32px;">
@@ -59,7 +59,7 @@ export async function POST(request) {
                 Hi ${name || "there"},
               </p>
               <p style="color: #555; font-size: 16px; line-height: 1.6;">
-                You've been invited to manage <strong>${org.name}</strong> on Athlete Ranker — the platform for running hockey evaluations and tryouts.
+                You've been invited to manage <strong>${org.name}</strong> on Sideline Star — the platform for running hockey evaluations and tryouts.
               </p>
 
               <div style="text-align: center; margin: 32px 0;">
@@ -73,7 +73,7 @@ export async function POST(request) {
               </p>
 
               <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
-              <p style="color: #aaa; font-size: 12px; text-align: center;">Athlete Ranker · Hockey Evaluation Platform</p>
+              <p style="color: #aaa; font-size: 12px; text-align: center;">Sideline Star · Athlete Evaluation Platform</p>
             </div>
           `,
         }),

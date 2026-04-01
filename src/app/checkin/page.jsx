@@ -123,7 +123,7 @@ export default function CheckinEntryPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Athlete Ranker · Check-in Portal · No account required
+          Sideline Star · Check-in Portal · No account required
         </p>
       </div>
     </div>

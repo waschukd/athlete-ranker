@@ -12,7 +12,7 @@ async function sendEmail(to, subject, html) {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@athleteranker.com", to, subject, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
   });
 }
 
@@ -87,7 +87,7 @@ export async function POST(request, { params }) {
                 <!-- Header -->
                 <tr>
                   <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:32px 40px;text-align:center;">
-                    <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AthleteRanker</div>
+                    <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Sideline Star</div>
                     <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Athlete Evaluation Platform</div>
                   </td>
                 </tr>
@@ -121,7 +121,7 @@ export async function POST(request, { params }) {
 
                     <!-- CTA Button -->
                     <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
-                      Sign In to AthleteRanker →
+                      Sign In to Sideline Star →
                     </a>
                   </td>
                 </tr>
@@ -129,7 +129,7 @@ export async function POST(request, { params }) {
                 <!-- Footer -->
                 <tr>
                   <td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-                    <p style="margin:0;font-size:12px;color:#9ca3af;">© AthleteRanker · You received this because you were invited by ${cat.org_name}</p>
+                    <p style="margin:0;font-size:12px;color:#9ca3af;">© Sideline Star · You received this because you were invited by ${cat.org_name}</p>
                   </td>
                 </tr>
 
@@ -151,7 +151,7 @@ export async function POST(request, { params }) {
               <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                 <tr>
                   <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:32px 40px;text-align:center;">
-                    <div style="font-size:24px;font-weight:800;color:#ffffff;">AthleteRanker</div>
+                    <div style="font-size:24px;font-weight:800;color:#ffffff;">Sideline Star</div>
                     <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Athlete Evaluation Platform</div>
                   </td>
                 </tr>
@@ -168,7 +168,7 @@ export async function POST(request, { params }) {
                 </tr>
                 <tr>
                   <td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-                    <p style="margin:0;font-size:12px;color:#9ca3af;">© AthleteRanker · You received this because you were invited by ${cat.org_name}</p>
+                    <p style="margin:0;font-size:12px;color:#9ca3af;">© Sideline Star · You received this because you were invited by ${cat.org_name}</p>
                   </td>
                 </tr>
               </table>

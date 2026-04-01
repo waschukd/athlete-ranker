@@ -30,10 +30,10 @@ export async function POST(request) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/reset-password?token=${token}`;
 
-    await sendEmail(email, "Reset your AthleteRanker password", `
+    await sendEmail(email, "Reset your Sideline Star password", `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
         <div style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;border-radius:12px 12px 0 0;">
-          <div style="font-size:22px;font-weight:800;color:#fff;">AthleteRanker</div>
+          <div style="font-size:22px;font-weight:800;color:#fff;">Sideline Star</div>
         </div>
         <div style="background:#fff;padding:36px 40px;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
           <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#111;">Reset your password</h2>

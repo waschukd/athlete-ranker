@@ -31,7 +31,7 @@ function generateICal(session) {
   const date = session.scheduled_date?.toString().split("T")[0].replace(/-/g, "");
   const startTime = session.start_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
   const endTime = session.end_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
-  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AthleteRanker//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation - ${session.org_name} ${session.category_name}\nLOCATION:${session.location || "TBD"}\nDESCRIPTION:Session ${session.session_number}${session.group_number ? ` Group ${session.group_number}` : ""}\nEND:VEVENT\nEND:VCALENDAR`;
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Sideline Star//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation - ${session.org_name} ${session.category_name}\nLOCATION:${session.location || "TBD"}\nDESCRIPTION:Session ${session.session_number}${session.group_number ? ` Group ${session.group_number}` : ""}\nEND:VEVENT\nEND:VCALENDAR`;
 }
 
 function InviteModal({ session, onClose }) {
@@ -337,7 +337,7 @@ function EvaluatorDashboard() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">Evaluator Dashboard</h1>
-              <p className="text-xs text-gray-400">Athlete Ranker</p>
+              <p className="text-xs text-gray-400">Sideline Star</p>
             </div>
           </div>
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}

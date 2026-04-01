@@ -80,7 +80,7 @@ function PDFReportInner() {
       <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #4D8FFF)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>AthleteRanker · Player Report</div>
+            <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sideline Star · Player Report</div>
             <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px" }}>{athlete.first_name} {athlete.last_name}</div>
             <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
               {athlete.position && <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12, textTransform: "capitalize" }}>{athlete.position}</span>}
@@ -207,7 +207,7 @@ function PDFReportInner() {
 
       {/* Footer */}
       <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16, display: "flex", justifyContent: "space-between", color: "#9ca3af", fontSize: 11 }}>
-        <span>AthleteRanker · Confidential — For internal use only</span>
+        <span>Sideline Star · Confidential — For internal use only</span>
         <span>{data.category?.name} · {athlete.first_name} {athlete.last_name}</span>
       </div>
 

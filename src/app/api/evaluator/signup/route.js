@@ -14,7 +14,7 @@ async function sendEmail(to, subject, html) {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@athleteranker.com", to, subject, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
   });
 }
 
@@ -206,5 +206,5 @@ function generateICal(session) {
   const date = session.scheduled_date?.toString().split("T")[0].replace(/-/g, "");
   const startTime = session.start_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
   const endTime = session.end_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
-  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AthleteRanker//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation Session ${session.session_number} - Group ${session.group_number || ""}\nLOCATION:${session.location || "TBD"}\nDESCRIPTION:Hockey evaluation session. Session #${session.session_number}, Group ${session.group_number || "TBD"}.\nEND:VEVENT\nEND:VCALENDAR`.trim();
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Sideline Star//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation Session ${session.session_number} - Group ${session.group_number || ""}\nLOCATION:${session.location || "TBD"}\nDESCRIPTION:Hockey evaluation session. Session #${session.session_number}, Group ${session.group_number || "TBD"}.\nEND:VEVENT\nEND:VCALENDAR`.trim();
 }

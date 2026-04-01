@@ -19,7 +19,7 @@ async function sendEmail(to, subject, html) {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@athleteranker.com", to, subject, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
   });
 }
 
@@ -135,7 +135,7 @@ export async function POST(request) {
     // Send confirmation to evaluator
     await sendEmail(
       email,
-      `Welcome to Athlete Ranker — pending approval`,
+      `Welcome to Sideline Star — pending approval`,
       `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h2 style="color: #111;">You're almost in!</h2>
         <p style="color: #555;">Hi ${name}, your account has been created and is pending approval from <strong>${joinCode.org_name}</strong>.</p>
