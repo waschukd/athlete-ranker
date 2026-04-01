@@ -392,7 +392,7 @@ function CategoryHub() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <a href={`/association/dashboard?org=${orgId}`} className="text-gray-400 hover:text-[#1A6BFF] transition-colors"><ArrowLeft size={18} /></a>
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md"><Zap className="w-6 h-6 text-white" /></div>
+              <div style={{width:"44px",height:"44px",background:"#1A6BFF",borderRadius:"11px",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="26" height="26" viewBox="0 0 100 100" fill="none"><path d="M70 15 Q80 15 80 25 L80 38 Q80 45 73 45 L45 45 Q38 45 38 52 L38 58 Q38 65 45 65 L72 65 L72 55 L85 55 L85 75 Q85 85 75 85 L30 85 Q20 85 20 75 L20 62 Q20 55 27 55 L55 55 Q62 55 62 48 L62 42 Q62 35 55 35 L28 35 L28 45 L15 45 L15 25 Q15 15 25 15 Z" fill="white"/></svg></div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{category?.name}</h1>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">

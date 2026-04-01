@@ -99,9 +99,7 @@ function Dashboard() {
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
-                  <Zap className="w-7 h-7 text-white" />
-                </div>
+                <div style={{width:"48px",height:"48px",background:"#1A6BFF",borderRadius:"12px",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="28" height="28" viewBox="0 0 100 100" fill="none"><path d="M70 15 Q80 15 80 25 L80 38 Q80 45 73 45 L45 45 Q38 45 38 52 L38 58 Q38 65 45 65 L72 65 L72 55 L85 55 L85 75 Q85 85 75 85 L30 85 Q20 85 20 75 L20 62 Q20 55 27 55 L55 55 Q62 55 62 48 L62 42 Q62 35 55 35 L28 35 L28 45 L15 45 L15 25 Q15 15 25 15 Z" fill="white"/></svg></div>
                 <h1 className="text-3xl font-bold text-gray-900">{org?.name || "Association Dashboard"}</h1>
               </div>
               <p className="text-gray-500 text-sm mt-1">Manage age categories, athletes, evaluations, and rankings</p>
@@ -144,17 +142,17 @@ function Dashboard() {
           {categories.length > 0 && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { label: "Age Categories", value: categories.length, color: "from-[#3B82F6] to-[#8B5CF6]", icon: Trophy },
-                { label: "Total Athletes", value: totalAthletes, color: "from-[#22C55E] to-[#10B981]", icon: Users },
-                { label: "Total Sessions", value: totalSessions, color: "from-[#4D8FFF] to-[#FBBF24]", icon: Calendar },
+                { label: "Age Categories", value: categories.length, color: "bg-[#1A6BFF]", icon: Trophy },
+                { label: "Total Athletes", value: totalAthletes, color: "bg-[#1A6BFF]", icon: Users },
+                { label: "Total Sessions", value: totalSessions, color: "bg-[#1A6BFF]", icon: Calendar },
               ].map(({ label, value, color, icon: Icon }) => (
-                <div key={label} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow">
+                <div key={label} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">{label}</p>
                       <p className="text-4xl font-bold text-gray-900 mt-2">{value}</p>
                     </div>
-                    <div className={`p-4 rounded-xl bg-gradient-to-br ${color} shadow-md`}>
+                    <div className="p-4 rounded-xl bg-[#1A6BFF]">
                       <Icon className="text-white" size={28} />
                     </div>
                   </div>
