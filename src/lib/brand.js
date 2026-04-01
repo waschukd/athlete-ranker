@@ -4,7 +4,7 @@
  */
 
 export function defaultBrand() {
-  return { primary: "#FF6B35", light: "#fff7f4", dark: "#E55A2E", logo_url: null };
+  return { primary: "#1A6BFF", light: "#E6F1FB", dark: "#0F4FCC", logo_url: null };
 }
 
 export function lightenColor(hex, amount) {

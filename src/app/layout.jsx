@@ -11,6 +11,11 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <title>Sideline Star</title>
+        <meta name="description" content="Athlete evaluation and ranking platform" />
+        <link rel="icon" href="/icon-light.png" />
+      </head>
       <body>
         <QueryClientProvider client={queryClient}>
           {children}
