@@ -34,7 +34,8 @@ export async function GET(request, { params }) {
             a.first_name, a.last_name, a.external_id, a.position,
             sg.session_number, sg.group_number,
             pc.jersey_number, pc.team_color, pc.checked_in,
-            es.checkin_code, es.id as schedule_id
+            es.checkin_code, es.id as schedule_id,
+            es.scheduled_date, es.start_time, es.end_time, es.location
           FROM player_group_assignments pga
           JOIN athletes a ON a.id = pga.athlete_id
           JOIN session_groups sg ON sg.id = pga.session_group_id
