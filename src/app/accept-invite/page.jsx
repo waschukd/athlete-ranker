@@ -58,8 +58,7 @@ function AcceptInviteForm() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} />
-        </div>
-          <h1 className="text-2xl font-bold text-gray-900">Sideline Star</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-3">Sideline Star</h1>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
