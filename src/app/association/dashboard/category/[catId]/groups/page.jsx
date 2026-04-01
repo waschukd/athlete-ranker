@@ -67,8 +67,7 @@ function GroupsManagerInner() {
         rows.push(['Group ' + group.group_number, date, time, loc, player.last_name, player.first_name, player.external_id || '', player.position || '']);
       }
     }
-    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('
-');
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
