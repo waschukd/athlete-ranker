@@ -377,8 +377,8 @@ function CategoryHub() {
     { id: "rankings", label: "Rankings", icon: BarChart3 },
         { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "athletes", label: "Athletes", icon: Users },
-    { id: "teams", label: "Teams", icon: Trophy },
     { id: "reports", label: "Reports", icon: FileText },
+    { id: "teams", label: "Teams", icon: Trophy },
   ];
 
   if (isLoading || !catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
