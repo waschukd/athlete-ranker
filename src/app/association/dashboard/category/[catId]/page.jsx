@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap, Medal,
-  Download, FileText, Copy, Check, LogOut
+  Download, FileText, Copy, Check, LogOut, AlertTriangle
 } from "lucide-react";
 
 const qc = new QueryClient();
@@ -120,7 +120,7 @@ function FlagsPanel({ catId }) {
     loadFlags();
   };
 
-  useState(() => { loadFlags(); }, []);
+  useEffect(() => { loadFlags(); }, []);
 
   const unacknowledged = flags.filter(f => !f.acknowledged);
   const bySession = flags.reduce((acc, f) => { const k = f.session_number; if (!acc[k]) acc[k] = []; acc[k].push(f); return acc; }, {});
@@ -312,6 +312,13 @@ function CategoryHub() {
     enabled: !!catId,
   });
 
+  const { data: flagsData } = useQuery({
+    queryKey: ["category-flags", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/flags`); return res.json(); },
+    enabled: !!catId,
+    refetchInterval: 60000,
+  });
+
   const sessions = setupData?.sessions || [];
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
@@ -325,6 +332,11 @@ function CategoryHub() {
   const sessionStatus = rankingsData?.session_status || {};
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  const allFlags = flagsData?.flags || [];
+  const unackedFlags = allFlags.filter(f => !f.acknowledged);
+  const athleteFlagMap = unackedFlags.reduce((acc, f) => { acc[f.athlete_id] = (acc[f.athlete_id] || 0) + 1; return acc; }, {});
+  const sessionFlagMap = unackedFlags.reduce((acc, f) => { acc[f.session_number] = (acc[f.session_number] || 0) + 1; return acc; }, {});
+
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]);
 
   const loadScoreManager = async (sessionNum) => {
@@ -472,7 +484,7 @@ function CategoryHub() {
                       <tr key={a.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3"><RankBadge rank={a.rank} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#FF6B35]">{a.first_name}</a></td>
-                        <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#FF6B35]">{a.last_name}</a></td>
+                        <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#FF6B35]">{a.last_name}</a>{athleteFlagMap[a.id] ? <span title={`${athleteFlagMap[a.id]} unreviewed flag(s)`}><AlertTriangle size={12} className="text-amber-500" /></span> : null}</span></td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}
@@ -548,7 +560,10 @@ function CategoryHub() {
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${sStatus === "complete" ? "bg-green-500" : sStatus === "in_progress" ? "bg-blue-500" : "bg-gradient-to-br from-[#FF6B35] to-[#F7931E]"}`}>{sessionNum}</div>
                         <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` - ${sess.name} - ${sess.session_type} - ${sess.weight_percentage}%` : ""}</span>
                       </div>
-                      <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#FF6B35]/10 text-[#FF6B35] rounded-lg font-medium hover:bg-[#FF6B35]/20">Manage Groups</a>
+                      <div className="flex items-center gap-2">
+                        {sessionFlagMap[Number(sessionNum)] ? <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium"><AlertTriangle size={11} />{sessionFlagMap[Number(sessionNum)]} flag{sessionFlagMap[Number(sessionNum)] !== 1 ? "s" : ""}</span> : null}
+                        <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#FF6B35]/10 text-[#FF6B35] rounded-lg font-medium hover:bg-[#FF6B35]/20">Manage Groups</a>
+                      </div>
                     </div>
                     <table className="w-full text-sm">
                       <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Group</th><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Check-in</th></tr></thead>
@@ -573,6 +588,7 @@ function CategoryHub() {
         )}
 
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
+        {activeTab === "schedule" && <FlagsPanel catId={catId} />}
 
         {activeTab === "sessions" && (
           <div className="space-y-4">
