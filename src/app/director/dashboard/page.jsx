@@ -210,6 +210,10 @@ function DirectorDashboardInner() {
   const [activeTab, setActiveTab] = useState("rankings");
   const [positionFilter, setPositionFilter] = useState("all");
   const [scoreManagerOpen, setScoreManagerOpen] = useState(null);
+  const [volunteerModal, setVolunteerModal] = useState(null); // { sessionNum, entries }
+  const [volunteerEmails, setVolunteerEmails] = useState("");
+  const [volunteerSending, setVolunteerSending] = useState(false);
+  const [volunteerMsg, setVolunteerMsg] = useState("");
   const [scoreManagerData, setScoreManagerData] = useState([]);
   const [uploadMsg, setUploadMsg] = useState("");
   const [importing, setImporting] = useState(false);
@@ -266,6 +270,22 @@ function DirectorDashboardInner() {
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]).sort((a, b) => a.scheduled_date > b.scheduled_date ? 1 : -1);
 
   // Load score manager for a session
+  const sendVolunteers = async () => {
+    if (!volunteerEmails.trim()) return;
+    setVolunteerSending(true);
+    const emails = volunteerEmails.split(/[,
+]/).map(e => e.trim()).filter(Boolean);
+    const res = await fetch("/api/categories/" + catId + "/notify-volunteers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emails, sessionNum: volunteerModal.sessionNum, entries: volunteerModal.entries, categoryName: category?.name || "" }),
+    });
+    const data = await res.json();
+    setVolunteerMsg(data.success ? "Sent to " + data.sent + " volunteer(s)" : "Error: " + data.error);
+    setVolunteerSending(false);
+    setTimeout(() => { setVolunteerMsg(""); setVolunteerModal(null); setVolunteerEmails(""); }, 3000);
+  };
+
   const loadScoreManager = async (sessionNum) => {
     if (scoreManagerOpen === sessionNum) { setScoreManagerOpen(null); return; }
     const res = await fetch(`/api/categories/${catId}/scores?session=${sessionNum}`);
@@ -651,6 +671,26 @@ function DirectorDashboardInner() {
         )}
 
         {/* ── SESSIONS TAB ── */}
+        {volunteerModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}>
+          <div style={{background:"#fff",borderRadius:"16px",padding:"28px",width:"100%",maxWidth:"480px",boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+            <h3 style={{margin:"0 0 4px",fontSize:"16px",fontWeight:"600",color:"#111"}}>Assign Volunteers — Session {volunteerModal.sessionNum}</h3>
+            <p style={{margin:"0 0 16px",fontSize:"13px",color:"#666"}}>Enter email addresses separated by commas or new lines. They'll receive the check-in links for all groups in this session.</p>
+            <textarea
+              value={volunteerEmails}
+              onChange={e => setVolunteerEmails(e.target.value)}
+              placeholder={"volunteer1@email.com, volunteer2@email.com"}
+              style={{width:"100%",minHeight:"100px",padding:"10px 12px",border:"1px solid #e5e7eb",borderRadius:"8px",fontSize:"13px",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",outline:"none"}}
+            />
+            {volunteerMsg && <div style={{marginTop:"8px",fontSize:"13px",color: volunteerMsg.startsWith("Error") ? "#dc2626" : "#16a34a",fontWeight:"500"}}>{volunteerMsg}</div>}
+            <div style={{display:"flex",gap:"8px",marginTop:"16px",justifyContent:"flex-end"}}>
+              <button onClick={() => { setVolunteerModal(null); setVolunteerEmails(""); setVolunteerMsg(""); }} style={{padding:"8px 16px",border:"1px solid #e5e7eb",borderRadius:"8px",fontSize:"13px",cursor:"pointer",background:"#fff"}}>Cancel</button>
+              <button onClick={sendVolunteers} disabled={volunteerSending || !volunteerEmails.trim()} style={{padding:"8px 16px",background:"#1A6BFF",color:"#fff",border:"none",borderRadius:"8px",fontSize:"13px",fontWeight:"500",cursor:"pointer",opacity: volunteerSending ? 0.6 : 1}}>{volunteerSending ? "Sending..." : "Send Invites"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
 
         {activeTab === "sessions" && (
