@@ -73,7 +73,6 @@ function Dashboard() {
 
   const org = orgData?.organization;
   const serviceProvider = orgData?.service_provider || null;
-  const serviceProvider = orgData?.service_provider || null;
   const categories = categoriesData?.categories || [];
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
