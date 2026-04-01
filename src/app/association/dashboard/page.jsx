@@ -73,6 +73,7 @@ function Dashboard() {
 
   const org = orgData?.organization;
   const serviceProvider = orgData?.service_provider || null;
+  const serviceProvider = orgData?.service_provider || null;
   const categories = categoriesData?.categories || [];
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
@@ -94,9 +95,7 @@ function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <a href="/admin/god-mode" className="inline-flex items-center text-gray-500 hover:text-[#FF6B35] mb-6 transition-colors text-sm font-medium gap-1.5">
-            <ArrowLeft size={15} /> Back to God Mode
-          </a>
+
 
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
@@ -167,8 +166,8 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Join Codes + Pending Approvals */}
-      {joinCodeData && (
+      {/* Join Codes + Pending Approvals — hidden if association has an SP */}
+      {joinCodeData && !serviceProvider && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Join Codes */}
