@@ -156,7 +156,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
       <div className={`bg-white border rounded-xl p-5 hover:shadow-md transition-all ${
         mode === "mine" ? "border-[#1A6BFF]/30 bg-orange-50/20" : "border-gray-200"
       }`}>
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <span className="font-bold text-gray-900">{session.org_name}</span>
@@ -168,7 +168,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+            <div className="grid grid-cols-1 gap-1 text-sm text-gray-500 mt-1">
               <span className="flex items-center gap-1.5"><Calendar size={13} />{formatDate(session.scheduled_date)}</span>
               {session.start_time && (
                 <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` – ${formatTime(session.end_time)}` : ""}</span>
@@ -191,7 +191,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap mt-3 sm:mt-0">
             {mode === "mine" ? (
               <>
                 <a href={`/evaluator/score/${session.schedule_id}`}
@@ -363,7 +363,7 @@ function EvaluatorDashboard() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
         {/* Status banners */}
         {statusData?.suspended && (
           <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
