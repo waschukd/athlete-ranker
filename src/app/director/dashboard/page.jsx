@@ -504,7 +504,7 @@ function DirectorDashboardInner() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredAthletes.map(a => (
+                    {sortedAthletes.map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 transition-colors ${a.rank === 1 ? "bg-yellow-50/40" : a.rank === 2 ? "bg-gray-50/60" : a.rank === 3 ? "bg-orange-50/30" : ""}`}>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} /></td>
                         <td className="px-4 py-3">

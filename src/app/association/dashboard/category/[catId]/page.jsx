@@ -508,7 +508,7 @@ function CategoryHub() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredAthletes.map(a => (
+                    {sortedAthletes.map(a => (
                       <tr key={a.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3"><RankBadge rank={a.rank} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#1A6BFF]">{a.first_name}</a></td>
