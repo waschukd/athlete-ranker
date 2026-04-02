@@ -30,6 +30,7 @@ function GroupsManagerInner() {
   const [dragOver, setDragOver] = useState(null); // groupId
   const [message, setMessage] = useState(null);
   const [promoteN, setPromoteN] = useState(3);
+  const [sdThreshold, setSdThreshold] = useState(1.0); // players beyond X std devs from group mean are candidates
   const [promotePlan, setPromotePlan] = useState(null); // [{from, to, athlete}]
 
   // Get sessions
@@ -48,6 +49,13 @@ function GroupsManagerInner() {
       const res = await fetch(`/api/categories/${catId}/groups?session=${selectedSession}`);
       return res.json();
     },
+
+  const { data: rankingsData } = useQuery({
+    queryKey: ["groups-rankings", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings`); return res.json(); },
+    enabled: !!catId,
+  });
+  const rankedAthletes = rankingsData?.athletes || [];
     enabled: !!selectedSession,
     refetchInterval: 15000,
   });
@@ -155,22 +163,60 @@ function GroupsManagerInner() {
     }
   };
 
-  // Build promotion plan - bottom N from each group move down, top N from next group move up
+  // Z-score based movement: candidates are players > sdThreshold SDs from their group mean
   const buildPromotePlan = () => {
     const sortedGroups = [...groups].sort((a, b) => a.group_number - b.group_number);
     const plan = [];
+    const stats = {}; // per group: mean, sd, scores
+
+    // Build score map from rankings data
+    const scoreMap = {};
+    rankedAthletes.forEach(a => { scoreMap[a.id] = a.weighted_total; });
+
+    // Calculate mean and SD per group
+    for (const group of sortedGroups) {
+      const players = groupPlayers[group.id] || [];
+      const scores = players.map(p => scoreMap[p.athlete_id]).filter(s => s != null);
+      if (!scores.length) { stats[group.id] = { mean: 0, sd: 0, scores }; continue; }
+      const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const sd = Math.sqrt(scores.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / scores.length);
+      stats[group.id] = { mean, sd, scores };
+    }
+
+    // Find candidates at each group boundary
     for (let i = 0; i < sortedGroups.length - 1; i++) {
       const upperGroup = sortedGroups[i];
       const lowerGroup = sortedGroups[i + 1];
-      const upperPlayers = [...(groupPlayers[upperGroup.id] || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-      const lowerPlayers = [...(groupPlayers[lowerGroup.id] || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-      const n = Math.min(promoteN, Math.floor(upperPlayers.length / 2), Math.floor(lowerPlayers.length / 2));
-      // Bottom N of upper group move down
-      upperPlayers.slice(-n).forEach(p => plan.push({ athlete: p, fromGroup: upperGroup, toGroup: lowerGroup, direction: 'down' }));
-      // Top N of lower group move up
-      lowerPlayers.slice(0, n).forEach(p => plan.push({ athlete: p, fromGroup: lowerGroup, toGroup: upperGroup, direction: 'up' }));
+      const upperStats = stats[upperGroup.id];
+      const lowerStats = stats[lowerGroup.id];
+      const upperPlayers = groupPlayers[upperGroup.id] || [];
+      const lowerPlayers = groupPlayers[lowerGroup.id] || [];
+
+      // Candidates to move DOWN: bottom of upper group, score < mean - sdThreshold*sd
+      const demoteCandidates = upperPlayers
+        .map(p => ({ ...p, score: scoreMap[p.athlete_id], zScore: upperStats.sd > 0 ? (scoreMap[p.athlete_id] - upperStats.mean) / upperStats.sd : 0 }))
+        .filter(p => p.score != null && p.zScore < -sdThreshold)
+        .sort((a, b) => a.zScore - b.zScore) // most negative first
+        .slice(0, promoteN);
+
+      // Candidates to move UP: top of lower group, score > mean + sdThreshold*sd
+      const promoteCandidates = lowerPlayers
+        .map(p => ({ ...p, score: scoreMap[p.athlete_id], zScore: lowerStats.sd > 0 ? (scoreMap[p.athlete_id] - lowerStats.mean) / lowerStats.sd : 0 }))
+        .filter(p => p.score != null && p.zScore > sdThreshold)
+        .sort((a, b) => b.zScore - a.zScore) // most positive first
+        .slice(0, promoteN);
+
+      demoteCandidates.forEach(p => plan.push({
+        athlete: p, fromGroup: upperGroup, toGroup: lowerGroup, direction: "down",
+        score: p.score, zScore: p.zScore, groupMean: upperStats.mean, groupSd: upperStats.sd
+      }));
+      promoteCandidates.forEach(p => plan.push({
+        athlete: p, fromGroup: lowerGroup, toGroup: upperGroup, direction: "up",
+        score: p.score, zScore: p.zScore, groupMean: lowerStats.mean, groupSd: lowerStats.sd
+      }));
     }
     setPromotePlan(plan);
+  };
   };
 
   const applyPromotePlan = async () => {
