@@ -17,11 +17,11 @@ const POSITION_COLORS = {
 };
 const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 
-function RankBadge({ rank }) {
+function RankBadge({ rank, tied }) {
   if (rank === 1) return <div className="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center"><Medal size={13} className="text-white" /></div>;
   if (rank === 2) return <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center"><span className="text-white text-xs font-bold">2</span></div>;
   if (rank === 3) return <div className="w-7 h-7 rounded-full bg-amber-600 flex items-center justify-center"><span className="text-white text-xs font-bold">3</span></div>;
-  return <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center"><span className="text-gray-600 text-xs font-semibold">{rank}</span></div>;
+  return <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{background: tied ? "#EEF2FF" : "#F3F4F6", border: tied ? "1.5px dashed #818CF8" : "none"}}><span className="text-xs font-semibold" style={{color: tied ? "#4F46E5" : "#4B5563"}}>{rank}</span></div>;
 }
 
 function CopyCode({ code, scheduleId }) {
@@ -506,7 +506,7 @@ function DirectorDashboardInner() {
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 transition-colors ${a.rank === 1 ? "bg-yellow-50/40" : a.rank === 2 ? "bg-gray-50/60" : a.rank === 3 ? "bg-orange-50/30" : ""}`}>
-                        <td className="px-4 py-3"><RankBadge rank={a.rank} /></td>
+                        <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`}
                             className="text-gray-900 font-medium hover:text-[#1A6BFF] transition-colors">
