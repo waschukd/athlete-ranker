@@ -209,6 +209,7 @@ function FlagsPanel({ catId }) {
 function DirectorDashboardInner() {
   const [activeTab, setActiveTab] = useState("rankings");
   const [positionFilter, setPositionFilter] = useState("all");
+  const [sortBy, setSortBy] = useState(null); // { key, dir }
   const [scoreManagerOpen, setScoreManagerOpen] = useState(null);
   const [volunteerModal, setVolunteerModal] = useState(null); // { sessionNum, entries }
   const [volunteerEmails, setVolunteerEmails] = useState("");
@@ -267,6 +268,16 @@ function DirectorDashboardInner() {
   const canEditScores = category?.director_can_edit_scores || false;
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  const sortedAthletes = sortBy ? [...filteredAthletes].sort((a, b) => {
+    const dir = sortBy.dir === 'asc' ? 1 : -1;
+    if (sortBy.key === 'total') return dir * ((a.weighted_total || 0) - (b.weighted_total || 0));
+    if (sortBy.key === 'rank') return dir * (a.rank - b.rank);
+    const aScore = a.session_scores?.[sortBy.key]?.normalized_score ?? -1;
+    const bScore = b.session_scores?.[sortBy.key]?.normalized_score ?? -1;
+    return dir * (aScore - bScore);
+  }) : filteredAthletes;
+  const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
+  const sortIcon = (key) => sortBy?.key === key ? (sortBy.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]).sort((a, b) => a.scheduled_date > b.scheduled_date ? 1 : -1);
 
   // Load score manager for a session
@@ -479,7 +490,7 @@ function DirectorDashboardInner() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
@@ -488,7 +499,7 @@ function DirectorDashboardInner() {
                           S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span>
                         </th>
                       ))}
-                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>}
+                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Track</th>}
                     </tr>
                   </thead>

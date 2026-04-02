@@ -269,6 +269,7 @@ function CategoryHub() {
   const [activeTab, setActiveTab] = useState("rankings");
   const queryClient = useQueryClient();
   const [positionFilter, setPositionFilter] = useState("all");
+  const [sortBy, setSortBy] = useState(null); // { key, dir }
   const [importing, setImporting] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [showDirectorModal, setShowDirectorModal] = useState(false);
@@ -336,6 +337,16 @@ function CategoryHub() {
   const sessionStatus = rankingsData?.session_status || {};
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  const sortedAthletes = sortBy ? [...filteredAthletes].sort((a, b) => {
+    const dir = sortBy.dir === 'asc' ? 1 : -1;
+    if (sortBy.key === 'total') return dir * ((a.weighted_total || 0) - (b.weighted_total || 0));
+    if (sortBy.key === 'rank') return dir * (a.rank - b.rank);
+    const aScore = a.session_scores?.[sortBy.key]?.normalized_score ?? -1;
+    const bScore = b.session_scores?.[sortBy.key]?.normalized_score ?? -1;
+    return dir * (aScore - bScore);
+  }) : filteredAthletes;
+  const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
+  const sortIcon = (key) => sortBy?.key === key ? (sortBy.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
   const allFlags = flagsData?.flags || [];
   const unackedFlags = allFlags.filter(f => !f.acknowledged);
   const athleteFlagMap = unackedFlags.reduce((acc, f) => { acc[f.athlete_id] = (acc[f.athlete_id] || 0) + 1; return acc; }, {});
@@ -487,12 +498,12 @@ function CategoryHub() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
-                      {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
-                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>}
+                      {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
+                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Track</th>}
                     </tr>
                   </thead>
