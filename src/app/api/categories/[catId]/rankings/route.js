@@ -139,13 +139,18 @@ export async function GET(request, { params }) {
       const relevantSessions = sessions.filter(s => sessionsUpTo.includes(parseInt(s.session_number)));
       const totalWeight = relevantSessions.reduce((sum, s) => sum + parseFloat(s.weight_percentage), 0);
 
+      const isAllSessions = sessionsUpTo.length === completedSessions.length && completedSessions.length === sessions.length;
       const partials = athletes.map(a => {
         const athleteScores = scoreMap[a.id] || {};
         let partialTotal = 0;
         for (const session of relevantSessions) {
           const sd = athleteScores[session.session_number];
           if (sd && totalWeight > 0) {
-            partialTotal += sd.normalized_score * (parseFloat(session.weight_percentage) / totalWeight);
+            // Use same formula as final rank when all sessions complete
+            const weight = isAllSessions
+              ? parseFloat(session.weight_percentage) / 100
+              : parseFloat(session.weight_percentage) / totalWeight;
+            partialTotal += sd.normalized_score * weight;
           }
         }
         return { id: a.id, partialTotal };
