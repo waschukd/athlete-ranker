@@ -132,95 +132,25 @@ export async function GET(request, { params }) {
       return { ...a, weighted_total: Math.round(weightedTotal * 10) / 10, session_scores: sessionBreakdown };
     });
 
-    // Rank history: re-rank after each completed session
+    // Per-session rank: rank athletes within each individual session only
     const rankHistory = {};
-    for (let si = 0; si < completedSessions.length; si++) {
-      const sessionsUpTo = completedSessions.slice(0, si + 1);
-      const relevantSessions = sessions.filter(s => sessionsUpTo.includes(parseInt(s.session_number)));
-      const totalWeight = relevantSessions.reduce((sum, s) => sum + parseFloat(s.weight_percentage), 0);
+    for (const session of sessions) {
+      const sNum = session.session_number;
+      const sessionScoreList = athletes.map(a => {
+        const sd = (scoreMap[a.id] || {})[sNum];
+        return { id: a.id, score: sd ? sd.normalized_score : null };
+      }).filter(s => s.score !== null);
 
-      const isAllSessions = sessionsUpTo.length === completedSessions.length && completedSessions.length === sessions.length;
-      const partials = athletes.map(a => {
-        const athleteScores = scoreMap[a.id] || {};
-        let partialTotal = 0;
-        for (const session of relevantSessions) {
-          const sd = athleteScores[session.session_number];
-          if (sd && totalWeight > 0) {
-            // Use same formula as final rank when all sessions complete
-            const weight = isAllSessions
-              ? parseFloat(session.weight_percentage) / 100
-              : parseFloat(session.weight_percentage) / totalWeight;
-            partialTotal += sd.normalized_score * weight;
-          }
-        }
-        return { id: a.id, partialTotal };
-      });
+      if (!sessionScoreList.length) continue;
 
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.forEach(p => { p.partialTotal = Math.round(p.partialTotal * 10) / 10; });
-      partials.sort((a, b) => b.partialTotal - a.partialTotal);
-      partials.forEach((p, idx) => {
-        if (!rankHistory[p.id]) rankHistory[p.id] = [];
-        rankHistory[p.id].push(idx + 1);
+      sessionScoreList.sort((a, b) => b.score - a.score);
+      sessionScoreList.forEach((s, idx) => {
+        if (!rankHistory[s.id]) rankHistory[s.id] = [];
+        rankHistory[s.id].push(idx + 1);
       });
     }
 
+    // Final sort and rank
     // Final sort and rank
     withTotals.sort((a, b) => b.weighted_total !== a.weighted_total
       ? b.weighted_total - a.weighted_total
