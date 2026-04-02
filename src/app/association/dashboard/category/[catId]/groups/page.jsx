@@ -29,6 +29,8 @@ function GroupsManagerInner() {
   const [dragging, setDragging] = useState(null); // { athleteId, fromGroupId }
   const [dragOver, setDragOver] = useState(null); // groupId
   const [message, setMessage] = useState(null);
+  const [promoteN, setPromoteN] = useState(3);
+  const [promotePlan, setPromotePlan] = useState(null); // [{from, to, athlete}]
 
   // Get sessions
   const { data: setupData } = useQuery({
@@ -153,6 +155,32 @@ function GroupsManagerInner() {
     }
   };
 
+  // Build promotion plan - bottom N from each group move down, top N from next group move up
+  const buildPromotePlan = () => {
+    const sortedGroups = [...groups].sort((a, b) => a.group_number - b.group_number);
+    const plan = [];
+    for (let i = 0; i < sortedGroups.length - 1; i++) {
+      const upperGroup = sortedGroups[i];
+      const lowerGroup = sortedGroups[i + 1];
+      const upperPlayers = [...(groupPlayers[upperGroup.id] || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      const lowerPlayers = [...(groupPlayers[lowerGroup.id] || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      const n = Math.min(promoteN, Math.floor(upperPlayers.length / 2), Math.floor(lowerPlayers.length / 2));
+      // Bottom N of upper group move down
+      upperPlayers.slice(-n).forEach(p => plan.push({ athlete: p, fromGroup: upperGroup, toGroup: lowerGroup, direction: 'down' }));
+      // Top N of lower group move up
+      lowerPlayers.slice(0, n).forEach(p => plan.push({ athlete: p, fromGroup: lowerGroup, toGroup: upperGroup, direction: 'up' }));
+    }
+    setPromotePlan(plan);
+  };
+
+  const applyPromotePlan = async () => {
+    for (const move of promotePlan) {
+      await movePlayer(move.athlete.athlete_id, move.fromGroup.id, move.toGroup.id);
+    }
+    setPromotePlan(null);
+    showMsg('Groups updated with forced movement', 'success');
+  };
+
   // Drag handlers
   const onDragStart = (e, athleteId, fromGroupId) => {
     setDragging({ athleteId, fromGroupId });
@@ -193,6 +221,11 @@ function GroupsManagerInner() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => refetch()} className="p-2 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"><RefreshCw size={15} /></button>
+              {groups.length > 1 && (
+                <button onClick={buildPromotePlan} className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100">
+                  ↕ Forced Movement
+                </button>
+              )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
             </div>
           </div>
@@ -281,7 +314,7 @@ function GroupsManagerInner() {
             <p className="text-sm text-gray-400">Make sure your schedule CSV includes group numbers for Session {selectedSession}.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {groups.map(group => {
               const players = groupPlayers[group.id] || [];
               const groupSchedule = assignments.find(a => a.session_group_id === group.id);
@@ -356,7 +389,7 @@ function GroupsManagerInner() {
                   )}
 
                   {/* Player list */}
-                  <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+                  <div className="divide-y divide-gray-50">
                     {players.length === 0 ? (
                       <div className={`py-8 text-center text-xs text-gray-400 ${isDropTarget ? "bg-orange-50" : ""}`}>
                         {isDropTarget ? "Drop player here" : "No players assigned"}
