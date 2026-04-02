@@ -217,7 +217,6 @@ function GroupsManagerInner() {
     }
     setPromotePlan(plan);
   };
-  };
 
   const applyPromotePlan = async () => {
     for (const move of promotePlan) {
