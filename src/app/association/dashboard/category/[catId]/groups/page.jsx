@@ -49,6 +49,9 @@ function GroupsManagerInner() {
       const res = await fetch(`/api/categories/${catId}/groups?session=${selectedSession}`);
       return res.json();
     },
+    enabled: !!selectedSession,
+    refetchInterval: 15000,
+  });
 
   const { data: rankingsData } = useQuery({
     queryKey: ["groups-rankings", catId],
@@ -56,9 +59,6 @@ function GroupsManagerInner() {
     enabled: !!catId,
   });
   const rankedAthletes = rankingsData?.athletes || [];
-    enabled: !!selectedSession,
-    refetchInterval: 15000,
-  });
 
   const sessions = setupData?.sessions || [];
   const groups = groupsData?.groups || [];
