@@ -158,8 +158,7 @@ export async function GET(request, { params }) {
 
     let currentRank = 1;
     const ranked = withTotals.map((a, i) => {
-      currentRank = (i > 0 && a.weighted_total === withTotals[i - 1].weighted_total)
-        ? withTotals[i - 1].rank : i + 1;
+      currentRank = (i > 0 && a.weighted_total === withTotals[i - 1].weighted_total) ? currentRank : i + 1;
       return { ...a, rank: currentRank, rank_history: rankHistory[a.id] || [], agreement_pct: agreementMap[a.id] || null };
     });
 
