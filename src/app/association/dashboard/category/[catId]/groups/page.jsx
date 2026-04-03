@@ -30,6 +30,7 @@ function GroupsManagerInner() {
   const [dragOver, setDragOver] = useState(null); // groupId
   const [message, setMessage] = useState(null);
   const [promoteN, setPromoteN] = useState(3);
+  const [showAnchorPanel, setShowAnchorPanel] = useState(false);
   const [sdThreshold, setSdThreshold] = useState(1.0); // players beyond X std devs from group mean are candidates
   const [promotePlan, setPromotePlan] = useState(null); // [{from, to, athlete}]
 
@@ -59,6 +60,15 @@ function GroupsManagerInner() {
     enabled: !!catId,
   });
   const rankedAthletes = rankingsData?.athletes || [];
+
+  const { data: anchorData, refetch: refetchAnchors } = useQuery({
+    queryKey: ["anchors", catId, selectedSession],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/anchors?session=${selectedSession}`); return res.json(); },
+    enabled: !!catId && !!selectedSession,
+  });
+  const anchors = anchorData?.anchors || [];
+  const calibrationEnabled = anchorData?.calibration_enabled || false;
+  const anchorIds = new Set(anchors.filter(a => a.session_number === selectedSession).map(a => a.athlete_id));
 
   const sessions = setupData?.sessions || [];
   const groups = groupsData?.groups || [];
@@ -266,6 +276,11 @@ function GroupsManagerInner() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => refetch()} className="p-2 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"><RefreshCw size={15} /></button>
+              {calibrationEnabled && groups.length > 1 && (
+                <button onClick={() => setShowAnchorPanel(!showAnchorPanel)} className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium ${showAnchorPanel ? "bg-amber-100 border-amber-300 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                  ⚓ Anchor Players {anchors.filter(a=>a.session_number===selectedSession).length > 0 ? `(${anchors.filter(a=>a.session_number===selectedSession).length})` : ""}
+                </button>
+              )}
               {groups.length > 1 && (
                 <button onClick={buildPromotePlan} className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100">
                   ↕ Forced Movement
@@ -302,6 +317,41 @@ function GroupsManagerInner() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Message */}
+        {calibrationEnabled && showAnchorPanel && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-semibold text-amber-900 text-sm">⚓ Anchor Player Calibration</h3>
+                <p className="text-xs text-amber-700 mt-0.5">Flag 2-3 players who will skate in adjacent groups this session. Their scores create a calibration bridge to normalize evaluator bias across groups. Max 3 per session.</p>
+              </div>
+              <button onClick={async () => {
+                const res = await fetch(`/api/categories/${catId}/anchors`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:"calculate", session_number: selectedSession }) });
+                const data = await res.json();
+                if (data.success) { showMsg(`Calibration calculated using ${data.anchor_count} anchor(s)`, "success"); refetchAnchors(); }
+                else showMsg(data.error, "error");
+              }} disabled={anchors.filter(a=>a.session_number===selectedSession).length < 2} className="text-xs px-3 py-2 bg-amber-600 text-white rounded-lg font-medium disabled:opacity-40 hover:bg-amber-700">
+                Calculate Correction
+              </button>
+            </div>
+            {anchors.filter(a=>a.session_number===selectedSession).length === 0 ? (
+              <p className="text-xs text-amber-600 italic">No anchors flagged yet — click "Set Anchor" on a player card below</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {anchors.filter(a=>a.session_number===selectedSession).map(a => (
+                  <div key={a.id} className="flex items-center gap-2 bg-white border border-amber-300 rounded-lg px-3 py-1.5">
+                    <span className="text-sm font-medium text-gray-900">{a.last_name}, {a.first_name}</span>
+                    {a.raw_scores && <span className="text-xs text-amber-600">Groups: {Object.entries(JSON.parse(a.raw_scores||'{}')).map(([g,v])=>`G${g}:${Number(v).toFixed(1)}`).join(', ')}</span>}
+                    <button onClick={async () => {
+                      await fetch(`/api/categories/${catId}/anchors`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:"unflag", athlete_id: a.athlete_id, session_number: selectedSession }) });
+                      refetchAnchors();
+                    }} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {message && (
           <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${
             message.type === "error"
@@ -479,6 +529,16 @@ function GroupsManagerInner() {
                               <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
                                 <Check size={10} className="text-white" />
                               </div>
+                            )}
+                            {calibrationEnabled && showAnchorPanel && (
+                              <button onClick={async (e) => {
+                                e.stopPropagation();
+                                const isAnchor = anchorIds.has(player.athlete_id);
+                                await fetch(`/api/categories/${catId}/anchors`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action: isAnchor ? "unflag" : "flag", athlete_id: player.athlete_id, session_number: selectedSession }) });
+                                refetchAnchors();
+                              }} className={`text-xs px-1.5 py-0.5 rounded font-medium ${anchorIds.has(player.athlete_id) ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700"}`}>
+                                {anchorIds.has(player.athlete_id) ? "⚓" : "anchor"}
+                              </button>
                             )}
                             {player.team_color && (
                               <span className="text-xs text-gray-400">{player.team_color}</span>
