@@ -236,6 +236,16 @@ function ScoringStep({ scoring, setScoring }) {
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.position_tagging ? "translate-x-6" : "translate-x-1"}`} />
           </button>
+            <div className="flex items-center justify-between py-4 border-t border-gray-100">
+              <div>
+                <div className="font-medium text-gray-900 text-sm">Anchor Player Calibration</div>
+                <div className="text-xs text-gray-500 mt-0.5">Allow flagging anchor players to normalize evaluator bias across groups. Must be approved per session.</div>
+              </div>
+              <button type="button" onClick={() => handleToggle("anchor_calibration_enabled")}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.anchor_calibration_enabled ? "bg-[#1A6BFF]" : "bg-gray-200"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.anchor_calibration_enabled ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
         </div>
         <p className="text-xs text-gray-500">
           {scoring.position_tagging
@@ -276,16 +286,6 @@ function ScoringStep({ scoring, setScoring }) {
               )}
               <button onClick={() => removeCategory(i)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                 <Trash2 size={13} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between py-3 border-t border-gray-100">
-              <div>
-                <div className="font-medium text-gray-900 text-sm">Anchor Player Calibration</div>
-                <div className="text-xs text-gray-500 mt-0.5">Allow flagging anchor players to normalize evaluator bias across groups. Must be approved per session.</div>
-              </div>
-              <button type="button" onClick={() => handleToggle('anchor_calibration_enabled')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.anchor_calibration_enabled ? 'bg-[#1A6BFF]' : 'bg-gray-200'}`}>
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.anchor_calibration_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
           ))}
