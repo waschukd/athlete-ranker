@@ -1,4 +1,5 @@
 "use client";
+import SmartImportModal from "@/components/SmartImportModal";
 
 import { useState, Suspense } from "react";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -218,6 +219,7 @@ function DirectorDashboardInner() {
   const [scoreManagerData, setScoreManagerData] = useState([]);
   const [uploadMsg, setUploadMsg] = useState("");
   const [importing, setImporting] = useState(false);
+  const [smartImport, setSmartImport] = useState(null);
 
   const { data: dirData, isLoading: dirLoading } = useQuery({
     queryKey: ["director-category"],
@@ -602,28 +604,13 @@ function DirectorDashboardInner() {
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
                   ↑ Upload / Update CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    setImporting(true);
+                    const file = e.target.files[0]; if (!file) return;
                     const text = await file.text();
-                    const lines = text.trim().split("\n").filter(l => l.trim());
-                    const firstLine = lines[0].toLowerCase();
-                    const hasHeader = firstLine.includes("session") || firstLine.includes("date") || firstLine.includes("group");
-                    const dataLines = hasHeader ? lines.slice(1) : lines;
-                    const rows = dataLines.map(line => {
-                      const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-                      return { session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6] };
-                    }).filter(r => r.session_number && r.scheduled_date);
-                    const res = await fetch(`/api/categories/${catId}/schedule`, {
-                      method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ schedule: rows }),
-                    });
-                    const data = await res.json();
-                    setUploadMsg(data.success ? `✓ ${data.count} entries uploaded` : "Error: " + data.error);
-                    if (data.success) { refetchSchedule(); refetchRankings(); }
-                    setImporting(false);
+                    const lines2 = text.trim().split("\n").filter(l => l.trim());
+                    const rawHeaders = lines2[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+                    const preview = lines2.slice(1, 4).map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; rawHeaders.forEach((h, i) => obj[h] = cols[i] || ""); return obj; });
+                    setSmartImport({ type: "schedule", headers: rawHeaders, preview, rawLines: lines2 });
                     e.target.value = "";
-                    setTimeout(() => setUploadMsg(""), 4000);
                   }} />
                 </label>
               </div>
@@ -734,24 +721,15 @@ function DirectorDashboardInner() {
                           <span className="text-xs text-gray-500">Upload testing results</span>
                           <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]">
                             ↑ Upload CSV
-                            <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
-                              const file = e.target.files[0]; if (!file) return;
-                              const text = await file.text();
-                              const lines = text.trim().split("\n").filter(l => l.trim());
-                              const hasHeader = lines[0].toLowerCase().includes("first") || lines[0].toLowerCase().includes("name");
-                              const results = (hasHeader ? lines.slice(1) : lines).map(line => {
-                                const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-                                return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] };
-                              }).filter(r => r.first_name && r.last_name && r.overall_rank);
-                              const res = await fetch(`/api/categories/${catId}/testing-upload`, {
-                                method: "POST", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ session_number: s.session_number, results }),
-                              });
-                              const data = await res.json();
-                              alert(data.success ? `✓ ${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ""}` : "Error: " + data.error);
-                              refetchRankings();
-                              e.target.value = "";
-                            }} />
+                  <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
+                    const file = e.target.files[0]; if (!file) return;
+                    const text = await file.text();
+                    const lines2 = text.trim().split("\n").filter(l => l.trim());
+                    const rawHeaders = lines2[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+                    const preview = lines2.slice(1, 4).map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; rawHeaders.forEach((h, i) => obj[h] = cols[i] || ""); return obj; });
+                    setSmartImport({ type: "athletes", headers: rawHeaders, preview, rawLines: lines2 });
+                    e.target.value = "";
+                  }} />
                           </label>
                         </div>
                       </div>
@@ -1012,11 +990,45 @@ function DirectorDashboardInner() {
 }
 
 export default function DirectorDashboardPage() {
+  const handleSmartImport = async (mapping) => {
+    if (!smartImport) return;
+    setImporting(true);
+    const { type, headers, rawLines } = smartImport;
+    const dataLines = rawLines.slice(1);
+    if (type === "athletes") {
+      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { first_name: mapping.first_name ? obj[mapping.first_name] || "" : "", last_name: mapping.last_name ? obj[mapping.last_name] || "" : "", external_id: mapping.external_id ? obj[mapping.external_id] || "" : "", position: mapping.position ? obj[mapping.position] || "" : "", birth_year: mapping.birth_year ? obj[mapping.birth_year] || "" : "" }; }).filter(r => r.first_name && r.last_name);
+      const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
+      const data = await res.json();
+      setUploadMsg(`✓ ${data.inserted || 0} athletes imported, ${data.skipped || 0} skipped`);
+      refetchAthletes(); refetchRankings();
+    } else {
+      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { session_number: mapping.session_number ? obj[mapping.session_number] : "", group_number: mapping.group_number ? obj[mapping.group_number] : "", scheduled_date: mapping.scheduled_date ? obj[mapping.scheduled_date] : "", start_time: mapping.start_time ? obj[mapping.start_time] : "", end_time: mapping.end_time ? obj[mapping.end_time] : "", location: mapping.location ? obj[mapping.location] : "", evaluators_required: mapping.evaluators_required ? obj[mapping.evaluators_required] : "" }; }).filter(r => r.session_number && r.scheduled_date);
+      const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
+      const data = await res.json();
+      setUploadMsg(data.success ? `✓ ${data.count} entries uploaded` : "Error: " + data.error);
+      if (data.success) { refetchSchedule(); refetchRankings(); }
+    }
+    setSmartImport(null); setImporting(false);
+    setTimeout(() => setUploadMsg(""), 5000);
+  };
+
   return (
     <QueryClientProvider client={qc}>
       <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <DirectorDashboardInner />
       </Suspense>
+      {smartImport && (
+        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
+      )}
+      {smartImport && (
+        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
+      )}
+      {smartImport && (
+        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
+      )}
+      {smartImport && (
+        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
+      )}
     </QueryClientProvider>
   );
 }
