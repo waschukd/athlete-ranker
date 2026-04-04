@@ -1006,11 +1006,10 @@ function DirectorDashboardInner() {
           </div>
         )}
 
-      </div>
-    </div>
       {smartImport && (
         <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
       )}
+      </div>
   );
 }
 
