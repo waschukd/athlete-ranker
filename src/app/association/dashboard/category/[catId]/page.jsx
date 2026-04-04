@@ -674,7 +674,6 @@ function CategoryHub() {
                         <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` - ${sess.name} - ${sess.session_type} - ${sess.weight_percentage}%` : ""}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {sessionFlagMap[Number(sessionNum)] ? <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium"><AlertTriangle size={11} />{sessionFlagMap[Number(sessionNum)]} flag{sessionFlagMap[Number(sessionNum)] !== 1 ? "s" : ""}</span> : null}
                       <div className="flex items-center gap-2">
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">Manage Groups</a>
