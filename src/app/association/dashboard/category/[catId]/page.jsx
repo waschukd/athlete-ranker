@@ -677,6 +677,29 @@ function CategoryHub() {
                       <div className="flex items-center gap-2">
                         <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">Manage Groups</a>
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
+                        {sess?.session_type === "testing" && (
+                          <label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">
+                            Upload Results
+                            <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
+                              const file = e.target.files[0]; if (!file) return;
+                              const text = await file.text();
+                              const lines = text.trim().split('\n').filter(l => l.trim());
+                              const hasHeader = lines[0].toLowerCase().includes('first') || lines[0].toLowerCase().includes('name');
+                              const results = (hasHeader ? lines.slice(1) : lines).map(line => {
+                                const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                                return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] };
+                              }).filter(r => r.first_name && r.last_name && r.overall_rank);
+                              const res = await fetch(`/api/categories/${catId}/testing-upload`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
+                              });
+                              const data = await res.json();
+                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}` : 'Error: ' + data.error);
+                              refetchRankings(); e.target.value = "";
+                            }} />
+                          </label>
+                        )}
                         <a href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>
                       </div>
                       </div>
