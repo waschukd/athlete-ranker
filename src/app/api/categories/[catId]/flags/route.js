@@ -104,6 +104,7 @@ export async function POST(request, { params }) {
       let flagsCreated = 0;
 
       for (const session of sessions) {
+      if (parseInt(session.session_number) === 1) continue; // no prior sessions to compare
         const sNum = session.session_number;
         const sessionScores = Object.entries(normalizedMap)
           .map(([id, sessions]) => ({ athlete_id: parseInt(id), score: sessions[sNum] }))

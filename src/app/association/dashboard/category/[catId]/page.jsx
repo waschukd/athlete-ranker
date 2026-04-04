@@ -700,7 +700,7 @@ function CategoryHub() {
                             }} />
                           </label>
                         )}
-                        <a href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>
+                        {Number(sessionNum) > 1 && <a href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>}
                       </div>
                       </div>
                     </div>
