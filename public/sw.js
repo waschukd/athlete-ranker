@@ -70,3 +70,23 @@ self.addEventListener('fetch', e => {
     return;
   }
 });
+
+// Precache message: scoring page sends specific URLs to cache while online
+// Fires when evaluator opens their session - caches exactly what they need
+self.addEventListener('message', e => {
+  if (e.data?.type !== 'PRECACHE') return;
+  const urls = e.data.urls || [];
+  e.waitUntil(
+    caches.open('ss-eval-v1').then(cache =>
+      Promise.all(
+        urls.map(url =>
+          fetch(url, { credentials: 'include' })
+            .then(res => { if (res.ok) cache.put(url, res); })
+            .catch(() => {})
+        )
+      ).then(() => {
+        if (e.source) e.source.postMessage({ type: 'PRECACHE_DONE', urls });
+      })
+    )
+  );
+});

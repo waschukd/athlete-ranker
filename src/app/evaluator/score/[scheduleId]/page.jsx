@@ -128,6 +128,38 @@ function ScoringInterface() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
+  // Precache all session assets while online so the page works in dead-wifi rinks
+  // Fires once when both session data and category data have loaded successfully
+  useEffect(() => {
+    if (!sessionData?.schedule || !catData?.scoringCategories) return;
+    if (!navigator.onLine) return;
+    if (!('serviceWorker' in navigator)) return;
+    const catId = sessionData.schedule.category_id;
+    const urlsToCache = [
+      `/api/checkin/${scheduleId}`,
+      `/api/categories/${catId}/setup`,
+      `/api/evaluator/status`,
+      `/evaluator/score/${scheduleId}`,
+    ];
+    navigator.serviceWorker.ready.then(reg => {
+      if (!reg.active) return;
+      reg.active.postMessage({ type: 'PRECACHE', urls: urlsToCache });
+    });
+  }, [sessionData, catData, scheduleId]);
+
+  // Listen for PRECACHE_DONE confirmation from SW
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = e => {
+      if (e.data?.type === 'PRECACHE_DONE') {
+        setSyncStatus('Session cached ✓');
+        setTimeout(() => setSyncStatus(''), 2500);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
+
   // Detect voice capability — iOS Safari uses on-device recognition and works offline
   // Chrome/Android streams to Google servers and fails without wifi
   useEffect(() => {
