@@ -6,7 +6,7 @@ import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tan
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap, Medal,
-  Download, FileText, Copy, Check, LogOut, AlertTriangle
+  Download, FileText, Copy, Check, LogOut
 } from "lucide-react";
 
 const qc = new QueryClient();
@@ -372,12 +372,6 @@ function CategoryHub() {
     enabled: !!catId,
   });
 
-  const { data: flagsData } = useQuery({
-    queryKey: ["category-flags", catId],
-    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/flags`); return res.json(); },
-    enabled: !!catId,
-    refetchInterval: 60000,
-  });
 
   const sessions = setupData?.sessions || [];
   const scoringCategories = setupData?.scoringCategories || [];
@@ -402,10 +396,6 @@ function CategoryHub() {
   }) : filteredAthletes;
   const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
   const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#1A6BFF]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
-  const allFlags = flagsData?.flags || [];
-  const unackedFlags = allFlags.filter(f => !f.acknowledged);
-  const athleteFlagMap = unackedFlags.reduce((acc, f) => { acc[f.athlete_id] = (acc[f.athlete_id] || 0) + 1; return acc; }, {});
-  const sessionFlagMap = unackedFlags.reduce((acc, f) => { acc[f.session_number] = (acc[f.session_number] || 0) + 1; return acc; }, {});
 
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]);
 
@@ -582,7 +572,7 @@ function CategoryHub() {
                       <tr key={a.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#1A6BFF]">{a.first_name}</a></td>
-                        <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a>{athleteFlagMap[a.id] ? <span title={`${athleteFlagMap[a.id]} unreviewed flag(s)`}><AlertTriangle size={12} className="text-amber-500" /></span> : null}</span></td>
+                        <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a></td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}
