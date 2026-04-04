@@ -889,6 +889,28 @@ function DirectorDashboardInner() {
                 <div className="space-y-2">
                   {sessions.map(s => {
                     const isComplete = completedSessions.includes(s.session_number);
+  const handleSmartImport = async (mapping) => {
+    if (!smartImport) return;
+    setImporting(true);
+    const { type, headers, rawLines } = smartImport;
+    const dataLines = rawLines.slice(1);
+    if (type === "athletes") {
+      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { first_name: mapping.first_name ? obj[mapping.first_name] || "" : "", last_name: mapping.last_name ? obj[mapping.last_name] || "" : "", external_id: mapping.external_id ? obj[mapping.external_id] || "" : "", position: mapping.position ? obj[mapping.position] || "" : "", birth_year: mapping.birth_year ? obj[mapping.birth_year] || "" : "" }; }).filter(r => r.first_name && r.last_name);
+      const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
+      const data = await res.json();
+      setUploadMsg(`✓ ${data.inserted || 0} athletes imported, ${data.skipped || 0} skipped`);
+      refetchAthletes(); refetchRankings();
+    } else {
+      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { session_number: mapping.session_number ? obj[mapping.session_number] : "", group_number: mapping.group_number ? obj[mapping.group_number] : "", scheduled_date: mapping.scheduled_date ? obj[mapping.scheduled_date] : "", start_time: mapping.start_time ? obj[mapping.start_time] : "", end_time: mapping.end_time ? obj[mapping.end_time] : "", location: mapping.location ? obj[mapping.location] : "", evaluators_required: mapping.evaluators_required ? obj[mapping.evaluators_required] : "" }; }).filter(r => r.session_number && r.scheduled_date);
+      const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
+      const data = await res.json();
+      setUploadMsg(data.success ? `✓ ${data.count} entries uploaded` : "Error: " + data.error);
+      if (data.success) { refetchSchedule(); refetchRankings(); }
+    }
+    setSmartImport(null); setImporting(false);
+    setTimeout(() => setUploadMsg(""), 5000);
+  };
+
                     return (
                       <div key={s.id} className="flex items-center justify-between">
                         <span className="text-sm text-gray-700">Session {s.session_number} — {s.name}</span>
@@ -986,46 +1008,19 @@ function DirectorDashboardInner() {
 
       </div>
     </div>
+      {smartImport && (
+        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
+      )}
   );
 }
 
-export default function DirectorDashboardPage() {
-  const handleSmartImport = async (mapping) => {
-    if (!smartImport) return;
-    setImporting(true);
-    const { type, headers, rawLines } = smartImport;
-    const dataLines = rawLines.slice(1);
-    if (type === "athletes") {
-      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { first_name: mapping.first_name ? obj[mapping.first_name] || "" : "", last_name: mapping.last_name ? obj[mapping.last_name] || "" : "", external_id: mapping.external_id ? obj[mapping.external_id] || "" : "", position: mapping.position ? obj[mapping.position] || "" : "", birth_year: mapping.birth_year ? obj[mapping.birth_year] || "" : "" }; }).filter(r => r.first_name && r.last_name);
-      const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
-      const data = await res.json();
-      setUploadMsg(`✓ ${data.inserted || 0} athletes imported, ${data.skipped || 0} skipped`);
-      refetchAthletes(); refetchRankings();
-    } else {
-      const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, idx) => obj[h] = cols[idx] || ""); return { session_number: mapping.session_number ? obj[mapping.session_number] : "", group_number: mapping.group_number ? obj[mapping.group_number] : "", scheduled_date: mapping.scheduled_date ? obj[mapping.scheduled_date] : "", start_time: mapping.start_time ? obj[mapping.start_time] : "", end_time: mapping.end_time ? obj[mapping.end_time] : "", location: mapping.location ? obj[mapping.location] : "", evaluators_required: mapping.evaluators_required ? obj[mapping.evaluators_required] : "" }; }).filter(r => r.session_number && r.scheduled_date);
-      const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
-      const data = await res.json();
-      setUploadMsg(data.success ? `✓ ${data.count} entries uploaded` : "Error: " + data.error);
-      if (data.success) { refetchSchedule(); refetchRankings(); }
-    }
-    setSmartImport(null); setImporting(false);
-    setTimeout(() => setUploadMsg(""), 5000);
-  };
 
+export default function DirectorDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
       <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
         <DirectorDashboardInner />
       </Suspense>
-      {smartImport && (
-        <SmartImportModal type={smartImport.type} headers={smartImport.headers} preview={smartImport.preview} onConfirm={handleSmartImport} onClose={() => setSmartImport(null)} />
-      )}
     </QueryClientProvider>
   );
 }
-
-
-
-
-
-
