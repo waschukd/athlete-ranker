@@ -117,6 +117,17 @@ function ScoringInterface() {
     return () => { window.removeEventListener("online", go); window.removeEventListener("offline", stop); };
   }, []);
 
+  // Ask service worker to trigger background sync when we come back online
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handleOnline = async () => {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg.sync) { try { await reg.sync.register('score-sync'); } catch {} }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   // Detect voice capability — iOS Safari uses on-device recognition and works offline
   // Chrome/Android streams to Google servers and fails without wifi
   useEffect(() => {
@@ -498,12 +509,23 @@ function ScoringInterface() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!online && <WifiOff size={16} className="text-red-400" />}
+            {/* Connection dot */}
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${
+                online ? 'bg-green-400 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
+              }`} />
+              <span className={`text-xs font-medium ${
+                online ? 'text-green-400' : Object.keys(pending).length > 0 ? 'text-amber-400' : 'text-red-400'
+              }`}>
+                {online ? 'Live' : Object.keys(pending).length > 0 ? `${Object.keys(pending).length} pending` : 'Offline'}
+              </span>
+            </div>
+            {/* Sync status message */}
             {syncStatus && (
               <span className={`text-xs px-2 py-1 rounded-lg ${
-                syncStatus.includes("✓") ? "text-green-400" :
-                syncStatus.includes("fail") || syncStatus.includes("Error") ? "text-red-400" :
-                "text-amber-400"
+                syncStatus.includes('✓') ? 'text-green-400' :
+                syncStatus.includes('fail') || syncStatus.includes('Error') ? 'text-red-400' :
+                'text-amber-400'
               }`}>{syncStatus}</span>
             )}
           </div>
@@ -531,6 +553,16 @@ function ScoringInterface() {
       </div>
 
       {/* ── Jersey grid ────────────────────────────────────── */}
+      {/* Pending sync banner */}
+      {!online && Object.keys(pending).length > 0 && (
+        <div className="mx-3 mt-3 flex items-center gap-2 bg-amber-950 border border-amber-700/50 rounded-xl px-3 py-2.5">
+          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-300">{Object.keys(pending).length} score{Object.keys(pending).length !== 1 ? 's' : ''} saved locally</p>
+            <p className="text-xs text-amber-500 mt-0.5">Will sync automatically when wifi returns. Keep this tab open.</p>
+          </div>
+        </div>
+      )}
       <div className="px-3 pt-3 pb-2">
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 px-1">
