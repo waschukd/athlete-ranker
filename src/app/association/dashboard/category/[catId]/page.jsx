@@ -351,7 +351,7 @@ function CategoryHub() {
     queryKey: ["category-rankings", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings`); return res.json(); },
     enabled: !!catId,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const { data: scheduleData, refetch: refetchSchedule } = useQuery({

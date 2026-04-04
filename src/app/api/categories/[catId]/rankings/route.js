@@ -187,13 +187,15 @@ export async function GET(request, { params }) {
     const phase = completedSessions.length === 0 ? "pre_session"
       : trueCompletedSessions.length === sessions.length ? "complete" : "in_progress";
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       athletes: ranked, has_scores: true, phase, sessions,
       completed_sessions: trueCompletedSessions,
       in_progress_sessions: inProgressSessions,
       session_status: sessionStatus, category,
       scoring_info: { scale, method: "percentile_and_normalized_0_100" },
     });
+    response.headers.set('Cache-Control', 's-maxage=20, stale-while-revalidate=40');
+    return response;
 
   } catch (error) {
     console.error("Rankings error:", error);
