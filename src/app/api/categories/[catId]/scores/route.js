@@ -105,7 +105,7 @@ export async function POST(request, { params }) {
     let skipped = 0;
 
     for (const row of rows) {
-      const { first_name, last_name, scores } = row;
+      const { first_name, last_name, scores, notes } = row;
       const athlete = await sql`
         SELECT id FROM athletes WHERE age_category_id = ${catId}
           AND LOWER(first_name) = LOWER(${first_name})
@@ -120,10 +120,10 @@ export async function POST(request, { params }) {
         const score = parseFloat(scores[i]);
         if (isNaN(score)) continue;
         await sql`
-          INSERT INTO category_scores (athlete_id, age_category_id, session_number, evaluator_id, scoring_category_id, score, scored_via, updated_at)
-          VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${scoringCats[i].id}, ${score}, 'manual_upload', NOW())
+          INSERT INTO category_scores (athlete_id, age_category_id, session_number, evaluator_id, scoring_category_id, score, notes, scored_via, updated_at)
+          VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${scoringCats[i].id}, ${score}, ${notes || null}, 'manual_upload', NOW())
           ON CONFLICT (athlete_id, session_number, evaluator_id, scoring_category_id)
-          DO UPDATE SET score = ${score}, scored_via = 'manual_upload', updated_at = NOW()
+          DO UPDATE SET score = ${score}, notes = ${notes || null}, scored_via = 'manual_upload', updated_at = NOW()
         `;
       }
       imported++;

@@ -1,12 +1,7 @@
 ﻿const fs = require('fs');
-const path = 'src/app/account/signin/page.jsx';
-let c = fs.readFileSync(path, 'utf8');
-
-c = c.replace(
-  `<img src="/logo-dark.png" alt="Sideline Star" className="mx-auto mb-6" style={{height:"80px",objectFit:"contain"}} />`,
-  `<img src="/icon-dark.png" alt="Sideline Star" className="mx-auto mb-4" style={{height:"72px",width:"72px",objectFit:"contain"}} />
-          <p className="text-lg font-light tracking-widest mb-2" style={{color:"#4D8FFF",letterSpacing:"0.15em"}}>SIDELINE STAR</p>`
+let lines = fs.readFileSync('src/app/account/signin/page.jsx','utf8').split(/\r?\n/);
+lines.splice(39, 6,
+  '            <img src="/s-mark-dark.svg" style={{width:"72px",height:"72px",objectFit:"contain"}} />'
 );
-
-fs.writeFileSync(path, c);
+fs.writeFileSync('src/app/account/signin/page.jsx', lines.join('\n'));
 console.log('done');

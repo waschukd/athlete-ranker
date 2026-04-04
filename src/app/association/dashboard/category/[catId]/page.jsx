@@ -222,13 +222,15 @@ function ManualScoreUpload({ catId, sessions, scoringCategories }) {
     if (!evalName || !sessionNum || !file) return;
     setLoading(true);
     const text = await file.text();
-    const lines = text.trim().split("\n").filter(l => l.trim());
-    const headers = lines[0].split(",").map(h => h.trim());
+    const csvLines = text.replace(/\r\n/g,'\n').trim().split('\n').filter(l=>l.trim());
+    const headers = csvLines[0].split(',').map(h=>h.trim());
     const catNames = scoringCategories.map(c => c.name);
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+    const notesIdx = headers.findIndex(h => ['notes','comments','comment','note','evaluator notes'].includes(h.toLowerCase().trim()));
+    const rows = csvLines.slice(1).map(line => {
+      const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
       const scores = catNames.map(cat => { const idx = headers.indexOf(cat); return idx >= 0 ? cols[idx] : null; });
-      return { first_name: cols[0], last_name: cols[1], scores };
+      const notes = notesIdx >= 0 && cols[notesIdx] ? cols[notesIdx] : null;
+      return { first_name: cols[0], last_name: cols[1], scores, notes };
     }).filter(r => r.first_name && r.last_name);
     const res = await fetch(`/api/categories/${catId}/scores`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evaluatorName: evalName, sessionNumber: parseInt(sessionNum), rows }) });
     const data = await res.json();
@@ -253,11 +255,63 @@ function ManualScoreUpload({ catId, sessions, scoringCategories }) {
               </select>
             </div>
           </div>
-          <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First, Last, {scoringCategories.map(c => c.name).join(", ")})</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" /></div>
+          <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First Name, Last Name, {scoringCategories.map(c => c.name).join(", ")}, Notes (optional))</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" /></div>
           {result && <div className={`text-xs px-3 py-2 rounded-lg font-medium ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{result.success ? `Imported ${result.imported} athletes${result.skipped > 0 ? `, ${result.skipped} not matched` : ""}` : result.error}</div>}
           <button onClick={handleUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">{loading ? "Uploading..." : "Upload Scores"}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function CSVMappingModal({ headers, onConfirm, onCancel }) {
+  const FIELDS = [
+    { key: 'first_name',   label: 'First Name',     required: true,  guesses: ['first name','first_name','firstname','first','fname','given name'] },
+    { key: 'last_name',    label: 'Last Name',      required: true,  guesses: ['last name','last_name','lastname','last','lname','surname','family name'] },
+    { key: 'external_id',  label: 'HC# / Player ID', required: false, guesses: ['hc#','hc','external_id','player id','player_id','id','hcn','hockey canada #'] },
+    { key: 'position',     label: 'Position',        required: false, guesses: ['position','pos'] },
+    { key: 'birth_year',   label: 'Birth Year',      required: false, guesses: ['birth year','birth_year','dob','birthyear','year','birth yr'] },
+    { key: 'parent_email', label: 'Parent Email',    required: false, guesses: ['parent email','parent_email','email'] },
+  ];
+  const autoMap = () => {
+    const map = {};
+    const lh = headers.map(h => h.toLowerCase().trim());
+    for (const f of FIELDS) { const i = lh.findIndex(h => f.guesses.includes(h)); map[f.key] = i >= 0 ? headers[i] : ''; }
+    return map;
+  };
+  const [mapping, setMapping] = useState(autoMap);
+  const ok = FIELDS.filter(f => f.required).every(f => mapping[f.key]);
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900">Map CSV Columns</h3>
+          <p className="text-sm text-gray-500 mt-1">Detected {headers.length} column{headers.length !== 1 ? 's' : ''} — match them to the expected fields. We've auto-guessed where possible.</p>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          {FIELDS.map(f => (
+            <div key={f.key} className="flex items-center gap-3">
+              <div className="w-36 flex-shrink-0">
+                <span className="text-sm font-medium text-gray-800">{f.label}</span>
+                {f.required ? <span className="text-red-400 ml-1 text-xs">required</span> : <span className="text-gray-400 ml-1 text-xs">optional</span>}
+              </div>
+              <select value={mapping[f.key]} onChange={e => setMapping(m => ({...m, [f.key]: e.target.value}))}
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] bg-white ${f.required && !mapping[f.key] ? 'border-red-300 bg-red-50' : mapping[f.key] ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+                <option value="">— Skip —</option>
+                {headers.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <p className="text-xs text-gray-400">* Required fields must be mapped to proceed</p>
+          <div className="flex gap-3">
+            <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-100">Cancel</button>
+            <button onClick={() => onConfirm(mapping)} disabled={!ok} className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Import Athletes</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -285,6 +339,7 @@ function CategoryHub() {
   const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
+  const [csvPending, setCsvPending] = useState(null);
 
   const { data: setupData, isLoading } = useQuery({
     queryKey: ["category-setup", catId],
@@ -346,7 +401,7 @@ function CategoryHub() {
     return dir * (aScore - bScore);
   }) : filteredAthletes;
   const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
-  const sortIcon = (key) => sortBy?.key === key ? (sortBy.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
+  const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#1A6BFF]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
   const allFlags = flagsData?.flags || [];
   const unackedFlags = allFlags.filter(f => !f.acknowledged);
   const athleteFlagMap = unackedFlags.reduce((acc, f) => { acc[f.athlete_id] = (acc[f.athlete_id] || 0) + 1; return acc; }, {});
@@ -401,6 +456,21 @@ function CategoryHub() {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const el = document.createElement("a"); el.href = url; el.download = `session_${sessionNum}_summary.csv`; el.click();
+  };
+
+
+  const handleCSVConfirm = async (mapping) => {
+    setCsvPending(null);
+    setImporting(true);
+    const rows = csvPending.rawRows.map(line => {
+      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const get = col => { if (!col) return ''; const idx = csvPending.headers.indexOf(col); return idx >= 0 ? cols[idx] : ''; };
+      return { first_name: get(mapping.first_name), last_name: get(mapping.last_name), external_id: get(mapping.external_id), position: get(mapping.position), birth_year: get(mapping.birth_year), parent_email: get(mapping.parent_email) };
+    }).filter(r => r.first_name && r.last_name);
+    const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
+    const data = await res.json();
+    setAthleteMsg(`${data.inserted || 0} imported, ${data.skipped || 0} skipped`);
+    refetchAthletes(); refetchRankings(); setImporting(false); setTimeout(() => setAthleteMsg(''), 4000);
   };
 
   const tabs = [
@@ -516,8 +586,33 @@ function CategoryHub() {
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}
-                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF] transition-colors whitespace-nowrap">View Report</a></td>
-                        {hasScores && <td className="px-4 py-3 text-center">{a.rank_history?.length > 0 ? <div className="flex items-center justify-center gap-1 flex-wrap">{a.rank_history.map((r, i) => <span key={i} className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold "bg-gray-100 text-gray-600"`}>{r}</span>)}<span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#1A6BFF] text-white">{a.rank}</span></div> : <span className="text-gray-200">-</span>}</td>}
+                        {hasScores && <td className="px-4 py-3 text-center">
+                          {a.rank_history?.length > 0 ? (
+                            <div className="flex items-center justify-center gap-0.5 flex-wrap">
+                              {a.rank_history.map((r, i) => {
+                                const prev = i > 0 ? a.rank_history[i - 1] : null;
+                                const up = prev !== null && r < prev;
+                                const dn = prev !== null && r > prev;
+                                return (
+                                  <span key={i} className="inline-flex items-center gap-0.5">
+                                    {i > 0 && <span className={`text-xs font-bold leading-none ${up ? 'text-green-500' : dn ? 'text-red-400' : 'text-gray-300'}`}>{up ? '↑' : dn ? '↓' : '–'}</span>}
+                                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${r <= 5 ? 'bg-green-100 text-green-700' : r <= 15 ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{r}</span>
+                                  </span>
+                                );
+                              })}
+                              {(() => {
+                                const last = a.rank_history[a.rank_history.length - 1];
+                                const upF = a.rank < last; const dnF = a.rank > last;
+                                return (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <span className={`text-xs font-bold leading-none ${upF ? 'text-green-500' : dnF ? 'text-red-400' : 'text-gray-300'}`}>{upF ? '↑' : dnF ? '↓' : '–'}</span>
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#1A6BFF] text-white">{a.rank}</span>
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          ) : <span className="text-gray-200 text-xs">—</span>}
+                        </td>}
                       </tr>
                     ))}
                   </tbody>
@@ -638,6 +733,8 @@ function CategoryHub() {
         </div>
       )}
 
+        {csvPending && <CSVMappingModal headers={csvPending.headers} onCancel={() => setCsvPending(null)} onConfirm={handleCSVConfirm} />}
+
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
         {activeTab === "schedule" && <FlagsPanel catId={catId} />}
 
@@ -711,15 +808,13 @@ function CategoryHub() {
                   <Upload size={14} /> {importing ? "Importing..." : "Upload CSV"}
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
                     const file = e.target.files[0]; if (!file) return;
-                    setImporting(true);
                     const text = await file.text();
-                    const lines = text.trim().split("\n").filter(l => l.trim());
-                    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, "_"));
-                    const rows = lines.slice(1).map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); const obj = {}; headers.forEach((h, i) => obj[h] = cols[i] || ""); return { first_name: obj.first_name || obj.first || "", last_name: obj.last_name || obj.last || "", external_id: obj["hc#"] || obj.hc || obj.external_id || "", position: obj.position || "", birth_year: obj.birth_year || obj.dob || "" }; }).filter(r => r.first_name && r.last_name);
-                    const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
-                    const data = await res.json();
-                    setAthleteMsg(`${data.inserted || 0} imported, ${data.skipped || 0} skipped`);
-                    refetchAthletes(); refetchRankings(); setImporting(false); e.target.value = ""; setTimeout(() => setAthleteMsg(""), 4000);
+                    const csvLines = text.replace(/\r\n/g,'\n').trim().split('\n').filter(l=>l.trim());
+                    if (csvLines.length < 2) return;
+                    const rawHeaders = csvLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+                    const rawRows = csvLines.slice(1).filter(l=>l.trim());
+                    setCsvPending({ headers: rawHeaders, rawRows });
+                    e.target.value='';
                   }} />
                 </label>
                 <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
