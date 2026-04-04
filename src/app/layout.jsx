@@ -2,9 +2,17 @@
 
 import "./globals.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function RootLayout({ children }) {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[SW] registered', reg.scope))
+        .catch(err => console.warn('[SW] registration failed', err));
+    }
+  }, []);
+
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 30000, retry: 1 } }
   }));

@@ -53,6 +53,7 @@ function ScoringInterface() {
   const [reviewedFlags, setReviewedFlags] = useState(new Set());
   const [closing, setClosing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
+  const [voiceMode, setVoiceMode] = useState('checking'); // checking | live | degraded | unavailable
   const [notesMode, setNotesMode] = useState(false);
   const [teamFilter, setTeamFilter] = useState("all");
   const [syncStatus, setSyncStatus] = useState("");
@@ -114,6 +115,24 @@ function ScoringInterface() {
     window.addEventListener("offline", stop);
     setOnline(navigator.onLine);
     return () => { window.removeEventListener("online", go); window.removeEventListener("offline", stop); };
+  }, []);
+
+  // Detect voice capability — iOS Safari uses on-device recognition and works offline
+  // Chrome/Android streams to Google servers and fails without wifi
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setVoiceMode('unavailable'); return; }
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const worksOffline = isIOS && isSafari;
+    const update = () => {
+      if (navigator.onLine) { setVoiceMode('live'); return; }
+      setVoiceMode(worksOffline ? 'degraded' : 'unavailable');
+    };
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
   // Data queries
@@ -420,7 +439,7 @@ function ScoringInterface() {
       return;
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setVoiceStatus("Voice not available in this browser"); return; }
+    if (!SR || voiceMode === 'unavailable') { setVoiceStatus("Voice unavailable offline — tap to score"); return; }
 
     const rec = new SR();
     rec.continuous = true;
@@ -682,6 +701,14 @@ function ScoringInterface() {
       )}
 
       {/* ── Voice bar — fixed at bottom ─────────────────────── */}
+      {!online && voiceMode === 'unavailable' && (
+        <div className="fixed bottom-16 left-0 right-0 z-20 px-4 pb-1">
+          <div className="max-w-2xl mx-auto bg-amber-950 border border-amber-700 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="text-amber-400 text-xs">⚠️</span>
+            <span className="text-xs text-amber-300">Voice unavailable offline — tap to score. Audio feedback still works.</span>
+          </div>
+        </div>
+      )}
       <div className={`fixed bottom-0 left-0 right-0 z-20 border-t transition-colors duration-200 ${
         voiceOn
           ? notesMode
