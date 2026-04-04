@@ -94,122 +94,6 @@ function ScoreManager({ catId, sessionNumber }) {
   );
 }
 
-function FlagsPanel({ catId }) {
-  const [flags, setFlags] = useState([]);
-  const [detecting, setDetecting] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const loadFlags = async () => {
-    const res = await fetch(`/api/categories/${catId}/flags`);
-    const data = await res.json();
-    setFlags(data.flags || []);
-  };
-
-  const detect = async () => {
-    setDetecting(true);
-    setMsg("");
-    const res = await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "detect" }) });
-    const data = await res.json();
-    setMsg(`Detection complete - ${data.flags_created} new flag${data.flags_created !== 1 ? "s" : ""} found`);
-    loadFlags();
-    setDetecting(false);
-  };
-
-  const acknowledge = async (flagId) => {
-    await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "acknowledge", flag_id: flagId }) });
-    loadFlags();
-  };
-
-  useEffect(() => { loadFlags(); }, []);
-
-  const unacknowledged = flags.filter(f => !f.acknowledged);
-  const bySession = flags.reduce((acc, f) => { const k = f.session_number; if (!acc[k]) acc[k] = []; acc[k].push(f); return acc; }, {});
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900">Athlete Flags</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Outlier detection - significant drops or session anomalies</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {msg && <span className="text-xs text-green-600 font-medium">{msg}</span>}
-          <button onClick={detect} disabled={detecting} className="px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
-            {detecting ? "Detecting..." : "Run Detection"}
-          </button>
-        </div>
-      </div>
-
-      {flags.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-200 rounded-xl px-5 py-8 text-center text-sm text-gray-400">No flags detected yet - click Run Detection after scores are uploaded</div>
-      ) : (
-        <>
-          {unacknowledged.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-red-100 flex items-center justify-between">
-                <span className="text-sm font-semibold text-red-800">{unacknowledged.length} Unreviewed Flag{unacknowledged.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="divide-y divide-red-100">
-                {unacknowledged.map(f => (
-                  <div key={f.id} className="flex items-center justify-between px-5 py-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
-                        <span className="text-sm font-semibold text-gray-900">{f.first_name} {f.last_name}</span>
-                        <span className="text-xs text-gray-400">Session {f.session_number}</span>
-                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        {f.flag_type === "personal_drop"
-                          ? `Previous avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score} (drop of ${f.details?.drop})`
-                          : `Score: ${f.details?.athlete_score} vs session mean: ${f.details?.session_mean} (z: ${f.details?.z_score})`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF]">Report</a>
-                      <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.entries(bySession).sort(([a],[b]) => Number(a)-Number(b)).map(([sNum, sFlags]) => (
-            <div key={sNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
-                <span className="text-sm font-semibold text-gray-700">Session {sNum} - {sFlags.length} flag{sFlags.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {sFlags.map(f => (
-                  <div key={f.id} className={`flex items-center justify-between px-5 py-3 ${f.acknowledged ? "opacity-50" : ""}`}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
-                        <span className="text-sm font-medium text-gray-900">{f.first_name} {f.last_name}</span>
-                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        {f.flag_type === "personal_drop"
-                          ? `Prev avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score}`
-                          : `Score: ${f.details?.athlete_score} vs mean: ${f.details?.session_mean}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {f.acknowledged
-                        ? <span className="text-xs text-gray-400">Reviewed by {f.acknowledged_by_name}</span>
-                        : <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </>
-      )}
-    </div>
-  );
-}
 
 function ManualScoreUpload({ catId, sessions, scoringCategories }) {
   const [open, setOpen] = useState(false);
@@ -671,7 +555,7 @@ function CategoryHub() {
                     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
                       <div className="flex items-center gap-3">
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${sStatus === "complete" ? "bg-green-500" : sStatus === "in_progress" ? "bg-blue-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>{sessionNum}</div>
-                        <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` - ${sess.name} - ${sess.session_type} - ${sess.weight_percentage}%` : ""}</span>
+                        <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` - ${sess.session_type} - ${sess.weight_percentage}%` : ""}</span>
                       </div>
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
@@ -750,65 +634,6 @@ function CategoryHub() {
 
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
 
-        {activeTab === "sessions" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">Sessions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sessions.map(s => {
-                const isComplete = completedSessions.includes(s.session_number);
-                return (
-                  <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>{isComplete ? <CheckCircle size={16} /> : s.session_number}</div>
-                        <div><div className="font-semibold text-gray-900">{s.name}</div><div className="text-xs text-gray-400 capitalize">{s.session_type}</div></div>
-                      </div>
-                      <span className="text-sm font-bold text-[#1A6BFF]">{s.weight_percentage}%</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3"><div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"}`} style={{ width: `${s.weight_percentage}%` }} /></div>
-                    {s.session_type === "testing" && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Upload testing results</span>
-                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]">
-                            Upload CSV
-                            <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
-                              const file = e.target.files[0]; if (!file) return;
-                              const text = await file.text();
-                              const lines = text.trim().split("\n").filter(l => l.trim());
-                              const hasHeader = lines[0].toLowerCase().includes("first") || lines[0].toLowerCase().includes("name");
-                              const results = (hasHeader ? lines.slice(1) : lines).map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] }; }).filter(r => r.first_name && r.last_name && r.overall_rank);
-                              const res = await fetch(`/api/categories/${catId}/testing-upload`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_number: s.session_number, results }) });
-                              const data = await res.json();
-                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ""}` : "Error: " + data.error);
-                              refetchRankings(); e.target.value = "";
-                            }} />
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">{isComplete ? "Scores entered" : "No scores yet"}</span>
-                        <button onClick={() => loadScoreManager(s.session_number)} className="text-xs px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">Manage Scores</button>
-                      </div>
-                      {scoreManagerOpen === s.session_number && (
-                        <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
-                          {scoreManagerData.length === 0 ? <div className="text-xs text-gray-400">No scores entered</div> : scoreManagerData.map(sc => (
-                            <div key={sc.evaluator_id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
-                              <div><div className="text-xs font-medium text-gray-900">{sc.evaluator_name}</div><div className="text-xs text-gray-400">{sc.athletes_scored} players scored</div></div>
-                              <button onClick={() => clearEvaluatorScores(s.session_number, sc.evaluator_id, sc.evaluator_name)} className="text-xs px-2 py-1 bg-red-50 text-red-500 rounded-lg hover:bg-red-100">Delete</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {activeTab === "athletes" && (
           <div className="space-y-4">
