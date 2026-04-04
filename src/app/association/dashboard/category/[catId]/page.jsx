@@ -679,6 +679,7 @@ function CategoryHub() {
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         <a href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>
                       </div>
+                      </div>
                     </div>
                     <table className="w-full text-sm">
                       <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Group</th><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Check-in</th></tr></thead>
