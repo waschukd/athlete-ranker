@@ -675,9 +675,9 @@ function CategoryHub() {
                       </div>
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">Manage Groups</a>
-                      </div>
+                        <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
+                        <a href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>
                       </div>
                     </div>
                     <table className="w-full text-sm">
@@ -725,7 +725,6 @@ function CategoryHub() {
         {csvPending && <CSVMappingModal headers={csvPending.headers} onCancel={() => setCsvPending(null)} onConfirm={handleCSVConfirm} />}
 
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
-        {activeTab === "schedule" && <FlagsPanel catId={catId} />}
 
         {activeTab === "sessions" && (
           <div className="space-y-4">
