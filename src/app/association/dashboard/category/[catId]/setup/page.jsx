@@ -236,8 +236,6 @@ function ScoringStep({ scoring, setScoring }) {
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.position_tagging ? "translate-x-6" : "translate-x-1"}`} />
           </button>
-            <div className="flex items-center justify-between py-4 border-t border-gray-100">
-        </div>
         <p className="text-xs text-gray-500">
           {scoring.position_tagging
             ? "Tag players by position (Forward, Defense, Goalie) so rankings can be filtered and sorted by position at the end. Goalies are evaluated in a completely separate stream with their own evaluators."
