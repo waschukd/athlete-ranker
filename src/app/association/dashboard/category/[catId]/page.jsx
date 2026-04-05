@@ -834,7 +834,6 @@ function CategoryHub() {
             )}
             </div>
             </div>
-            )
       </div>
     </div>
   );
