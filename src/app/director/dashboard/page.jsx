@@ -89,119 +89,37 @@ function ManualScoreUpload({ catId, sessions, scoringCategories }) {
   );
 }
 
-function FlagsPanel({ catId }) {
-  const [flags, setFlags] = useState([]);
-  const [detecting, setDetecting] = useState(false);
-  const [msg, setMsg] = useState("");
 
-  const loadFlags = async () => {
-    const res = await fetch(`/api/categories/${catId}/flags`);
-    const data = await res.json();
-    setFlags(data.flags || []);
-  };
-
-  const detect = async () => {
-    setDetecting(true);
-    setMsg("");
-    const res = await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "detect" }) });
-    const data = await res.json();
-    setMsg(`Detection complete - ${data.flags_created} new flag${data.flags_created !== 1 ? "s" : ""} found`);
-    loadFlags();
-    setDetecting(false);
-  };
-
-  const acknowledge = async (flagId) => {
-    await fetch(`/api/categories/${catId}/flags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "acknowledge", flag_id: flagId }) });
-    loadFlags();
-  };
-
-  useState(() => { loadFlags(); }, []);
-
-  const unacknowledged = flags.filter(f => !f.acknowledged);
-  const bySession = flags.reduce((acc, f) => { const k = f.session_number; if (!acc[k]) acc[k] = []; acc[k].push(f); return acc; }, {});
-
+function CSVMappingModal({ headers, onConfirm, onCancel }) {
+  const FIELDS = [
+    { key: 'first_name', label: 'First Name', required: true, guesses: ['first name','first_name','firstname','first','fname','given name'] },
+    { key: 'last_name', label: 'Last Name', required: true, guesses: ['last name','last_name','lastname','last','lname','surname','family name'] },
+    { key: 'external_id', label: 'HC# / Player ID', required: false, guesses: ['hc#','hc','external_id','player id','player_id','id','hcn','hockey canada #'] },
+    { key: 'position', label: 'Position', required: false, guesses: ['position','pos'] },
+    { key: 'birth_year', label: 'Birth Year', required: false, guesses: ['birth year','birth_year','dob','birthyear','year','birth yr'] },
+    { key: 'parent_email', label: 'Parent Email', required: false, guesses: ['parent email','parent_email','email'] },
+  ];
+  const autoMap = () => { const map = {}; const lh = headers.map(h => h.toLowerCase().trim()); for (const f of FIELDS) { const i = lh.findIndex(h => f.guesses.includes(h)); map[f.key] = i >= 0 ? headers[i] : ""; } return map; };
+  const [mapping, setMapping] = useState(autoMap);
+  const ok = FIELDS.filter(f => f.required).every(f => mapping[f.key]);
   return (
-    <div className="mt-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900">Athlete Flags</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Outlier detection - significant drops or session anomalies</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {msg && <span className="text-xs text-green-600 font-medium">{msg}</span>}
-          <button onClick={detect} disabled={detecting} className="px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
-            {detecting ? "Detecting..." : "Run Detection"}
-          </button>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100"><h3 className="text-lg font-bold text-gray-900">Map CSV Columns</h3></div>
+        <div className="px-6 py-4 space-y-3">{FIELDS.map(f => (
+          <div key={f.key} className="flex items-center gap-3">
+            <div className="w-36 flex-shrink-0"><span className="text-sm font-medium text-gray-800">{f.label}</span>{f.required ? <span className="text-red-400 ml-1 text-xs">required</span> : <span className="text-gray-400 ml-1 text-xs">optional</span>}</div>
+            <select value={mapping[f.key]} onChange={e => setMapping(m => ({...m, [f.key]: e.target.value}))} className={`flex-1 px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] ${f.required && !mapping[f.key] ? "border-red-300 bg-red-50" : mapping[f.key] ? "border-green-300 bg-green-50" : "border-gray-200"}`}>
+              <option value="">— Skip —</option>
+              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </div>
+        ))}</div>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <p className="text-xs text-gray-400">* Required fields must be mapped</p>
+          <div className="flex gap-3"><button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button><button onClick={() => onConfirm(mapping)} disabled={!ok} className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Import Athletes</button></div>
         </div>
       </div>
-
-      {flags.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-200 rounded-xl px-5 py-8 text-center text-sm text-gray-400">No flags detected yet - click Run Detection after scores are uploaded</div>
-      ) : (
-        <>
-          {unacknowledged.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-red-100 flex items-center justify-between">
-                <span className="text-sm font-semibold text-red-800">{unacknowledged.length} Unreviewed Flag{unacknowledged.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="divide-y divide-red-100">
-                {unacknowledged.map(f => (
-                  <div key={f.id} className="flex items-center justify-between px-5 py-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
-                        <span className="text-sm font-semibold text-gray-900">{f.first_name} {f.last_name}</span>
-                        <span className="text-xs text-gray-400">Session {f.session_number}</span>
-                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        {f.flag_type === "personal_drop"
-                          ? `Previous avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score} (drop of ${f.details?.drop})`
-                          : `Score: ${f.details?.athlete_score} vs session mean: ${f.details?.session_mean} (z: ${f.details?.z_score})`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF]">Report</a>
-                      <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.entries(bySession).sort(([a],[b]) => Number(a)-Number(b)).map(([sNum, sFlags]) => (
-            <div key={sNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
-                <span className="text-sm font-semibold text-gray-700">Session {sNum} - {sFlags.length} flag{sFlags.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {sFlags.map(f => (
-                  <div key={f.id} className={`flex items-center justify-between px-5 py-3 ${f.acknowledged ? "opacity-50" : ""}`}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-100 text-amber-700"}`}>{f.severity === "critical" ? "Critical" : "Warning"}</span>
-                        <span className="text-sm font-medium text-gray-900">{f.first_name} {f.last_name}</span>
-                        <span className="text-xs text-gray-500">{f.flag_type === "personal_drop" ? "Significant Drop" : "Session Outlier"}</span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
-                        {f.flag_type === "personal_drop"
-                          ? `Prev avg: ${f.details?.prev_avg} ? Current: ${f.details?.current_score}`
-                          : `Score: ${f.details?.athlete_score} vs mean: ${f.details?.session_mean}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {f.acknowledged
-                        ? <span className="text-xs text-gray-400">Reviewed by {f.acknowledged_by_name}</span>
-                        : <button onClick={() => acknowledge(f.id)} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Acknowledge</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </>
-      )}
     </div>
   );
 }
@@ -218,6 +136,8 @@ function DirectorDashboardInner() {
   const [scoreManagerData, setScoreManagerData] = useState([]);
   const [uploadMsg, setUploadMsg] = useState("");
   const [importing, setImporting] = useState(false);
+  const [csvPending, setCsvPending] = useState(null);
+  const [athleteMsg, setAthleteMsg] = useState("");
 
   const { data: dirData, isLoading: dirLoading } = useQuery({
     queryKey: ["director-category"],
@@ -241,7 +161,7 @@ function DirectorDashboardInner() {
     queryKey: ["category-rankings", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings`); return res.json(); },
     enabled: !!catId,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const { data: scheduleData, refetch: refetchSchedule } = useQuery({
@@ -277,7 +197,7 @@ function DirectorDashboardInner() {
     return dir * (aScore - bScore);
   }) : filteredAthletes;
   const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
-  const sortIcon = (key) => sortBy?.key === key ? (sortBy.dir === 'desc' ? ' Γåô' : ' Γåæ') : ' Γåò';
+  const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#1A6BFF]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]).sort((a, b) => a.scheduled_date > b.scheduled_date ? 1 : -1);
 
   // Load score manager for a session
@@ -343,6 +263,20 @@ function DirectorDashboardInner() {
     el.href = url;
     el.download = `session_${sessionNum}_summary.csv`;
     el.click();
+  };
+
+
+  const handleCSVConfirm = async (mapping) => {
+    setCsvPending(null); setImporting(true);
+    const rows = csvPending.rawRows.map(line => {
+      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      const get = col => { if (!col) return ''; const idx = csvPending.headers.indexOf(col); return idx >= 0 ? cols[idx] : ''; };
+      return { first_name: get(mapping.first_name), last_name: get(mapping.last_name), external_id: get(mapping.external_id), position: get(mapping.position), birth_year: get(mapping.birth_year), parent_email: get(mapping.parent_email) };
+    }).filter(r => r.first_name && r.last_name);
+    const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
+    const data = await res.json();
+    setAthleteMsg(`${data.inserted || 0} imported, ${data.skipped || 0} skipped`);
+    refetchAthletes(); refetchRankings(); setImporting(false); setTimeout(() => setAthleteMsg(''), 4000);
   };
 
   const tabs = [
@@ -535,19 +469,26 @@ function DirectorDashboardInner() {
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-xs px-2 py-1 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF] transition-colors whitespace-nowrap">View Report</a></td>
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900 tabular-nums">{a.weighted_total?.toFixed(1) || "ΓÇö"}</td>}
-                        {hasScores && (
-                          <td className="px-4 py-3 text-center">
-                            {a.rank_history?.length > 0 ? (
-                              <div className="flex items-center justify-center gap-1 flex-wrap">
-                                {a.rank_history.map((r, i) => (
-                                  <span key={i} className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${i === a.rank_history.length - 1 ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600"}`}>{r}</span>
-                                ))}
-                              </div>
-                            ) : <span className="text-gray-200">ΓÇö</span>}
-                          </td>
-                        )}
+                        {hasScores && <td className="px-4 py-3 text-center">
+                          {a.rank_history?.length > 0 ? (
+                            <div className="flex items-center justify-center gap-0.5 flex-wrap">
+                              {a.rank_history.map((r, i) => {
+                                const prev = i > 0 ? a.rank_history[i - 1] : null;
+                                const up = prev !== null && r < prev; const dn = prev !== null && r > prev;
+                                return (<span key={i} className="inline-flex items-center gap-0.5">
+                                  {i > 0 && <span className={`text-xs font-bold leading-none ${up ? 'text-green-500' : dn ? 'text-red-400' : 'text-gray-300'}`}>{up ? '↑' : dn ? '↓' : '–'}</span>}
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${r <= 5 ? 'bg-green-100 text-green-700' : r <= 15 ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{r}</span>
+                                </span>);
+                              })}
+                              {(() => { const last = a.rank_history[a.rank_history.length-1]; const upF = a.rank < last; const dnF = a.rank > last; return (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <span className={`text-xs font-bold leading-none ${upF ? 'text-green-500' : dnF ? 'text-red-400' : 'text-gray-300'}`}>{upF ? '↑' : dnF ? '↓' : '–'}</span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#1A6BFF] text-white">{a.rank}</span>
+                                </span>); })()}
+                            </div>
+                          ) : <span className="text-gray-200 text-xs">—</span>}
+                        </td>}
                       </tr>
                     ))}
                   </tbody>
@@ -646,10 +587,18 @@ function DirectorDashboardInner() {
                           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-xs font-bold">{sessionNum}</div>
                           <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` ┬╖ ${sess.name} ┬╖ ${sess.session_type} ┬╖ ${sess.weight_percentage}%` : ""}</span>
                         </div>
-                        <a href={`/association/dashboard/category/${catId}/groups?org=${assignment.organization_id}&session=${sessionNum}`}
-                          className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">
-                          Manage Groups ΓåÆ
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a href={`/association/dashboard/category/${catId}/groups?org=${assignment?.organization_id}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">Manage Groups</a>
+                          <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
+                          {sess?.session_type === "testing" && (<label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">Upload Results<input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
+                            const file = e.target.files[0]; if (!file) return; const text = await file.text(); const csvL = text.trim().split('\n').filter(l=>l.trim());
+                            const hasH = csvL[0].toLowerCase().includes('first')||csvL[0].toLowerCase().includes('name');
+                            const results = (hasH ? csvL.slice(1) : csvL).map(line => { const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,'')); return {first_name:cols[0],last_name:cols[1],overall_rank:cols[2]}; }).filter(r=>r.first_name&&r.last_name&&r.overall_rank);
+                            const res = await fetch(`/api/categories/${catId}/testing-upload`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session_number:parseInt(sessionNum),results})});
+                            const data = await res.json(); alert(data.success ? `${data.matched} matched` : 'Error: '+data.error); refetchRankings(); e.target.value='';
+                          }} /></label>)}
+                          {Number(sessionNum) > 1 && <a href={`/association/dashboard/category/${catId}/flags?org=${assignment?.organization_id}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg font-medium hover:bg-amber-100">View Flags</a>}
+                        </div>
                       </div>
                       <table className="w-full text-sm">
                         <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
@@ -703,96 +652,10 @@ function DirectorDashboardInner() {
 
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
 
-        {activeTab === "sessions" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">Sessions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sessions.map(s => {
-                const isComplete = completedSessions.includes(s.session_number);
-                return (
-                  <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>
-                          {isComplete ? <CheckCircle size={16} /> : s.session_number}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{s.name}</div>
-                          <div className="text-xs text-gray-400 capitalize">{s.session_type}</div>
-                        </div>
-                      </div>
-                      <span className="text-sm font-bold text-[#1A6BFF]">{s.weight_percentage}%</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
-                      <div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"}`} style={{ width: `${s.weight_percentage}%` }} />
-                    </div>
-
-                    {/* Testing upload */}
-                    {s.session_type === "testing" && (
-                      <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <span className="text-xs text-gray-500">Upload testing results</span>
-                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]">
-                            Γåæ Upload CSV
-                            <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
-                              const file = e.target.files[0]; if (!file) return;
-                              const text = await file.text();
-                              const lines = text.trim().split("\n").filter(l => l.trim());
-                              const hasHeader = lines[0].toLowerCase().includes("first") || lines[0].toLowerCase().includes("name");
-                              const results = (hasHeader ? lines.slice(1) : lines).map(line => {
-                                const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-                                return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] };
-                              }).filter(r => r.first_name && r.last_name && r.overall_rank);
-                              const res = await fetch(`/api/categories/${catId}/testing-upload`, {
-                                method: "POST", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ session_number: s.session_number, results }),
-                              });
-                              const data = await res.json();
-                              alert(data.success ? `Γ£ô ${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ""}` : "Error: " + data.error);
-                              refetchRankings();
-                              e.target.value = "";
-                            }} />
-                          </label>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Score manager ΓÇö only if director can edit */}
-                    {canEditScores && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">{isComplete ? "Scores entered" : "No scores yet"}</span>
-                          <button onClick={() => loadScoreManager(s.session_number)}
-                            className="text-xs px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                            Manage Scores
-                          </button>
-                        </div>
-                        {scoreManagerOpen === s.session_number && (
-                          <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
-                            {scoreManagerData.length === 0 ? (
-                              <div className="text-xs text-gray-400">No scores entered</div>
-                            ) : scoreManagerData.map(sc => (
-                              <div key={sc.evaluator_id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
-                                <div>
-                                  <div className="text-xs font-medium text-gray-900">{sc.evaluator_name}</div>
-                                  <div className="text-xs text-gray-400">{sc.athletes_scored} players scored</div>
-                                </div>
-                                <button onClick={() => clearEvaluatorScores(s.session_number, sc.evaluator_id, sc.evaluator_name)}
-                                  className="text-xs px-2 py-1 bg-red-50 text-red-500 rounded-lg hover:bg-red-100">Delete</button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* ΓöÇΓöÇ ATHLETES TAB ΓöÇΓöÇ */}
+        {csvPending && <CSVMappingModal headers={csvPending.headers} onCancel={()=>setCsvPending(null)} onConfirm={handleCSVConfirm} />}
+
         {activeTab === "athletes" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -804,44 +667,18 @@ function DirectorDashboardInner() {
                 </a>
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-md ${importing ? "opacity-50" : ""}`}>
                   Γåæ Upload CSV
-                  <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    setImporting(true);
-                    const text = await file.text();
-                    const lines = text.trim().split("\n");
-                    const headers = lines[0].toLowerCase().split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-                    const hasHeader = headers.some(h => ["first_name","first","last_name","last"].includes(h));
-                    const dataLines = hasHeader ? lines.slice(1) : lines;
-                    const rows = dataLines.map(line => {
-                      const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-                      if (hasHeader) {
-                        const obj = {};
-                        headers.forEach((h, i) => obj[h] = cols[i]);
-                        return {
-                          first_name: obj.first_name || obj.first || "",
-                          last_name: obj.last_name || obj.last || "",
-                          external_id: obj["hc#"] || obj.hc || obj.external_id || obj.id || "",
-                          position: obj.position || "",
-                          birth_year: obj.birth_year || obj.dob || "",
-                        };
-                      }
-                      return { first_name: cols[0], last_name: cols[1], external_id: cols[2], position: cols[3], birth_year: cols[4] };
-                    }).filter(r => r.first_name && r.last_name);
-                    const res = await fetch(`/api/categories/${catId}/athletes`, {
-                      method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ athletes: rows }),
-                    });
-                    const data = await res.json();
-                    setUploadMsg(data.inserted !== undefined ? `Γ£ô ${data.inserted} athletes imported, ${data.skipped || 0} skipped` : "Error: " + data.error);
-                    if (data.inserted !== undefined) { refetchAthletes(); refetchRankings(); }
-                    setImporting(false);
-                    e.target.value = "";
-                    setTimeout(() => setUploadMsg(""), 4000);
-                  }} />
+                <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
+                  const file = e.target.files[0]; if (!file) return;
+                  const text = await file.text();
+                  const csvLines = text.replace(/\r\n/g,'\n').trim().split('\n').filter(l=>l.trim());
+                  if (csvLines.length < 2) return;
+                  const rawHeaders = csvLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+                  const rawRows = csvLines.slice(1).filter(l=>l.trim()); setCsvPending({headers:rawHeaders,rawRows}); e.target.value='';
+                }} />
                 </label>
               </div>
             </div>
+            {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}
             {uploadMsg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${uploadMsg.startsWith("Γ£ô") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{uploadMsg}</div>}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
