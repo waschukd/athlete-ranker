@@ -812,6 +812,9 @@ function CategoryHub() {
 
       {showDirectorModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
+      {showDirectorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <h3 className="font-bold text-gray-900 mb-1">Invite Director</h3>
             <p className="text-sm text-gray-500 mb-5">They will receive login credentials and access to this age category only.</p>
@@ -832,8 +835,9 @@ function CategoryHub() {
             </div>
             </div>
             )}
-            </div>
-            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
