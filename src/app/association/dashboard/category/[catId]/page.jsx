@@ -73,6 +73,32 @@ function ScoreManager({ catId, sessionNumber }) {
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-400">{scores.length > 0 ? `${scores.length} evaluator(s) scored` : "No scores yet"}</span>
         <button onClick={async (e) => { e.stopPropagation(); if (!open) await load(); setOpen(!open); setMsg(""); }} className="text-xs px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">Manage Scores</button>
+      {showDirectorModal && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+      <h3 className="font-bold text-gray-900 mb-1">Invite Director</h3>
+      <p className="text-sm text-gray-500 mb-5">They will receive login credentials and access to this age category only.</p>
+      {directorMsg ? (
+      <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorForm({ name: "", email: "" }); }} className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium">Done</button></div>
+      ) : (
+      <div className="space-y-4">
+      <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label><input type="text" value={directorForm.name} onChange={e => setDirectorForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
+      <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" value={directorForm.email} onChange={e => setDirectorForm(f => ({ ...f, email: e.target.value }))} placeholder="john@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
+      <div className="flex gap-3 pt-2">
+      <button onClick={() => setShowDirectorModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button>
+      <button onClick={async () => {
+      if (!directorForm.name || !directorForm.email) return;
+      const res = await fetch(`/api/categories/${catId}/invite-director`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(directorForm) });
+      const data = await res.json();
+      if (data.success) { setDirectorMsg(data.message); refetchDirectors(); }
+      }} disabled={!directorForm.name || !directorForm.email} className="flex-1 py-2.5 bg-[#1A6BFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Send Invite</button>
+      </div>
+      </div>
+      )}
+      </div>
+      </div>
+      )}
+
       </div>
       {open && (
         <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
@@ -803,31 +829,6 @@ function CategoryHub() {
                 </div>
               ))}
             </div>
-            {showDirectorModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-                  <h3 className="font-bold text-gray-900 mb-1">Invite Director</h3>
-                  <p className="text-sm text-gray-500 mb-5">They will receive login credentials and access to this age category only.</p>
-                  {directorMsg ? (
-                    <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorForm({ name: "", email: "" }); }} className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium">Done</button></div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label><input type="text" value={directorForm.name} onChange={e => setDirectorForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
-                      <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" value={directorForm.email} onChange={e => setDirectorForm(f => ({ ...f, email: e.target.value }))} placeholder="john@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
-                      <div className="flex gap-3 pt-2">
-                        <button onClick={() => setShowDirectorModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button>
-                        <button onClick={async () => {
-                          if (!directorForm.name || !directorForm.email) return;
-                          const res = await fetch(`/api/categories/${catId}/invite-director`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(directorForm) });
-                          const data = await res.json();
-                          if (data.success) { setDirectorMsg(data.message); refetchDirectors(); }
-                        }} disabled={!directorForm.name || !directorForm.email} className="flex-1 py-2.5 bg-[#1A6BFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Send Invite</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
             <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
           </div>
         )}
