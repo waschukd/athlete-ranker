@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
     const sessions = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
     const categoryRes = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
     const category = categoryRes[0];
-    const athletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name, first_name`;
+    const athletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true ORDER BY last_name, first_name`;
 
     if (!athletes.length) {
       return NextResponse.json({ athletes: [], has_scores: false, phase: "pre_session", sessions, category });
@@ -188,7 +188,7 @@ export async function GET(request, { params }) {
       : trueCompletedSessions.length === sessions.length ? "complete" : "in_progress";
 
     const response = NextResponse.json({
-      athletes: ranked, has_scores: true, phase, sessions, goalies: goalieRanked,
+      athletes: ranked, has_scores: true, phase, sessions,
       completed_sessions: trueCompletedSessions,
       in_progress_sessions: inProgressSessions,
       session_status: sessionStatus, category,
