@@ -261,6 +261,7 @@ function CategoryHub() {
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
   const rankedAthletes = rankingsData?.athletes || [];
+  const goalieAthletes = rankingsData?.goalies || [];
   const athletes = athletesData?.athletes || [];
   const schedule = scheduleData?.schedule || [];
   const hasScores = rankingsData?.has_scores || false;
@@ -352,6 +353,7 @@ function CategoryHub() {
         { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "athletes", label: "Athletes", icon: Users },
     { id: "reports", label: "Reports", icon: FileText },
+    { id: "goalies", label: "Goalies", icon: Users },
     { id: "teams", label: "Teams", icon: Trophy },
   ];
 
@@ -712,6 +714,47 @@ function CategoryHub() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "goalies" && (
+          <div className="space-y-5">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Goalie Rankings</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Ranked independently — goalie categories only</p>
+                </div>
+              </div>
+              {goalieAthletes.length === 0 ? (
+                <div className="px-5 py-12 text-center text-sm text-gray-400">No goalies in this category yet. Make sure goalies are tagged with position = goalie in the roster.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
+                        {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {goalieAthletes.map(a => (
+                        <tr key={a.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
+                          <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
+                          <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
+                          {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                          <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
