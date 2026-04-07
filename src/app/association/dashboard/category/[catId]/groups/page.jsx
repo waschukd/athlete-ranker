@@ -262,10 +262,18 @@ function GroupsManagerInner() {
 
 
 
-  const rankMap = {};
-  rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
   const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => String(m.athlete.athlete_id)));
   const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => String(m.athlete.athlete_id)));
+
+  // Build score/rank map from the weighted_total already used by buildPromotePlan
+  const rankMap = {};
+  const _scoreMap = {};
+  rankedAthletes.forEach(a => { _scoreMap[String(a.id)] = a.weighted_total; });
+  // Rank players by score across all groups for this session
+  const _allPlayers = Object.values(groupPlayers).flat();
+  const _scored = _allPlayers.filter(p => _scoreMap[String(p.athlete_id)] != null)
+    .sort((a,b) => (_scoreMap[String(b.athlete_id)] || 0) - (_scoreMap[String(a.athlete_id)] || 0));
+  _scored.forEach((p, i) => { rankMap[String(p.athlete_id)] = { rank: i+1, total: _scoreMap[String(p.athlete_id)] }; });
 
   return (
     <div className="min-h-screen bg-gray-50">
