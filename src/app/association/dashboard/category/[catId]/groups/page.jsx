@@ -285,9 +285,22 @@ function GroupsManagerInner() {
                 </button>
               )}
               {groups.length > 1 && (
-                <button onClick={buildPromotePlan} className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100">
-                  ↕ Forced Movement
-                </button>
+                <div className="flex items-center gap-2">
+                  <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300">
+                    <option value="0.75">Aggressive</option>
+                    <option value="1.0">Moderate</option>
+                    <option value="1.5">Conservative</option>
+                  </select>
+                  {promotePlan === null ? (
+                    <button onClick={buildPromotePlan} className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100">⇕ Forced Movement</button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-purple-600 font-medium">{promotePlan.length} move{promotePlan.length !== 1 ? "s" : ""} flagged</span>
+                      <button onClick={() => setPromotePlan(null)} className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50">Cancel</button>
+                      <button onClick={applyPromotePlan} disabled={promotePlan.length === 0} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-40">{promotePlan.length === 0 ? "No moves" : "Apply Moves"}</button>
+                    </div>
+                  )}
+                </div>
               )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
             </div>
