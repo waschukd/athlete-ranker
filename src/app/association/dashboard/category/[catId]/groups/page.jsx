@@ -260,6 +260,9 @@ function GroupsManagerInner() {
   const selectedSessionData = sessions.find(s => s.session_number === selectedSession);
   const checkedInCount = assignments.filter(a => a.checked_in).length;
 
+  const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => m.athlete.athlete_id));
+  const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => m.athlete.athlete_id));
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -497,9 +500,11 @@ function GroupsManagerInner() {
                           onDragStart={e => onDragStart(e, player.athlete_id, group.id)}
                           className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-grab active:cursor-grabbing transition-colors ${
                             dragging?.athleteId === player.athlete_id ? "opacity-50" : ""
-                          } ${player.checked_in ? "bg-green-50/30" : ""}`}
+                          } ${player.checked_in ? "bg-green-50/30" : ""} ${promotePlanUpIds.has(player.athlete_id) ? "border-l-4 border-l-green-400 bg-green-50/50" : promotePlanDownIds.has(player.athlete_id) ? "border-l-4 border-l-red-400 bg-red-50/30" : "border-l-4 border-l-transparent"}`}
                         >
                           <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
+                          {promotePlanUpIds.has(player.athlete_id) && <span className="text-green-500 font-bold text-sm leading-none flex-shrink-0">↑</span>}
+                          {promotePlanDownIds.has(player.athlete_id) && <span className="text-red-400 font-bold text-sm leading-none flex-shrink-0">↓</span>}
 
                           {/* Jersey/color indicator */}
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
