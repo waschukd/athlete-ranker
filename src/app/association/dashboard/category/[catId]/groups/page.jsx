@@ -265,15 +265,8 @@ function GroupsManagerInner() {
   const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => String(m.athlete.athlete_id)));
   const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => String(m.athlete.athlete_id)));
 
-  // Build score/rank map from the weighted_total already used by buildPromotePlan
   const rankMap = {};
-  const _scoreMap = {};
-  rankedAthletes.forEach(a => { _scoreMap[String(a.id)] = a.weighted_total; });
-  // Rank players by score across all groups for this session
-  const _allPlayers = Object.values(groupPlayers).flat();
-  const _scored = _allPlayers.filter(p => _scoreMap[String(p.athlete_id)] != null)
-    .sort((a,b) => (_scoreMap[String(b.athlete_id)] || 0) - (_scoreMap[String(a.athlete_id)] || 0));
-  _scored.forEach((p, i) => { rankMap[String(p.athlete_id)] = { rank: i+1, total: _scoreMap[String(p.athlete_id)] }; });
+  rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -546,7 +539,10 @@ function GroupsManagerInner() {
                             <div className="text-sm font-medium text-gray-900 truncate">
                               {player.last_name}, {player.first_name}
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">{rankMap[String(player.athlete_id)]?.rank != null && <span className="text-xs font-bold text-[#1A6BFF]">#{rankMap[String(player.athlete_id)].rank}</span>}{rankMap[String(player.athlete_id)]?.total != null && <span className="text-xs text-gray-400 font-medium">{rankMap[String(player.athlete_id)].total.toFixed(1)}</span>}{player.external_id && <span className="text-xs text-gray-300">{player.external_id}</span>}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#1A6BFF]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
+                              {player.external_id && <span className="text-xs text-gray-300 ml-1">{player.external_id}</span>}
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-shrink-0">
