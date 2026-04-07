@@ -264,7 +264,7 @@ function GroupsManagerInner() {
   const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => m.athlete.athlete_id));
 
   const rankMap = {};
-  rankedAthletes.forEach(a => { rankMap[a.id] = { rank: a.rank, total: a.weighted_total }; });
+  rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -536,10 +536,10 @@ function GroupsManagerInner() {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-gray-900 truncate">
                               {player.last_name}, {player.first_name}
-                              {rankMap[player.athlete_id]?.rank != null && (
+                              {rankMap[String(player.athlete_id)]?.rank != null && (
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-bold text-[#1A6BFF]">#{rankMap[player.athlete_id].rank}</span>
-                                  {rankMap[player.athlete_id].total != null && <span className="text-xs text-gray-400">{rankMap[player.athlete_id].total.toFixed(1)}</span>}
+                                  <span className="text-xs font-bold text-[#1A6BFF]">#{rankMap[String(player.athlete_id)].rank}</span>
+                                  {rankMap[String(player.athlete_id)].total != null && <span className="text-xs text-gray-400">{rankMap[String(player.athlete_id)].total.toFixed(1)}</span>}
                                 </div>
                               )}
                             </div>
