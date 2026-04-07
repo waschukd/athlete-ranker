@@ -196,6 +196,9 @@ function ScoringInterface() {
     enabled: !!sessionData?.schedule?.category_id,
   });
 
+  const catId = sessionData?.schedule?.category_id;
+  const scheduleData = sessionData?.schedule;
+
   const athletes = sessionData?.athletes?.filter(a => a.checked_in) || [];
   const teamColors = sessionData?.checkinSession?.team_colors || ["White", "Dark"];
   const scoringCats = catData?.scoringCategories || [];
