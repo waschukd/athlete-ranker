@@ -128,6 +128,27 @@ function ScoringInterface() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
+  const { data: sessionData, isLoading } = useQuery({
+    queryKey: ["score-session", scheduleId],
+    queryFn: async () => {
+      const res = await fetch(`/api/checkin/${scheduleId}`);
+      return res.json();
+    },
+  });
+
+  const { data: catData } = useQuery({
+    queryKey: ["scoring-cats", sessionData?.schedule?.category_id],
+    queryFn: async () => {
+      const res = await fetch(`/api/categories/${sessionData.schedule.category_id}/setup`);
+      return res.json();
+    },
+    enabled: !!sessionData?.schedule?.category_id,
+  });
+
+  const catId = sessionData?.schedule?.category_id;
+  const scheduleData = sessionData?.schedule;
+
+
   // Precache all session assets while online so the page works in dead-wifi rinks
   // Fires once when both session data and category data have loaded successfully
   useEffect(() => {
@@ -180,26 +201,6 @@ function ScoringInterface() {
   }, []);
 
   // Data queries
-  const { data: sessionData, isLoading } = useQuery({
-    queryKey: ["score-session", scheduleId],
-    queryFn: async () => {
-      const res = await fetch(`/api/checkin/${scheduleId}`);
-      return res.json();
-    },
-  });
-
-  const { data: catData } = useQuery({
-    queryKey: ["scoring-cats", sessionData?.schedule?.category_id],
-    queryFn: async () => {
-      const res = await fetch(`/api/categories/${sessionData.schedule.category_id}/setup`);
-      return res.json();
-    },
-    enabled: !!sessionData?.schedule?.category_id,
-  });
-
-  const catId = sessionData?.schedule?.category_id;
-  const scheduleData = sessionData?.schedule;
-
   const athletes = sessionData?.athletes?.filter(a => a.checked_in) || [];
   const teamColors = sessionData?.checkinSession?.team_colors || ["White", "Dark"];
   const scoringCats = catData?.scoringCategories || [];
