@@ -134,6 +134,7 @@ function ScoringInterface() {
     if (!sessionData?.schedule || !catData?.scoringCategories) return;
     if (!navigator.onLine) return;
     if (!('serviceWorker' in navigator)) return;
+    if (!sessionData?.schedule?.category_id) return;
     const catId = sessionData.schedule.category_id;
     const urlsToCache = [
       `/api/checkin/${scheduleId}`,
