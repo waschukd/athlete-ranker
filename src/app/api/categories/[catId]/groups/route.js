@@ -98,15 +98,52 @@ export async function POST(request, { params }) {
 
       const numGroups = groups.length;
 
-      // Get live rankings
+      // Get live rankings directly from DB (no HTTP call — works in production)
       let rankedAthletes = [];
       try {
-        const rankRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/categories/${catId}/rankings`);
-        const rankData = await rankRes.json();
-        if (rankData.has_scores && rankData.athletes?.length) {
-          rankedAthletes = rankData.athletes.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+        const scale = 10;
+        const sessionsList = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
+        const allAthletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name, first_name`;
+
+        const sessionScores = await sql`
+          SELECT athlete_id, session_number, AVG(score) as avg_score
+          FROM category_scores
+          WHERE age_category_id = ${catId}
+          GROUP BY athlete_id, session_number
+        `;
+        const testingRanks = await sql`
+          SELECT DISTINCT ON (athlete_id, session_number) athlete_id, session_number, overall_rank
+          FROM testing_drill_results WHERE age_category_id = ${catId}
+          ORDER BY athlete_id, session_number
+        `;
+
+        const N = allAthletes.length;
+        const scoreMap = {};
+        for (const s of sessionScores) {
+          if (!scoreMap[s.athlete_id]) scoreMap[s.athlete_id] = {};
+          scoreMap[s.athlete_id][s.session_number] = (parseFloat(s.avg_score) / scale) * 100;
         }
-      } catch {}
+        for (const t of testingRanks) {
+          if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
+          scoreMap[t.athlete_id][t.session_number] = N > 1 ? ((N - parseInt(t.overall_rank)) / (N - 1)) * 100 : 100;
+        }
+
+        const withTotals = allAthletes.map(a => {
+          let total = 0;
+          for (const sess of sessionsList) {
+            const s = (scoreMap[a.id] || {})[sess.session_number];
+            if (s != null) total += s * (parseFloat(sess.weight_percentage) / 100);
+          }
+          return { ...a, weighted_total: Math.round(total * 10) / 10 };
+        });
+
+        withTotals.sort((a, b) => b.weighted_total !== a.weighted_total ? b.weighted_total - a.weighted_total : a.last_name.localeCompare(b.last_name));
+        let rank = 1;
+        rankedAthletes = withTotals.map((a, i) => {
+          rank = (i > 0 && a.weighted_total === withTotals[i-1].weighted_total) ? rank : i + 1;
+          return { ...a, rank };
+        });
+      } catch (e) { console.error('Ranking error in groups:', e); }
 
       // Clear existing assignments
       await sql`
