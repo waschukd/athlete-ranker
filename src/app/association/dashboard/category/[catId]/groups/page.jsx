@@ -260,8 +260,6 @@ function GroupsManagerInner() {
   const selectedSessionData = sessions.find(s => s.session_number === selectedSession);
   const checkedInCount = assignments.filter(a => a.checked_in).length;
 
-  const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => m.athlete.athlete_id));
-  const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => m.athlete.athlete_id));
 
 
   const rankMap = {};
