@@ -263,8 +263,11 @@ function GroupsManagerInner() {
   const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => m.athlete.athlete_id));
   const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => m.athlete.athlete_id));
 
+
   const rankMap = {};
   rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
+  const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => String(m.athlete.athlete_id)));
+  const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => String(m.athlete.athlete_id)));
 
   return (
     <div className="min-h-screen bg-gray-50">
