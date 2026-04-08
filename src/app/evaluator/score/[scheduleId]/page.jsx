@@ -215,8 +215,6 @@ function ScoringInterface() {
   useEffect(() => { incrementRef.current = increment; }, [increment]);
 
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter)).filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete").sort((a,b) => (a.jersey_number||999) - (b.jersey_number||999));
-    ? athletes
-    : athletes.filter(a => a.team_color === teamFilter);
 
   // Score values array
   const scoreValues = React.useMemo(() => {
