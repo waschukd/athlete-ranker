@@ -715,6 +715,7 @@ function ScoringInterface() {
                         accentColor: "#1A6BFF"
                       }}
                     />
+                  </div>
               );
             })}
 
