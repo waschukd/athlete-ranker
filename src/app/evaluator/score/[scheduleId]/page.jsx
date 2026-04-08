@@ -700,7 +700,6 @@ function ScoringInterface() {
                     </div>
                   </div>
                   {/* Slider + manual input */}
-                  <div className="flex items-center gap-3">
                     <input
                       type="range"
                       min={increment}
@@ -716,7 +715,6 @@ function ScoringInterface() {
                         accentColor: "#1A6BFF"
                       }}
                     />
-                </div>
               );
             })}
 
