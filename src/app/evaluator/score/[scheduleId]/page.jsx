@@ -56,6 +56,7 @@ function ScoringInterface() {
   const [voiceMode, setVoiceMode] = useState('checking'); // checking | live | degraded | unavailable
   const [notesMode, setNotesMode] = useState(false);
   const [teamFilter, setTeamFilter] = useState("all");
+  const [hideCompleted, setHideCompleted] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -213,7 +214,7 @@ function ScoringInterface() {
   useEffect(() => { scaleRef.current = scale; }, [scale]);
   useEffect(() => { incrementRef.current = increment; }, [increment]);
 
-  const filtered = teamFilter === "all"
+  const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter)).filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete").sort((a,b) => (a.jersey_number||999) - (b.jersey_number||999));
     ? athletes
     : athletes.filter(a => a.team_color === teamFilter);
 
@@ -338,7 +339,8 @@ function ScoringInterface() {
       'to':'2','too':'2','for':'4','won':'1','ate':'8','nein':'9','tu':'2','fore':'4'
     };
     const normalized = text.trim().toLowerCase().replace(/\b(zero|one|two|to|too|tu|three|four|for|fore|five|six|seven|eight|ate|nine|nein|ten|won)\b/gi, m => wordNums[m.toLowerCase()] || m);
-    const t = normalized.trim().toLowerCase();
+    const corrected = normalized.replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck");
+    const t = corrected.trim().toLowerCase();
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
 
     // ── Mic off ──────────────────────────────────────────
@@ -587,6 +589,9 @@ function ScoringInterface() {
             Consensus
           </button>
         </div>
+          <button onClick={() => setHideCompleted(h => !h)} className={`mt-1 mx-3 mb-1 px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-700 border-green-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+            {hideCompleted ? "✓ Hiding completed" : "Hide completed"}
+          </button>
       </div>
 
       {/* ── Jersey grid ────────────────────────────────────── */}
@@ -713,20 +718,6 @@ function ScoringInterface() {
                         accentColor: "#1A6BFF"
                       }}
                     />
-                    <input
-                      type="number"
-                      min={increment}
-                      max={scale}
-                      step={increment}
-                      value={current ?? ""}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value);
-                        if (!isNaN(val) && val >= increment && val <= scale) updateScore(selected.id, cat.id, val);
-                      }}
-                      placeholder="—"
-                      className="w-16 bg-gray-800 border border-gray-600 rounded-xl text-center text-lg font-bold text-white focus:outline-none focus:border-[#1A6BFF] py-2"
-                    />
-                  </div>
                 </div>
               );
             })}
