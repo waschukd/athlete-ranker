@@ -1,33 +1,65 @@
-"use client";
-
 import "./globals.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import Providers from "@/components/Providers";
+
+export const metadata = {
+  title: {
+    default: "Sideline Star",
+    template: "%s | Sideline Star",
+  },
+  description: "The modern athlete evaluation platform. Upload rosters, score live, and generate rankings — across any sport, any level.",
+  keywords: ["athlete evaluation", "sports rankings", "tryout software", "player evaluation", "scoring platform"],
+  authors: [{ name: "Sideline Star" }],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"),
+  openGraph: {
+    title: "Sideline Star",
+    description: "The modern athlete evaluation platform. Score live, rank athletes, run evaluations — any sport, any level.",
+    url: "https://sidelinestar.com",
+    siteName: "Sideline Star",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sideline Star",
+    description: "The modern athlete evaluation platform. Score live, rank athletes, run evaluations.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-light.png", sizes: "any" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Sideline Star",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#060b18",
+};
 
 export default function RootLayout({ children }) {
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('[SW] registered', reg.scope))
-        .catch(err => console.warn('[SW] registration failed', err));
-    }
-  }, []);
-
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { staleTime: 30000, retry: 1 } }
-  }));
-
   return (
     <html lang="en">
-      <head>
-        <title>Sideline Star</title>
-        <meta name="description" content="Athlete evaluation and ranking platform" />
-        <link rel="icon" href="/icon-light.png" />
-      </head>
       <body>
-        <QueryClientProvider client={queryClient}>
+        <Providers>
           {children}
-        </QueryClientProvider>
+        </Providers>
       </body>
     </html>
   );

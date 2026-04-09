@@ -12,7 +12,6 @@
     "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.0.0",
     "bcryptjs": "^2.4.3",
-    "canvas": "^3.2.3",
     "framer-motion": "^12.38.0",
     "jose": "^5.0.0",
     "lucide-react": "^0.383.0",

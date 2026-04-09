@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /landing
+Allow: /account/signin
+Allow: /account/signup
+Allow: /evaluator/signup
+Disallow: /api/
+Disallow: /admin/
+Disallow: /association/
+Disallow: /director/
+Disallow: /evaluator/dashboard
+Disallow: /evaluator/score/
+Disallow: /service-provider/
+Disallow: /player/
+
+Sitemap: https://sidelinestar.com/sitemap.xml
