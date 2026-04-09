@@ -628,6 +628,94 @@ function DirectorDashboardInner() {
 
             <PlayerComparison catId={catId} initialPlayerIds={[]} />
 
+            {/* ─── Flagged Athletes ──────────────────────────── */}
+            {hasScores && (() => {
+              const flagged = rankedAthletes.filter(a => a.agreement_pct !== undefined && a.agreement_pct < 80);
+              return flagged.length > 0 ? (
+                <div className="bg-white border border-amber-200 rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-amber-100 bg-amber-50/50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center"><span className="text-amber-600 text-lg">⚠️</span></div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Flagged Athletes — Low Evaluator Agreement</h3>
+                      <p className="text-xs text-gray-500">{flagged.length} athlete{flagged.length !== 1 ? "s" : ""} below 80% agreement</p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-xs text-gray-500 font-medium">Rank</th>
+                          <th className="px-4 py-2.5 text-left text-xs text-gray-500 font-medium">Name</th>
+                          {category?.position_tagging && <th className="px-4 py-2.5 text-left text-xs text-gray-500 font-medium">Pos</th>}
+                          <th className="px-4 py-2.5 text-center text-xs text-gray-500 font-medium">Agreement</th>
+                          <th className="px-4 py-2.5 text-center text-xs text-gray-500 font-medium">Total</th>
+                          <th className="px-4 py-2.5 text-left text-xs text-gray-500 font-medium">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {flagged.sort((a, b) => a.agreement_pct - b.agreement_pct).map(a => (
+                          <tr key={a.id} className={`${a.agreement_pct < 60 ? "bg-red-50/30" : "bg-amber-50/20"}`}>
+                            <td className="px-4 py-2.5 font-semibold text-gray-900">#{a.rank}</td>
+                            <td className="px-4 py-2.5"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="font-medium text-gray-900 hover:text-[#1A6BFF]">{a.first_name} {a.last_name}</a></td>
+                            {category?.position_tagging && <td className="px-4 py-2.5">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position]}</span> : "—"}</td>}
+                            <td className="px-4 py-2.5 text-center"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.agreement_pct < 60 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{a.agreement_pct}%</span></td>
+                            <td className="px-4 py-2.5 text-center font-semibold text-gray-900">{a.weighted_total?.toFixed(1)}</td>
+                            <td className="px-4 py-2.5"><button onClick={() => setCompareIds(prev => prev.includes(a.id) ? prev : [...prev, a.id])} className="text-xs text-[#1A6BFF] hover:underline">+ Compare</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center"><span className="text-green-600 text-lg">✓</span></div>
+                  <div><div className="text-sm font-semibold text-gray-900">No Flagged Athletes</div><div className="text-xs text-gray-500">All athletes have 80%+ evaluator agreement</div></div>
+                </div>
+              );
+            })()}
+
+            {/* ─── Positional Breakdown ──────────────────────── */}
+            {hasScores && category?.position_tagging && (() => {
+              const positions = ["forward", "defense", "goalie"];
+              const posLabels = { forward: "Forwards", defense: "Defense", goalie: "Goalies" };
+              const posColors = { forward: "from-blue-500 to-blue-600", defense: "from-purple-500 to-purple-600", goalie: "from-amber-500 to-amber-600" };
+              const posTextColors = { forward: "text-blue-600", defense: "text-purple-600", goalie: "text-amber-600" };
+              return (
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">Positional Breakdown</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {positions.map(pos => {
+                      const posAthletes = rankedAthletes.filter(a => a.position === pos).sort((a, b) => (b.weighted_total || 0) - (a.weighted_total || 0));
+                      let posRank = 0; let lastScore = null;
+                      posAthletes.forEach(a => { const score = a.weighted_total?.toFixed(1); if (score !== lastScore) { posRank++; lastScore = score; } a._posRank = posRank; });
+                      return (
+                        <div key={pos} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                          <div className={`px-4 py-3 bg-gradient-to-r ${posColors[pos]} text-white flex items-center justify-between`}>
+                            <span className="text-sm font-semibold">{posLabels[pos]}</span>
+                            <span className="text-xs font-medium opacity-80">{posAthletes.length} player{posAthletes.length !== 1 ? "s" : ""}</span>
+                          </div>
+                          {posAthletes.length === 0 ? (
+                            <div className="px-4 py-6 text-center text-xs text-gray-400">No {posLabels[pos].toLowerCase()}</div>
+                          ) : (
+                            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                              {posAthletes.map(a => (
+                                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${a._posRank <= 3 ? `bg-gradient-to-br ${posColors[pos]} text-white` : "bg-gray-100 text-gray-500"}`}>{a._posRank}</span>
+                                  <div className="flex-1 min-w-0"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-sm font-medium text-gray-900 hover:text-[#1A6BFF] truncate block">{a.first_name} {a.last_name}</a></div>
+                                  <div className="text-right"><div className={`text-sm font-bold ${posTextColors[pos]}`}>{a.weighted_total?.toFixed(1) || "—"}</div><div className="text-[10px] text-gray-400">Rank #{a.rank}</div></div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             <h3 className="text-base font-semibold text-gray-900 pt-2">Export Data</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
