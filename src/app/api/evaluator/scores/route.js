@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -63,6 +64,19 @@ export async function POST(request) {
 
     if (!athlete_id || !category_id || !session_number) {
       return NextResponse.json({ error: "athlete_id, category_id, session_number required" }, { status: 400 });
+    }
+
+    // Verify user has access to this category
+    const auth = await authorizeCategoryAccess(session, category_id);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Verify evaluator is signed up for this schedule (skip for admins)
+    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin"].includes(session.role)) {
+      const signup = await sql`
+        SELECT id FROM evaluator_session_signups
+        WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
+      `;
+      if (!signup.length) return NextResponse.json({ error: "Not signed up for this session" }, { status: 403 });
     }
 
     const validScores = (scores || []).filter(s => s.score !== null && s.score !== undefined);

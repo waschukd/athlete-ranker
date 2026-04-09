@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -8,6 +9,9 @@ export async function GET(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const sessions = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
     const categoryRes = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;

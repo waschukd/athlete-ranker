@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail } from "@/lib/email";
 
 export async function POST(request, { params }) {
@@ -8,6 +9,8 @@ export async function POST(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { emails, sessionNum, entries, categoryName } = await request.json();
     if (!emails?.length) return NextResponse.json({ error: "No emails provided" }, { status: 400 });
 

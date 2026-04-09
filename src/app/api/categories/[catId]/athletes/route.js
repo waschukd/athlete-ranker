@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -27,6 +28,8 @@ export async function GET(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const athletes = await sql`
       SELECT * FROM athletes 
       WHERE age_category_id = ${catId} AND is_active = true
@@ -43,6 +46,8 @@ export async function POST(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
 
     const cats = await sql`SELECT organization_id FROM age_categories WHERE id = ${catId}`;
@@ -132,6 +137,8 @@ export async function DELETE(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const athleteId = searchParams.get("athlete_id");
     if (!athleteId) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });

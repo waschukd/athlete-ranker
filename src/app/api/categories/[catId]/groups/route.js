@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -10,7 +11,13 @@ async function getAppUserId(session) {
 
 export async function GET(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { searchParams } = new URL(request.url);
     const sessionNum = searchParams.get("session");
 
@@ -82,6 +89,11 @@ export async function POST(request, { params }) {
   try {
     const { catId } = params;
     const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const userId = await getAppUserId(session);
     const body = await request.json();
     const { action } = body;

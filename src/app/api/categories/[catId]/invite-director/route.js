@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 import { hashPassword } from "@/lib/password";
 
 async function sendEmail(to, subject, html) {
@@ -14,7 +15,11 @@ async function sendEmail(to, subject, html) {
 
 export async function GET(request, { params }) {
   // Get existing directors for this category
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { catId } = params;
+  const auth = await authorizeCategoryAccess(session, params.catId);
+  if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const directors = await sql`
     SELECT u.id, u.name, u.email, da.status, da.created_at
     FROM director_assignments da
@@ -30,6 +35,8 @@ export async function POST(request, { params }) {
     const { catId } = params;
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { email, name } = await request.json();
     if (!email || !name) return NextResponse.json({ error: "Name and email required" }, { status: 400 });

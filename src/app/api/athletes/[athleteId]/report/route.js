@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 export async function GET(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { athleteId } = params;
     const { searchParams } = new URL(request.url);
     const catId = searchParams.get("cat");
+
+    if (catId) {
+      const auth = await authorizeCategoryAccess(session, catId);
+      if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const athleteRes = await sql`
       SELECT a.*, o.name as org_name

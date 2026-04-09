@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -8,6 +9,10 @@ export async function DELETE(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");
     const evaluatorId = searchParams.get("evaluator");
@@ -46,6 +51,10 @@ export async function GET(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");
 
@@ -75,6 +84,10 @@ export async function POST(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { evaluatorName, sessionNumber, rows } = await request.json();
 
     if (!evaluatorName || !sessionNumber || !rows?.length) {

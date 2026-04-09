@@ -3,13 +3,21 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { emailWelcomeServiceProvider, emailWelcomeAssociation } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
+import { getAccessibleOrgIds } from "@/lib/authorize";
 function tempPass() { return Math.random().toString(36).slice(-8) + "!A1"; }
 
 export async function GET() {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const organizations = await sql`SELECT * FROM organizations ORDER BY name`;
+
+    // Filter organizations by user's access level
+    const accessibleIds = await getAccessibleOrgIds(session);
+    const organizations = accessibleIds === null
+      ? await sql`SELECT * FROM organizations ORDER BY name`  // super_admin: all
+      : accessibleIds.length > 0
+        ? await sql`SELECT * FROM organizations WHERE id = ANY(${accessibleIds}) ORDER BY name`
+        : [];
     const orgIds = organizations.map((o) => o.id);
     let stats = [];
     if (orgIds.length > 0) {
