@@ -4,9 +4,13 @@ import { useState, Suspense } from "react";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Users, Calendar, Trophy, Settings, BarChart3, LogOut,
-  Zap, CheckCircle, Clock, Medal, AlertCircle, ClipboardList,
-  Copy, Check, Download, FileText, ChevronRight
+  Zap, CheckCircle, Clock, AlertCircle, ClipboardList,
+  Download, FileText, ChevronRight
 } from "lucide-react";
+import RankBadge from "@/components/RankBadge";
+import CopyCode from "@/components/CopyCode";
+import ManualScoreUpload from "@/components/ManualScoreUpload";
+import CSVMappingModal from "@/components/CSVMappingModal";
 
 const qc = new QueryClient();
 
@@ -16,113 +20,6 @@ const POSITION_COLORS = {
   goalie: "bg-amber-100 text-amber-700",
 };
 const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
-
-function RankBadge({ rank, tied }) {
-  if (rank === 1) return <div className="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center"><Medal size={13} className="text-white" /></div>;
-  if (rank === 2) return <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center"><span className="text-white text-xs font-bold">2</span></div>;
-  if (rank === 3) return <div className="w-7 h-7 rounded-full bg-amber-600 flex items-center justify-center"><span className="text-white text-xs font-bold">3</span></div>;
-  return <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{background:tied?"#EEF2FF":"#F3F4F6",border:tied?"1.5px dashed #818CF8":"none"}}><span className="text-xs font-semibold" style={{color:tied?"#4F46E5":"#4B5563"}}>{rank}</span></div>;
-}
-
-function CopyCode({ code, scheduleId }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded tracking-wider">{code}</span>
-      <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-        className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
-        {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-      </button>
-      <a href={`/checkin/${scheduleId}`} target="_blank" className="text-xs text-[#1A6BFF] hover:underline whitespace-nowrap">Open ΓåÆ</a>
-    </div>
-  );
-}
-
-function ManualScoreUpload({ catId, sessions, scoringCategories }) {
-  const [open, setOpen] = useState(false);
-  const [evalName, setEvalName] = useState("");
-  const [sessionNum, setSessionNum] = useState("");
-  const [file, setFile] = useState(null);
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const handleUpload = async () => {
-    if (!evalName || !sessionNum || !file) return;
-    setLoading(true);
-    const text = await file.text();
-    const lines = text.trim().split("\n").filter(l => l.trim());
-    const headers = lines[0].split(",").map(h => h.trim());
-    const catNames = scoringCategories.map(c => c.name);
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-      const scores = catNames.map(cat => { const idx = headers.indexOf(cat); return idx >= 0 ? cols[idx] : null; });
-      return { first_name: cols[0], last_name: cols[1], scores };
-    }).filter(r => r.first_name && r.last_name);
-    const res = await fetch(`/api/categories/${catId}/scores`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evaluatorName: evalName, sessionNumber: parseInt(sessionNum), rows }) });
-    const data = await res.json();
-    setResult(data);
-    setLoading(false);
-  };
-  return (
-    <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl overflow-hidden mt-4">
-      <button onClick={() => { setOpen(!open); setResult(null); }} className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-gray-100 transition-colors">
-        <span className="text-sm font-medium text-gray-500">Emergency Score Upload</span>
-        <span className="text-xs text-gray-400">{open ? "Hide" : "Show"}</span>
-      </button>
-      {open && (
-        <div className="px-5 pb-5 space-y-4 border-t border-gray-200">
-          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">Backup only. Use if the app was unavailable during a session. Each evaluator uploads one file. Overwrites their previous scores for the selected session.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-gray-500 mb-1">Evaluator Name *</label><input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} placeholder="e.g. John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
-            <div><label className="block text-xs font-medium text-gray-500 mb-1">Session *</label>
-              <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]">
-                <option value="">Select session...</option>
-                {sessions.map(s => <option key={s.session_number} value={s.session_number}>Session {s.session_number} - {s.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First, Last, {scoringCategories.map(c => c.name).join(", ")})</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" /></div>
-          {result && <div className={`text-xs px-3 py-2 rounded-lg font-medium ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{result.success ? `Imported ${result.imported} athletes${result.skipped > 0 ? `, ${result.skipped} not matched` : ""}` : result.error}</div>}
-          <button onClick={handleUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">{loading ? "Uploading..." : "Upload Scores"}</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function CSVMappingModal({ headers, onConfirm, onCancel }) {
-  const FIELDS = [
-    { key: 'first_name', label: 'First Name', required: true, guesses: ['first name','first_name','firstname','first','fname','given name'] },
-    { key: 'last_name', label: 'Last Name', required: true, guesses: ['last name','last_name','lastname','last','lname','surname','family name'] },
-    { key: 'external_id', label: 'HC# / Player ID', required: false, guesses: ['hc#','hc','external_id','player id','player_id','id','hcn','hockey canada #'] },
-    { key: 'position', label: 'Position', required: false, guesses: ['position','pos'] },
-    { key: 'birth_year', label: 'Birth Year', required: false, guesses: ['birth year','birth_year','dob','birthyear','year','birth yr'] },
-    { key: 'parent_email', label: 'Parent Email', required: false, guesses: ['parent email','parent_email','email'] },
-  ];
-  const autoMap = () => { const map = {}; const lh = headers.map(h => h.toLowerCase().trim()); for (const f of FIELDS) { const i = lh.findIndex(h => f.guesses.includes(h)); map[f.key] = i >= 0 ? headers[i] : ""; } return map; };
-  const [mapping, setMapping] = useState(autoMap);
-  const ok = FIELDS.filter(f => f.required).every(f => mapping[f.key]);
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100"><h3 className="text-lg font-bold text-gray-900">Map CSV Columns</h3></div>
-        <div className="px-6 py-4 space-y-3">{FIELDS.map(f => (
-          <div key={f.key} className="flex items-center gap-3">
-            <div className="w-36 flex-shrink-0"><span className="text-sm font-medium text-gray-800">{f.label}</span>{f.required ? <span className="text-red-400 ml-1 text-xs">required</span> : <span className="text-gray-400 ml-1 text-xs">optional</span>}</div>
-            <select value={mapping[f.key]} onChange={e => setMapping(m => ({...m, [f.key]: e.target.value}))} className={`flex-1 px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] ${f.required && !mapping[f.key] ? "border-red-300 bg-red-50" : mapping[f.key] ? "border-green-300 bg-green-50" : "border-gray-200"}`}>
-              <option value="">— Skip —</option>
-              {headers.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-          </div>
-        ))}</div>
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-xs text-gray-400">* Required fields must be mapped</p>
-          <div className="flex gap-3"><button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button><button onClick={() => onConfirm(mapping)} disabled={!ok} className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Import Athletes</button></div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function DirectorDashboardInner() {
   const [activeTab, setActiveTab] = useState("rankings");
