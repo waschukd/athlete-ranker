@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackgroundPlus } from "@/components/ui/background-plus";
 import { ArrowRight, CheckCircle2, Zap, Shield, Users, BarChart3, Clock, Sparkles } from "lucide-react";
 
 export default function LandingPage() {
@@ -20,7 +21,8 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="w-full bg-gradient-to-b from-orange-50 to-white py-24 px-6">
+      <section className="relative w-full bg-gradient-to-b from-orange-50 to-white py-24 px-6 overflow-hidden">
+        <BackgroundPlus plusColor="#1A6BFF" plusSize={60} fade={true} />
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 border border-orange-200 text-sm text-orange-700 mb-6 font-medium">
             <Sparkles className="w-4 h-4 text-[#4D8FFF]" />
