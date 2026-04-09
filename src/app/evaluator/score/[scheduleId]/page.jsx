@@ -306,7 +306,7 @@ function ScoringInterface() {
       const ok = await syncToServer(athleteId, currentScores);
       setSyncStatus(ok ? "Saved ✓" : "Sync failed — saved locally");
       setTimeout(() => setSyncStatus(""), 2000);
-    }, 1500);
+    }, 3000);
   }, [online, syncToServer]);
 
   // Sync all pending when coming back online

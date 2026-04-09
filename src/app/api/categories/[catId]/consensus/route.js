@@ -130,6 +130,124 @@ export async function POST(request, { params }) {
         WHERE schedule_id = ${schedule_id}
       `;
 
+      // ── Run integrity checks (batch — all evaluators at once) ──────────
+      try {
+        const schedInfo = await sql`
+          SELECT es.start_time, es.end_time, es.scheduled_date, es.session_number, es.group_number,
+            ac.organization_id,
+            COUNT(pc.id) as total_checked_in
+          FROM evaluation_schedule es
+          JOIN age_categories ac ON ac.id = es.age_category_id
+          LEFT JOIN player_checkins pc ON pc.schedule_id = es.id AND pc.checked_in = true
+          WHERE es.id = ${schedule_id}
+          GROUP BY es.id, ac.organization_id
+        `;
+
+        if (schedInfo.length) {
+          const sched = schedInfo[0];
+          const orgId = sched.organization_id;
+          const totalCheckedIn = parseInt(sched.total_checked_in || 0);
+          const now = new Date();
+
+          // Get all evaluator signup data for this session
+          const signups = await sql`
+            SELECT ess.user_id as evaluator_id, ess.first_score_at, ess.last_score_at, ess.athletes_scored
+            FROM evaluator_session_signups ess
+            WHERE ess.schedule_id = ${schedule_id}
+          `;
+
+          for (const ev of signups) {
+            if (!ev.first_score_at || !ev.last_score_at) continue;
+
+            // CHECK 0: Too fast — scored everyone in < 25% of session time
+            if (sched.start_time && sched.end_time && totalCheckedIn >= 5) {
+              const sessionStart = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.start_time}`);
+              const sessionEnd = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.end_time}`);
+              const sessionDurationMins = (sessionEnd - sessionStart) / 60000;
+              const scoringDurationMins = (new Date(ev.last_score_at) - new Date(ev.first_score_at)) / 60000;
+              const pctOfSession = sessionDurationMins > 0 ? (scoringDurationMins / sessionDurationMins) * 100 : 100;
+              const scoredAll = parseInt(ev.athletes_scored || 0) >= totalCheckedIn;
+
+              if (scoredAll && pctOfSession < 25 && scoringDurationMins < 20) {
+                await sql`
+                  INSERT INTO evaluator_flags (evaluator_id, organization_id, schedule_id, flag_type, severity, details)
+                  VALUES (${ev.evaluator_id}, ${orgId}, ${schedule_id}, 'too_fast', 'warning',
+                    ${JSON.stringify({ scoring_duration_mins: Math.round(scoringDurationMins), session_duration_mins: Math.round(sessionDurationMins), pct_of_session: Math.round(pctOfSession), athletes_scored: ev.athletes_scored, note: 'Evaluator scored all players in under 25% of session time' })})
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
+
+            // CHECK 1: Late scoring — last score after session end
+            if (sched.end_time) {
+              const sessionEnd = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.end_time}`);
+              const minsLate = Math.round((new Date(ev.last_score_at) - sessionEnd) / 60000);
+              if (minsLate > 15) {
+                await sql`
+                  INSERT INTO evaluator_flags (evaluator_id, organization_id, schedule_id, flag_type, severity, details)
+                  VALUES (${ev.evaluator_id}, ${orgId}, ${schedule_id}, 'late_scoring', 'warning',
+                    ${JSON.stringify({ minutes_late: minsLate, session: `S${sched.session_number} G${sched.group_number}`, note: 'Scores submitted after session end time' })})
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
+
+            // CHECK 2: Incomplete scoring — didn't score everyone
+            if (totalCheckedIn > 0) {
+              const scored = parseInt(ev.athletes_scored || 0);
+              if (scored < totalCheckedIn) {
+                const missing = totalCheckedIn - scored;
+                await sql`
+                  INSERT INTO evaluator_flags (evaluator_id, organization_id, schedule_id, flag_type, severity, details)
+                  VALUES (${ev.evaluator_id}, ${orgId}, ${schedule_id}, 'incomplete',
+                    ${missing > totalCheckedIn * 0.3 ? 'critical' : 'warning'},
+                    ${JSON.stringify({ athletes_scored: scored, total_checked_in: totalCheckedIn, missing, session: `S${sched.session_number} G${sched.group_number}` })})
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
+          }
+
+          // CHECK 3: Score copy detection — single self-join for ALL evaluator pairs
+          if (session_number) {
+            const copies = await sql`
+              SELECT a.evaluator_id AS eval_a, b.evaluator_id AS eval_b,
+                COUNT(*) AS shared_scores,
+                SUM(CASE WHEN a.score = b.score THEN 1 ELSE 0 END) AS exact_matches,
+                AVG(ABS(a.score - b.score)) AS avg_diff
+              FROM category_scores a
+              JOIN category_scores b ON b.athlete_id = a.athlete_id
+                AND b.age_category_id = a.age_category_id
+                AND b.session_number = a.session_number
+                AND b.scoring_category_id = a.scoring_category_id
+                AND b.evaluator_id > a.evaluator_id
+              WHERE a.age_category_id = ${catId} AND a.session_number = ${session_number}
+              GROUP BY a.evaluator_id, b.evaluator_id
+              HAVING COUNT(*) >= 5
+            `;
+
+            for (const pair of copies) {
+              const exactMatchRate = parseInt(pair.exact_matches) / parseInt(pair.shared_scores);
+              const avgDiff = parseFloat(pair.avg_diff || 99);
+              if (exactMatchRate > 0.8 && avgDiff < 0.3) {
+                // Flag both evaluators
+                for (const evalId of [pair.eval_a, pair.eval_b]) {
+                  await sql`
+                    INSERT INTO evaluator_flags (evaluator_id, organization_id, schedule_id, flag_type, severity, details)
+                    VALUES (${evalId}, ${orgId}, ${schedule_id}, 'score_copy_suspected', 'critical',
+                      ${JSON.stringify({ exact_match_rate: (exactMatchRate * 100).toFixed(0) + '%', avg_score_diff: avgDiff.toFixed(2), shared_scores: pair.shared_scores, note: 'Scores are statistically too similar to another evaluator' })})
+                    ON CONFLICT DO NOTHING
+                  `;
+                }
+              }
+            }
+          }
+        }
+      } catch (integrityErr) {
+        // Don't fail the session close if integrity checks error
+        console.error("Integrity check error:", integrityErr);
+      }
+
       // If there were unreviewed flagged players, notify SP
       if (unreviewed_flags && unreviewed_flags.length > 0) {
         const schedInfo = await sql`
