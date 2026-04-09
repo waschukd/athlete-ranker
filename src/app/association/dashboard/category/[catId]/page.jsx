@@ -14,6 +14,7 @@ import ScoreManager from "@/components/ScoreManager";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
+import PlayerComparison from "@/components/PlayerComparison";
 
 const qc = new QueryClient();
 
@@ -31,6 +32,8 @@ function CategoryHub() {
   const [activeTab, setActiveTab] = useState("rankings");
   const queryClient = useQueryClient();
   const [positionFilter, setPositionFilter] = useState("all");
+  const [compareIds, setCompareIds] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
   const [sortBy, setSortBy] = useState(null); // { key, dir }
   const [importing, setImporting] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -276,12 +279,21 @@ function CategoryHub() {
                     </div>
                   )}
                   {hasScores && <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"><Download size={12} /> Export CSV</button>}
+                  {compareIds.length >= 2 && (
+                    <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
+                      Compare ({compareIds.length})
+                    </button>
+                  )}
+                  {compareIds.length > 0 && (
+                    <button onClick={() => setCompareIds([])} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+                  )}
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="px-2 py-3 w-8"></th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
@@ -293,7 +305,10 @@ function CategoryHub() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.map(a => (
-                      <tr key={a.id} className="hover:bg-gray-50">
+                      <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : ""}`}>
+                        <td className="px-2 py-3">
+                          <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#1A6BFF] focus:ring-[#1A6BFF]" />
+                        </td>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#1A6BFF]">{a.first_name}</a></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a></td>
@@ -601,8 +616,13 @@ function CategoryHub() {
         )}
 
         {activeTab === "reports" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">Reports</h2>
+
+            {/* Player Comparison Tool */}
+            <PlayerComparison catId={catId} initialPlayerIds={[]} />
+
+            <h3 className="text-base font-semibold text-gray-900 pt-2">Export Data</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center"><BarChart3 size={18} className="text-white" /></div><div><div className="font-semibold text-gray-900">Overall Rankings</div><div className="text-xs text-gray-400">All athletes, all sessions, final rank</div></div></div>
@@ -701,6 +721,15 @@ function CategoryHub() {
         )}
 
         {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={true} />}
+
+        {/* Comparison overlay */}
+        {showCompare && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16">
+            <div className="w-full max-w-6xl">
+              <PlayerComparison catId={catId} initialPlayerIds={compareIds} onClose={() => setShowCompare(false)} />
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

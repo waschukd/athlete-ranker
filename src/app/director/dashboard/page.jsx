@@ -12,6 +12,7 @@ import CopyCode from "@/components/CopyCode";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
+import PlayerComparison from "@/components/PlayerComparison";
 
 const qc = new QueryClient();
 
@@ -25,6 +26,8 @@ const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 function DirectorDashboardInner() {
   const [activeTab, setActiveTab] = useState("rankings");
   const [positionFilter, setPositionFilter] = useState("all");
+  const [compareIds, setCompareIds] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
   const [sortBy, setSortBy] = useState(null); // { key, dir }
   const [scoreManagerOpen, setScoreManagerOpen] = useState(null);
   const [volunteerModal, setVolunteerModal] = useState(null); // { sessionNum, entries }
@@ -314,6 +317,14 @@ function DirectorDashboardInner() {
                       <Download size={12} /> Export CSV
                     </button>
                   )}
+                  {compareIds.length >= 2 && (
+                    <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
+                      Compare ({compareIds.length})
+                    </button>
+                  )}
+                  {compareIds.length > 0 && (
+                    <button onClick={() => setCompareIds([])} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+                  )}
                 </div>
               </div>
 
@@ -321,6 +332,7 @@ function DirectorDashboardInner() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="px-2 py-3 w-8"></th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
@@ -336,7 +348,10 @@ function DirectorDashboardInner() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.map(a => (
-                      <tr key={a.id} className={`hover:bg-gray-50 transition-colors ${a.rank === 1 ? "bg-yellow-50/40" : a.rank === 2 ? "bg-gray-50/60" : a.rank === 3 ? "bg-orange-50/30" : ""}`}>
+                      <tr key={a.id} className={`hover:bg-gray-50 transition-colors ${compareIds.includes(a.id) ? "bg-blue-50/50" : a.rank === 1 ? "bg-yellow-50/40" : a.rank === 2 ? "bg-gray-50/60" : a.rank === 3 ? "bg-orange-50/30" : ""}`}>
+                        <td className="px-2 py-3">
+                          <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#1A6BFF] focus:ring-[#1A6BFF]" />
+                        </td>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`}
@@ -608,8 +623,12 @@ function DirectorDashboardInner() {
 
         {/* ΓöÇΓöÇ REPORTS TAB ΓöÇΓöÇ */}
         {activeTab === "reports" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">Reports</h2>
+
+            <PlayerComparison catId={catId} initialPlayerIds={[]} />
+
+            <h3 className="text-base font-semibold text-gray-900 pt-2">Export Data</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               {/* Overall Rankings */}
@@ -741,6 +760,14 @@ function DirectorDashboardInner() {
         )}
 
         {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={canEditScores} />}
+
+        {showCompare && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16">
+            <div className="w-full max-w-6xl">
+              <PlayerComparison catId={catId} initialPlayerIds={compareIds} onClose={() => setShowCompare(false)} />
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
