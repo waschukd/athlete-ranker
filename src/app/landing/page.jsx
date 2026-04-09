@@ -1,4 +1,7 @@
+"use client";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { GridGlowBackground } from "@/components/ui/grid-glow-background";
 import { BackgroundPlus } from "@/components/ui/background-plus";
 import { ArrowRight, CheckCircle2, Zap, Shield, Users, BarChart3, Clock, Sparkles } from "lucide-react";
 
@@ -24,14 +27,14 @@ export default function LandingPage() {
       <section className="relative w-full bg-gradient-to-b from-orange-50 to-white py-24 px-6 overflow-hidden">
         <BackgroundPlus plusColor="#1A6BFF" plusSize={60} fade={true} />
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 border border-orange-200 text-sm text-orange-700 mb-6 font-medium">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-sm text-white/80 mb-6 font-medium">
             <Sparkles className="w-4 h-4 text-[#4D8FFF]" />
             Modern hockey evaluation platform
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold leading-tight text-gray-900 mb-6">
+          <h1 className="text-5xl md:text-7xl font-bold leading-tight text-white mb-6">
             Run evaluations without the chaos
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
+          <p className="text-xl text-white/60 max-w-2xl mx-auto mb-10">
             Upload athletes, build schedules, assign groups, and score live. Rankings update automatically.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -39,12 +42,13 @@ export default function LandingPage() {
               Get Started <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-600">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
             <div className="flex items-center gap-2"><Shield className="w-5 h-5 text-green-600" /><span>Secure & reliable</span></div>
             <div className="flex items-center gap-2"><Users className="w-5 h-5 text-blue-600" /><span>Multi-role access</span></div>
             <div className="flex items-center gap-2"><Clock className="w-5 h-5 text-[#4D8FFF]" /><span>Real-time updates</span></div>
           </div>
         </div>
+        </GridGlowBackground>
       </section>
 
       <footer className="border-t border-gray-200 py-8 text-center text-sm text-gray-500">
