@@ -1,9 +1,7 @@
 "use client";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { ArrowRight, Shield, Users, Clock, Sparkles } from "lucide-react";
 import { GridGlowBackground } from "@/components/ui/grid-glow-background";
-import { BackgroundPlus } from "@/components/ui/background-plus";
-import { ArrowRight, CheckCircle2, Zap, Shield, Users, BarChart3, Clock, Sparkles } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -24,9 +22,14 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="relative w-full bg-gradient-to-b from-orange-50 to-white py-24 px-6 overflow-hidden">
-        <BackgroundPlus plusColor="#1A6BFF" plusSize={60} fade={true} />
-        <div className="max-w-4xl mx-auto text-center">
+      <GridGlowBackground
+        backgroundColor="#060b18"
+        gridColor="rgba(26,107,255,0.08)"
+        glowColors={["#1A6BFF", "#4D8FFF", "#0F4FCC"]}
+        glowCount={8}
+        gridSize={50}
+      >
+        <div className="max-w-4xl mx-auto text-center py-24 px-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-sm text-white/80 mb-6 font-medium">
             <Sparkles className="w-4 h-4 text-[#4D8FFF]" />
             Modern hockey evaluation platform
@@ -43,13 +46,12 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
-            <div className="flex items-center gap-2"><Shield className="w-5 h-5 text-green-600" /><span>Secure & reliable</span></div>
-            <div className="flex items-center gap-2"><Users className="w-5 h-5 text-blue-600" /><span>Multi-role access</span></div>
+            <div className="flex items-center gap-2"><Shield className="w-5 h-5 text-green-400" /><span>Secure & reliable</span></div>
+            <div className="flex items-center gap-2"><Users className="w-5 h-5 text-blue-400" /><span>Multi-role access</span></div>
             <div className="flex items-center gap-2"><Clock className="w-5 h-5 text-[#4D8FFF]" /><span>Real-time updates</span></div>
           </div>
         </div>
-        </GridGlowBackground>
-      </section>
+      </GridGlowBackground>
 
       <footer className="border-t border-gray-200 py-8 text-center text-sm text-gray-500">
         © {new Date().getFullYear()} Sideline Star. All rights reserved.
