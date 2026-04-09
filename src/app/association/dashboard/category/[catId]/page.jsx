@@ -13,6 +13,7 @@ import CopyCode from "@/components/CopyCode";
 import ScoreManager from "@/components/ScoreManager";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
+import ScoreEditor from "@/components/ScoreEditor";
 
 const qc = new QueryClient();
 
@@ -178,6 +179,7 @@ function CategoryHub() {
     { id: "reports", label: "Reports", icon: FileText },
     { id: "goalies", label: "Goalies", icon: Users },
     { id: "teams", label: "Teams", icon: Trophy },
+    { id: "scores", label: "Scores", icon: Settings },
   ];
 
   if (isLoading || !catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
@@ -697,6 +699,8 @@ function CategoryHub() {
             <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
           </div>
         )}
+
+        {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={true} />}
 
       </div>
     </div>
