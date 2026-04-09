@@ -27,6 +27,38 @@ function saveLocal(scheduleId, userId, data) {
   } catch {}
 }
 
+// ── Audio feedback (Web Audio API — works through Bluetooth) ──────────────
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTone(freq, duration = 0.12, type = "sine") {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch {}
+}
+// Short rising chirp — score saved
+function beepScoreSaved() { playTone(880, 0.08); setTimeout(() => playTone(1320, 0.1), 80); }
+// Two quick tones — player selected
+function beepPlayerSelected() { playTone(660, 0.06); setTimeout(() => playTone(880, 0.06), 70); }
+// Ascending triple — notes mode started
+function beepNotesStart() { playTone(523, 0.08); setTimeout(() => playTone(659, 0.08), 90); setTimeout(() => playTone(784, 0.1), 180); }
+// Descending triple — notes mode ended
+function beepNotesEnd() { playTone(784, 0.08); setTimeout(() => playTone(659, 0.08), 90); setTimeout(() => playTone(523, 0.1), 180); }
+// Low buzz — not understood
+function beepError() { playTone(220, 0.15, "square"); }
+
 // ── Status helpers ─────────────────────────────────────────────────────────
 function getStatus(athleteId, scores, totalCats) {
   if (!totalCats) return "empty";
@@ -357,6 +389,7 @@ function ScoringInterface() {
     if (/^(finish notes?|stop notes?|end notes?|done notes?|done)$/i.test(t)) {
       setNotesMode(false);
       setVoiceStatus("Notes mode off");
+      beepNotesEnd();
       return;
     }
 
@@ -380,9 +413,10 @@ function ScoringInterface() {
 
     // ── Start notes ───────────────────────────────────────
     if (/^(start notes?|notes?|add notes?)$/i.test(t)) {
-      if (!selectedRef.current) { setVoiceStatus("Select a player first"); return; }
+      if (!selectedRef.current) { setVoiceStatus("Select a player first"); beepError(); return; }
       setNotesMode(true);
       setVoiceStatus("Notes mode — speak freely, say 'finish notes' to stop");
+      beepNotesStart();
       return;
     }
 
@@ -397,8 +431,8 @@ function ScoringInterface() {
       const a = athletesRef.current.find(
         x => x.team_color?.toLowerCase() === color.toLowerCase() && x.jersey_number === jersey
       );
-      if (a) { setSelected(a); setVoiceStatus(`Selected: ${color} #${jersey} — ${a.last_name}`); }
-      else setVoiceStatus(`${color} #${jersey} not found`);
+      if (a) { setSelected(a); setVoiceStatus(`Selected: ${color} #${jersey} — ${a.last_name}`); beepPlayerSelected(); }
+      else { setVoiceStatus(`${color} #${jersey} not found`); beepError(); }
       return;
     }
 
@@ -406,8 +440,8 @@ function ScoringInterface() {
     if (/^\d+$/.test(t)) {
       const jersey = parseInt(t);
       const a = athletesRef.current.find(x => x.jersey_number === jersey);
-      if (a) { setSelected(a); setVoiceStatus(`Selected: #${jersey} ${a.last_name}`); }
-      else setVoiceStatus(`No player with jersey #${jersey}`);
+      if (a) { setSelected(a); setVoiceStatus(`Selected: #${jersey} ${a.last_name}`); beepPlayerSelected(); }
+      else { setVoiceStatus(`No player with jersey #${jersey}`); beepError(); }
       return;
     }
 
@@ -432,12 +466,12 @@ function ScoringInterface() {
             const max = parseFloat(scaleRef.current) || 10;
             if (val >= inc && val <= max) {
               if (sel) { updateScore(sel.id, cat.id, val); scored++; break; }
-              else { setVoiceStatus("Select a player first"); break; }
+              else { setVoiceStatus("Select a player first"); beepError(); break; }
             }
           }
         }
       }
-      if (scored > 0) { setVoiceStatus(`${scored} score${scored > 1 ? "s" : ""} saved ✓`); return; }
+      if (scored > 0) { setVoiceStatus(`${scored} score${scored > 1 ? "s" : ""} saved ✓`); beepScoreSaved(); return; }
 
       // ── Phase 2: Fuzzy fallback when exact matching fails ──
       if (scored === 0 && sel) {
@@ -465,6 +499,7 @@ function ScoringInterface() {
               : `~${m.cat} → ${m.value} (heard '${m.heard}')`
           );
           setVoiceStatus(parts.join(" · "));
+          beepScoreSaved();
           return;
         }
       }
@@ -475,6 +510,7 @@ function ScoringInterface() {
     if (/^(prev|previous|back)$/.test(t)) { navigate(-1); return; }
 
     setVoiceStatus(`Not understood: "${text}"`);
+    beepError();
 
   }, [scheduleId, updateScore, navigate]);
 
