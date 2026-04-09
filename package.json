@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -15,8 +16,7 @@
     "framer-motion": "^12.38.0",
     "jose": "^5.0.0",
     "lucide-react": "^0.383.0",
-    "next": "^14.2.29",
-    "next-auth": "^5.0.0-beta.19",
+    "next": "^14.2.35",
     "react": "^18",
     "react-dom": "^18"
   },
