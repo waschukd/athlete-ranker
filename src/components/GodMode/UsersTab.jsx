@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Search, Edit2, Trash2, X, Check } from "lucide-react";
+import { UserPlus, Search, Trash2, X, Check, Mail, KeyRound, Loader2 } from "lucide-react";
 import { LoadingState } from "./LoadingState";
 import { CreateUserModal } from "./CreateUserModal";
 
@@ -37,6 +37,33 @@ export function UsersTab() {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
+    },
+  });
+
+  const [actionResult, setActionResult] = useState(null); // { userId, success, message, tempPassword? }
+
+  const credentialMutation = useMutation({
+    mutationFn: async ({ userId, action }) => {
+      const res = await fetch(`/api/admin/god-mode/users?id=${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: (data, { userId, action }) => {
+      setActionResult({
+        userId,
+        success: true,
+        message: action === "resend_credentials" ? "Email sent ✓" : "Password reset ✓",
+        tempPassword: data.tempPassword || null,
+      });
+      setTimeout(() => setActionResult(null), 8000);
+    },
+    onError: (err, { userId }) => {
+      setActionResult({ userId, success: false, message: "Failed — try again" });
+      setTimeout(() => setActionResult(null), 3000);
     },
   });
 
@@ -141,7 +168,21 @@ export function UsersTab() {
                     </td>
                     <td style={{ color: "var(--gm-muted)", fontSize: 12 }}>{new Date(user.created_at).toLocaleDateString()}</td>
                     <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+                        {actionResult?.userId === user.id && (
+                          <span style={{ fontSize: 11, color: actionResult.success ? "var(--gm-green)" : "var(--gm-red)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                            {actionResult.message}
+                            {actionResult.tempPassword && (
+                              <code
+                                onClick={() => navigator.clipboard.writeText(actionResult.tempPassword)}
+                                title="Click to copy"
+                                style={{ cursor: "pointer", background: "var(--gm-surface2)", padding: "2px 6px", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--gm-amber)" }}
+                              >
+                                {actionResult.tempPassword}
+                              </code>
+                            )}
+                          </span>
+                        )}
                         {deleteConfirm === user.id ? (
                           <>
                             <button
@@ -159,14 +200,43 @@ export function UsersTab() {
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => setDeleteConfirm(user.id)}
-                            style={{ padding: "5px 8px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: "var(--gm-dim)", cursor: "pointer", transition: "all 0.15s" }}
-                            onMouseEnter={e => { e.currentTarget.style.background = "var(--gm-red-soft)"; e.currentTarget.style.color = "var(--gm-red)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--gm-dim)"; e.currentTarget.style.borderColor = "var(--gm-border)"; }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          <>
+                            {/* Resend credentials via email */}
+                            <button
+                              onClick={() => credentialMutation.mutate({ userId: user.id, action: "resend_credentials" })}
+                              disabled={credentialMutation.isPending && credentialMutation.variables?.userId === user.id}
+                              title="Resend login credentials via email"
+                              style={{ padding: "5px 8px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: "var(--gm-dim)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "var(--gm-blue-soft)"; e.currentTarget.style.color = "var(--gm-blue)"; e.currentTarget.style.borderColor = "rgba(108,157,255,0.3)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--gm-dim)"; e.currentTarget.style.borderColor = "var(--gm-border)"; }}
+                            >
+                              {credentialMutation.isPending && credentialMutation.variables?.userId === user.id && credentialMutation.variables?.action === "resend_credentials"
+                                ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                                : <Mail size={13} />}
+                            </button>
+                            {/* Reset password (no email — shows password inline) */}
+                            <button
+                              onClick={() => credentialMutation.mutate({ userId: user.id, action: "reset_password" })}
+                              disabled={credentialMutation.isPending && credentialMutation.variables?.userId === user.id}
+                              title="Reset password (no email — shows temp password here)"
+                              style={{ padding: "5px 8px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: "var(--gm-dim)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "var(--gm-amber-soft)"; e.currentTarget.style.color = "var(--gm-amber)"; e.currentTarget.style.borderColor = "rgba(251,191,36,0.3)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--gm-dim)"; e.currentTarget.style.borderColor = "var(--gm-border)"; }}
+                            >
+                              {credentialMutation.isPending && credentialMutation.variables?.userId === user.id && credentialMutation.variables?.action === "reset_password"
+                                ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                                : <KeyRound size={13} />}
+                            </button>
+                            {/* Delete */}
+                            <button
+                              onClick={() => setDeleteConfirm(user.id)}
+                              style={{ padding: "5px 8px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: "var(--gm-dim)", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "var(--gm-red-soft)"; e.currentTarget.style.color = "var(--gm-red)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--gm-dim)"; e.currentTarget.style.borderColor = "var(--gm-border)"; }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>

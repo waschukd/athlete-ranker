@@ -10,7 +10,6 @@ import { SessionsTab } from "@/components/GodMode/SessionsTab";
 import { SystemToolsTab } from "@/components/GodMode/SystemToolsTab";
 import { SPLinksTab } from "@/components/GodMode/SPLinksTab";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Shield } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -72,14 +71,13 @@ export default function GodModeDashboard() {
           .gm-modal { background: var(--gm-surface); border: 1px solid var(--gm-border-active); border-radius: 14px; width: 100%; max-width: 440px; padding: 24px; }
           .gm-modal-title { color: var(--gm-text); font-size: 16px; font-weight: 600; margin-bottom: 20px; }
           .gm-form-group { margin-bottom: 14px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
         `}} />
 
         <div style={{ borderBottom: "1px solid var(--gm-border)", background: "var(--gm-surface)" }}>
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 9, background: "linear-gradient(135deg, #1A6BFF, #d44a1a)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 18px rgba(255,107,53,0.4)" }}>
-                <Shield size={18} color="white" />
-              </div>
+              <img src="/s-mark-dark.svg" style={{ width: 38, height: 38, objectFit: "contain", borderRadius: 9 }} alt="Sideline Star" />
               <div>
                 <div style={{ color: "var(--gm-text)", fontSize: 15, fontWeight: 600 }}>God Mode</div>
                 <div style={{ color: "var(--gm-muted)", fontSize: 11 }}>System Administration</div>
