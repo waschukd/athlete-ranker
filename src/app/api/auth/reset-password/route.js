@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import sql from "@/lib/db";
+import { hashPassword } from "@/lib/password";
 
 export async function POST(request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request) {
     if (!tokens.length) return NextResponse.json({ error: "Invalid or expired reset link. Please request a new one." }, { status: 400 });
 
     const { email } = tokens[0];
-    const hashedPassword = createHash("sha256").update(password).digest("hex");
+    const hashedPassword = await hashPassword(password);
 
     // Update password
     const authUser = await sql`SELECT id FROM auth_users WHERE email = ${email}`;

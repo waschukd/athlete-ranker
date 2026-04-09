@@ -2,7 +2,8 @@ import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 import sql from "./db";
 
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-change-me");
+if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
+const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 export async function signToken(payload) {
   return new SignJWT(payload)

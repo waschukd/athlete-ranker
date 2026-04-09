@@ -69,9 +69,9 @@ export async function POST(request) {
 
     await sql`INSERT INTO auth_users (email, name) VALUES (${email}, ${name}) ON CONFLICT (email) DO NOTHING`;
 
-    const { createHash } = await import("node:crypto");
+    const { hashPassword } = await import("@/lib/password");
     const tempPassword = Math.random().toString(36).slice(2, 10) + "A1!";
-    const hashedPassword = createHash("sha256").update(tempPassword).digest("hex");
+    const hashedPassword = await hashPassword(tempPassword);
 
     const authUser = await sql`SELECT id FROM auth_users WHERE email = ${email}`;
     if (authUser.length) {

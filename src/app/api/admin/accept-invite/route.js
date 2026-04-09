@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import sql from "@/lib/db";
 import { signToken } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -41,7 +41,7 @@ export async function POST(request) {
     }
 
     const invite = invites[0];
-    const hashedPassword = createHash("sha256").update(password).digest("hex");
+    const hashedPassword = await hashPassword(password);
 
     // Create or update auth user
     const existingAuthUser = await sql`SELECT * FROM auth_users WHERE email = ${invite.email}`;

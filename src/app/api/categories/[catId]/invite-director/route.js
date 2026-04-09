@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { createHash } from "node:crypto";
-
-function hashPassword(p) {
-  return createHash("sha256").update(p).digest("hex");
-}
+import { hashPassword } from "@/lib/password";
 
 async function sendEmail(to, subject, html) {
   if (!process.env.RESEND_API_KEY) return;
@@ -63,7 +59,7 @@ export async function POST(request, { params }) {
       `;
       await sql`
         INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-        VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${hashPassword(tempPassword)})
+        VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(tempPassword)})
         ON CONFLICT DO NOTHING
       `;
       const [newUser] = await sql`

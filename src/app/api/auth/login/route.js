@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import sql from "@/lib/db";
 import { signToken } from "@/lib/auth";
+import { verifyPassword, hashPassword } from "@/lib/password";
 
 const loginAttempts = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
@@ -14,13 +14,6 @@ function checkRateLimit(ip) {
   entry.count++;
   loginAttempts.set(ip, entry);
   return entry.count <= MAX_ATTEMPTS;
-}
-
-function checkPassword(stored, input) {
-  if (stored === "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWR2n9IT8tO2BzpEMH5OSs") {
-    return input === "Admin1234!";
-  }
-  return createHash("sha256").update(input).digest("hex") === stored;
 }
 
 export async function POST(request) {
@@ -38,7 +31,13 @@ export async function POST(request) {
     const authUser = authUsers[0];
     const accounts = await sql`SELECT password FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
     if (!accounts.length || !accounts[0].password) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    if (!checkPassword(accounts[0].password, password)) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    const storedHash = accounts[0].password;
+    if (!(await verifyPassword(password, storedHash))) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    // Transparently upgrade legacy SHA256 hashes to bcrypt on successful login
+    if (/^[a-f0-9]{64}$/.test(storedHash)) {
+      const bcryptHash = await hashPassword(password);
+      await sql`UPDATE auth_accounts SET password = ${bcryptHash} WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
+    }
     const appUsers = await sql`SELECT * FROM users WHERE email = ${email}`;
     const appUser = appUsers[0];
     const role = appUser?.role || "association_evaluator";

@@ -1,11 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/cron?job=weekly_report&secret=athleteranker_cron_2026",
+      "path": "/api/cron?job=weekly_report",
       "schedule": "0 19 * * 0"
     },
     {
-      "path": "/api/cron?job=daily_alert&secret=athleteranker_cron_2026",
+      "path": "/api/cron?job=daily_alert",
       "schedule": "0 7 * * *"
     }
   ]

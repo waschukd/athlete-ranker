@@ -1,9 +1,7 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import sql from "@/lib/db";
-
-const hashPassword = (p) => createHash("sha256").update(p).digest("hex");
+import { hashPassword } from "@/lib/password";
 
 export async function POST(request) {
   try {
@@ -24,7 +22,7 @@ export async function POST(request) {
         `;
         await sql`
           INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-          VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${hashPassword(password)})
+          VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(password)})
         `;
         const [user] = await sql`
           INSERT INTO users (email, name, role) VALUES (${email}, ${name}, ${role}) RETURNING *

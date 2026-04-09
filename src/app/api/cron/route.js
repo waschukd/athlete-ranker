@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail } from "@/lib/email";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-const CRON_SECRET = process.env.CRON_SECRET || "changeme";
+const CRON_SECRET = process.env.CRON_SECRET;
 
 async function getSessionStaffing(orgId, daysAhead) {
   const cutoff = new Date();
@@ -41,13 +41,13 @@ async function getSessionStaffing(orgId, daysAhead) {
 }
 
 export async function GET(request) {
-  // Verify secret token
-  const { searchParams } = new URL(request.url);
-  const token = searchParams.get("secret");
-  if (token !== CRON_SECRET) {
+  // Verify cron secret via Authorization header (Vercel sends this automatically)
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
   const job = searchParams.get("job"); // weekly_report | daily_alert
 
   try {

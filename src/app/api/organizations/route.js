@@ -2,9 +2,7 @@ import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { emailWelcomeServiceProvider, emailWelcomeAssociation } from "@/lib/email";
-import { createHash } from "node:crypto";
-
-function hashPassword(p) { return createHash("sha256").update(p).digest("hex"); }
+import { hashPassword } from "@/lib/password";
 function tempPass() { return Math.random().toString(36).slice(-8) + "!A1"; }
 
 export async function GET() {
@@ -81,7 +79,7 @@ export async function POST(request) {
         `;
         await sql`
           INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-          VALUES (${authUser.id}, 'credentials', 'credentials', ${contact_email}, ${hashPassword(password)})
+          VALUES (${authUser.id}, 'credentials', 'credentials', ${contact_email}, ${await hashPassword(password)})
         `;
         const role = type === "service_provider" ? "service_provider_admin" : "association_admin";
         await sql`

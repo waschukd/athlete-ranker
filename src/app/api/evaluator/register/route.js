@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { emailEvaluatorPendingApproval } from "@/lib/email";
-import { createHash, randomBytes } from "node:crypto";
 import sql from "@/lib/db";
-
-function hashPassword(p) {
-  return createHash("sha256").update(p).digest("hex");
-}
+import { hashPassword } from "@/lib/password";
 
 function generateEvaluatorId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -76,7 +72,7 @@ export async function POST(request) {
     // Create auth account
     await sql`
       INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-      VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${hashPassword(password)})
+      VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(password)})
     `;
 
     // Determine role based on org type
