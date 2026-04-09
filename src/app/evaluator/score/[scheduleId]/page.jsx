@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
+import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch } from "@/lib/voiceMatch";
 
 const qc = new QueryClient();
 
@@ -70,6 +71,8 @@ function ScoringInterface() {
   const incrementRef = useRef(1);
   const recRef = useRef(null);
   const syncTimerRef = useRef(null);
+  const aliasLookupRef = useRef({});
+  const deviceChangeRef = useRef(null);
 
   useEffect(() => { notesModeRef.current = notesMode; }, [notesMode]);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
@@ -211,6 +214,9 @@ function ScoringInterface() {
 
   useEffect(() => { athletesRef.current = athletes; }, [athletes]);
   useEffect(() => { scoringCatsRef.current = scoringCats; }, [scoringCats]);
+  useEffect(() => {
+    aliasLookupRef.current = buildAliasLookup(scoringCats.map(c => c.name));
+  }, [scoringCats]);
   useEffect(() => { scaleRef.current = scale; }, [scale]);
   useEffect(() => { incrementRef.current = increment; }, [increment]);
 
@@ -432,6 +438,36 @@ function ScoringInterface() {
         }
       }
       if (scored > 0) { setVoiceStatus(`${scored} score${scored > 1 ? "s" : ""} saved ✓`); return; }
+
+      // ── Phase 2: Fuzzy fallback when exact matching fails ──
+      if (scored === 0 && sel) {
+        const candidates = extractCandidates(t);
+        const fuzzyMatches = [];
+        for (const { phrase, value } of candidates) {
+          const inc = parseFloat(incrementRef.current) || 1;
+          const max = parseFloat(scaleRef.current) || 10;
+          if (value >= inc && value <= max) {
+            const result = findBestCategoryMatch(phrase, cats, aliasLookupRef.current);
+            if (result) {
+              const cat = cats.find(c => normalizeForMatch(c.name) === normalizeForMatch(result.match));
+              if (cat) {
+                updateScore(sel.id, cat.id, value);
+                scored++;
+                fuzzyMatches.push({ cat: cat.name, value, heard: phrase, method: result.method });
+              }
+            }
+          }
+        }
+        if (scored > 0) {
+          const parts = fuzzyMatches.map(m =>
+            m.method === "alias"
+              ? `${m.cat} → ${m.value} ✓`
+              : `~${m.cat} → ${m.value} (heard '${m.heard}')`
+          );
+          setVoiceStatus(parts.join(" · "));
+          return;
+        }
+      }
     }
 
     // ── Navigation ────────────────────────────────────────
@@ -477,17 +513,35 @@ function ScoringInterface() {
     setNotesMode(false);
   }, []);
 
-  const toggleVoice = useCallback(() => {
+  const restartVoice = useCallback(() => {
+    if (recRef.current) {
+      recRef.current.stop(); // onend handler auto-restarts
+      setVoiceStatus("Mic restarted");
+    }
+  }, []);
+
+  const toggleVoice = useCallback(async () => {
     if (voiceOn) {
       recRef.current?.stop();
       recRef.current = null;
       setVoiceOn(false);
       setVoiceStatus("");
       setNotesMode(false);
+      // Clean up device change listener
+      if (deviceChangeRef.current) {
+        navigator.mediaDevices?.removeEventListener('devicechange', deviceChangeRef.current);
+        deviceChangeRef.current = null;
+      }
       return;
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || voiceMode === 'unavailable') { setVoiceStatus("Voice unavailable offline — tap to score"); return; }
+
+    // Probe audio device — forces OS to route current default (helps Bluetooth on iOS)
+    try {
+      const stream = await navigator.mediaDevices?.getUserMedia({ audio: true });
+      stream?.getTracks().forEach(t => t.stop());
+    } catch {}
 
     const rec = new SR();
     rec.continuous = true;
@@ -508,10 +562,21 @@ function ScoringInterface() {
         try { rec.start(); } catch {}
       }
     };
+
+    // Restart recognition when audio device changes (Bluetooth connect/disconnect)
+    const onDeviceChange = () => {
+      if (recRef.current) {
+        setVoiceStatus("Audio device changed — reconnecting...");
+        recRef.current.stop(); // onend handler auto-restarts
+      }
+    };
+    navigator.mediaDevices?.addEventListener('devicechange', onDeviceChange);
+    deviceChangeRef.current = onDeviceChange;
+
     rec.start();
     setVoiceOn(true);
     setVoiceStatus("Listening...");
-  }, [voiceOn, parseVoice]);
+  }, [voiceOn, parseVoice, voiceMode]);
 
   // Stats
   const complete = athletes.filter(a => getStatus(a.id, scores, totalCats) === "complete").length;
@@ -803,6 +868,17 @@ function ScoringInterface() {
               </div>
             )}
           </div>
+
+          {/* Restart mic button (helps with Bluetooth) */}
+          {voiceOn && !notesMode && (
+            <button
+              onClick={restartVoice}
+              title="Restart mic (use if Bluetooth changed)"
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-blue-800/50 text-blue-300 hover:bg-blue-700/50 transition-colors"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
 
           {/* Notes mode done button */}
           {voiceOn && notesMode && (
