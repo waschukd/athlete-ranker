@@ -92,7 +92,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="bg-gradient-to-br from-white via-blue-50/30 to-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
@@ -148,17 +148,17 @@ function Dashboard() {
           {categories.length > 0 && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { label: "Age Categories", value: categories.length, color: "bg-[#1A6BFF]", icon: Trophy },
-                { label: "Total Athletes", value: totalAthletes, color: "bg-[#1A6BFF]", icon: Users },
-                { label: "Total Sessions", value: totalSessions, color: "bg-[#1A6BFF]", icon: Calendar },
-              ].map(({ label, value, color, icon: Icon }) => (
-                <div key={label} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow">
+                { label: "Age Categories", value: categories.length, color: "bg-[#1A6BFF]", gradient: "from-blue-500 to-blue-600", icon: Trophy },
+                { label: "Total Athletes", value: totalAthletes, color: "bg-purple-500", gradient: "from-purple-500 to-purple-600", icon: Users },
+                { label: "Total Sessions", value: totalSessions, color: "bg-emerald-500", gradient: "from-emerald-500 to-emerald-600", icon: Calendar },
+              ].map(({ label, value, color, gradient, icon: Icon }) => (
+                <div key={label} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all hover:-translate-y-0.5 relative overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">{label}</p>
                       <p className="text-4xl font-bold text-gray-900 mt-2">{value}</p>
                     </div>
-                    <div className="p-4 rounded-xl bg-[#1A6BFF]">
+                    <div className={`p-4 rounded-xl bg-gradient-to-br ${gradient}`}>
                       <Icon className="text-white" size={28} />
                     </div>
                   </div>
@@ -288,26 +288,32 @@ function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
-              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#1A6BFF]/50 transition-all relative">
+              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#1A6BFF]/40 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <a href={cat.setup_complete ? `/association/dashboard/category/${cat.id}?org=${orgId}` : `/association/dashboard/category/${cat.id}/setup?cat=${cat.id}&org=${orgId}`} className="block">
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-xl font-bold text-gray-900">{cat.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-xl font-bold text-gray-900">{cat.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.setup_complete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-600"}`}>
+                        {cat.setup_complete ? "Active" : "Setup"}
+                      </span>
+                    </div>
                     <ChevronRight className="text-gray-300 group-hover:text-[#1A6BFF] transition-colors" size={22} />
                   </div>
                   <p className="text-sm text-gray-400 mb-5">Ages {cat.min_age}–{cat.max_age}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-3xl font-bold text-gray-900">{cat.athletes_count || 0}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Athletes</div>
+                      <div className="text-3xl font-bold text-[#1A6BFF]">{cat.athletes_count || 0}</div>
+                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Athletes</div>
                     </div>
                     <div>
-                      <div className="text-3xl font-bold text-gray-900">{cat.sessions_count || 0}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Sessions</div>
+                      <div className="text-3xl font-bold text-gray-700">{cat.sessions_count || 0}</div>
+                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Sessions</div>
                     </div>
                   </div>
                   <div className="mt-5 pt-5 border-t border-gray-100">
-                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-[#1A6BFF] border border-orange-200">
-                      Manage →
+                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#1A6BFF]/8 text-[#1A6BFF] border border-[#1A6BFF]/20 group-hover:bg-[#1A6BFF] group-hover:text-white transition-all">
+                      Manage <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </span>
                   </div>
                 </a>
