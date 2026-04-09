@@ -5,6 +5,7 @@ if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable 
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 const PUBLIC_PATHS = [
+  "/landing",
   "/account/signin",
   "/account/signup",
   "/account/forgot-password",
@@ -79,7 +80,7 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$|.*\\.png$|.*\\.ico$|.*\\.jpg$|.*\\.webp$|sw\\.js$).*)"],
 };
 
 
