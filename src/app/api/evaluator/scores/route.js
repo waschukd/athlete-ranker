@@ -102,12 +102,30 @@ export async function POST(request) {
       }
     }
 
-    // Save notes
+    // Save notes — upsert to prevent duplicates from repeated syncs
     if (notes?.trim()) {
-      await sql`
-        INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via)
-        VALUES (${athlete_id}, ${category_id}, ${session_number}, ${appUserId}, ${notes}, ${scored_via || 'manual'})
+      const existing = await sql`
+        SELECT id, note_text FROM player_notes
+        WHERE athlete_id = ${athlete_id}
+          AND age_category_id = ${category_id}
+          AND session_number = ${session_number}
+          AND evaluator_id = ${appUserId}
+        ORDER BY created_at DESC LIMIT 1
       `;
+      if (existing.length) {
+        // Only update if text actually changed
+        if (existing[0].note_text !== notes.trim()) {
+          await sql`
+            UPDATE player_notes SET note_text = ${notes}, scored_via = ${scored_via || 'manual'}, updated_at = NOW()
+            WHERE id = ${existing[0].id}
+          `;
+        }
+      } else {
+        await sql`
+          INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via)
+          VALUES (${athlete_id}, ${category_id}, ${session_number}, ${appUserId}, ${notes}, ${scored_via || 'manual'})
+        `;
+      }
     }
 
     // Update signup timing + auto-calculate hours + run integrity checks
