@@ -39,6 +39,9 @@ const ROLE_ROUTES = {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // Allow root path (redirects to /landing via page.jsx)
+  if (pathname === "/") return NextResponse.next();
+
   // Allow public paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
