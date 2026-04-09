@@ -305,9 +305,7 @@ function DirectorDashboardInner() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center shadow-md">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
+              <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{assignment.category_name}</h1>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
