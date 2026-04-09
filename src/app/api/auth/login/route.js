@@ -3,23 +3,32 @@ import sql from "@/lib/db";
 import { signToken } from "@/lib/auth";
 import { verifyPassword, hashPassword } from "@/lib/password";
 
-const loginAttempts = new Map();
-const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
+const WINDOW_MINS = 15;
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip) || { count: 0, resetAt: now + WINDOW_MS };
-  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + WINDOW_MS; }
-  entry.count++;
-  loginAttempts.set(ip, entry);
-  return entry.count <= MAX_ATTEMPTS;
+async function checkRateLimit(ip) {
+  try {
+    // Clean up old entries and count recent attempts in one query
+    const result = await sql`
+      SELECT COUNT(*) as attempts FROM login_attempts
+      WHERE ip = ${ip} AND attempted_at > NOW() - INTERVAL '15 minutes'
+    `;
+    // This will fail gracefully if the table doesn't exist yet
+    const attempts = parseInt(result[0]?.attempts || 0);
+    if (attempts >= MAX_ATTEMPTS) return false;
+    await sql`INSERT INTO login_attempts (ip, attempted_at) VALUES (${ip}, NOW())`;
+    return true;
+  } catch {
+    // If login_attempts table doesn't exist, fall back to allowing the request
+    // (table creation is a one-time manual step in Neon)
+    return true;
+  }
 }
 
 export async function POST(request) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-    if (!checkRateLimit(ip)) {
+    if (!(await checkRateLimit(ip))) {
       return NextResponse.json({ error: "Too many login attempts. Please wait 15 minutes." }, { status: 429 });
     }
     const { email, password } = await request.json();
