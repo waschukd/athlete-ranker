@@ -49,6 +49,9 @@ export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!["super_admin", "service_provider_admin"].includes(session.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const body = await request.json();
     const { name, type, contact_email, contact_name, contact_phone, address } = body;
 
@@ -116,6 +119,7 @@ export async function DELETE(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role !== "super_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get("id");
     if (!orgId) return NextResponse.json({ error: "id required" }, { status: 400 });
