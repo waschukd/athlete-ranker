@@ -101,51 +101,18 @@ function PlayerReportInner() {
     setAiLoading(true);
     setAiReport("");
 
-    // Build notes context
-    const notesContext = data.notes.map(n =>
-      `Session ${n.session_number} — ${n.evaluator_name}: "${n.note_text}"`
-    ).join("\n");
-
-    const scoresContext = data.sessions.map(s => {
-      const sd = data.ranking?.session_scores?.[s.session_number];
-      if (!sd) return null;
-      return `Session ${s.session_number} (${s.session_type}): ${sd.normalized_score?.toFixed(1)}/100`;
-    }).filter(Boolean).join(", ");
-
-    const prompt = `You are writing an internal scouting report for a hockey evaluation director. 
-    
-Player: ${data.athlete.first_name} ${data.athlete.last_name}
-Position: ${data.athlete.position || "Unknown"}
-Category: ${data.category?.name}
-Overall Rank: ${data.ranking?.rank} of ${data.total_athletes}
-Session Scores: ${scoresContext}
-
-Evaluator Notes:
-${notesContext}
-
-Write a concise professional scouting report using the evaluators' observations as your primary source. 
-Do not invent assessments not supported by the notes. 
-Structure: 
-1. Opening sentence identifying the player and their standing
-2. Strengths (2-3 sentences drawn from evaluator notes)
-3. Areas for development (1-2 sentences, if noted)
-4. Overall assessment (1 sentence)
-
-Keep it factual, professional, and grounded in what the evaluators actually observed. Maximum 150 words.`;
-
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch(`/api/athletes/${athleteId}/scouting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        body: JSON.stringify({ catId }),
       });
       const result = await res.json();
-      const text = result.content?.map(c => c.text || "").join("") || "Unable to generate report.";
-      setAiReport(text);
+      if (!res.ok) {
+        setAiReport(result.error || "Error generating report. Please try again.");
+      } else {
+        setAiReport(result.report);
+      }
     } catch (e) {
       setAiReport("Error generating report. Please try again.");
     }
