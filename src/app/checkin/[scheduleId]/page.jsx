@@ -187,67 +187,37 @@ function CheckinPageInner() {
             <div key={a.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
               a.checked_in ? "bg-green-900/20 border border-green-800/30" : "bg-gray-800 border border-gray-700/50"
             }`}>
-              {/* Team color indicator */}
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                a.team_color === "Dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900 border border-gray-300"
-              }`}>
-                {a.team_color === "Dark" ? "D" : "W"}
-              </div>
-
-              {/* Name */}
+              {/* Name — compact */}
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-white">{a.last_name}, {a.first_name}</span>
-                {a.external_id && <span className="text-xs text-gray-500 ml-2">{a.external_id}</span>}
+                <span className="text-sm text-white">{a.last_name}, {a.first_name?.[0]}.</span>
               </div>
 
-              {/* Jersey # — inline editable */}
+              {/* Jersey # — tap to edit */}
               {editingJersey === a.id ? (
-                <input
-                  type="number"
-                  value={jerseyVal}
-                  onChange={e => setJerseyVal(e.target.value)}
-                  onBlur={() => {
-                    if (jerseyVal && parseInt(jerseyVal) !== a.jersey_number) {
-                      doAction("update_jersey", { athlete_id: a.id, jersey_number: parseInt(jerseyVal) });
-                    }
-                    setEditingJersey(null);
-                  }}
+                <input type="number" value={jerseyVal} onChange={e => setJerseyVal(e.target.value)}
+                  onBlur={() => { if (jerseyVal) doAction("update_jersey", { athlete_id: a.id, jersey_number: parseInt(jerseyVal) }); setEditingJersey(null); }}
                   onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-                  className="w-14 bg-gray-700 border border-[#1A6BFF] rounded px-2 py-1 text-sm text-white text-center focus:outline-none"
-                  autoFocus
-                />
+                  className="w-12 bg-gray-700 border border-[#1A6BFF] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
               ) : (
-                <button
-                  onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
-                  className="w-14 text-center text-sm font-mono text-gray-300 hover:text-white hover:bg-gray-700 rounded px-2 py-1"
-                  title="Click to edit jersey #"
-                >
-                  {a.jersey_number ? `#${a.jersey_number}` : "—"}
+                <button onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
+                  className="w-10 text-center text-xs font-mono text-gray-400 hover:text-white rounded py-1">
+                  {a.jersey_number || "# "}
                 </button>
               )}
 
-              {/* Team color toggle */}
-              <button
-                onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
-                className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${
-                  a.team_color === "Dark" ? "bg-gray-600 text-gray-300 hover:bg-gray-500" : "bg-gray-200 text-gray-700 hover:bg-white"
-                }`}
-                title="Swap team color"
-              >
-                ↔
+              {/* W / D toggle */}
+              <button onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
+                className={`w-7 h-7 rounded text-xs font-bold ${a.team_color === "Dark" ? "bg-gray-600 text-white" : "bg-white text-gray-900"}`}>
+                {a.team_color === "Dark" ? "D" : "W"}
               </button>
 
               {/* Check in / undo */}
               {a.checked_in ? (
                 <button onClick={() => doAction("undo_checkin", { athlete_id: a.id })}
-                  className="w-16 py-1.5 bg-green-800/50 text-green-400 rounded-lg text-xs font-semibold hover:bg-green-800 text-center">
-                  ✓ In
-                </button>
+                  className="px-3 py-1.5 bg-green-800/50 text-green-400 rounded text-xs font-semibold">✓</button>
               ) : (
                 <button onClick={() => quickCheckin(a)}
-                  className="w-16 py-1.5 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC] text-center">
-                  Check In
-                </button>
+                  className="px-3 py-1.5 bg-[#1A6BFF] text-white rounded text-xs font-semibold">In</button>
               )}
             </div>
           ))}
