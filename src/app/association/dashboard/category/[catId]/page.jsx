@@ -15,6 +15,7 @@ import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
+import { generateICS, downloadICS } from "@/lib/calendar";
 
 const qc = new QueryClient();
 
@@ -378,6 +379,14 @@ function CategoryHub() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
               <div className="flex items-center gap-2">
+                {schedule.length > 0 && (
+                  <button onClick={() => {
+                    const ics = generateICS(schedule.map(s => ({ ...s, category_name: category?.name, org_name: "" })));
+                    downloadICS(ics, `${category?.name || "sessions"}_schedule.ics`);
+                  }} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                    <Calendar size={12} /> Add All to Calendar
+                  </button>
+                )}
                 <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer ${importing ? "opacity-50" : ""}`}>
                   Upload / Update CSV
