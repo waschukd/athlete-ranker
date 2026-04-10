@@ -279,3 +279,79 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
     await sendEmail(email, `📢 Open Evaluator Sessions Available — ${orgName}`, html);
   }
 }
+
+// ── Parent Emails ─────────────────────────────────────────────────────────
+
+export function parentOnboardingHtml({ playerName, categoryName, orgName }) {
+  return emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to ${categoryName} Evaluations</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
+      <strong style="color:#111827;">${playerName}</strong> is registered for evaluations with <strong style="color:#111827;">${orgName}</strong>. Here's what you need to know.
+    </p>
+
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin-bottom:12px;">What to Expect</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">📋 <strong>Multiple evaluation sessions</strong> — athletes are scored by professional evaluators across several sessions</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">👥 <strong>Group assignments</strong> — players are organized into groups. You'll receive your child's specific schedule before sessions begin</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">⭐ <strong>Live scoring</strong> — evaluators score each player in real-time on key skill categories</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">📊 <strong>Rankings update automatically</strong> — scores are compiled and rankings adjust after each session</td></tr>
+      </table>
+    </div>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;margin-bottom:12px;">Tips for Parents</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Arrive at least 15 minutes early for check-in</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Ensure proper equipment is ready (helmet stickers or jersey numbers will be assigned)</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Hydration and nutrition — make sure your athlete is fueled and hydrated</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Trust the process — evaluators are trained professionals looking at the full picture</td></tr>
+      </table>
+    </div>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
+      <div style="font-size:14px;font-weight:600;color:#166534;margin-bottom:6px;">📄 Player Reports Available After Evaluations</div>
+      <p style="margin:0;font-size:13px;color:#15803d;line-height:1.6;">
+        At the end of the evaluation process, you'll have the option to purchase a comprehensive player report. It includes the collective feedback from all evaluators, an AI-compiled scouting analysis, and personalized development suggestions for your athlete.
+      </p>
+    </div>
+
+    <p style="font-size:12px;color:#9ca3af;margin:0;">You'll receive another email with ${playerName}'s specific schedule once groups are assigned.</p>
+  `);
+}
+
+export function parentScheduleHtml({ playerName, categoryName, orgName, sessions }) {
+  const rows = sessions.map(s => `
+    <tr style="border-bottom:1px solid #f3f4f6;">
+      <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">S${s.session_number}</td>
+      <td style="padding:10px 0;font-size:13px;color:#111827;">Group ${s.group_number}</td>
+      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.date || "TBD"}</td>
+      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.time || "TBD"}</td>
+      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.location || "TBD"}</td>
+    </tr>
+  `).join("");
+
+  return emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Evaluation Schedule</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
+      Here's <strong style="color:#111827;">${playerName}</strong>'s upcoming evaluation schedule for <strong style="color:#111827;">${categoryName}</strong> at <strong style="color:#111827;">${orgName}</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f3f4f6;">
+      <tr style="background:#f9fafb;">
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Session</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Group</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Date</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Time</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Location</th>
+      </tr>
+      ${rows}
+    </table>
+
+    <div style="margin-top:24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;">
+      <p style="margin:0;font-size:13px;color:#374151;">📎 A calendar invite is attached to this email. Open it to add these sessions to your calendar.</p>
+    </div>
+
+    <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Please arrive 15 minutes early for check-in. Check-in details will be provided at the venue.</p>
+  `);
+}

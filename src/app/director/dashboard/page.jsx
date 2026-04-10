@@ -600,7 +600,54 @@ function DirectorDashboardInner() {
               </div>
             </div>
             {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}
-            {uploadMsg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${uploadMsg.startsWith("Γ£ô") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{uploadMsg}</div>}
+            {uploadMsg && <div className={`px-4 py-2.5 rounded-lg text-sm font-medium ${uploadMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{uploadMsg}</div>}
+
+            {/* Parent Notifications */}
+            {athletes.length > 0 && (() => {
+              const withEmail = athletes.filter(a => a.parent_email);
+              return (
+                <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">Parent Notifications</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{withEmail.length} of {athletes.length} athletes have parent emails</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Send welcome/onboarding email to ${withEmail.length} parents?`)) return;
+                        const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "onboarding" }),
+                        });
+                        const data = await res.json();
+                        setAthleteMsg(data.success ? `Welcome email sent to ${data.sent} parents` : "Failed to send");
+                        setTimeout(() => setAthleteMsg(""), 5000);
+                      }}
+                      disabled={!withEmail.length}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
+                    >
+                      Send Welcome Email
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Send evaluation schedule to ${withEmail.length} parents? (Only athletes with group assignments will receive it)`)) return;
+                        const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "schedule" }),
+                        });
+                        const data = await res.json();
+                        setAthleteMsg(data.success ? `Schedule sent to ${data.sent} parents (${data.skipped} skipped — no group assignment)` : "Failed to send");
+                        setTimeout(() => setAthleteMsg(""), 5000);
+                      }}
+                      disabled={!withEmail.length}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#1A6BFF] text-[#1A6BFF] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
+                    >
+                      Push Schedule
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
