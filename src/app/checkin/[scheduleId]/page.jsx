@@ -184,13 +184,11 @@ function CheckinPageInner() {
 
         <div className="space-y-1">
           {filtered.map(a => (
-            <div key={a.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
+            <div key={a.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
               a.checked_in ? "bg-green-900/20 border border-green-800/30" : "bg-gray-800 border border-gray-700/50"
             }`}>
-              {/* Name — compact */}
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-white">{a.last_name}, {a.first_name?.[0]}.</span>
-              </div>
+              {/* Name */}
+              <span className="text-sm text-white truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
 
               {/* Jersey # — tap to edit */}
               {editingJersey === a.id ? (
