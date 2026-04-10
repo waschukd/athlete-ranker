@@ -328,19 +328,19 @@ async function applySnakeDraftColors(catId, sessionNumber, groups) {
   const groupNumbers = validGroups.map(g => g.group_number);
   const effectiveSession = sessionNumber || validGroups[0].session_number;
 
+  // Fix any null group_numbers in evaluation_schedule (legacy data from single-group categories)
+  await sql`
+    UPDATE evaluation_schedule SET group_number = 1
+    WHERE age_category_id = ${catId} AND session_number = ${effectiveSession} AND group_number IS NULL`;
+
   // Batch: fetch all schedule entries for these groups at once
-  // Handle null group_numbers — single-group categories may have null in evaluation_schedule
   const scheduleEntries = await sql`
     SELECT id, group_number FROM evaluation_schedule
     WHERE age_category_id = ${catId}
       AND session_number = ${effectiveSession}
-      AND (group_number = ANY(${groupNumbers}) OR group_number IS NULL)`;
+      AND group_number = ANY(${groupNumbers})`;
   const scheduleByGroup = {};
-  for (const se of scheduleEntries) {
-    // Map null group_number to group 1 (single-group category)
-    const gn = se.group_number || 1;
-    scheduleByGroup[gn] = se.id;
-  }
+  for (const se of scheduleEntries) scheduleByGroup[se.group_number] = se.id;
 
   const scheduleIds = scheduleEntries.map(se => se.id);
   if (!scheduleIds.length) return;
