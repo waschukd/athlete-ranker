@@ -114,7 +114,7 @@ function CheckinPageInner() {
               <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs font-bold text-white">{summary.checked_in}/{summary.total}</span>
-            <span className="text-xs text-gray-500">W:{athletes.filter(a => a.team_color === "White" && a.checked_in).length}/{athletes.filter(a => a.team_color === "White").length}</span>
+            <span className="text-xs text-gray-500">L:{athletes.filter(a => a.team_color === "White" && a.checked_in).length}/{athletes.filter(a => a.team_color === "White").length}</span>
             <span className="text-xs text-gray-500">D:{athletes.filter(a => a.team_color === "Dark" && a.checked_in).length}/{athletes.filter(a => a.team_color === "Dark").length}</span>
           </div>
 
@@ -155,7 +155,7 @@ function CheckinPageInner() {
               placeholder="#" type="number" className="w-14 bg-gray-700 rounded px-2 py-1.5 text-sm text-white text-center focus:outline-none" />
             <button onClick={() => setAddForm(f => ({ ...f, team_color: f.team_color === "White" ? "Dark" : "White" }))}
               className={`px-2 py-1.5 rounded text-xs font-bold ${addForm.team_color === "Dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900"}`}>
-              {addForm.team_color === "Dark" ? "D" : "W"}
+              {addForm.team_color === "Dark" ? "D" : "L"}
             </button>
             <button
               onClick={async () => {
@@ -208,7 +208,7 @@ function CheckinPageInner() {
               {/* W / D toggle */}
               <button onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
                 className={`w-7 h-7 rounded text-xs font-bold ${a.team_color === "Dark" ? "bg-gray-600 text-white" : "bg-white text-gray-900"}`}>
-                {a.team_color === "Dark" ? "D" : "W"}
+                {a.team_color === "Dark" ? "D" : "L"}
               </button>
 
               {/* Check in / undo */}
