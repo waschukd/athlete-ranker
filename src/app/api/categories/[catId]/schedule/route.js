@@ -50,7 +50,7 @@ export async function POST(request, { params }) {
     let count = 0;
     for (const entry of body.schedule) {
       const session_number = parseInt(entry.session_number);
-      const group_number = parseInt(entry.group_number) || null;
+      const group_number = parseInt(entry.group_number) || 1;
       const scheduled_date = entry.scheduled_date;
       const day_of_week = entry.day_of_week || null;
       const start_time = entry.start_time || null;

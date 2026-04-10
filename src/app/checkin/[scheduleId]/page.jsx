@@ -28,7 +28,10 @@ function CheckinPageInner() {
   const [editingAthlete, setEditingAthlete] = useState(null);
   const [jerseyInput, setJerseyInput] = useState("");
   const [colorInput, setColorInput] = useState("");
-  const [filter, setFilter] = useState("all"); // all, checked, unchecked
+  const [filter, setFilter] = useState("all");
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [addForm, setAddForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+  const [addLoading, setAddLoading] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["checkin", scheduleId],
@@ -112,9 +115,14 @@ function CheckinPageInner() {
                 {schedule.location && <span className="flex items-center gap-1"><MapPin size={12} />{schedule.location}</span>}
               </div>
             </div>
-            <button onClick={() => refetch()} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700">
-              <RefreshCw size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
+                + Add Player
+              </button>
+              <button onClick={() => refetch()} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700">
+                <RefreshCw size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Progress bar */}
@@ -162,6 +170,52 @@ function CheckinPageInner() {
           </div>
         </div>
       </div>
+
+      {/* Add Player Form */}
+      {showAddPlayer && (
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <div className="bg-green-900/30 border border-green-700/50 rounded-xl p-4">
+            <div className="text-sm font-semibold text-green-400 mb-3">Add New Player</div>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <input value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))}
+                placeholder="First Name *" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
+              <input value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))}
+                placeholder="Last Name *" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
+                placeholder="Jersey #" type="number" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
+              <select value={addForm.team_color} onChange={e => setAddForm(f => ({ ...f, team_color: e.target.value }))}
+                className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500">
+                <option value="White">White</option>
+                <option value="Dark">Dark</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!addForm.first_name || !addForm.last_name) return;
+                  setAddLoading(true);
+                  await doAction("add_player", {
+                    first_name: addForm.first_name,
+                    last_name: addForm.last_name,
+                    jersey_number: parseInt(addForm.jersey_number) || null,
+                    team_color: addForm.team_color,
+                  });
+                  setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+                  setAddLoading(false);
+                  setShowAddPlayer(false);
+                }}
+                disabled={!addForm.first_name || !addForm.last_name || addLoading}
+                className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-green-700"
+              >
+                {addLoading ? "Adding..." : "Add & Check In"}
+              </button>
+              <button onClick={() => setShowAddPlayer(false)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Player list */}
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
