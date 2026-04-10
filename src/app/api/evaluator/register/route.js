@@ -97,15 +97,15 @@ export async function POST(request) {
     // Increment code uses
     await sql`UPDATE evaluator_join_codes SET uses = uses + 1 WHERE id = ${joinCode.id}`;
 
-    // Notify org admins
+    // Notify org admins — check both direct org owners and SP admins linked to this association
     const admins = await sql`
-      SELECT u.email, u.name
-      FROM users u
-      WHERE u.role IN ('service_provider_admin', 'association_admin')
-        AND u.id IN (
-          SELECT user_id FROM evaluator_memberships
-          WHERE organization_id = ${joinCode.org_id} AND status = 'active'
-        )
+      SELECT DISTINCT u.email, u.name FROM users u WHERE u.email IN (
+        SELECT contact_email FROM organizations WHERE id = ${joinCode.org_id}
+        UNION
+        SELECT o.contact_email FROM organizations o
+        JOIN sp_association_links sal ON sal.service_provider_id = o.id
+        WHERE sal.association_id = ${joinCode.org_id}
+      )
     `;
 
     const dashboardUrl = joinCode.org_type === "service_provider"

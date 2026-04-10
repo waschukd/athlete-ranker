@@ -91,27 +91,15 @@ export async function POST(request, { params }) {
       `;
 
       // Notify evaluator
-      const evalUser = await sql`SELECT email, name FROM users WHERE id = ${body.user_id}`;
+      const evalUser = await sql`SELECT email, name, evaluator_id FROM users WHERE id = ${body.user_id}`;
       const org = await sql`SELECT name FROM organizations WHERE id = ${orgId}`;
 
-      if (evalUser.length && process.env.RESEND_API_KEY) {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-          body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-            to: evalUser[0].email,
-            subject: `✅ You've been approved — ${org[0]?.name}`,
-            html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h2>You're approved!</h2>
-              <p>Hi ${evalUser[0].name}, you've been approved as an evaluator for <strong>${org[0]?.name}</strong>.</p>
-              <p>You can now sign in and start signing up for sessions.</p>
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/signin" 
-                style="display: inline-block; padding: 12px 24px; background: #1A6BFF; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
-                Sign In Now →
-              </a>
-            </div>`,
-          }),
+      if (evalUser.length) {
+        await emailEvaluatorApproved({
+          name: evalUser[0].name,
+          email: evalUser[0].email,
+          orgName: org[0]?.name || "your organization",
+          evaluatorId: evalUser[0].evaluator_id || "",
         });
       }
 
