@@ -252,11 +252,29 @@ function PlayerReportInner() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => window.open(`/player/report/pdf?athlete=${athleteId}&cat=${catId}`, "_blank")}
-              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
-              <Download size={14} /> Export PDF
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  const res = await fetch("/api/report/generate-link", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ athlete_id: athleteId, age_category_id: catId }),
+                  });
+                  const data = await res.json();
+                  if (data.url) {
+                    navigator.clipboard.writeText(data.url);
+                    alert("Parent report link copied to clipboard:\n" + data.url);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md">
+                Share with Parent
+              </button>
+              <button
+                onClick={() => window.open(`/player/report/pdf?athlete=${athleteId}&cat=${catId}`, "_blank")}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <Download size={14} /> Export PDF
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}

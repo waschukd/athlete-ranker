@@ -22,6 +22,9 @@ const PUBLIC_PATHS = [
   "/api/admin/accept-invite",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/report",
+  "/api/report",
+  "/api/payments",
   "/_next",
   "/favicon",
 ];
