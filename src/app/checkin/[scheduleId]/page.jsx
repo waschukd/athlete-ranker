@@ -3,15 +3,9 @@
 import { useState, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Check, Search, Users, Clock, MapPin, RefreshCw, ChevronRight, AlertCircle } from "lucide-react";
+import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
 
 const qc = new QueryClient();
-
-const COLOR_STYLES = {
-  White: { bg: "bg-white border-2 border-gray-300", text: "text-gray-800", label: "White" },
-  Dark: { bg: "bg-gray-800", text: "text-white", label: "Dark" },
-  PENDING: { bg: "bg-yellow-100 border-2 border-yellow-400", text: "text-yellow-800", label: "?" },
-};
 
 function formatTime(t) {
   if (!t) return "";
@@ -25,13 +19,13 @@ function CheckinPageInner() {
   const scheduleId = params.scheduleId;
 
   const [search, setSearch] = useState("");
-  const [editingAthlete, setEditingAthlete] = useState(null);
-  const [jerseyInput, setJerseyInput] = useState("");
-  const [colorInput, setColorInput] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("unchecked");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [addForm, setAddForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
   const [addLoading, setAddLoading] = useState(false);
+  // Inline jersey editing
+  const [editingJersey, setEditingJersey] = useState(null); // athlete id
+  const [jerseyVal, setJerseyVal] = useState("");
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["checkin", scheduleId],
@@ -52,19 +46,12 @@ function CheckinPageInner() {
     refetch();
   };
 
-  const openEdit = (athlete) => {
-    setEditingAthlete(athlete);
-    setJerseyInput(athlete.jersey_number?.toString() || "");
-    setColorInput(athlete.team_color || "White");
-  };
-
-  const submitCheckin = async () => {
+  const quickCheckin = async (athlete) => {
     await doAction("checkin", {
-      athlete_id: editingAthlete.id,
-      jersey_number: parseInt(jerseyInput) || null,
-      team_color: colorInput,
+      athlete_id: athlete.id,
+      jersey_number: athlete.jersey_number || null,
+      team_color: athlete.team_color || "White",
     });
-    setEditingAthlete(null);
   };
 
   const athletes = data?.athletes || [];
@@ -103,67 +90,52 @@ function CheckinPageInner() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-4 py-4 sticky top-0 z-10">
+      {/* Compact Header */}
+      <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <h1 className="font-bold text-white text-lg">{schedule.org_name} · {schedule.category_name}</h1>
-              <div className="flex items-center gap-3 text-sm text-gray-400 mt-0.5 flex-wrap">
-                <span>S{schedule.session_number} · G{schedule.group_number}</span>
-                {schedule.start_time && <span className="flex items-center gap-1"><Clock size={12} />{formatTime(schedule.start_time)}{schedule.end_time ? ` – ${formatTime(schedule.end_time)}` : ""}</span>}
-                {schedule.location && <span className="flex items-center gap-1"><MapPin size={12} />{schedule.location}</span>}
+              <div className="font-bold text-white text-sm">{schedule.org_name} · {schedule.category_name}</div>
+              <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                <span>S{schedule.session_number} · G{schedule.group_number || 1}</span>
+                {schedule.start_time && <span><Clock size={10} className="inline mr-0.5" />{formatTime(schedule.start_time)}{schedule.end_time ? ` – ${formatTime(schedule.end_time)}` : ""}</span>}
+                {schedule.location && <span><MapPin size={10} className="inline mr-0.5" />{schedule.location}</span>}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
-                + Add Player
-              </button>
-              <button onClick={() => refetch()} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700">
-                <RefreshCw size={16} />
-              </button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">+ Add</button>
+              <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700"><RefreshCw size={14} /></button>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex-1 h-3 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-full transition-all duration-500"
-                style={{ width: `${pct}%` }} />
+          {/* Progress + counts */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
-            <span className="text-sm font-bold text-white whitespace-nowrap">
-              {summary.checked_in}/{summary.total} in
-            </span>
+            <span className="text-xs font-bold text-white">{summary.checked_in}/{summary.total}</span>
+            <span className="text-xs text-gray-500">W:{athletes.filter(a => a.team_color === "White" && a.checked_in).length}/{athletes.filter(a => a.team_color === "White").length}</span>
+            <span className="text-xs text-gray-500">D:{athletes.filter(a => a.team_color === "Dark" && a.checked_in).length}/{athletes.filter(a => a.team_color === "Dark").length}</span>
           </div>
 
-          {/* Team color counts */}
-          <div className="flex items-center gap-3 mb-3">
-            {teamColors.map(color => {
-              const count = athletes.filter(a => a.team_color === color && a.checked_in).length;
-              const total = athletes.filter(a => a.team_color === color).length;
-              const style = COLOR_STYLES[color] || COLOR_STYLES.White;
-              return (
-                <div key={color} className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-1.5">
-                  <div className={`w-4 h-4 rounded-full ${style.bg} flex-shrink-0`} />
-                  <span className="text-xs text-gray-300">{color}: <span className="text-white font-bold">{count}/{total}</span></span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Search + filter */}
+          {/* Search + filter (Out first) */}
           <div className="flex gap-2">
-            <div className="flex-1 flex items-center gap-2 bg-gray-700 rounded-xl px-3 py-2.5">
-              <Search size={15} className="text-gray-400 flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0" />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search name, HC#, jersey..."
+                placeholder="Search..."
                 className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500" />
+              {search && <button onClick={() => setSearch("")} className="text-gray-500"><X size={12} /></button>}
             </div>
-            <div className="flex bg-gray-700 rounded-xl overflow-hidden">
-              {["all", "unchecked", "checked"].map(f => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className={`px-3 py-2 text-xs font-medium transition-colors ${filter === f ? "bg-[#1A6BFF] text-white" : "text-gray-400 hover:text-white"}`}>
-                  {f === "all" ? "All" : f === "checked" ? "✓ In" : "Out"}
+            <div className="flex bg-gray-700 rounded-lg overflow-hidden">
+              {[
+                { id: "unchecked", label: "Out" },
+                { id: "checked", label: "In" },
+                { id: "all", label: "All" },
+              ].map(f => (
+                <button key={f.id} onClick={() => setFilter(f.id)}
+                  className={`px-3 py-2 text-xs font-semibold transition-colors ${filter === f.id ? "bg-[#1A6BFF] text-white" : "text-gray-400 hover:text-white"}`}>
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -171,160 +143,115 @@ function CheckinPageInner() {
         </div>
       </div>
 
-      {/* Add Player Form */}
+      {/* Add Player Inline */}
       {showAddPlayer && (
-        <div className="max-w-2xl mx-auto px-4 pt-4">
-          <div className="bg-green-900/30 border border-green-700/50 rounded-xl p-4">
-            <div className="text-sm font-semibold text-green-400 mb-3">Add New Player</div>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <input value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))}
-                placeholder="First Name *" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
-              <input value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))}
-                placeholder="Last Name *" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
-                placeholder="Jersey #" type="number" className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500" />
-              <select value={addForm.team_color} onChange={e => setAddForm(f => ({ ...f, team_color: e.target.value }))}
-                className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500">
-                <option value="White">White</option>
-                <option value="Dark">Dark</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  if (!addForm.first_name || !addForm.last_name) return;
-                  setAddLoading(true);
-                  await doAction("add_player", {
-                    first_name: addForm.first_name,
-                    last_name: addForm.last_name,
-                    jersey_number: parseInt(addForm.jersey_number) || null,
-                    team_color: addForm.team_color,
-                  });
-                  setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
-                  setAddLoading(false);
-                  setShowAddPlayer(false);
-                }}
-                disabled={!addForm.first_name || !addForm.last_name || addLoading}
-                className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-green-700"
-              >
-                {addLoading ? "Adding..." : "Add & Check In"}
-              </button>
-              <button onClick={() => setShowAddPlayer(false)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600">Cancel</button>
-            </div>
+        <div className="max-w-2xl mx-auto px-4 pt-3">
+          <div className="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-lg px-3 py-2">
+            <input value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))}
+              placeholder="First *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" autoFocus />
+            <input value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))}
+              placeholder="Last *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" />
+            <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
+              placeholder="#" type="number" className="w-14 bg-gray-700 rounded px-2 py-1.5 text-sm text-white text-center focus:outline-none" />
+            <button onClick={() => setAddForm(f => ({ ...f, team_color: f.team_color === "White" ? "Dark" : "White" }))}
+              className={`px-2 py-1.5 rounded text-xs font-bold ${addForm.team_color === "Dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900"}`}>
+              {addForm.team_color === "Dark" ? "D" : "W"}
+            </button>
+            <button
+              onClick={async () => {
+                if (!addForm.first_name || !addForm.last_name) return;
+                setAddLoading(true);
+                await doAction("add_player", { ...addForm, jersey_number: parseInt(addForm.jersey_number) || null });
+                setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+                setAddLoading(false);
+              }}
+              disabled={!addForm.first_name || !addForm.last_name || addLoading}
+              className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-40">
+              {addLoading ? "..." : "Add"}
+            </button>
+            <button onClick={() => setShowAddPlayer(false)} className="text-gray-500 hover:text-white"><X size={14} /></button>
           </div>
         </div>
       )}
 
-      {/* Player list */}
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
+      {/* Player list — compact single-line rows */}
+      <div className="max-w-2xl mx-auto px-4 py-3">
         {filtered.length === 0 && (
           <div className="py-12 text-center text-gray-500">
-            <Users size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No players found</p>
+            <p className="text-sm">{filter === "unchecked" ? "Everyone's checked in!" : "No players found"}</p>
           </div>
         )}
 
-        {filtered.map(a => {
-          const colorStyle = COLOR_STYLES[a.team_color] || COLOR_STYLES.White;
-          const isEditing = editingAthlete?.id === a.id;
-
-          return (
-            <div key={a.id} className={`rounded-xl border transition-all ${
-              a.checked_in
-                ? "bg-gray-800 border-green-800/50"
-                : "bg-gray-800 border-gray-700"
+        <div className="space-y-1">
+          {filtered.map(a => (
+            <div key={a.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
+              a.checked_in ? "bg-green-900/20 border border-green-800/30" : "bg-gray-800 border border-gray-700/50"
             }`}>
-              <div className="flex items-center gap-3 px-4 py-3">
-                {/* Color + jersey indicator */}
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${colorStyle.bg} ${colorStyle.text}`}>
-                  {a.jersey_number ? `#${a.jersey_number}` : "?"}
-                </div>
-
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-white">{a.last_name}, {a.first_name}</div>
-                  <div className="text-xs text-gray-400 flex items-center gap-2">
-                    {a.external_id && <span>{a.external_id}</span>}
-                    {a.position && <span className="capitalize">{a.position}</span>}
-                    <span className={`font-medium ${colorStyle.text === "text-white" ? "text-gray-300" : "text-gray-500"}`}>
-                      {a.team_color}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Check in / undo button */}
-                <div className="flex items-center gap-2">
-                  {a.checked_in ? (
-                    <button onClick={() => doAction("undo_checkin", { athlete_id: a.id })}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-green-900/50 text-green-400 rounded-lg text-xs font-medium hover:bg-green-900 transition-colors">
-                      <Check size={14} /> In
-                    </button>
-                  ) : (
-                    <button onClick={() => openEdit(a)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC] transition-colors">
-                      Check In <ChevronRight size={13} />
-                    </button>
-                  )}
-                </div>
+              {/* Team color indicator */}
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                a.team_color === "Dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900 border border-gray-300"
+              }`}>
+                {a.team_color === "Dark" ? "D" : "W"}
               </div>
 
-              {/* Inline check-in form */}
-              {isEditing && (
-                <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-                  <p className="text-sm font-medium text-gray-300 mb-3">
-                    Checking in: <span className="text-white">{a.first_name} {a.last_name}</span>
-                  </p>
+              {/* Name */}
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-white">{a.last_name}, {a.first_name}</span>
+                {a.external_id && <span className="text-xs text-gray-500 ml-2">{a.external_id}</span>}
+              </div>
 
-                  {/* Jersey number */}
-                  <div className="mb-3">
-                    <label className="text-xs text-gray-400 mb-1.5 block">Jersey Number</label>
-                    <input
-                      type="number"
-                      value={jerseyInput}
-                      onChange={e => setJerseyInput(e.target.value)}
-                      placeholder="Enter jersey #"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2.5 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#1A6BFF]"
-                      autoFocus
-                    />
-                  </div>
+              {/* Jersey # — inline editable */}
+              {editingJersey === a.id ? (
+                <input
+                  type="number"
+                  value={jerseyVal}
+                  onChange={e => setJerseyVal(e.target.value)}
+                  onBlur={() => {
+                    if (jerseyVal && parseInt(jerseyVal) !== a.jersey_number) {
+                      doAction("update_jersey", { athlete_id: a.id, jersey_number: parseInt(jerseyVal) });
+                    }
+                    setEditingJersey(null);
+                  }}
+                  onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+                  className="w-14 bg-gray-700 border border-[#1A6BFF] rounded px-2 py-1 text-sm text-white text-center focus:outline-none"
+                  autoFocus
+                />
+              ) : (
+                <button
+                  onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
+                  className="w-14 text-center text-sm font-mono text-gray-300 hover:text-white hover:bg-gray-700 rounded px-2 py-1"
+                  title="Click to edit jersey #"
+                >
+                  {a.jersey_number ? `#${a.jersey_number}` : "—"}
+                </button>
+              )}
 
-                  {/* Team color — pre-assigned, can swap if needed */}
-                  <div className="mb-4">
-                    <label className="text-xs text-gray-400 mb-1.5 block">Team Color (pre-assigned — swap if needed)</label>
-                    <div className="flex gap-2">
-                      {teamColors.map(color => {
-                        const cs = COLOR_STYLES[color] || COLOR_STYLES.White;
-                        return (
-                          <button key={color} onClick={() => setColorInput(color)}
-                            className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
-                              colorInput === color
-                                ? "border-[#1A6BFF] " + (color === "Dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900")
-                                : "border-gray-600 " + (color === "Dark" ? "bg-gray-900 text-gray-400" : "bg-gray-700 text-gray-400")
-                            }`}>
-                            {color}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+              {/* Team color toggle */}
+              <button
+                onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
+                className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${
+                  a.team_color === "Dark" ? "bg-gray-600 text-gray-300 hover:bg-gray-500" : "bg-gray-200 text-gray-700 hover:bg-white"
+                }`}
+                title="Swap team color"
+              >
+                ↔
+              </button>
 
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditingAthlete(null)}
-                      className="flex-1 py-2.5 bg-gray-700 text-gray-300 rounded-xl text-sm font-medium">
-                      Cancel
-                    </button>
-                    <button onClick={submitCheckin}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-bold">
-                      ✓ Confirm Check-in
-                    </button>
-                  </div>
-                </div>
+              {/* Check in / undo */}
+              {a.checked_in ? (
+                <button onClick={() => doAction("undo_checkin", { athlete_id: a.id })}
+                  className="w-16 py-1.5 bg-green-800/50 text-green-400 rounded-lg text-xs font-semibold hover:bg-green-800 text-center">
+                  ✓ In
+                </button>
+              ) : (
+                <button onClick={() => quickCheckin(a)}
+                  className="w-16 py-1.5 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC] text-center">
+                  Check In
+                </button>
               )}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </div>
   );
