@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { authorizeOrgAccess } from "@/lib/authorize";
 
 export async function GET(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeOrgAccess(session, params.orgId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const categories = await sql`
       SELECT ac.*,
         COUNT(DISTINCT a.id) as athletes_count,
@@ -23,6 +29,10 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeOrgAccess(session, params.orgId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { name, min_age, max_age } = await request.json();
     const result = await sql`
       INSERT INTO age_categories (organization_id, name, min_age, max_age)

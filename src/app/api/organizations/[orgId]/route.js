@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { authorizeOrgAccess } from "@/lib/authorize";
 
 export async function GET(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeOrgAccess(session, params.orgId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const orgs = await sql`SELECT * FROM organizations WHERE id = ${params.orgId}`;
     if (!orgs.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const spLink = await sql`
@@ -20,6 +26,10 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeOrgAccess(session, params.orgId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
     const { name, contact_email, contact_name, contact_phone, address } = body;
     const result = await sql`

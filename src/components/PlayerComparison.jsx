@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight } from "lucide-react";
 
@@ -25,22 +25,43 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
   const [searching, setSearching] = useState(false);
   const [expandedSections, setExpandedSections] = useState(new Set(["overview", "scores", "evaluators"]));
 
-  // Fetch report data for each selected player
-  const playerQueries = playerIds.map(id =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useQuery({
-      queryKey: ["player-report", id, catId],
-      queryFn: async () => {
-        const res = await fetch(`/api/athletes/${id}/report?cat=${catId}`);
-        if (!res.ok) throw new Error("Failed to load player");
-        return res.json();
-      },
-      enabled: !!id && !!catId,
-    })
-  );
+  // Fetch report data for all selected players in one query
+  const [playerData, setPlayerData] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  const players = playerQueries.map(q => q.data).filter(Boolean);
-  const isLoading = playerQueries.some(q => q.isLoading);
+  useEffect(() => {
+    if (!playerIds.length || !catId) return;
+    let cancelled = false;
+    setIsLoading(true);
+    Promise.all(
+      playerIds.filter(id => !playerData[id]).map(async (id) => {
+        const res = await fetch(`/api/athletes/${id}/report?cat=${catId}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { id, data };
+      })
+    ).then(results => {
+      if (cancelled) return;
+      setPlayerData(prev => {
+        const next = { ...prev };
+        for (const r of results) if (r) next[r.id] = r.data;
+        return next;
+      });
+      setIsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [playerIds, catId]);
+
+  // Clean up removed players from cache
+  useEffect(() => {
+    setPlayerData(prev => {
+      const next = {};
+      for (const id of playerIds) if (prev[id]) next[id] = prev[id];
+      return next;
+    });
+  }, [playerIds]);
+
+  const players = playerIds.map(id => playerData[id]).filter(Boolean);
 
   // Search for athletes to add
   const handleSearch = async (val) => {
