@@ -377,7 +377,7 @@ function ScoringInterface() {
       'three':'3','tree':'3',
       'four':'4','for':'4','fore':'4',
       'five':'5','fiver':'5',
-      'six':'6','sex':'6','sicks':'6',
+      'six':'6','sex':'6','sicks':'6','seeks':'6','sticks':'6','dix':'6','sick':'6','sits':'6',
       'seven':'7','sven':'7',
       'eight':'8','ate':'8','ait':'8',
       'nine':'9','nein':'9','mine':'9',
@@ -416,7 +416,7 @@ function ScoringInterface() {
     }
 
     // ── Finish/stop notes ─────────────────────────────────
-    if (/^(finish notes?|stop notes?|end notes?|done notes?|done)$/i.test(t)) {
+    if (/^(finish notes?|stop notes?|end notes?|done notes?|done|close notes?|save notes?|that's it|that is it)$/i.test(t)) {
       setNotesMode(false);
       setVoiceStatus("Notes mode off");
       beepNotesEnd();
@@ -442,7 +442,7 @@ function ScoringInterface() {
     }
 
     // ── Start notes ───────────────────────────────────────
-    if (/^(start notes?|notes?|add notes?)$/i.test(t)) {
+    if (/^(start notes?|notes?|add notes?|take notes?|begin notes?|open notes?|record notes?)$/i.test(t)) {
       if (!selectedRef.current) { setVoiceStatus("Select a player first"); beepError(); return; }
       setNotesMode(true);
       setVoiceStatus("Notes mode — speak freely, say 'finish notes' to stop");
@@ -482,10 +482,11 @@ function ScoringInterface() {
       let scored = 0;
       for (const cat of cats) {
         const catName = cat.name.toLowerCase();
-        // Try full name first, then first word
+        // Try full name first, then each individual word (for multi-word categories like "Hockey IQ")
+        const words = catName.split(/[\s/]+/).filter(w => w.length >= 2);
         const keywords = [
           catName.replace(/[^a-z0-9]/g, "\\s*"), // full name flexible spacing
-          catName.split(/[\s/]/)[0],               // first word only
+          ...words,                                // each word individually
         ];
         for (const keyword of keywords) {
           const pattern = new RegExp(keyword + "\\s+(\\d+(?:[.]\\d+)?)", "i");
