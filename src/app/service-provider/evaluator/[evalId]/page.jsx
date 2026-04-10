@@ -222,6 +222,7 @@ function EvaluatorDetailInner() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="flex gap-1">
             {[
+              { id: "scorecard", label: "Scorecard" },
               { id: "sessions", label: `Sessions (${sessions.length})` },
               { id: "flags", label: `Flags (${flags.length})` },
               { id: "hours", label: "Hours & Pay" },
@@ -238,6 +239,102 @@ function EvaluatorDetailInner() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+
+        {/* SCORECARD TAB */}
+        {activeTab === "scorecard" && (() => {
+          const sc = data?.scorecard;
+          if (!sc || sc.total_scores === 0) return (
+            <div className="text-center py-16 text-gray-400 text-sm">No scoring data yet — scorecard populates after the evaluator submits scores.</div>
+          );
+          const agreementColor = sc.agreement_pct >= 90 ? "text-green-600" : sc.agreement_pct >= 75 ? "text-amber-600" : "text-red-600";
+          const agreementBg = sc.agreement_pct >= 90 ? "bg-green-50 border-green-200" : sc.agreement_pct >= 75 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
+          const biasLabel = sc.bias > 0.3 ? "Generous" : sc.bias < -0.3 ? "Harsh" : "Neutral";
+          const biasColor = sc.bias > 0.3 ? "text-blue-600" : sc.bias < -0.3 ? "text-purple-600" : "text-green-600";
+          const maxDist = Math.max(...Object.values(sc.distribution || {}), 1);
+          return (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className={`border rounded-xl p-4 ${agreementBg}`}>
+                  <div className={`text-3xl font-bold ${agreementColor}`}>{sc.agreement_pct !== null ? `${sc.agreement_pct}%` : "—"}</div>
+                  <div className="text-xs text-gray-500 mt-1">Agreement with peers</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className={`text-3xl font-bold ${biasColor}`}>{sc.bias !== null ? (sc.bias > 0 ? "+" : "") + sc.bias : "—"}</div>
+                  <div className="text-xs text-gray-500 mt-1">Scoring bias ({biasLabel})</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-3xl font-bold text-gray-900">{sc.notes_per_session}</div>
+                  <div className="text-xs text-gray-500 mt-1">Notes per session</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-3xl font-bold text-gray-900">{sc.score_range?.spread || "—"}</div>
+                  <div className="text-xs text-gray-500 mt-1">Score range used ({sc.score_range?.min}–{sc.score_range?.max})</div>
+                </div>
+              </div>
+
+              {/* Detailed Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Scoring Summary */}
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Scoring Summary</h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Total scores submitted", value: sc.total_scores },
+                      { label: "Athletes scored", value: sc.athletes_scored },
+                      { label: "Sessions scored", value: sc.sessions_scored },
+                      { label: "Avg score given", value: sc.score_avg || "—" },
+                      { label: "Group average", value: sc.group_avg || "—" },
+                      { label: "Notes written", value: sc.notes_total },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">{row.label}</span>
+                        <span className="text-sm font-semibold text-gray-900">{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Score Distribution */}
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Score Distribution</h3>
+                  <div className="space-y-1.5">
+                    {Object.entries(sc.distribution || {}).sort(([a], [b]) => parseFloat(a) - parseFloat(b)).map(([score, count]) => (
+                      <div key={score} className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-gray-500 w-8 text-right">{score}</span>
+                        <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-full transition-all"
+                            style={{ width: `${(count / maxDist) * 100}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-400 w-8">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {sc.score_range?.spread < 3 && (
+                    <div className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                      Narrow scoring range ({sc.score_range.min}–{sc.score_range.max}) — evaluator may not be differentiating between athletes enough.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Interpretation */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Interpretation</h3>
+                <div className="space-y-2 text-sm text-gray-600">
+                  {sc.agreement_pct !== null && sc.agreement_pct >= 85 && <div className="flex items-start gap-2"><span className="text-green-500 mt-0.5">●</span>Agreement with peers is strong — this evaluator's scores align well with the group.</div>}
+                  {sc.agreement_pct !== null && sc.agreement_pct < 75 && <div className="flex items-start gap-2"><span className="text-red-500 mt-0.5">●</span>Low agreement with peers — this evaluator's scores frequently differ from the group. May need coaching or re-calibration.</div>}
+                  {sc.agreement_pct !== null && sc.agreement_pct >= 75 && sc.agreement_pct < 85 && <div className="flex items-start gap-2"><span className="text-amber-500 mt-0.5">●</span>Moderate agreement — some scoring differences from peers. Worth monitoring.</div>}
+                  {sc.bias !== null && Math.abs(sc.bias) > 0.5 && <div className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">●</span>Scoring bias of {sc.bias > 0 ? "+" : ""}{sc.bias} — this evaluator tends to score {sc.bias > 0 ? "higher" : "lower"} than the group average.</div>}
+                  {sc.notes_per_session < 2 && <div className="flex items-start gap-2"><span className="text-amber-500 mt-0.5">●</span>Low notes volume ({sc.notes_per_session}/session) — consider encouraging more detailed player observations.</div>}
+                  {sc.notes_per_session >= 5 && <div className="flex items-start gap-2"><span className="text-green-500 mt-0.5">●</span>Good notes volume ({sc.notes_per_session}/session) — this evaluator provides detailed observations.</div>}
+                  {sc.score_range?.spread < 3 && <div className="flex items-start gap-2"><span className="text-amber-500 mt-0.5">●</span>Narrow score range ({sc.score_range.spread} points) — may not be differentiating between athletes sufficiently.</div>}
+                  {sc.score_range?.spread >= 5 && <div className="flex items-start gap-2"><span className="text-green-500 mt-0.5">●</span>Good score differentiation — using {sc.score_range.spread} points of the scale.</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* SESSIONS TAB */}
         {activeTab === "sessions" && (
