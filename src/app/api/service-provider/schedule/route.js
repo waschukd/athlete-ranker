@@ -69,6 +69,6 @@ export async function GET(request) {
     return NextResponse.json({ schedule, byDate });
   } catch (error) {
     console.error("SP schedule error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

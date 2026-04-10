@@ -68,6 +68,6 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ evaluator: evaluator[0], sessions, flags, stats });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

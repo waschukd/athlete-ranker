@@ -81,7 +81,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ groups, assignments, goalies });
   } catch (error) {
     console.error("Groups GET error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -229,14 +229,21 @@ export async function POST(request, { params }) {
         assignments = [...fAssign, ...dAssign, ...otherAssign];
       }
 
-      // Insert assignments
-      for (const { athlete_id, group_index } of assignments) {
-        const group = groups[group_index];
-        if (!group) continue;
-        const existingAssign = await sql`SELECT id FROM player_group_assignments WHERE athlete_id = ${athlete_id} AND session_group_id = ${group.id}`;
-        if (!existingAssign.length) {
-          await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athlete_id}, ${group.id}, 0)`;
-        }
+      // Insert assignments in bulk (avoid N+1 per athlete)
+      const validAssignments = assignments
+        .filter(({ group_index }) => groups[group_index])
+        .map(({ athlete_id, group_index }) => ({
+          athlete_id,
+          session_group_id: groups[group_index].id,
+        }));
+
+      if (validAssignments.length) {
+        const aIds = validAssignments.map(a => a.athlete_id);
+        const sgIds = validAssignments.map(a => a.session_group_id);
+        await sql`
+          INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
+          SELECT * FROM unnest(${aIds}::int[], ${sgIds}::int[], array_fill(0, ARRAY[${validAssignments.length}])::int[])
+          ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
       }
 
       // Apply snake draft colors
@@ -290,7 +297,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error("Groups POST error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -315,38 +322,83 @@ function distributeSequential(ids, numGroups, maxPerGroup = null) {
 
 async function applySnakeDraftColors(catId, sessionNumber, groups) {
   const COLORS = ["White", "Dark"];
-  for (const group of groups) {
-    if (!group) continue;
-    const scheduleEntry = await sql`
-      SELECT id FROM evaluation_schedule
-      WHERE age_category_id = ${catId}
-        AND session_number = ${sessionNumber || group.session_number}
-        AND group_number = ${group.group_number}
-      LIMIT 1`;
-    if (!scheduleEntry.length) continue;
-    const scheduleId = scheduleEntry[0].id;
+  const validGroups = groups.filter(g => g);
+  if (!validGroups.length) return;
 
-    const existingCs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
-    if (!existingCs.length) {
-      await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false)`;
-    }
+  const groupNumbers = validGroups.map(g => g.group_number);
+  const effectiveSession = sessionNumber || validGroups[0].session_number;
 
-    const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
-    const csId = cs[0]?.id;
+  // Batch: fetch all schedule entries for these groups at once
+  const scheduleEntries = await sql`
+    SELECT id, group_number FROM evaluation_schedule
+    WHERE age_category_id = ${catId}
+      AND session_number = ${effectiveSession}
+      AND group_number = ANY(${groupNumbers})`;
+  const scheduleByGroup = {};
+  for (const se of scheduleEntries) scheduleByGroup[se.group_number] = se.id;
 
-    const players = await sql`
-      SELECT pga.athlete_id FROM player_group_assignments pga
-      WHERE pga.session_group_id = ${group.id}
-      ORDER BY pga.display_order, pga.athlete_id`;
+  const scheduleIds = scheduleEntries.map(se => se.id);
+  if (!scheduleIds.length) return;
 
+  // Batch: ensure checkin_sessions exist for all schedule IDs (insert missing ones)
+  await sql`
+    INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
+    SELECT s.id, ${catId}, '["White","Dark"]', false
+    FROM unnest(${scheduleIds}::int[]) AS s(id)
+    WHERE NOT EXISTS (SELECT 1 FROM checkin_sessions cs WHERE cs.schedule_id = s.id)`;
+
+  // Batch: fetch all checkin_sessions for these schedule IDs
+  const allCs = await sql`
+    SELECT id, schedule_id FROM checkin_sessions
+    WHERE schedule_id = ANY(${scheduleIds})`;
+  const csBySchedule = {};
+  for (const cs of allCs) csBySchedule[cs.schedule_id] = cs.id;
+
+  // Batch: fetch all player assignments for these groups at once
+  const groupIds = validGroups.map(g => g.id);
+  const allPlayers = await sql`
+    SELECT pga.athlete_id, pga.session_group_id
+    FROM player_group_assignments pga
+    WHERE pga.session_group_id = ANY(${groupIds})
+    ORDER BY pga.session_group_id, pga.display_order, pga.athlete_id`;
+
+  // Group players by session_group_id
+  const playersByGroup = {};
+  for (const p of allPlayers) {
+    if (!playersByGroup[p.session_group_id]) playersByGroup[p.session_group_id] = [];
+    playersByGroup[p.session_group_id].push(p.athlete_id);
+  }
+
+  // Build bulk upsert data for player_checkins
+  const upsertAthletes = [];
+  const upsertSchedules = [];
+  const upsertCsIds = [];
+  const upsertColors = [];
+
+  for (const group of validGroups) {
+    const scheduleId = scheduleByGroup[group.group_number];
+    if (!scheduleId) continue;
+    const csId = csBySchedule[scheduleId];
+    if (!csId) continue;
+    const players = playersByGroup[group.id] || [];
     for (let i = 0; i < players.length; i++) {
-      const color = COLORS[i % COLORS.length];
-      const existingCheckin = await sql`SELECT id FROM player_checkins WHERE athlete_id = ${players[i].athlete_id} AND schedule_id = ${scheduleId}`;
-      if (existingCheckin.length) {
-        await sql`UPDATE player_checkins SET team_color = ${color} WHERE athlete_id = ${players[i].athlete_id} AND schedule_id = ${scheduleId}`;
-      } else {
-        await sql`INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in) VALUES (${players[i].athlete_id}, ${scheduleId}, ${csId}, ${color}, false)`;
-      }
+      upsertAthletes.push(players[i]);
+      upsertSchedules.push(scheduleId);
+      upsertCsIds.push(csId);
+      upsertColors.push(COLORS[i % COLORS.length]);
     }
+  }
+
+  if (upsertAthletes.length) {
+    await sql`
+      INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
+      SELECT * FROM unnest(
+        ${upsertAthletes}::int[],
+        ${upsertSchedules}::int[],
+        ${upsertCsIds}::int[],
+        ${upsertColors}::text[],
+        array_fill(false, ARRAY[${upsertAthletes.length}])::bool[]
+      )
+      ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = EXCLUDED.team_color`;
   }
 }

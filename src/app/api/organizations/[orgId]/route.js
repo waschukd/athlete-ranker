@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
     `;
     return NextResponse.json({ organization: orgs[0], service_provider: spLink[0] || null });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -44,6 +44,6 @@ export async function PUT(request, { params }) {
     `;
     return NextResponse.json({ organization: result[0] });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

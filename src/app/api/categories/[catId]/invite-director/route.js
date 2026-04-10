@@ -191,7 +191,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ success: true, message: `${name} has been assigned as director and notified by email.` });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -203,6 +203,6 @@ export async function DELETE(request, { params }) {
     await sql`DELETE FROM director_assignments WHERE user_id = ${userId} AND age_category_id = ${catId}`;
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

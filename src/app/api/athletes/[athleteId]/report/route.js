@@ -61,7 +61,8 @@ export async function GET(request, { params }) {
     const rankRes = await fetch(`${baseUrl}/api/categories/${catId}/rankings`, {
       headers: { cookie: request.headers.get("cookie") || "" },
     });
-    const rankData = await rankRes.json();
+    let rankData = {};
+    try { if (rankRes.ok) rankData = await rankRes.json(); } catch {}
     const athleteRanking = rankData.athletes?.find(a => String(a.id) === String(athleteId));
     const totalAthletes = rankData.athletes?.length || 0;
 
@@ -77,6 +78,6 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error("Player report error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

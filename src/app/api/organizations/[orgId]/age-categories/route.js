@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
     `;
     return NextResponse.json({ categories });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -41,6 +41,6 @@ export async function POST(request, { params }) {
     `;
     return NextResponse.json({ category: result[0] }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

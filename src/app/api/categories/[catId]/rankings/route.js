@@ -191,18 +191,16 @@ export async function GET(request, { params }) {
     const phase = completedSessions.length === 0 ? "pre_session"
       : trueCompletedSessions.length === sessions.length ? "complete" : "in_progress";
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       athletes: ranked, has_scores: true, phase, sessions,
       completed_sessions: trueCompletedSessions,
       in_progress_sessions: inProgressSessions,
       session_status: sessionStatus, category,
       scoring_info: { scale, method: "percentile_and_normalized_0_100" },
     });
-    response.headers.set('Cache-Control', 's-maxage=20, stale-while-revalidate=40');
-    return response;
 
   } catch (error) {
     console.error("Rankings error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

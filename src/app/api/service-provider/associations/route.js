@@ -46,7 +46,7 @@ export async function GET(request) {
     return NextResponse.json({ sp: spInfo[0], associations, evaluatorStats: evaluatorStats[0] });
   } catch (error) {
     console.error("SP associations error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -76,6 +76,6 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("SP link association error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

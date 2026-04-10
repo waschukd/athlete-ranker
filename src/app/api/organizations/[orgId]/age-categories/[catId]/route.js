@@ -12,6 +12,6 @@ export async function DELETE(request, { params }) {
     await sql`DELETE FROM age_categories WHERE id = ${params.catId} AND organization_id = ${params.orgId}`;
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -65,13 +65,15 @@ export async function GET(request) {
       const sessions = await getSessionStaffing(admin.organization_id, job === "weekly_report" ? 7 : 2);
 
     if (job === "weekly_report") {
-        await emailWeeklyStaffingReport({
-          adminEmail: admin.email,
-          adminName: admin.name,
-          orgName: admin.org_name,
-          sessions,
-        });
-        sent++;
+        try {
+          await emailWeeklyStaffingReport({
+            adminEmail: admin.email,
+            adminName: admin.name,
+            orgName: admin.org_name,
+            sessions,
+          });
+          sent++;
+        } catch (emailErr) { console.error("Email failed:", emailErr); }
       }
 
       // Also send weekly schedule to evaluators signed up for sessions this week
@@ -130,21 +132,22 @@ export async function GET(request) {
             </div>
             <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
           `);
-          await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html);
-          sent++;
+          try { await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
       }
 
       if (job === "daily_alert") {
         const openSessions = sessions.filter(s => s.signed_up < s.required);
         if (openSessions.length) {
-          await emailDailyStaffingAlert({
-            adminEmail: admin.email,
-            adminName: admin.name,
-            orgName: admin.org_name,
-            openSessions,
-          });
-          sent++;
+          try {
+            await emailDailyStaffingAlert({
+              adminEmail: admin.email,
+              adminName: admin.name,
+              orgName: admin.org_name,
+              openSessions,
+            });
+            sent++;
+          } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
       }
     }
@@ -194,8 +197,7 @@ export async function GET(request) {
         `);
 
         for (const ev of evaluators) {
-          await sendEmail(ev.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml);
-          sent++;
+          try { await sendEmail(ev.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
 
         // Notify directors assigned to this category
@@ -208,8 +210,7 @@ export async function GET(request) {
         `;
 
         for (const dir of directors) {
-          await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml);
-          sent++;
+          try { await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
       }
     }
@@ -217,6 +218,6 @@ export async function GET(request) {
     return NextResponse.json({ success: true, job, emails_sent: sent });
   } catch (error) {
     console.error("Cron error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

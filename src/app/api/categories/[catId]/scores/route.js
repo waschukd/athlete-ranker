@@ -79,7 +79,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ success: true, old_score: oldScore, new_score: score });
   } catch (error) {
     console.error("PATCH score error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -121,7 +121,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true, deleted: deleted.length });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -179,7 +179,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ scores });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -249,6 +249,6 @@ export async function POST(request, { params }) {
     return NextResponse.json({ success: true, imported, skipped });
   } catch (error) {
     console.error("Manual score upload error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -66,6 +66,6 @@ export async function POST(request, { params }) {
     return NextResponse.json({ success: true, sent });
   } catch (error) {
     console.error("Volunteer notify error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

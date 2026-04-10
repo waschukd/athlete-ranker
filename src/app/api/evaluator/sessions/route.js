@@ -120,6 +120,6 @@ export async function GET(request) {
     return NextResponse.json({ error: "Invalid view" }, { status: 400 });
   } catch (error) {
     console.error("Evaluator sessions error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

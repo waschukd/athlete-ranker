@@ -28,7 +28,7 @@ export async function GET(request, { params }) {
     `;
     return NextResponse.json({ schedule });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -172,7 +172,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ success: true, count });
   } catch (error) {
     console.error("Schedule POST error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -266,6 +266,6 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true, notified: admins.length + signedUp.length + directors.length });
   } catch (error) {
     console.error("Schedule DELETE error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

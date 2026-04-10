@@ -49,7 +49,7 @@ export async function GET(request) {
 
     return NextResponse.json({ athletes, scoringCategories: scoringCats });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -77,6 +77,15 @@ export async function POST(request) {
         WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
       `;
       if (!signup.length) return NextResponse.json({ error: "Not signed up for this session" }, { status: 403 });
+    }
+
+    // Verify athlete is checked in for this session
+    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin"].includes(session.role)) {
+      const checkin = await sql`
+        SELECT id FROM player_checkins
+        WHERE athlete_id = ${athlete_id} AND schedule_id = ${schedule_id} AND checked_in = true
+      `;
+      if (!checkin.length) return NextResponse.json({ error: "Athlete not checked in for this session" }, { status: 400 });
     }
 
     const validScores = (scores || []).filter(s => s.score !== null && s.score !== undefined);
@@ -207,6 +216,6 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Score submit error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
     `;
     return NextResponse.json({ athletes, total: athletes.length });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -128,7 +128,7 @@ export async function POST(request, { params }) {
     `;
     return NextResponse.json({ athlete: result[0] }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -143,8 +143,11 @@ export async function DELETE(request, { params }) {
     const athleteId = searchParams.get("athlete_id");
     if (!athleteId) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });
     await sql`UPDATE athletes SET is_active = false WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+      // Clean up related data for deactivated athlete
+      await sql`DELETE FROM player_checkins WHERE athlete_id = ${athleteId} AND schedule_id IN (SELECT id FROM evaluation_schedule WHERE age_category_id = ${catId})`;
+      await sql`DELETE FROM player_group_assignments WHERE athlete_id = ${athleteId}`;
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

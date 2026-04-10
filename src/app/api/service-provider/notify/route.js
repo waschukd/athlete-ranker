@@ -135,6 +135,6 @@ export async function POST(request) {
         : `Would notify ${availableEvaluators.length} evaluators (configure RESEND_API_KEY to send emails)`,
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
