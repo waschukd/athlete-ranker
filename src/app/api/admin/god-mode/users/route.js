@@ -68,29 +68,21 @@ export async function GET(request) {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
-    const users = roleFilter
-      ? await sql`
-          SELECT u.*,
-            o.name as org_name,
-            o.type as org_type,
-            COUNT(DISTINCT ea.id) as total_assignments
-          FROM users u
-          LEFT JOIN organizations o ON o.contact_email = u.email
-          LEFT JOIN evaluator_memberships em ON em.user_id = u.id
-          LEFT JOIN evaluator_assignments ea ON ea.user_id = u.id
-          WHERE u.role = ${roleFilter}
-          GROUP BY u.id, o.name, o.type ORDER BY u.created_at DESC
-        `
-      : await sql`
-          SELECT u.*,
-            o.name as org_name,
-            o.type as org_type,
-            COUNT(DISTINCT ea.id) as total_assignments
-          FROM users u
-          LEFT JOIN organizations o ON o.contact_email = u.email
-          LEFT JOIN evaluator_assignments ea ON ea.user_id = u.id
-          GROUP BY u.id, o.name, o.type ORDER BY u.created_at DESC
-        `;
+    const baseQuery = sql`
+      SELECT u.*,
+        o.name as org_name,
+        o.type as org_type,
+        COUNT(DISTINCT em.organization_id) as organization_count,
+        COUNT(DISTINCT ess.id) as total_assignments
+      FROM users u
+      LEFT JOIN organizations o ON o.contact_email = u.email
+      LEFT JOIN evaluator_memberships em ON em.user_id = u.id AND em.status = 'active'
+      LEFT JOIN evaluator_session_signups ess ON ess.user_id = u.id AND ess.status = 'signed_up'
+      ${roleFilter ? sql`WHERE u.role = ${roleFilter}` : sql``}
+      GROUP BY u.id, o.name, o.type
+      ORDER BY u.created_at DESC
+    `;
+    const users = await baseQuery;
     const stats = await sql`
       SELECT
         COUNT(*) as total,
