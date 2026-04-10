@@ -229,7 +229,7 @@ export async function POST(request, { params }) {
         assignments = [...fAssign, ...dAssign, ...otherAssign];
       }
 
-      // Insert assignments in bulk (avoid N+1 per athlete)
+      // Insert assignments
       const validAssignments = assignments
         .filter(({ group_index }) => groups[group_index])
         .map(({ athlete_id, group_index }) => ({
@@ -237,17 +237,19 @@ export async function POST(request, { params }) {
           session_group_id: groups[group_index].id,
         }));
 
-      if (validAssignments.length) {
-        const aIds = validAssignments.map(a => a.athlete_id);
-        const sgIds = validAssignments.map(a => a.session_group_id);
+      for (const va of validAssignments) {
         await sql`
           INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
-          SELECT * FROM unnest(${aIds}::int[], ${sgIds}::int[], array_fill(0, ARRAY[${validAssignments.length}])::int[])
+          VALUES (${va.athlete_id}, ${va.session_group_id}, 0)
           ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
       }
 
       // Apply snake draft colors
-      await applySnakeDraftColors(catId, session_number, groups);
+      try {
+        await applySnakeDraftColors(catId, session_number, groups);
+      } catch (colorErr) {
+        console.error("Color assignment error (non-fatal):", colorErr);
+      }
 
       await sql`
         INSERT INTO audit_log (age_category_id, user_id, action, entity_type, new_value)
@@ -395,15 +397,11 @@ async function applySnakeDraftColors(catId, sessionNumber, groups) {
   }
 
   if (upsertAthletes.length) {
-    await sql`
-      INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
-      SELECT * FROM unnest(
-        ${upsertAthletes}::int[],
-        ${upsertSchedules}::int[],
-        ${upsertCsIds}::int[],
-        ${upsertColors}::text[],
-        array_fill(false, ARRAY[${upsertAthletes.length}])::bool[]
-      )
-      ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = EXCLUDED.team_color`;
+    for (let i = 0; i < upsertAthletes.length; i++) {
+      await sql`
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
+        VALUES (${upsertAthletes[i]}, ${upsertSchedules[i]}, ${upsertCsIds[i]}, ${upsertColors[i]}, false)
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = EXCLUDED.team_color`;
+    }
   }
 }
