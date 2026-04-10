@@ -181,7 +181,8 @@ export async function GET(request, { params }) {
         // Skills/scrimmage: complete if all athletes have been scored by required evaluators
         const scoredAthletes = [...new Set(sessionScores.filter(s => parseInt(s.session_number) === sNum).map(s => s.athlete_id))];
         const evaluatorsInSession = [...new Set(sessionScores.filter(s => parseInt(s.session_number) === sNum).map(s => s.evaluator_id))];
-        sessionStatus[sNum] = scoredAthletes.length >= athletes.length ? "complete" : "in_progress";
+        // Complete if at least 70% of athletes scored (handles partial imports/no-shows)
+        sessionStatus[sNum] = scoredAthletes.length >= Math.ceil(athletes.length * 0.7) ? "complete" : "in_progress";
       }
     }
 
