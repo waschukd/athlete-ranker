@@ -1,8 +1,8 @@
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { sendEmail, emailWrapper } from "@/lib/email";
 
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -125,6 +125,50 @@ export async function POST(request, { params }) {
       }
     }
 
+    // Notify signed-up evaluators and directors about schedule changes
+    try {
+      const catInfo = await sql`
+        SELECT ac.name as category_name, o.name as org_name
+        FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
+        WHERE ac.id = ${catId}
+      `;
+      const catName = catInfo[0]?.category_name || "Evaluation";
+      const orgName = catInfo[0]?.org_name || "";
+      const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
+
+      // Get all evaluators signed up for sessions in this category
+      const evaluators = await sql`
+        SELECT DISTINCT u.email, u.name FROM evaluator_session_signups ess
+        JOIN evaluation_schedule es ON es.id = ess.schedule_id
+        JOIN users u ON u.id = ess.user_id
+        WHERE es.age_category_id = ${catId} AND ess.status = 'signed_up'
+      `;
+
+      // Get directors assigned to this category
+      const directors = await sql`
+        SELECT DISTINCT u.email, u.name FROM director_assignments da
+        JOIN users u ON u.id = da.user_id
+        WHERE da.age_category_id = ${catId} AND da.status = 'active'
+      `;
+
+      if (evaluators.length || directors.length) {
+        const html = emailWrapper(`
+          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong>${orgName ? ` at ${orgName}` : ""} has been updated. Please check your dashboard for the latest times and locations.</p>
+          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
+        `);
+        const dirHtml = emailWrapper(`
+          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong> has been updated.</p>
+          <a href="${BASE_URL}/director/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
+        `);
+        for (const e of evaluators) await sendEmail(e.email, `Schedule Updated — ${catName}`, html);
+        for (const d of directors) await sendEmail(d.email, `Schedule Updated — ${catName}`, dirHtml);
+      }
+    } catch (notifyErr) {
+      console.error("Schedule notification error:", notifyErr);
+    }
+
     return NextResponse.json({ success: true, count });
   } catch (error) {
     console.error("Schedule POST error:", error);
@@ -171,7 +215,12 @@ export async function DELETE(request, { params }) {
     const dateStr = e.scheduled_date?.toString().split("T")[0];
     const subject = `Session Cancelled — ${e.category_name} Group ${e.group_number} (${dateStr})`;
 
-    const { sendEmail } = await import("@/lib/email");
+    // Get directors for this category
+    const directors = await sql`
+      SELECT DISTINCT u.email, u.name FROM director_assignments da
+      JOIN users u ON u.id = da.user_id
+      WHERE da.age_category_id = ${catId} AND da.status = 'active'
+    `;
 
     // Email admins
     const adminHtml = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
@@ -209,7 +258,12 @@ export async function DELETE(request, { params }) {
       await sendEmail(eval_.email, `Session Cancelled — ${e.category_name} G${e.group_number} (${dateStr})`, evalHtml);
     }
 
-    return NextResponse.json({ success: true, notified: admins.length + signedUp.length });
+    // Email directors
+    for (const dir of directors) {
+      await sendEmail(dir.email, subject, adminHtml);
+    }
+
+    return NextResponse.json({ success: true, notified: admins.length + signedUp.length + directors.length });
   } catch (error) {
     console.error("Schedule DELETE error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -7,6 +7,10 @@
     {
       "path": "/api/cron?job=daily_alert",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron?job=session_reminder",
+      "schedule": "0 18 * * *"
     }
   ]
 }

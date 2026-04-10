@@ -24,7 +24,7 @@ export async function sendEmail(to, subject, html) {
   }
 }
 
-function emailWrapper(content) {
+export function emailWrapper(content) {
   return `<!DOCTYPE html>
   <html>
   <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">

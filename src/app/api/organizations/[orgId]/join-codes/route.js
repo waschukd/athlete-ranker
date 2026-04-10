@@ -119,10 +119,25 @@ export async function POST(request, { params }) {
     }
 
     if (action === "deny") {
+      // Get evaluator info before deleting
+      const membership = await sql`
+        SELECT em.user_id, u.name, u.email, o.name as org_name
+        FROM evaluator_memberships em
+        JOIN users u ON u.id = em.user_id
+        JOIN organizations o ON o.id = em.organization_id
+        WHERE em.id = ${body.membership_id}
+      `;
       await sql`
         DELETE FROM evaluator_memberships WHERE id = ${body.membership_id}
       `;
-      // Optionally delete auth accounts too
+      // Notify the evaluator they were denied
+      if (membership.length) {
+        await emailEvaluatorDenied({
+          name: membership[0].name,
+          email: membership[0].email,
+          orgName: membership[0].org_name,
+        });
+      }
       return NextResponse.json({ success: true });
     }
 

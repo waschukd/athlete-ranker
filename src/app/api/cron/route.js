@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail } from "@/lib/email";
+import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper } from "@/lib/email";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -144,6 +144,71 @@ export async function GET(request) {
             orgName: admin.org_name,
             openSessions,
           });
+          sent++;
+        }
+      }
+    }
+
+    // ── Session Reminders (24hr before) ──
+    if (job === "session_reminder") {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+      // Get all sessions happening tomorrow
+      const upcomingSessions = await sql`
+        SELECT es.id, es.session_number, es.group_number, es.scheduled_date,
+          es.start_time, es.end_time, es.location,
+          ac.name as category_name, o.name as org_name
+        FROM evaluation_schedule es
+        JOIN age_categories ac ON ac.id = es.age_category_id
+        JOIN organizations o ON o.id = ac.organization_id
+        WHERE es.scheduled_date = ${tomorrowStr}
+      `;
+
+      for (const session of upcomingSessions) {
+        const dateStr = session.scheduled_date?.toString().split("T")[0];
+        const timeStr = session.start_time ? `${session.start_time}${session.end_time ? ` – ${session.end_time}` : ""}` : "TBD";
+
+        // Notify signed-up evaluators
+        const evaluators = await sql`
+          SELECT u.email, u.name FROM evaluator_session_signups ess
+          JOIN users u ON u.id = ess.user_id
+          WHERE ess.schedule_id = ${session.id} AND ess.status = 'signed_up'
+        `;
+
+        const reminderHtml = emailWrapper(`
+          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Session Tomorrow</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">You have an evaluation session tomorrow. Here are the details:</p>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;width:120px;">Category</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${session.category_name}</td></tr>
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${dateStr}</td></tr>
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${timeStr}</td></tr>
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${session.location || "TBD"}</td></tr>
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${session.session_number} G${session.group_number || "1"}</td></tr>
+            </table>
+          </div>
+          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a>
+          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend, cancel at least 24 hours in advance to avoid a strike.</p>
+        `);
+
+        for (const ev of evaluators) {
+          await sendEmail(ev.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml);
+          sent++;
+        }
+
+        // Notify directors assigned to this category
+        const directors = await sql`
+          SELECT DISTINCT u.email, u.name FROM director_assignments da
+          JOIN users u ON u.id = da.user_id
+          JOIN age_categories ac ON ac.id = da.age_category_id
+          WHERE ac.id = (SELECT age_category_id FROM evaluation_schedule WHERE id = ${session.id})
+            AND da.status = 'active'
+        `;
+
+        for (const dir of directors) {
+          await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml);
           sent++;
         }
       }
