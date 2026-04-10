@@ -49,8 +49,9 @@ export function UsersTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      return data;
     },
     onSuccess: (data, { userId, action }) => {
       setActionResult({
@@ -70,12 +71,18 @@ export function UsersTab() {
   const deleteMutation = useMutation({
     mutationFn: async (userId) => {
       const res = await fetch(`/api/admin/god-mode/users?id=${userId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["god-mode-users"]);
       setDeleteConfirm(null);
+    },
+    onError: (err) => {
+      setActionResult({ userId: deleteConfirm, success: false, message: err.message || "Delete failed" });
+      setDeleteConfirm(null);
+      setTimeout(() => setActionResult(null), 3000);
     },
   });
 
