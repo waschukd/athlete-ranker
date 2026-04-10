@@ -76,6 +76,7 @@ function ScoringInterface() {
   const scheduleId = params.scheduleId;
 
   const [selected, setSelected] = useState(null);
+  const [viewMode, setViewMode] = useState("card"); // "card" | "grid"
   const [scores, setScores] = useState({});
   const [pending, setPending] = useState({});
   const [online, setOnline] = useState(true);
@@ -719,9 +720,14 @@ function ScoringInterface() {
             Consensus
           </button>
         </div>
-          <button onClick={() => setHideCompleted(h => !h)} className={`mt-1 mx-3 mb-1 px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-700 border-green-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
-            {hideCompleted ? "✓ Hiding completed" : "Hide completed"}
-          </button>
+          <div className="flex items-center gap-2 mt-1 mx-3 mb-1">
+            <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-700 border-green-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+              {hideCompleted ? "✓ Hiding completed" : "Hide completed"}
+            </button>
+            <button onClick={() => setViewMode(v => v === "card" ? "grid" : "card")} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${viewMode === "grid" ? "bg-blue-700 border-blue-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+              {viewMode === "grid" ? "Grid View" : "Grid View"}
+            </button>
+          </div>
       </div>
 
       {/* ── Jersey grid ────────────────────────────────────── */}
@@ -735,7 +741,67 @@ function ScoringInterface() {
           </div>
         </div>
       )}
-      <div className="px-3 pt-3 pb-2">
+      {/* ── Grid View (spreadsheet mode) ──────────────────── */}
+      {viewMode === "grid" && (
+        <div className="flex-1 overflow-auto px-2 pt-2 pb-20">
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-800">
+                <th className="text-left py-2 px-2 text-xs text-gray-400 font-medium sticky left-0 bg-gray-800 min-w-[140px]">Name</th>
+                {scoringCats.map(cat => (
+                  <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-400 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
+                ))}
+                <th className="text-center py-2 px-1 text-xs text-gray-400 font-medium min-w-[40px]">✓</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(athlete => {
+                const status = getStatus(athlete.id, scores, totalCats);
+                const athleteScores = scores[athlete.id]?.cats || {};
+                return (
+                  <tr key={athlete.id} className={`border-b border-gray-800 ${status === "complete" ? "bg-green-900/10" : status === "partial" ? "bg-amber-900/10" : ""}`}>
+                    <td className="py-1.5 px-2 text-xs text-white font-medium sticky left-0 bg-gray-900 whitespace-nowrap">
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-400" : "bg-white border border-gray-500"}`} />
+                      {athlete.last_name}, {athlete.first_name?.[0]}.
+                      {athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}
+                    </td>
+                    {scoringCats.map(cat => {
+                      const val = athleteScores[cat.id];
+                      return (
+                        <td key={cat.id} className="text-center py-1 px-1">
+                          <input
+                            type="number"
+                            step={increment}
+                            min={0}
+                            max={scale}
+                            value={val ?? ""}
+                            onChange={e => {
+                              const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                              if (v !== null && (v < 0 || v > scale)) return;
+                              updateScore(athlete.id, cat.id, v);
+                            }}
+                            className={`w-full bg-transparent text-center text-sm font-mono outline-none rounded py-1 ${
+                              val !== null && val !== undefined ? "text-white" : "text-gray-600"
+                            } focus:bg-gray-700 focus:ring-1 focus:ring-[#1A6BFF]`}
+                            placeholder="–"
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="text-center py-1 px-1">
+                      {status === "complete" ? <span className="text-green-400 text-xs">✓</span>
+                        : status === "partial" ? <span className="text-amber-400 text-xs">◐</span>
+                        : <span className="text-gray-600 text-xs">○</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {viewMode === "card" && (<div className="px-3 pt-3 pb-2">
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 px-1">
           {[
@@ -780,10 +846,10 @@ function ScoringInterface() {
             );
           })}
         </div>
-      </div>
+      </div>)}
 
-      {/* ── Score panel ─────────────────────────────────────── */}
-      {selected && (
+      {/* ── Score panel (card view only) ──────────────────── */}
+      {selected && viewMode === "card" && (
         <div className="mx-3 mb-3 bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
           {/* Player header */}
           <div className="flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700">
@@ -883,7 +949,7 @@ function ScoringInterface() {
         </div>
       )}
 
-      {athletes.length > 0 && !selected && (
+      {athletes.length > 0 && !selected && viewMode === "card" && (
         <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
           Tap a jersey to score
         </div>
