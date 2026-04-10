@@ -369,12 +369,42 @@ function ScoringInterface() {
 
   // ── Voice ─────────────────────────────────────────────────────────────────
   const parseVoice = useCallback((text) => {
+    // ── Number normalization ─────────────────────────────────
     const wordNums = {
-      'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5',
-      'six':'6','seven':'7','eight':'8','nine':'9','ten':'10',
-      'to':'2','too':'2','for':'4','won':'1','ate':'8','nein':'9','tu':'2','fore':'4'
+      'zero':'0','oh':'0',
+      'one':'1','won':'1',
+      'two':'2','to':'2','too':'2','tu':'2',
+      'three':'3','tree':'3',
+      'four':'4','for':'4','fore':'4',
+      'five':'5','fiver':'5',
+      'six':'6','sex':'6','sicks':'6',
+      'seven':'7','sven':'7',
+      'eight':'8','ate':'8','ait':'8',
+      'nine':'9','nein':'9','mine':'9',
+      'ten':'10',
+      'eleven':'11','twelve':'12','thirteen':'13','fourteen':'14',
+      'fifteen':'15','sixteen':'16','seventeen':'17','eighteen':'18',
+      'nineteen':'19','twenty':'20',
     };
-    const normalized = text.trim().toLowerCase().replace(/\b(zero|one|two|to|too|tu|three|four|for|fore|five|six|seven|eight|ate|nine|nein|ten|won)\b/gi, m => wordNums[m.toLowerCase()] || m);
+    const compoundNums = {
+      'twenty one':'21','twenty two':'22','twenty three':'23','twenty four':'24',
+      'twenty five':'25','twenty six':'26','twenty seven':'27','twenty eight':'28',
+      'twenty nine':'29','thirty':'30','thirty one':'31','thirty two':'32',
+      'thirty three':'33','thirty four':'34','thirty five':'35',
+    };
+    let normalized = text.trim().toLowerCase();
+    // Handle "X and a half" / "X point five" / "X point 5" → X.5
+    normalized = normalized.replace(/(\d+)\s+and\s+a\s+half/gi, '$1.5');
+    normalized = normalized.replace(/(\d+)\s+point\s+five/gi, '$1.5');
+    normalized = normalized.replace(/(\d+)\s+point\s+5/gi, '$1.5');
+    normalized = normalized.replace(/(\d+)\s+point\s+(\d)/gi, '$1.$2');
+    // Handle compound numbers first (before single-word replacement)
+    for (const [words, num] of Object.entries(compoundNums)) {
+      normalized = normalized.replace(new RegExp('\\b' + words + '\\b', 'gi'), num);
+    }
+    // Single word number replacements
+    const wordPattern = Object.keys(wordNums).sort((a, b) => b.length - a.length).join('|');
+    normalized = normalized.replace(new RegExp('\\b(' + wordPattern + ')\\b', 'gi'), m => wordNums[m.toLowerCase()] || m);
     const corrected = normalized.replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck");
     const t = corrected.trim().toLowerCase();
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
