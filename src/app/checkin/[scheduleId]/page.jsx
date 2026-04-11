@@ -47,9 +47,14 @@ function CheckinPageInner() {
   };
 
   const quickCheckin = async (athlete) => {
+    // Use the edited jersey value if this athlete's jersey was just edited
+    const jersey = editingJersey === athlete.id && jerseyVal
+      ? parseInt(jerseyVal)
+      : (athlete.jersey_number || null);
+    if (editingJersey === athlete.id) setEditingJersey(null);
     await doAction("checkin", {
       athlete_id: athlete.id,
-      jersey_number: athlete.jersey_number || null,
+      jersey_number: jersey,
       team_color: athlete.team_color || "White",
     });
   };
@@ -190,12 +195,18 @@ function CheckinPageInner() {
               {/* Name */}
               <span className="text-sm text-white truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
 
-              {/* Jersey # — tap to edit */}
+              {/* Jersey # — tap to edit, stays open until check-in or blur */}
               {editingJersey === a.id ? (
                 <input type="number" value={jerseyVal} onChange={e => setJerseyVal(e.target.value)}
-                  onBlur={() => { if (jerseyVal) doAction("update_jersey", { athlete_id: a.id, jersey_number: parseInt(jerseyVal) }); setEditingJersey(null); }}
-                  onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-                  className="w-12 bg-gray-700 border border-[#1A6BFF] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
+                  onBlur={() => {
+                    // Save jersey on blur, but only if not checking in (quickCheckin handles it)
+                    if (jerseyVal && parseInt(jerseyVal) !== a.jersey_number) {
+                      doAction("update_jersey", { athlete_id: a.id, jersey_number: parseInt(jerseyVal) });
+                    }
+                    setTimeout(() => setEditingJersey(null), 200); // delay so "In" button can grab the value
+                  }}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); quickCheckin(a); } }}
+                  className="w-14 bg-gray-700 border border-[#1A6BFF] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
               ) : (
                 <button onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
                   className="w-10 text-center text-xs font-mono text-gray-400 hover:text-white rounded py-1">
