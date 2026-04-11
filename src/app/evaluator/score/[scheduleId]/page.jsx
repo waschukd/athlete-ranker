@@ -611,23 +611,33 @@ function ScoringInterface() {
       stream?.getTracks().forEach(t => t.stop());
     } catch {}
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = false;
+    rec.continuous = !isIOS; // iOS doesn't support continuous reliably
+    rec.interimResults = true; // Show interim results for faster feedback
     rec.lang = "en-US";
     recRef.current = rec;
 
     rec.onresult = e => {
-      const t = e.results[e.results.length - 1][0].transcript.trim();
-      parseVoice(t.toLowerCase());
+      const lastResult = e.results[e.results.length - 1];
+      if (lastResult.isFinal) {
+        const t = lastResult[0].transcript.trim();
+        parseVoice(t.toLowerCase());
+      } else {
+        // Show interim text so user sees the mic is hearing them
+        setVoiceStatus(`"${lastResult[0].transcript.trim()}"...`);
+      }
     };
     rec.onerror = (e) => {
-      if (e.error !== "no-speech") setVoiceStatus(`Error: ${e.error}`);
+      if (e.error !== "no-speech" && e.error !== "aborted") {
+        setVoiceStatus(`Error: ${e.error}`);
+      }
     };
     rec.onend = () => {
-      // Auto-restart to keep listening
+      // Auto-restart to keep listening (critical for iOS which stops after each result)
       if (recRef.current === rec) {
-        try { rec.start(); } catch {}
+        try { setTimeout(() => rec.start(), isIOS ? 100 : 0); } catch {}
       }
     };
 
@@ -877,43 +887,34 @@ function ScoringInterface() {
             </div>
           </div>
 
-          {/* Scoring categories */}
-          <div className="px-4 py-3 space-y-5">
+          {/* Scoring categories — tap buttons */}
+          <div className="px-4 py-3 space-y-4">
             {scoringCats.map(cat => {
               const current = scores[selected.id]?.cats?.[cat.id];
               return (
                 <div key={cat.id}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm font-semibold text-gray-200">{cat.name}</span>
-                    <div className="flex items-center gap-2">
-                      {current !== null && current !== undefined && (
-                        <>
-                          <span className="text-xl font-bold text-[#1A6BFF]">{current}</span>
-                          <button onClick={() => updateScore(selected.id, cat.id, null)}
-                            className="text-gray-600 hover:text-gray-400">
-                            <RotateCcw size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
+                    {current !== null && current !== undefined && (
+                      <button onClick={() => updateScore(selected.id, cat.id, null)}
+                        className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1">
+                        <RotateCcw size={11} /> Clear
+                      </button>
+                    )}
                   </div>
-                  {/* Slider + manual input */}
-                    <input
-                      type="range"
-                      min={increment}
-                      max={scale}
-                      step={increment}
-                      value={current ?? 0}
-                      onChange={e => updateScore(selected.id, cat.id, parseFloat(e.target.value))}
-                      className="flex-1 h-3 rounded-full appearance-none cursor-pointer"
-                      style={{
-                        background: current
-                          ? `linear-gradient(to right, #1A6BFF 0%, #1A6BFF ${((current - increment) / (scale - increment)) * 100}%, #374151 ${((current - increment) / (scale - increment)) * 100}%, #374151 100%)`
-                          : "#374151",
-                        accentColor: "#1A6BFF"
-                      }}
-                    />
+                  <div className="flex gap-1 flex-wrap">
+                    {scoreValues.map(v => (
+                      <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
+                        className={`flex-1 min-w-[36px] py-2.5 rounded-lg text-sm font-bold transition-all ${
+                          current === v
+                            ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50 scale-105"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-[#1A6BFF] active:text-white"
+                        }`}>
+                        {v}
+                      </button>
+                    ))}
                   </div>
+                </div>
               );
             })}
 
