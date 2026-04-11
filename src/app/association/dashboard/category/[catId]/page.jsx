@@ -312,7 +312,10 @@ function CategoryHub() {
                         </td>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#1A6BFF]">{a.first_name}</a></td>
-                        <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a></td>
+                        <td className="px-4 py-3">
+                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a>
+                          {a.incomplete && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>}
+                        </td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}

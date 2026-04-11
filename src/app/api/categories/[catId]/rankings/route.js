@@ -116,24 +116,50 @@ export async function GET(request, { params }) {
       };
     }
 
-    // Weighted total: Σ (normalized_score × weight_pct / 100)
-    // Result is 0-100
+    // Weighted total: prorate from attended sessions only
+    // If athlete attended 1 of 2 sessions (each 50%), their score is prorated
+    // to 100% instead of penalizing for missed sessions
     const withTotals = athletes.map(a => {
       const athleteScores = scoreMap[a.id] || {};
       let weightedTotal = 0;
+      let totalWeightAttended = 0;
+      let sessionsAttended = 0;
       const sessionBreakdown = {};
 
       for (const session of sessions) {
         const sd = athleteScores[session.session_number];
         if (sd) {
           const weight = parseFloat(session.weight_percentage) / 100;
-          const contribution = Math.round(sd.normalized_score * weight * 10) / 10;
-          weightedTotal += contribution;
-          sessionBreakdown[session.session_number] = { ...sd, weight: session.weight_percentage, contribution };
+          totalWeightAttended += weight;
+          sessionsAttended++;
+          sessionBreakdown[session.session_number] = { ...sd, weight: session.weight_percentage };
         }
       }
 
-      return { ...a, weighted_total: Math.round(weightedTotal * 10) / 10, session_scores: sessionBreakdown };
+      // Prorate: scale up scores proportionally if sessions were missed
+      if (totalWeightAttended > 0) {
+        const prorateFactor = 1 / totalWeightAttended; // e.g., attended 50% → multiply by 2
+        for (const session of sessions) {
+          const sd = athleteScores[session.session_number];
+          if (sd) {
+            const weight = parseFloat(session.weight_percentage) / 100;
+            const contribution = Math.round(sd.normalized_score * weight * prorateFactor * 10) / 10;
+            weightedTotal += contribution;
+            sessionBreakdown[session.session_number].contribution = contribution;
+          }
+        }
+      }
+
+      const incomplete = sessionsAttended < sessions.length;
+
+      return {
+        ...a,
+        weighted_total: Math.round(weightedTotal * 10) / 10,
+        session_scores: sessionBreakdown,
+        sessions_attended: sessionsAttended,
+        sessions_total: sessions.length,
+        incomplete,
+      };
     });
 
     // Per-session rank: rank athletes within each individual session only

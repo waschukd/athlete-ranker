@@ -365,6 +365,7 @@ function DirectorDashboardInner() {
                             className="text-gray-900 font-semibold hover:text-[#1A6BFF] transition-colors">
                             {a.last_name}
                           </a>
+                          {a.incomplete && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>}
                         </td>
                         {hasPositions && category?.position_tagging && (
                           <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">ΓÇö</span>}</td>
