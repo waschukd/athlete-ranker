@@ -734,24 +734,27 @@ function ScoringInterface() {
               <span className="text-xs font-semibold text-blue-300">📊 Session {calibration.prev_session} Review</span>
               <button onClick={() => setCalibrationDismissed(true)} className="text-xs text-gray-500 hover:text-white">Dismiss</button>
             </div>
+            <div className="px-4 py-2 border-b border-gray-700/50">
+              <p className="text-[11px] text-gray-400 leading-relaxed">Quick look at how your rankings compared to the group last session. This isn't about right or wrong — it's about awareness. If you ranked a player very differently from the group, keep an eye on them today.</p>
+            </div>
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-4">
-                <div className="text-center">
+                <div className="text-center" title="How often your ranking order matched the group's order">
                   <div className={`text-lg font-bold ${calibration.rank_match >= 85 ? "text-green-400" : calibration.rank_match >= 70 ? "text-amber-400" : "text-red-400"}`}>{calibration.rank_match}%</div>
-                  <div className="text-[10px] text-gray-500">Rank match</div>
+                  <div className="text-[10px] text-gray-500">Ranking alignment</div>
                 </div>
-                <div className="text-center">
+                <div className="text-center" title="How many points of the scoring scale you used (higher = better differentiation)">
                   <div className="text-lg font-bold text-white">{calibration.spread}</div>
-                  <div className="text-[10px] text-gray-500">Scale used</div>
+                  <div className="text-[10px] text-gray-500">Score range</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-white">{calibration.athletes_scored}</div>
-                  <div className="text-[10px] text-gray-500">Scored</div>
+                  <div className="text-[10px] text-gray-500">Athletes</div>
                 </div>
               </div>
               {calibration.disagreements?.length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Your ranking differed most on:</div>
+                  <div className="text-[10px] text-gray-500 mb-1">Players you ranked differently from the group — worth a closer look today:</div>
                   {calibration.disagreements.slice(0, 3).map((d, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs py-0.5">
                       <span className="text-gray-300 flex-1">{d.name}</span>
@@ -763,12 +766,15 @@ function ScoringInterface() {
                 </div>
               )}
               {Object.keys(calibration.category_bias || {}).length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {Object.entries(calibration.category_bias).map(([cat, bias]) => (
-                    <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-900/30 text-amber-400" : "bg-gray-700 text-gray-400"}`}>
-                      {cat.split(/[\s/]/)[0]}: {bias > 0 ? "+" : ""}{bias}
-                    </span>
-                  ))}
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-1">Your avg vs group avg per category (+ means you scored higher, - means lower):</div>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(calibration.category_bias).map(([cat, bias]) => (
+                      <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-900/30 text-amber-400" : "bg-gray-700 text-gray-400"}`}>
+                        {cat.split(/[\s/]/)[0]}: {bias > 0 ? "+" : ""}{bias}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
