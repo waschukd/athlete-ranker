@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch } from "@/lib/voiceMatch";
+import { isCapacitorApp, createNativeContinuousRecognizer } from "@/lib/speechAdapter";
 
 const qc = new QueryClient();
 
@@ -613,6 +614,21 @@ function ScoringInterface() {
       }
       return;
     }
+    // ── Native app: use Capacitor speech plugin ──────────
+    if (isCapacitorApp()) {
+      const nativeRec = createNativeContinuousRecognizer({
+        onResult: (text) => parseVoice(text.toLowerCase()),
+        onPartial: (text) => setVoiceStatus(`"${text}"...`),
+        onError: (err) => setVoiceStatus(typeof err === "string" ? err : "Voice error"),
+      });
+      recRef.current = nativeRec;
+      nativeRec.start();
+      setVoiceOn(true);
+      setVoiceStatus("Listening (native)...");
+      return;
+    }
+
+    // ── Browser: use Web Speech API ─────────────────────
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || voiceMode === 'unavailable') { setVoiceStatus("Voice unavailable offline — tap to score"); return; }
 
@@ -625,8 +641,8 @@ function ScoringInterface() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
     const rec = new SR();
-    rec.continuous = !isIOS; // iOS doesn't support continuous reliably
-    rec.interimResults = true; // Show interim results for faster feedback
+    rec.continuous = !isIOS;
+    rec.interimResults = true;
     rec.lang = "en-US";
     recRef.current = rec;
 
@@ -636,7 +652,6 @@ function ScoringInterface() {
         const t = lastResult[0].transcript.trim();
         parseVoice(t.toLowerCase());
       } else {
-        // Show interim text so user sees the mic is hearing them
         setVoiceStatus(`"${lastResult[0].transcript.trim()}"...`);
       }
     };
@@ -651,7 +666,6 @@ function ScoringInterface() {
       }
     };
     rec.onend = () => {
-      // Auto-restart to keep listening (critical for iOS which stops after each result)
       if (recRef.current === rec) {
         try { setTimeout(() => rec.start(), isIOS ? 100 : 0); } catch {}
       }
@@ -661,7 +675,7 @@ function ScoringInterface() {
     const onDeviceChange = () => {
       if (recRef.current) {
         setVoiceStatus("Audio device changed — reconnecting...");
-        recRef.current.stop(); // onend handler auto-restarts
+        recRef.current.stop();
       }
     };
     navigator.mediaDevices?.addEventListener('devicechange', onDeviceChange);

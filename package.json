@@ -13,6 +13,11 @@
     "test:all": "vitest run && playwright test"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
+    "@capgo/capacitor-speech-recognition": "^8.1.0",
     "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.0.0",
     "bcryptjs": "^2.4.3",
