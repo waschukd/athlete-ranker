@@ -51,9 +51,11 @@ export async function GET(request, { params }) {
       ORDER BY a.last_name, a.first_name, sc.name
     `;
 
-    // Build per-athlete consensus data
+    // Build per-athlete, per-evaluator data
     const athleteMap = {};
+    const evaluatorIds = new Set();
     for (const row of scores) {
+      evaluatorIds.add(row.evaluator_id);
       if (!athleteMap[row.athlete_id]) {
         athleteMap[row.athlete_id] = {
           athlete_id: row.athlete_id,
@@ -61,56 +63,124 @@ export async function GET(request, { params }) {
           last_name: row.last_name,
           jersey_number: row.checkin_jersey,
           team_color: row.team_color,
+          evaluators: {},
           categories: {},
         };
       }
+      // Per-evaluator scores for this athlete
+      if (!athleteMap[row.athlete_id].evaluators[row.evaluator_id]) {
+        athleteMap[row.athlete_id].evaluators[row.evaluator_id] = { name: row.evaluator_name, scores: {}, total: 0, count: 0 };
+      }
+      athleteMap[row.athlete_id].evaluators[row.evaluator_id].scores[row.category_name] = parseFloat(row.score);
+      athleteMap[row.athlete_id].evaluators[row.evaluator_id].total += parseFloat(row.score);
+      athleteMap[row.athlete_id].evaluators[row.evaluator_id].count++;
+
+      // Per-category aggregation
       if (!athleteMap[row.athlete_id].categories[row.scoring_category_id]) {
-        athleteMap[row.athlete_id].categories[row.scoring_category_id] = {
-          name: row.category_name,
-          scores: [],
-        };
+        athleteMap[row.athlete_id].categories[row.scoring_category_id] = { name: row.category_name, scores: [] };
       }
       athleteMap[row.athlete_id].categories[row.scoring_category_id].scores.push({
-        score: parseFloat(row.score),
-        evaluator: row.evaluator_name,
-        evaluator_id: row.evaluator_id,
+        score: parseFloat(row.score), evaluator: row.evaluator_name, evaluator_id: row.evaluator_id,
       });
     }
 
-    // Calculate agreement per athlete
-    const athletes = Object.values(athleteMap).map(a => {
+    const allAthletes = Object.values(athleteMap);
+    const N = allAthletes.length;
+
+    // Tier boundaries: top 25%, middle 50%, bottom 25%
+    const topCutoff = Math.max(1, Math.ceil(N * 0.25));
+    const bottomCutoff = Math.max(topCutoff + 1, N - Math.ceil(N * 0.25) + 1);
+
+    function getTier(rank, total) {
+      const t = Math.max(1, Math.ceil(total * 0.25));
+      const b = Math.max(t + 1, total - Math.ceil(total * 0.25) + 1);
+      if (rank <= t) return "top";
+      if (rank >= b) return "bottom";
+      return "middle";
+    }
+
+    // For each evaluator, compute their ranking of all athletes
+    const evalRankings = {}; // { evaluatorId: { athleteId: rank } }
+    for (const evalId of evaluatorIds) {
+      const evalAthletes = allAthletes
+        .filter(a => a.evaluators[evalId])
+        .map(a => ({
+          athlete_id: a.athlete_id,
+          avg: a.evaluators[evalId].total / a.evaluators[evalId].count,
+        }))
+        .sort((a, b) => b.avg - a.avg);
+
+      evalRankings[evalId] = {};
+      evalAthletes.forEach((a, i) => { evalRankings[evalId][a.athlete_id] = i + 1; });
+    }
+
+    const evalIdList = [...evaluatorIds];
+    const evalCount = evalIdList.length;
+
+    // Calculate tier-based consensus per athlete
+    const athletes = allAthletes.map(a => {
+      // Get this athlete's rank per evaluator
+      const perEval = evalIdList
+        .filter(eid => evalRankings[eid][a.athlete_id])
+        .map(eid => {
+          const rank = evalRankings[eid][a.athlete_id];
+          const scoredByEval = Object.keys(evalRankings[eid]).length;
+          return {
+            evaluator_id: eid,
+            evaluator_name: a.evaluators[eid]?.name || "Unknown",
+            rank,
+            tier: getTier(rank, scoredByEval),
+            avg_score: a.evaluators[eid] ? Math.round((a.evaluators[eid].total / a.evaluators[eid].count) * 10) / 10 : null,
+          };
+        });
+
+      // Check tier agreement
+      const tiers = perEval.map(e => e.tier);
+      const uniqueTiers = [...new Set(tiers)];
+      const tierAgreed = uniqueTiers.length === 1;
+      const tierSplit = uniqueTiers.length > 1;
+
+      // Determine if this is a significant split (top vs bottom = critical, top vs middle or middle vs bottom = moderate)
+      const hasTop = tiers.includes("top");
+      const hasBottom = tiers.includes("bottom");
+      const severity = hasTop && hasBottom ? "critical" : tierSplit ? "moderate" : "none";
+
+      // Category-level detail
       const catResults = Object.values(a.categories).map(cat => {
         const vals = cat.scores.map(s => s.score);
         const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-        const agreement = agreementPct(vals, scale);
-        return {
-          name: cat.name,
-          scores: cat.scores,
-          avg: Math.round(avg * 10) / 10,
-          agreement,
-          spread: vals.length > 1 ? Math.round((Math.max(...vals) - Math.min(...vals)) * 10) / 10 : 0,
-          flagged: agreement < 80,
-        };
+        const spread = vals.length > 1 ? Math.round((Math.max(...vals) - Math.min(...vals)) * 10) / 10 : 0;
+        return { name: cat.name, scores: cat.scores, avg: Math.round(avg * 10) / 10, spread };
       });
 
-      const overallAgreement = catResults.length > 0
-        ? Math.round(catResults.reduce((s, c) => s + c.agreement, 0) / catResults.length)
-        : 100;
+      // Ranks for display
+      const ranks = perEval.map(e => e.rank);
+      const rankSpread = ranks.length > 1 ? Math.max(...ranks) - Math.min(...ranks) : 0;
 
       return {
-        ...a,
+        ...{ athlete_id: a.athlete_id, first_name: a.first_name, last_name: a.last_name, jersey_number: a.jersey_number, team_color: a.team_color },
+        per_evaluator: perEval,
         categories: catResults,
-        overall_agreement: overallAgreement,
-        flagged: overallAgreement < 80,
-        evaluator_count: new Set(scores.filter(s => s.athlete_id === a.athlete_id).map(s => s.evaluator_id)).size,
+        tier_agreed: tierAgreed,
+        tier_split: tierSplit,
+        severity, // "none" | "moderate" | "critical"
+        unique_tiers: uniqueTiers,
+        rank_spread: rankSpread,
+        evaluator_count: perEval.length,
+        flagged: tierSplit,
       };
     });
 
-    athletes.sort((a, b) => a.overall_agreement - b.overall_agreement);
+    // Sort: critical splits first, then moderate, then agreed
+    athletes.sort((a, b) => {
+      const sev = { critical: 0, moderate: 1, none: 2 };
+      if (sev[a.severity] !== sev[b.severity]) return sev[a.severity] - sev[b.severity];
+      return b.rank_spread - a.rank_spread;
+    });
 
     const flaggedCount = athletes.filter(a => a.flagged).length;
 
-    return NextResponse.json({ athletes, flagged_count: flaggedCount, scale });
+    return NextResponse.json({ athletes, flagged_count: flaggedCount, scale, evaluator_count: evalCount, tier_info: { top: topCutoff, bottom: bottomCutoff, total: N } });
   } catch (error) {
     console.error("Consensus GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

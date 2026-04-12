@@ -1006,10 +1006,10 @@ function ScoringInterface() {
       {showConsensus && (
         <div className="fixed inset-0 z-30 bg-gray-950/95 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-4 py-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-bold text-white">Consensus Review</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Review evaluator agreement before closing the session</p>
+                <p className="text-xs text-gray-400 mt-0.5">Do evaluators rank athletes in the same tier?</p>
               </div>
               <button onClick={() => setShowConsensus(false)} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800">
                 <X size={20} />
@@ -1022,68 +1022,94 @@ function ScoringInterface() {
               <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
             ) : (
               <>
-                {/* Summary bar */}
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-center">
-                    <div className="text-2xl font-bold text-white">{consensusData.athletes.length}</div>
-                    <div className="text-xs text-gray-500">Athletes</div>
+                {/* Summary */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
+                    <div className="text-xl font-bold text-white">{consensusData.athletes.length}</div>
+                    <div className="text-[10px] text-gray-500">Athletes</div>
                   </div>
-                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-center">
-                    <div className={`text-2xl font-bold ${consensusData.flagged_count > 0 ? "text-amber-400" : "text-green-400"}`}>{consensusData.flagged_count}</div>
-                    <div className="text-xs text-gray-500">Flagged</div>
+                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
+                    <div className={`text-xl font-bold ${consensusData.flagged_count > 0 ? "text-amber-400" : "text-green-400"}`}>{consensusData.flagged_count}</div>
+                    <div className="text-[10px] text-gray-500">Need Discussion</div>
+                  </div>
+                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
+                    <div className="text-xl font-bold text-green-400">{consensusData.athletes.length - consensusData.flagged_count}</div>
+                    <div className="text-[10px] text-gray-500">Agreed</div>
                   </div>
                 </div>
 
-                {/* Flagged athletes first */}
+                {/* Tier info */}
+                {consensusData.tier_info && (
+                  <div className="flex items-center gap-2 mb-4 text-[10px] text-gray-500">
+                    <span className="px-2 py-0.5 bg-green-900/30 text-green-400 rounded">Top {consensusData.tier_info.top}</span>
+                    <span className="px-2 py-0.5 bg-gray-800 text-gray-400 rounded">Middle</span>
+                    <span className="px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded">Bottom {consensusData.tier_info.total - consensusData.tier_info.bottom + 1}</span>
+                    <span className="text-gray-600">of {consensusData.tier_info.total} athletes</span>
+                  </div>
+                )}
+
+                {/* Flagged athletes — tier splits */}
                 {consensusData.flagged_count > 0 && (
-                  <div className="mb-4">
-                    <div className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">Needs Review — Below 80% Agreement</div>
+                  <div className="mb-5">
+                    <div className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
                     <div className="space-y-2">
                       {consensusData.athletes.filter(a => a.flagged).map(a => (
-                        <div key={a.athlete_id} className={`bg-gray-900 border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-700/50" : "border-amber-700/50"}`}>
+                        <div key={a.athlete_id} className={`bg-gray-900 border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-700/50" : a.severity === "critical" ? "border-red-700/50" : "border-amber-700/50"}`}>
                           <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              {a.team_color && <span className={`text-xs px-2 py-0.5 rounded font-semibold ${a.team_color === "White" ? "bg-white text-gray-900" : "bg-gray-700 text-gray-200"}`}>{a.team_color} #{a.jersey_number}</span>}
-                              <span className="text-sm font-semibold text-white">{a.first_name} {a.last_name}</span>
-                            </div>
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${a.overall_agreement < 60 ? "bg-red-900 text-red-300" : "bg-amber-900 text-amber-300"}`}>{a.overall_agreement}%</span>
-                              {!reviewedFlags.has(a.athlete_id) ? (
-                                <button onClick={() => setReviewedFlags(prev => new Set([...prev, a.athlete_id]))} className="text-xs px-2 py-1 bg-green-900/50 text-green-400 rounded-lg hover:bg-green-800/50">Mark Reviewed</button>
-                              ) : (
-                                <span className="text-xs text-green-500">✓ Reviewed</span>
-                              )}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${a.severity === "critical" ? "bg-red-900 text-red-300" : "bg-amber-900 text-amber-300"}`}>
+                                {a.severity === "critical" ? "TOP↔BOTTOM" : "TIER SPLIT"}
+                              </span>
+                              <span className="text-sm font-semibold text-white">{a.first_name} {a.last_name}</span>
+                              {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
                             </div>
+                            {!reviewedFlags.has(a.athlete_id) ? (
+                              <button onClick={() => setReviewedFlags(prev => new Set([...prev, a.athlete_id]))} className="text-xs px-2.5 py-1 bg-green-900/50 text-green-400 rounded-lg hover:bg-green-800/50">Discussed ✓</button>
+                            ) : (
+                              <span className="text-xs text-green-500">✓ Done</span>
+                            )}
                           </div>
+
+                          {/* Per-evaluator rankings */}
                           <div className="space-y-1.5">
-                            {a.categories?.map(cat => (
-                              <div key={cat.name} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 w-24 truncate">{cat.name}</span>
-                                <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full ${cat.agreement >= 80 ? "bg-green-500" : cat.agreement >= 60 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${cat.agreement}%` }} />
-                                </div>
-                                <span className={`text-xs font-mono w-10 text-right ${cat.agreement >= 80 ? "text-green-400" : cat.agreement >= 60 ? "text-amber-400" : "text-red-400"}`}>{cat.agreement}%</span>
-                                <span className="text-xs text-gray-600">avg {cat.avg}</span>
+                            {a.per_evaluator?.map(ev => (
+                              <div key={ev.evaluator_id} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-28 truncate">{ev.evaluator_name}</span>
+                                <span className={`text-xs font-bold w-8 text-center ${ev.tier === "top" ? "text-green-400" : ev.tier === "bottom" ? "text-amber-400" : "text-gray-300"}`}>#{ev.rank}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.tier === "top" ? "bg-green-900/40 text-green-400" : ev.tier === "bottom" ? "bg-amber-900/40 text-amber-400" : "bg-gray-800 text-gray-400"}`}>{ev.tier}</span>
+                                <span className="text-xs text-gray-600 ml-auto">avg {ev.avg_score}</span>
                               </div>
                             ))}
                           </div>
-                          {a.evaluator_count > 0 && <div className="text-xs text-gray-600 mt-2">{a.evaluator_count} evaluator{a.evaluator_count !== 1 ? "s" : ""}</div>}
+
+                          {/* Category detail */}
+                          <div className="mt-3 pt-2 border-t border-gray-800">
+                            <div className="flex flex-wrap gap-3">
+                              {a.categories?.map(cat => (
+                                <div key={cat.name} className="text-xs">
+                                  <span className="text-gray-500">{cat.name}: </span>
+                                  <span className="text-white font-mono">{cat.avg}</span>
+                                  {cat.spread > 0 && <span className={`ml-1 ${cat.spread > 2 ? "text-red-400" : cat.spread > 1 ? "text-amber-400" : "text-gray-500"}`}>(±{cat.spread})</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Agreed athletes (collapsed) */}
+                {/* Agreed athletes */}
                 {consensusData.athletes.filter(a => !a.flagged).length > 0 && (
-                  <div className="mb-6">
-                    <div className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">Good Agreement — 80%+</div>
+                  <div className="mb-5">
+                    <div className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
                     <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-1">
                         {consensusData.athletes.filter(a => !a.flagged).map(a => (
-                          <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-gray-800/50">
+                          <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-800/50">
                             <span className="text-xs text-gray-300">{a.first_name} {a.last_name}</span>
-                            <span className="text-xs font-mono text-green-400">{a.overall_agreement}%</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-900/30 text-green-400" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-900/30 text-amber-400" : "bg-gray-800 text-gray-400"}`}>{a.unique_tiers?.[0]}</span>
                           </div>
                         ))}
                       </div>
@@ -1091,14 +1117,15 @@ function ScoringInterface() {
                   </div>
                 )}
 
-                {/* Close Session button */}
+                {/* Close Session */}
                 <div className="border-t border-gray-800 pt-4">
-                  <p className="text-xs text-gray-500 mb-3">Closing the session marks all evaluators as complete and runs integrity checks. {consensusData.flagged_count > 0 && !([...reviewedFlags].length >= consensusData.flagged_count) ? "Review all flagged athletes first, or they'll be reported as unreviewed." : ""}</p>
-                  <button
-                    onClick={closeSession}
-                    disabled={closing}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50"
-                  >
+                  <p className="text-xs text-gray-500 mb-3">
+                    {consensusData.flagged_count > 0 && [...reviewedFlags].length < consensusData.flagged_count
+                      ? `Discuss ${consensusData.flagged_count - [...reviewedFlags].length} remaining athlete(s) before closing, or they'll be reported as unreviewed.`
+                      : "All flagged athletes reviewed. Ready to close."}
+                  </p>
+                  <button onClick={closeSession} disabled={closing}
+                    className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50">
                     {closing ? "Closing..." : "Close Session"}
                   </button>
                 </div>
