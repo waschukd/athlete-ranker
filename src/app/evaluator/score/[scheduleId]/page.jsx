@@ -630,6 +630,11 @@ function ScoringInterface() {
       }
     };
     rec.onerror = (e) => {
+      if (e.error === "service-not-allowed" || e.error === "not-allowed") {
+        setVoiceStatus("Voice blocked — open in Safari browser (not PWA). Check mic permissions in Settings.");
+        stopVoice();
+        return;
+      }
       if (e.error !== "no-speech" && e.error !== "aborted") {
         setVoiceStatus(`Error: ${e.error}`);
       }
@@ -902,13 +907,13 @@ function ScoringInterface() {
                       </button>
                     )}
                   </div>
-                  <div className="flex gap-1 flex-wrap">
+                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(scoreValues.length, 10)}, 1fr)` }}>
                     {scoreValues.map(v => (
                       <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
-                        className={`flex-1 min-w-[36px] py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        className={`py-2 rounded text-xs font-bold transition-all ${
                           current === v
-                            ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50 scale-105"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-[#1A6BFF] active:text-white"
+                            ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50"
+                            : "bg-gray-700 text-gray-300 active:bg-[#1A6BFF] active:text-white"
                         }`}>
                         {v}
                       </button>
