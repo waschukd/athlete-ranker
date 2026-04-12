@@ -77,6 +77,8 @@ function ScoringInterface() {
 
   const [selected, setSelected] = useState(null);
   const [viewMode, setViewMode] = useState("card"); // "card" | "grid" | "numpad"
+  const [calibration, setCalibration] = useState(null);
+  const [calibrationDismissed, setCalibrationDismissed] = useState(false);
   const [scores, setScores] = useState({});
   const [pending, setPending] = useState({});
   const [online, setOnline] = useState(true);
@@ -184,6 +186,15 @@ function ScoringInterface() {
 
   const catId = sessionData?.schedule?.category_id;
   const scheduleData = sessionData?.schedule;
+
+  // Fetch calibration data (previous session comparison)
+  useEffect(() => {
+    if (!catId || !scheduleData?.session_number) return;
+    fetch(`/api/evaluator/calibration?category_id=${catId}&session_number=${scheduleData.session_number}`)
+      .then(r => r.json())
+      .then(d => { if (d.calibration) setCalibration(d.calibration); })
+      .catch(() => {});
+  }, [catId, scheduleData?.session_number]);
 
 
   // Precache all session assets while online so the page works in dead-wifi rinks
@@ -715,6 +726,57 @@ function ScoringInterface() {
             )}
           </div>
         </div>
+
+        {/* Calibration check banner */}
+        {calibration && !calibrationDismissed && (
+          <div className="mx-3 mt-2 bg-gray-800 border border-blue-800/50 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 bg-blue-900/30">
+              <span className="text-xs font-semibold text-blue-300">📊 Session {calibration.prev_session} Review</span>
+              <button onClick={() => setCalibrationDismissed(true)} className="text-xs text-gray-500 hover:text-white">Dismiss</button>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className={`text-lg font-bold ${calibration.rank_match >= 85 ? "text-green-400" : calibration.rank_match >= 70 ? "text-amber-400" : "text-red-400"}`}>{calibration.rank_match}%</div>
+                  <div className="text-[10px] text-gray-500">Rank match</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-white">{calibration.spread}</div>
+                  <div className="text-[10px] text-gray-500">Scale used</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-white">{calibration.athletes_scored}</div>
+                  <div className="text-[10px] text-gray-500">Scored</div>
+                </div>
+              </div>
+              {calibration.disagreements?.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-1">Your ranking differed most on:</div>
+                  {calibration.disagreements.slice(0, 3).map((d, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs py-0.5">
+                      <span className="text-gray-300 flex-1">{d.name}</span>
+                      <span className="text-gray-500">You: #{d.your_rank}</span>
+                      <span className="text-gray-500">Group: #{d.group_rank}</span>
+                      <span className={`font-bold ${d.diff >= 5 ? "text-red-400" : "text-amber-400"}`}>±{d.diff}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {Object.keys(calibration.category_bias || {}).length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {Object.entries(calibration.category_bias).map(([cat, bias]) => (
+                    <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-900/30 text-amber-400" : "bg-gray-700 text-gray-400"}`}>
+                      {cat.split(/[\s/]/)[0]}: {bias > 0 ? "+" : ""}{bias}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-[#1A6BFF] bg-blue-900/20 hover:bg-blue-900/30 border-t border-blue-800/30">
+              Got it — Start Scoring
+            </button>
+          </div>
+        )}
 
         {/* Team filter tabs */}
         <div className="flex border-t border-gray-800">
