@@ -76,7 +76,7 @@ function ScoringInterface() {
   const scheduleId = params.scheduleId;
 
   const [selected, setSelected] = useState(null);
-  const [viewMode, setViewMode] = useState("card"); // "card" | "grid"
+  const [viewMode, setViewMode] = useState("card"); // "card" | "grid" | "numpad"
   const [scores, setScores] = useState({});
   const [pending, setPending] = useState({});
   const [online, setOnline] = useState(true);
@@ -735,13 +735,22 @@ function ScoringInterface() {
             Consensus
           </button>
         </div>
-          <div className="flex items-center gap-2 mt-1 mx-3 mb-1">
+          <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-700 border-green-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
-              {hideCompleted ? "✓ Hiding completed" : "Hide completed"}
+              {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
-            <button onClick={() => setViewMode(v => v === "card" ? "grid" : "card")} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${viewMode === "grid" ? "bg-blue-700 border-blue-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
-              {viewMode === "grid" ? "Grid View" : "Grid View"}
-            </button>
+            <div className="flex bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              {[
+                { id: "card", label: "Buttons" },
+                { id: "numpad", label: "Numpad" },
+                { id: "grid", label: "Grid" },
+              ].map(m => (
+                <button key={m.id} onClick={() => setViewMode(m.id)}
+                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-[#1A6BFF] text-white" : "text-gray-400"}`}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
       </div>
 
@@ -816,7 +825,7 @@ function ScoringInterface() {
         </div>
       )}
 
-      {viewMode === "card" && (<div className="px-3 pt-3 pb-2">
+      {(viewMode === "card" || viewMode === "numpad") && (<div className="px-3 pt-3 pb-2">
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 px-1">
           {[
@@ -864,7 +873,7 @@ function ScoringInterface() {
       </div>)}
 
       {/* ── Score panel (card view only) ──────────────────── */}
-      {selected && viewMode === "card" && (
+      {selected && (viewMode === "card" || viewMode === "numpad") && (
         <div className="mx-3 mb-3 bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
           {/* Player header */}
           <div className="flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700">
@@ -892,36 +901,68 @@ function ScoringInterface() {
             </div>
           </div>
 
-          {/* Scoring categories — tap buttons */}
+          {/* Scoring categories */}
           <div className="px-4 py-3 space-y-4">
-            {scoringCats.map(cat => {
-              const current = scores[selected.id]?.cats?.[cat.id];
-              return (
-                <div key={cat.id}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-gray-200">{cat.name}</span>
-                    {current !== null && current !== undefined && (
-                      <button onClick={() => updateScore(selected.id, cat.id, null)}
-                        className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1">
-                        <RotateCcw size={11} /> Clear
-                      </button>
-                    )}
+            {viewMode === "numpad" ? (
+              /* ── Numpad mode: compact inline inputs ── */
+              scoringCats.map(cat => {
+                const current = scores[selected.id]?.cats?.[cat.id];
+                return (
+                  <div key={cat.id} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-300 flex-1">{cat.name}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step={increment}
+                      min={0}
+                      max={scale}
+                      value={current ?? ""}
+                      onChange={e => {
+                        const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                        if (v !== null && (v < 0 || v > scale)) return;
+                        updateScore(selected.id, cat.id, v);
+                      }}
+                      placeholder="—"
+                      className={`w-20 py-3 text-center text-lg font-bold rounded-xl border-2 outline-none transition-colors ${
+                        current !== null && current !== undefined
+                          ? "bg-[#1A6BFF]/10 border-[#1A6BFF] text-white"
+                          : "bg-gray-800 border-gray-600 text-gray-400"
+                      }`}
+                    />
                   </div>
-                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(scoreValues.length, 10)}, 1fr)` }}>
-                    {scoreValues.map(v => (
-                      <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
-                        className={`py-2 rounded text-xs font-bold transition-all ${
-                          current === v
-                            ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50"
-                            : "bg-gray-700 text-gray-300 active:bg-[#1A6BFF] active:text-white"
-                        }`}>
-                        {v}
-                      </button>
-                    ))}
+                );
+              })
+            ) : (
+              /* ── Button mode: tappable score buttons ── */
+              scoringCats.map(cat => {
+                const current = scores[selected.id]?.cats?.[cat.id];
+                return (
+                  <div key={cat.id}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-semibold text-gray-200">{cat.name}</span>
+                      {current !== null && current !== undefined && (
+                        <button onClick={() => updateScore(selected.id, cat.id, null)}
+                          className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1">
+                          <RotateCcw size={11} /> Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(scoreValues.length, 10)}, 1fr)` }}>
+                      {scoreValues.map(v => (
+                        <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
+                          className={`py-2 rounded text-xs font-bold transition-all ${
+                            current === v
+                              ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50"
+                              : "bg-gray-700 text-gray-300 active:bg-[#1A6BFF] active:text-white"
+                          }`}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+            })
+            )}
 
             {/* Notes */}
             <div>
@@ -955,7 +996,7 @@ function ScoringInterface() {
         </div>
       )}
 
-      {athletes.length > 0 && !selected && viewMode === "card" && (
+      {athletes.length > 0 && !selected && (viewMode === "card" || viewMode === "numpad") && (
         <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
           Tap a jersey to score
         </div>
