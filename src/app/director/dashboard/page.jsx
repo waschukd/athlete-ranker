@@ -94,6 +94,8 @@ function DirectorDashboardInner() {
     const dir = sortBy.dir === 'asc' ? 1 : -1;
     if (sortBy.key === 'total') return dir * ((a.weighted_total || 0) - (b.weighted_total || 0));
     if (sortBy.key === 'rank') return dir * (a.rank - b.rank);
+    if (sortBy.key === 'first') return dir * (a.first_name || "").localeCompare(b.first_name || "");
+    if (sortBy.key === 'last') return dir * (a.last_name || "").localeCompare(b.last_name || "");
     const aScore = a.session_scores?.[sortBy.key]?.normalized_score ?? -1;
     const bScore = b.session_scores?.[sortBy.key]?.normalized_score ?? -1;
     return dir * (aScore - bScore);
@@ -335,8 +337,8 @@ function DirectorDashboardInner() {
                     <tr>
                       <th className="px-2 py-3 w-8"></th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('first')}>First{sortIcon('first')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('last')}>Last{sortIcon('last')}</th>
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
                       {sessions.map(s => (
                         <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
