@@ -1104,8 +1104,7 @@ function ScoringInterface() {
                   if (theirScore === null || theirScore === undefined) return false;
                   return Math.abs(theirScore - myScore) <= 1;
                 }).map(a => ({
-                  name: `${a.last_name}, ${a.first_name?.[0]}.`,
-                  jersey: a.jersey_number,
+                  label: a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`,
                   score: scores[a.id]?.cats?.[cat.id],
                   diff: scores[a.id]?.cats?.[cat.id] - myScore,
                 })).sort((a, b) => b.score - a.score);
@@ -1125,7 +1124,7 @@ function ScoringInterface() {
                           <div className="flex flex-wrap gap-1">
                             {comp.similar.map((s, i) => (
                               <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full ${s.score === comp.myScore ? "bg-purple-800/50 text-purple-300" : s.score > comp.myScore ? "bg-green-900/30 text-green-400" : "bg-amber-900/30 text-amber-400"}`}>
-                                {s.name} {s.score}{s.diff !== 0 ? ` (${s.diff > 0 ? "+" : ""}${s.diff})` : ""}
+                                {s.label} {s.score}{s.diff !== 0 ? ` (${s.diff > 0 ? "+" : ""}${s.diff})` : ""}
                               </span>
                             ))}
                           </div>
