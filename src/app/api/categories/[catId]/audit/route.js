@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -40,6 +40,28 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error("Audit log error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function POST(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { catId } = params;
+    const userId = await getAppUserId(session);
+    const { action, athlete_id } = await request.json();
+
+    if (action === "compare_used") {
+      await sql`
+        INSERT INTO audit_log (user_id, action, entity_type, entity_id, age_category_id)
+        VALUES (${userId}, 'compare_used', 'athlete', ${athlete_id || null}, ${catId})
+      `;
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

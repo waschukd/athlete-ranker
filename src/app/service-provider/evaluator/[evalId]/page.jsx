@@ -271,6 +271,10 @@ function EvaluatorDetailInner() {
                   <div className="text-3xl font-bold text-gray-900">{sc.score_range?.spread || "—"}</div>
                   <div className="text-xs text-gray-500 mt-1">Score range used ({sc.score_range?.min}–{sc.score_range?.max})</div>
                 </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className={`text-3xl font-bold ${sc.compare_uses > 0 ? "text-purple-600" : "text-gray-300"}`}>{sc.compare_uses || 0}</div>
+                  <div className="text-xs text-gray-500 mt-1">Compare tool uses</div>
+                </div>
               </div>
 
               {/* Detailed Metrics */}

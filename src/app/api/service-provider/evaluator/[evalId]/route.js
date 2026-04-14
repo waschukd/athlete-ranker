@@ -97,9 +97,16 @@ export async function GET(request, { params }) {
       GROUP BY pn.session_number, pn.age_category_id
     `;
 
+    // Compare tool usage
+    const compareUsage = await sql`
+      SELECT COUNT(*) as count FROM audit_log
+      WHERE user_id = ${evalId} AND action = 'compare_used'
+    `;
+    const compareUseCount = parseInt(compareUsage[0]?.count || 0);
+
     // Build scorecard in JS
     const scorecard = (() => {
-      if (!allScores.length) return { agreement_pct: null, score_avg: null, group_avg: null, bias: null, distribution: {}, notes_total: 0, notes_per_session: 0, athletes_with_notes_pct: 0, sessions_scored: 0, total_scores: 0, score_range: null };
+      if (!allScores.length) return { agreement_pct: null, score_avg: null, group_avg: null, bias: null, distribution: {}, notes_total: 0, notes_per_session: 0, compare_uses: compareUseCount, sessions_scored: 0, total_scores: 0, score_range: null };
 
       // Agreement: for each (athlete, category, session), compare this evaluator's score to peer average
       const diffs = [];
@@ -160,6 +167,7 @@ export async function GET(request, { params }) {
         total_scores: allScores.length,
         athletes_scored: athletesScored,
         score_range: { min: minScore, max: maxScore, spread: Math.round((maxScore - minScore) * 10) / 10 },
+        compare_uses: compareUseCount,
       };
     })();
 

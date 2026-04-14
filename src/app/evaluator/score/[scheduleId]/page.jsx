@@ -80,6 +80,8 @@ function ScoringInterface() {
   const [viewMode, setViewMode] = useState("card"); // "card" | "grid" | "numpad"
   const [calibration, setCalibration] = useState(null);
   const [calibrationDismissed, setCalibrationDismissed] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareCount, setCompareCount] = useState(0);
   const [scores, setScores] = useState({});
   const [pending, setPending] = useState({});
   const [online, setOnline] = useState(true);
@@ -972,11 +974,28 @@ function ScoringInterface() {
               {selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}{selected.position ? ` · ${selected.position}` : ""}</div>}
             </div>
             <div className="flex items-center gap-1">
+              <button onClick={() => {
+                  const opening = !showCompare;
+                  setShowCompare(opening);
+                  if (opening) {
+                    setCompareCount(c => c + 1);
+                    // Log compare usage for evaluator scorecard tracking
+                    fetch(`/api/evaluator/scores`, { method: "OPTIONS" }).catch(() => {}); // lightweight ping
+                    if (currentUserId && catId) {
+                      fetch(`/api/categories/${catId}/audit`, { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "compare_used", athlete_id: selected?.id }),
+                      }).catch(() => {});
+                    }
+                  }
+                }}
+                className={`px-2 py-1 text-xs font-semibold rounded-lg transition-colors ${showCompare ? "bg-purple-700 text-white" : "bg-gray-700 text-gray-400 hover:text-white"}`}>
+                ⚖
+              </button>
               <button onClick={() => navigate(1)} disabled={selectedIdx >= filtered.length - 1}
                 className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 rounded-lg">
                 <ChevronRight size={18} />
               </button>
-              <button onClick={() => setSelected(null)}
+              <button onClick={() => { setSelected(null); setShowCompare(false); }}
                 className="p-1.5 text-gray-500 hover:text-white rounded-lg">
                 <X size={16} />
               </button>
@@ -1068,6 +1087,56 @@ function ScoringInterface() {
                 {online ? "Syncing..." : "Saved locally — will sync when online"}
               </div>
             )}
+
+            {/* Compare panel — shows athletes with similar scores */}
+            {showCompare && selected && (() => {
+              const myScores = scores[selected.id]?.cats || {};
+              const myCats = Object.entries(myScores).filter(([, v]) => v !== null && v !== undefined);
+              if (!myCats.length) return <div className="text-xs text-gray-500 mt-3">Score this player first to compare.</div>;
+
+              // For each category, find athletes scored within ±1 point
+              const comparisons = scoringCats.map(cat => {
+                const myScore = myScores[cat.id];
+                if (myScore === null || myScore === undefined) return null;
+                const similar = athletes.filter(a => {
+                  if (a.id === selected.id) return false;
+                  const theirScore = scores[a.id]?.cats?.[cat.id];
+                  if (theirScore === null || theirScore === undefined) return false;
+                  return Math.abs(theirScore - myScore) <= 1;
+                }).map(a => ({
+                  name: `${a.last_name}, ${a.first_name?.[0]}.`,
+                  jersey: a.jersey_number,
+                  score: scores[a.id]?.cats?.[cat.id],
+                  diff: scores[a.id]?.cats?.[cat.id] - myScore,
+                })).sort((a, b) => b.score - a.score);
+                return similar.length ? { cat: cat.name, myScore, similar } : null;
+              }).filter(Boolean);
+
+              return (
+                <div className="mt-3 bg-purple-900/20 border border-purple-800/30 rounded-xl p-3">
+                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Similar Scores — Are these players really the same?</div>
+                  {comparisons.length === 0 ? (
+                    <div className="text-xs text-gray-500">No other athletes scored within ±1 point in any category.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {comparisons.map(comp => (
+                        <div key={comp.cat}>
+                          <div className="text-[10px] text-gray-400 mb-1">{comp.cat} — you gave <span className="text-white font-bold">{comp.myScore}</span></div>
+                          <div className="flex flex-wrap gap-1">
+                            {comp.similar.map((s, i) => (
+                              <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full ${s.score === comp.myScore ? "bg-purple-800/50 text-purple-300" : s.score > comp.myScore ? "bg-green-900/30 text-green-400" : "bg-amber-900/30 text-amber-400"}`}>
+                                {s.name} {s.score}{s.diff !== 0 ? ` (${s.diff > 0 ? "+" : ""}${s.diff})` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="text-[10px] text-gray-600 mt-1">If these players aren't equal, adjust your scores to differentiate.</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
