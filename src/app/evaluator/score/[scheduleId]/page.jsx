@@ -1094,43 +1094,33 @@ function ScoringInterface() {
               const myCats = Object.entries(myScores).filter(([, v]) => v !== null && v !== undefined);
               if (!myCats.length) return <div className="text-xs text-gray-500 mt-3">Score this player first to compare.</div>;
 
-              // For each category, find athletes scored within ±1 point
+              // For each category, find athletes with the exact same score
               const comparisons = scoringCats.map(cat => {
                 const myScore = myScores[cat.id];
                 if (myScore === null || myScore === undefined) return null;
-                const similar = athletes.filter(a => {
+                const same = athletes.filter(a => {
                   if (a.id === selected.id) return false;
-                  const theirScore = scores[a.id]?.cats?.[cat.id];
-                  if (theirScore === null || theirScore === undefined) return false;
-                  return Math.abs(theirScore - myScore) <= 1;
-                }).map(a => ({
-                  label: a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`,
-                  score: scores[a.id]?.cats?.[cat.id],
-                  diff: scores[a.id]?.cats?.[cat.id] - myScore,
-                })).sort((a, b) => b.score - a.score);
-                return similar.length ? { cat: cat.name, myScore, similar } : null;
+                  return scores[a.id]?.cats?.[cat.id] === myScore;
+                }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`);
+                return same.length ? { cat: cat.name, myScore, same } : null;
               }).filter(Boolean);
 
               return (
                 <div className="mt-3 bg-purple-900/20 border border-purple-800/30 rounded-xl p-3">
-                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Similar Scores — Are these players really the same?</div>
+                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Same Score — Are these players equal?</div>
                   {comparisons.length === 0 ? (
-                    <div className="text-xs text-gray-500">No other athletes scored within ±1 point in any category.</div>
+                    <div className="text-xs text-gray-500">No other athletes have identical scores.</div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {comparisons.map(comp => (
-                        <div key={comp.cat}>
-                          <div className="text-[10px] text-gray-400 mb-1">{comp.cat} — you gave <span className="text-white font-bold">{comp.myScore}</span></div>
-                          <div className="flex flex-wrap gap-1">
-                            {comp.similar.map((s, i) => (
-                              <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full ${s.score === comp.myScore ? "bg-purple-800/50 text-purple-300" : s.score > comp.myScore ? "bg-green-900/30 text-green-400" : "bg-amber-900/30 text-amber-400"}`}>
-                                {s.label} {s.score}{s.diff !== 0 ? ` (${s.diff > 0 ? "+" : ""}${s.diff})` : ""}
-                              </span>
-                            ))}
-                          </div>
+                        <div key={comp.cat} className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] text-gray-400 w-16 flex-shrink-0">{comp.cat.split(/[\s/]/)[0]}: {comp.myScore}</span>
+                          {comp.same.map((label, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-800/50 text-purple-300">{label}</span>
+                          ))}
                         </div>
                       ))}
-                      <div className="text-[10px] text-gray-600 mt-1">If these players aren't equal, adjust your scores to differentiate.</div>
+                      <div className="text-[10px] text-gray-600 mt-1">If not equal, adjust to differentiate.</div>
                     </div>
                   )}
                 </div>
