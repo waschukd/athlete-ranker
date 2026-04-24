@@ -444,6 +444,13 @@ function ScoringInterface() {
       if (a) {
         setScores(prev => {
           const existing = prev[a.id]?.notes || "";
+          // Safety net: skip if `text` is already the tail of existing notes. Catches
+          // echo cases the adapter's session-level dedupe misses (e.g. overlapping
+          // recognizer restarts returning the same transcript from two sessions).
+          const tail = existing.slice(-Math.max(text.length + 4, 60)).toLowerCase();
+          if (tail.includes(text.toLowerCase())) {
+            return prev;
+          }
           const updated = {
             ...prev,
             [a.id]: { cats: prev[a.id]?.cats || {}, notes: existing ? existing + ". " + text : text }
