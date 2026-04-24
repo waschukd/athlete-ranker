@@ -21,6 +21,20 @@ export function isCapacitorApp() {
  * cleanup() that removes the partial listener exactly once — preventing the listener leak
  * that caused duplicated notes.
  */
+// Cached result of isOnDeviceRecognitionAvailable() so we don't re-probe every session.
+let _onDeviceAvailable = null;
+
+async function detectOnDeviceSupport(SpeechRecognition) {
+  if (_onDeviceAvailable !== null) return _onDeviceAvailable;
+  try {
+    const r = await SpeechRecognition.isOnDeviceRecognitionAvailable?.({ language: "en-US" });
+    _onDeviceAvailable = !!r?.available;
+  } catch {
+    _onDeviceAvailable = false;
+  }
+  return _onDeviceAvailable;
+}
+
 export async function startNativeSpeech({ onResult, onPartial, onError, onEnd }) {
   try {
     const { SpeechRecognition } = await import("@capgo/capacitor-speech-recognition");
@@ -30,6 +44,11 @@ export async function startNativeSpeech({ onResult, onPartial, onError, onEnd })
       onError?.("Microphone permission denied. Check your device settings.");
       return null;
     }
+
+    // Prefer the on-device SODA path when available — uses a different audio
+    // pipeline than the legacy networked recognizer and often skips the OS chime
+    // entirely on Samsung ROMs.
+    const useOnDevice = await detectOnDeviceSupport(SpeechRecognition);
 
     let ended = false;
     let lastEmitted = "";
@@ -66,6 +85,8 @@ export async function startNativeSpeech({ onResult, onPartial, onError, onEnd })
       // Android: keep the session alive across up to 5s of silence instead of
       // ending + restarting (and beeping) every couple seconds. Ignored on iOS.
       allowForSilence: 5000,
+      // Route through on-device SODA when the device supports it — quieter on Samsung.
+      useOnDeviceRecognition: useOnDevice,
     }).then(async (result) => {
       const final = (result?.matches && result.matches[0]) || "";
       if (final) {
