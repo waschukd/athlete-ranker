@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Android adaptive icon FOREGROUND layer (432x432 content area inside a 108x108 dp / 432x432 px canvas).
+     Android masks the outer ~25% for different device shapes (circle, squircle, rounded square),
+     so the S mark must fit inside the inner 264x264 safe zone (center 132 ± 132). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432">
+  <!-- No background: the adaptive background layer provides the color. -->
+  <!-- S mark: fit inside safe zone (~264x264 centered at 216,216). Target mark height 160px. -->
+  <g transform="translate(216, 216) scale(1.333) translate(-597.5, -125)">
+    <path fill="#5a99f5" d="M604.81,129.6l-5.66,9.99c-4.03,6.85-9.49,12.71-21.52,12.71h-47.9l-15.32,27.99h77.02c14.69,0,28.2-8.39,35.15-21.84l14.77-28.59-36.54-.26Z"/>
+    <path fill="#5a99f5" d="M578.23,131.94l6.22-10.86c4.47-7.6,12.22-11.41,19.79-11.41h47.53l14.79-28.63h-75.22c-13.98,0-26.88,7.8-33.79,20.42l-16.69,30.48h37.35Z"/>
+  </g>
+</svg>

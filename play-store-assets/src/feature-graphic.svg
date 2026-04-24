@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Play Store feature graphic: 1024 x 500.
+     Dark navy gradient background, S mark left, wordmark right. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1328"/>
+      <stop offset="100%" stop-color="#060b18"/>
+    </linearGradient>
+    <linearGradient id="glow" cx="30%" cy="50%" r="40%">
+      <stop offset="0%" stop-color="#5a99f5" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#5a99f5" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <ellipse cx="280" cy="250" rx="260" ry="220" fill="url(#glow)"/>
+
+  <!-- S mark, left side. Original 175x120, center at (280, 250), scale to ~240px tall. -->
+  <g transform="translate(280, 250) scale(2) translate(-597.5, -125)">
+    <path fill="#5a99f5" d="M604.81,129.6l-5.66,9.99c-4.03,6.85-9.49,12.71-21.52,12.71h-47.9l-15.32,27.99h77.02c14.69,0,28.2-8.39,35.15-21.84l14.77-28.59-36.54-.26Z"/>
+    <path fill="#5a99f5" d="M578.23,131.94l6.22-10.86c4.47-7.6,12.22-11.41,19.79-11.41h47.53l14.79-28.63h-75.22c-13.98,0-26.88,7.8-33.79,20.42l-16.69,30.48h37.35Z"/>
+  </g>
+
+  <!-- Divider -->
+  <line x1="520" y1="140" x2="520" y2="360" stroke="#1e2a42" stroke-width="2"/>
+
+  <!-- Wordmark -->
+  <text x="560" y="235" font-family="'Segoe UI', system-ui, -apple-system, Arial, sans-serif"
+        font-size="72" font-weight="700" fill="#ffffff" letter-spacing="-1">Sideline Star</text>
+  <text x="560" y="300" font-family="'Segoe UI', system-ui, -apple-system, Arial, sans-serif"
+        font-size="42" font-weight="500" fill="#5a99f5">Evaluator</text>
+  <text x="560" y="350" font-family="'Segoe UI', system-ui, -apple-system, Arial, sans-serif"
+        font-size="20" font-weight="400" fill="#94a3b8">Score. Rank. Evaluate.</text>
+</svg>
