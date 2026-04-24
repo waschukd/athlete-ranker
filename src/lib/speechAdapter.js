@@ -63,6 +63,9 @@ export async function startNativeSpeech({ onResult, onPartial, onError, onEnd })
       maxResults: 5,
       partialResults: true,
       popup: false,
+      // Android: keep the session alive across up to 5s of silence instead of
+      // ending + restarting (and beeping) every couple seconds. Ignored on iOS.
+      allowForSilence: 5000,
     }).then(async (result) => {
       const final = (result?.matches && result.matches[0]) || "";
       if (final) {
@@ -129,7 +132,9 @@ export function createNativeContinuousRecognizer({ onResult, onPartial, onError 
       },
       onEnd: () => {
         currentSession = null;
-        if (active) setTimeout(startSession, 150);
+        // 500ms gap (was 150ms) gives the user a moment to think between phrases
+        // before Android re-arms the recognizer and chimes again.
+        if (active) setTimeout(startSession, 500);
       },
     });
 
