@@ -444,16 +444,38 @@ function ScoringInterface() {
       if (a) {
         setScores(prev => {
           const existing = prev[a.id]?.notes || "";
-          // Safety net: skip if `text` is already the tail of existing notes. Catches
-          // echo cases the adapter's session-level dedupe misses (e.g. overlapping
-          // recognizer restarts returning the same transcript from two sessions).
-          const tail = existing.slice(-Math.max(text.length + 4, 60)).toLowerCase();
-          if (tail.includes(text.toLowerCase())) {
-            return prev;
+          let newNotes;
+
+          if (!existing) {
+            newNotes = text;
+          } else {
+            // Android's recognizer splits dictation into multiple sessions and returns
+            // CUMULATIVE text each time ("quick" → "quick skeeter" → "quick skeeter and").
+            // Compare against just the last segment (after final ". "), then merge smart:
+            //   - exact same → skip
+            //   - new extends last → replace last with new (it's the grown version)
+            //   - last extends new → skip (we already have the longer version)
+            //   - genuinely new → append with ". " separator
+            const lastSepIdx = existing.lastIndexOf(". ");
+            const lastSegment = lastSepIdx >= 0 ? existing.slice(lastSepIdx + 2) : existing;
+            const prefix = lastSepIdx >= 0 ? existing.slice(0, lastSepIdx + 2) : "";
+            const lastLower = lastSegment.trim().toLowerCase();
+            const textLower = text.trim().toLowerCase();
+
+            if (textLower === lastLower) {
+              return prev;
+            } else if (textLower.startsWith(lastLower) && lastLower.length > 0) {
+              newNotes = prefix + text;
+            } else if (lastLower.startsWith(textLower) && textLower.length > 0) {
+              return prev;
+            } else {
+              newNotes = existing + ". " + text;
+            }
           }
+
           const updated = {
             ...prev,
-            [a.id]: { cats: prev[a.id]?.cats || {}, notes: existing ? existing + ". " + text : text }
+            [a.id]: { cats: prev[a.id]?.cats || {}, notes: newNotes }
           };
           saveLocal(scheduleId, currentUserId, updated);
           return updated;
