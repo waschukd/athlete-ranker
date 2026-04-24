@@ -5,10 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Sideline Star Evaluator',
   webDir: 'public',
   server: {
-    // Evaluator app lands directly on the login screen instead of the public
+    // Evaluator app lands directly on the sign-in screen instead of the public
     // marketing landing page. If the user is already authenticated, the app's
-    // /account/login route redirects to /evaluator.
-    url: 'https://sidelinestar.com/account/login',
+    // /account/signin route redirects onward to /evaluator/dashboard.
+    url: 'https://sidelinestar.com/account/signin',
     cleartext: false,
   },
   plugins: {
