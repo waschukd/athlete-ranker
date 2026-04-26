@@ -19,6 +19,47 @@ function formatTime(t) {
   return `${hr > 12 ? hr - 12 : hr}:${m} ${hr >= 12 ? "PM" : "AM"}`;
 }
 
+// Compact time range used by the dense Available list. Drops the AM/PM on the
+// start when both ends share it ("9:00–10:15a"), keeps both when crossing
+// noon ("11:30a–12:30p"). Saves ~4 chars per row vs. the full formatTime.
+function formatTimeRange(start, end) {
+  if (!start) return "";
+  const parse = (t) => {
+    const [h, m] = t.toString().split(":");
+    const hr = parseInt(h);
+    const display = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
+    const ampm = hr >= 12 ? "p" : "a";
+    return { display, m, ampm };
+  };
+  const s = parse(start);
+  if (!end) return `${s.display}:${s.m}${s.ampm}`;
+  const e = parse(end);
+  if (s.ampm === e.ampm) return `${s.display}:${s.m}–${e.display}:${e.m}${e.ampm}`;
+  return `${s.display}:${s.m}${s.ampm}–${e.display}:${e.m}${e.ampm}`;
+}
+
+// Deterministic color per association so the same org always gets the same
+// hue across the list. Inline hex avoids Tailwind purge issues with
+// dynamically-named classes.
+const ORG_PALETTE = [
+  { hex: "#3b82f6", fg: "#1e40af" }, // blue
+  { hex: "#10b981", fg: "#065f46" }, // emerald
+  { hex: "#f59e0b", fg: "#92400e" }, // amber
+  { hex: "#8b5cf6", fg: "#5b21b6" }, // violet
+  { hex: "#f43f5e", fg: "#9f1239" }, // rose
+  { hex: "#06b6d4", fg: "#155e75" }, // cyan
+  { hex: "#f97316", fg: "#9a3412" }, // orange
+  { hex: "#a855f7", fg: "#6b21a8" }, // purple
+  { hex: "#14b8a6", fg: "#115e59" }, // teal
+  { hex: "#ec4899", fg: "#9d174d" }, // pink
+];
+function colorForOrg(name) {
+  if (!name) return ORG_PALETTE[0];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return ORG_PALETTE[Math.abs(h) % ORG_PALETTE.length];
+}
+
 function formatDate(d) {
   if (!d) return "";
   const str = d.toString().split("T")[0];
@@ -254,31 +295,44 @@ function FilterChip({ value, options, onChange }) {
 
 function AvailableSessionRow({ session, onSignup }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
+  const palette = colorForOrg(session.org_name);
   return (
-    <div className="flex items-center gap-3 py-2 hover:bg-blue-50/30 -mx-2 px-2 rounded-lg transition-colors">
-      <div className="text-xs font-mono font-semibold text-gray-700 w-[88px] flex-shrink-0">
-        {formatTime(session.start_time)}{session.end_time ? `–${formatTime(session.end_time)}` : ""}
+    <div
+      className="flex items-center gap-2.5 py-2 pl-3 pr-2 -mx-1 rounded-md hover:bg-gray-50 transition-colors"
+      style={{ borderLeft: `4px solid ${palette.hex}` }}
+    >
+      {/* Time — fixed-width, never wraps */}
+      <div className="text-[11px] font-mono font-bold text-gray-900 whitespace-nowrap flex-shrink-0 tabular-nums w-[92px]">
+        {formatTimeRange(session.start_time, session.end_time)}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-gray-800 truncate">
-          <span className="font-semibold">{session.org_name}</span>
-          <span className="text-gray-300 mx-1">·</span>
-          <span>{session.category_name}</span>
-          {session.session_type && (
-            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded border font-medium capitalize ${SESSION_TYPE_COLORS[session.session_type] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
-              {session.session_type}
-            </span>
-          )}
-        </div>
-        <div className="text-xs text-gray-400">
-          S{session.session_number}{session.group_number ? ` G${session.group_number}` : ""} · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
-        </div>
+      {/* Info — single line. Org name shrinks first; everything else stays put. */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 text-sm">
+        <span
+          className="font-bold truncate min-w-0"
+          style={{ color: palette.fg }}
+          title={session.org_name}
+        >
+          {session.org_name}
+        </span>
+        <span className="text-gray-300 flex-shrink-0">·</span>
+        <span className="font-medium text-gray-800 whitespace-nowrap flex-shrink-0">
+          {session.category_name}
+        </span>
+        <span className="text-gray-300 flex-shrink-0">·</span>
+        <span className="text-gray-500 text-xs font-mono whitespace-nowrap flex-shrink-0">
+          S{session.session_number}G{session.group_number}
+        </span>
+        <span className="text-amber-600 text-xs font-semibold whitespace-nowrap flex-shrink-0 ml-auto">
+          {spotsLeft} left
+        </span>
       </div>
       <button
         onClick={() => onSignup(session.schedule_id)}
-        className="px-3 py-1.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
+        className="px-2.5 py-1.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-0.5 flex-shrink-0 hover:shadow-md transition-shadow"
+        aria-label="Sign up for this session"
       >
-        <Plus size={12} /> Sign Up
+        <Plus size={13} />
+        <span>Sign Up</span>
       </button>
     </div>
   );
@@ -451,14 +505,29 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
                   <div className="divide-y divide-gray-100">
                     {arenaKeys.map(arena => {
                       const sess = arenasForDate[arena];
+                      // Distinct orgs at this arena/day, in name order — shown
+                      // as colored dots so an evaluator can tell at a glance
+                      // whether this rink today is single-org or mixed.
+                      const orgsAtArena = Array.from(new Set(sess.map(s => s.org_name).filter(Boolean))).sort();
                       return (
                         <div key={arena} className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-gray-700">
+                          <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-gray-700 flex-wrap">
                             <MapPin size={13} className="text-gray-400" />
                             {arena}
                             <span className="text-xs text-gray-400 font-normal">
                               · {sess.length} session{sess.length !== 1 ? "s" : ""}
                             </span>
+                            {orgsAtArena.length > 0 && (
+                              <span className="flex items-center gap-1 ml-auto" title={orgsAtArena.join(", ")}>
+                                {orgsAtArena.map(o => (
+                                  <span
+                                    key={o}
+                                    className="inline-block w-2 h-2 rounded-full"
+                                    style={{ background: colorForOrg(o).hex }}
+                                  />
+                                ))}
+                              </span>
+                            )}
                           </div>
                           <div className="space-y-0.5">
                             {sess.map(s => (
