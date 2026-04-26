@@ -2,7 +2,7 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
 
 const qc = new QueryClient();
 
@@ -306,6 +306,96 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
         <InviteModal session={session} onClose={() => setShowInvite(false)} />
       )}
     </>
+  );
+}
+
+// ── Calendar subscribe panel ─────────────────────────────────────────
+// One-time subscription to a personal ICS feed. Once added, the user's
+// calendar app (Google / Apple / Outlook) auto-pulls new signups,
+// schedule changes, cancellations — no polling, no notifications to wire
+// up, and the OS-level calendar reminders work for free.
+function CalendarSubscribePanel() {
+  const [copied, setCopied] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ar_calendar_panel_dismissed") === "1";
+  });
+
+  const { data } = useQuery({
+    queryKey: ["calendar-link"],
+    queryFn: async () => {
+      const res = await fetch("/api/evaluator/calendar-link");
+      if (!res.ok) throw new Error("calendar link fetch failed");
+      return res.json();
+    },
+    enabled: !collapsed,
+  });
+
+  const dismiss = () => {
+    setCollapsed(true);
+    try { localStorage.setItem("ar_calendar_panel_dismissed", "1"); } catch {}
+  };
+
+  const handleCopy = async () => {
+    if (!data?.httpsUrl) return;
+    try {
+      await navigator.clipboard.writeText(data.httpsUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => { setCollapsed(false); try { localStorage.removeItem("ar_calendar_panel_dismissed"); } catch {} }}
+        className="text-xs text-gray-400 hover:text-blue-600 mb-3 underline"
+      >
+        Show calendar sync options
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-blue-900 text-sm flex items-center gap-1.5">
+            <Calendar size={14} /> Sync to your calendar
+          </h3>
+          <p className="text-xs text-blue-700/80 mt-1 leading-relaxed">
+            Subscribe once. Sessions appear automatically in your calendar app — including reminders, future signups, and cancellations.
+          </p>
+        </div>
+        <button onClick={dismiss} className="text-blue-400 hover:text-blue-700 p-1 -m-1 flex-shrink-0" aria-label="Hide">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={data?.googleUrl || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          📅 Add to Google Calendar
+        </a>
+        <a
+          href={data?.webcalUrl || "#"}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          🍎 Add to Apple Calendar
+        </a>
+        <button
+          onClick={handleCopy}
+          disabled={!data}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
+        >
+          {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+          {copied ? "Copied!" : "Copy link"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -755,6 +845,7 @@ function EvaluatorDashboard() {
 
         {activeTab === "mine" && (
           <div className="space-y-4">
+            <CalendarSubscribePanel />
             {mineLoading ? (
               <div className="py-12 text-center text-gray-400 text-sm">Loading your sessions...</div>
             ) : upcoming.length === 0 && past.length === 0 ? (
