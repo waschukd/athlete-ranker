@@ -40,24 +40,40 @@ function formatTimeRange(start, end) {
 
 // Deterministic color per association so the same org always gets the same
 // hue across the list. Inline hex avoids Tailwind purge issues with
-// dynamically-named classes.
+// dynamically-named classes. `bg` is a softened tint used for the chip
+// background; `fg` is the readable text color on that tint.
 const ORG_PALETTE = [
-  { hex: "#3b82f6", fg: "#1e40af" }, // blue
-  { hex: "#10b981", fg: "#065f46" }, // emerald
-  { hex: "#f59e0b", fg: "#92400e" }, // amber
-  { hex: "#8b5cf6", fg: "#5b21b6" }, // violet
-  { hex: "#f43f5e", fg: "#9f1239" }, // rose
-  { hex: "#06b6d4", fg: "#155e75" }, // cyan
-  { hex: "#f97316", fg: "#9a3412" }, // orange
-  { hex: "#a855f7", fg: "#6b21a8" }, // purple
-  { hex: "#14b8a6", fg: "#115e59" }, // teal
-  { hex: "#ec4899", fg: "#9d174d" }, // pink
+  { hex: "#3b82f6", bg: "#dbeafe", fg: "#1e40af" }, // blue
+  { hex: "#10b981", bg: "#d1fae5", fg: "#065f46" }, // emerald
+  { hex: "#f59e0b", bg: "#fef3c7", fg: "#92400e" }, // amber
+  { hex: "#8b5cf6", bg: "#ede9fe", fg: "#5b21b6" }, // violet
+  { hex: "#f43f5e", bg: "#ffe4e6", fg: "#9f1239" }, // rose
+  { hex: "#06b6d4", bg: "#cffafe", fg: "#155e75" }, // cyan
+  { hex: "#f97316", bg: "#ffedd5", fg: "#9a3412" }, // orange
+  { hex: "#a855f7", bg: "#f3e8ff", fg: "#6b21a8" }, // purple
+  { hex: "#14b8a6", bg: "#ccfbf1", fg: "#115e59" }, // teal
+  { hex: "#ec4899", bg: "#fce7f3", fg: "#9d174d" }, // pink
 ];
 function colorForOrg(name) {
   if (!name) return ORG_PALETTE[0];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return ORG_PALETTE[Math.abs(h) % ORG_PALETTE.length];
+}
+
+// Short label for the org chip: keep short names as-is, abbreviate long
+// names as initials. "BAHA" -> "BAHA". "Millwoods Minor Hockey Association"
+// -> "MMHA". "South East Edmonton Recreational Assoc" -> "SEERA".
+function abbrevOrgName(name) {
+  if (!name) return "?";
+  const trimmed = name.trim();
+  if (trimmed.length <= 6) return trimmed.toUpperCase();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    const initials = words.map(w => w[0]).join("").toUpperCase();
+    if (initials.length >= 3 && initials.length <= 6) return initials;
+  }
+  return trimmed.slice(0, 6).toUpperCase();
 }
 
 function formatDate(d) {
@@ -296,44 +312,56 @@ function FilterChip({ value, options, onChange }) {
 function AvailableSessionRow({ session, onSignup }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const palette = colorForOrg(session.org_name);
+  const orgAbbrev = abbrevOrgName(session.org_name);
   return (
     <div
-      className="flex items-center gap-2.5 py-2 pl-3 pr-2 -mx-1 rounded-md hover:bg-gray-50 transition-colors"
-      style={{ borderLeft: `4px solid ${palette.hex}` }}
+      className="grid items-center gap-x-2 gap-y-0.5 py-2 pl-3 pr-2 -mx-1 rounded-md hover:bg-gray-50 transition-colors"
+      style={{
+        borderLeft: `4px solid ${palette.hex}`,
+        // Two-row layout on narrow screens; single-row on wider.
+        // Col 1: org chip. Col 2: stacked text. Col 3: action.
+        gridTemplateColumns: "auto 1fr auto",
+      }}
     >
-      {/* Time — fixed-width, never wraps */}
-      <div className="text-[11px] font-mono font-bold text-gray-900 whitespace-nowrap flex-shrink-0 tabular-nums w-[92px]">
-        {formatTimeRange(session.start_time, session.end_time)}
-      </div>
-      {/* Info — single line. Org name shrinks first; everything else stays put. */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 text-sm">
-        <span
-          className="font-bold truncate min-w-0"
-          style={{ color: palette.fg }}
-          title={session.org_name}
-        >
-          {session.org_name}
-        </span>
-        <span className="text-gray-300 flex-shrink-0">·</span>
-        <span className="font-medium text-gray-800 whitespace-nowrap flex-shrink-0">
+      {/* Org chip — fixed width by content, color-coded so even tiny screens identify the association */}
+      <span
+        className="inline-flex items-center justify-center text-[11px] font-bold tracking-wide rounded px-2 py-1 row-span-2 self-stretch flex-shrink-0"
+        style={{ background: palette.bg, color: palette.fg, minWidth: "44px" }}
+        title={session.org_name}
+      >
+        {orgAbbrev}
+      </span>
+
+      {/* Top text row: Age category + Session/Group */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="font-semibold text-gray-900 text-sm truncate">
           {session.category_name}
         </span>
         <span className="text-gray-300 flex-shrink-0">·</span>
         <span className="text-gray-500 text-xs font-mono whitespace-nowrap flex-shrink-0">
           S{session.session_number}G{session.group_number}
         </span>
-        <span className="text-amber-600 text-xs font-semibold whitespace-nowrap flex-shrink-0 ml-auto">
-          {spotsLeft} left
-        </span>
       </div>
+
+      {/* Sign Up button — spans both rows on the right */}
       <button
         onClick={() => onSignup(session.schedule_id)}
-        className="px-2.5 py-1.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-0.5 flex-shrink-0 hover:shadow-md transition-shadow"
+        className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
         aria-label="Sign up for this session"
       >
         <Plus size={13} />
         <span>Sign Up</span>
       </button>
+
+      {/* Bottom text row: Time + spots remaining */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-mono font-semibold text-gray-700 tabular-nums whitespace-nowrap">
+          {formatTimeRange(session.start_time, session.end_time)}
+        </span>
+        <span className="text-amber-600 font-semibold whitespace-nowrap">
+          · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
+        </span>
+      </div>
     </div>
   );
 }
@@ -518,14 +546,20 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
                               · {sess.length} session{sess.length !== 1 ? "s" : ""}
                             </span>
                             {orgsAtArena.length > 0 && (
-                              <span className="flex items-center gap-1 ml-auto" title={orgsAtArena.join(", ")}>
-                                {orgsAtArena.map(o => (
-                                  <span
-                                    key={o}
-                                    className="inline-block w-2 h-2 rounded-full"
-                                    style={{ background: colorForOrg(o).hex }}
-                                  />
-                                ))}
+                              <span className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
+                                {orgsAtArena.map(o => {
+                                  const p = colorForOrg(o);
+                                  return (
+                                    <span
+                                      key={o}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide rounded px-1.5 py-0.5"
+                                      style={{ background: p.bg, color: p.fg }}
+                                      title={o}
+                                    >
+                                      {abbrevOrgName(o)}
+                                    </span>
+                                  );
+                                })}
                               </span>
                             )}
                           </div>
