@@ -38,27 +38,45 @@ function formatTimeRange(start, end) {
   return `${s.display}:${s.m}${s.ampm}–${e.display}:${e.m}${e.ampm}`;
 }
 
-// Deterministic color per association so the same org always gets the same
-// hue across the list. Inline hex avoids Tailwind purge issues with
-// dynamically-named classes. `bg` is a softened tint used for the chip
-// background; `fg` is the readable text color on that tint.
+// Palette is intentionally spread across the color wheel so adjacent entries
+// are visually distinct even at chip-tint saturation. `bg` is the chip
+// background, `fg` is text on top, `hex` is the strong color used for the
+// row's left border. Inline hex avoids Tailwind purge issues with
+// dynamically-named classes.
 const ORG_PALETTE = [
-  { hex: "#3b82f6", bg: "#dbeafe", fg: "#1e40af" }, // blue
-  { hex: "#10b981", bg: "#d1fae5", fg: "#065f46" }, // emerald
-  { hex: "#f59e0b", bg: "#fef3c7", fg: "#92400e" }, // amber
-  { hex: "#8b5cf6", bg: "#ede9fe", fg: "#5b21b6" }, // violet
-  { hex: "#f43f5e", bg: "#ffe4e6", fg: "#9f1239" }, // rose
-  { hex: "#06b6d4", bg: "#cffafe", fg: "#155e75" }, // cyan
-  { hex: "#f97316", bg: "#ffedd5", fg: "#9a3412" }, // orange
-  { hex: "#a855f7", bg: "#f3e8ff", fg: "#6b21a8" }, // purple
-  { hex: "#14b8a6", bg: "#ccfbf1", fg: "#115e59" }, // teal
-  { hex: "#ec4899", bg: "#fce7f3", fg: "#9d174d" }, // pink
+  { hex: "#2563eb", bg: "#bfdbfe", fg: "#1e3a8a" }, // blue
+  { hex: "#dc2626", bg: "#fecaca", fg: "#7f1d1d" }, // red
+  { hex: "#16a34a", bg: "#bbf7d0", fg: "#14532d" }, // green
+  { hex: "#ea580c", bg: "#fed7aa", fg: "#7c2d12" }, // orange
+  { hex: "#9333ea", bg: "#e9d5ff", fg: "#581c87" }, // purple
+  { hex: "#ca8a04", bg: "#fef08a", fg: "#713f12" }, // gold
+  { hex: "#0891b2", bg: "#a5f3fc", fg: "#164e63" }, // cyan
+  { hex: "#db2777", bg: "#fbcfe8", fg: "#831843" }, // pink
+  { hex: "#65a30d", bg: "#d9f99d", fg: "#365314" }, // lime
+  { hex: "#7c3aed", bg: "#ddd6fe", fg: "#4c1d95" }, // violet
 ];
+
+// Hash-based fallback for places without access to the position-based map
+// below (e.g. SessionCard in the My Sessions tab). Keeps colors stable
+// across renders even when the AvailableSessionsView isn't mounted.
 function colorForOrg(name) {
   if (!name) return ORG_PALETTE[0];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return ORG_PALETTE[Math.abs(h) % ORG_PALETTE.length];
+}
+
+// Build a deterministic, collision-free org -> palette map from the orgs
+// actually present in the current view. Sorts alphabetically so the same
+// set of orgs always assigns the same colors regardless of session order.
+// Wraps once palette is exhausted (rare — would need >10 distinct orgs).
+function buildOrgColorMap(orgNames) {
+  const unique = Array.from(new Set(orgNames.filter(Boolean))).sort();
+  const map = new Map();
+  unique.forEach((name, i) => {
+    map.set(name, ORG_PALETTE[i % ORG_PALETTE.length]);
+  });
+  return map;
 }
 
 // Short label for the org chip: keep short names as-is, abbreviate long
@@ -309,9 +327,8 @@ function FilterChip({ value, options, onChange }) {
   );
 }
 
-function AvailableSessionRow({ session, onSignup }) {
+function AvailableSessionRow({ session, onSignup, palette }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
-  const palette = colorForOrg(session.org_name);
   const orgAbbrev = abbrevOrgName(session.org_name);
   return (
     <div
@@ -377,6 +394,12 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
     sessions.forEach(s => s.org_name && set.add(s.org_name));
     return Array.from(set).sort();
   }, [sessions]);
+
+  // Each org in the current view gets a guaranteed-distinct palette entry
+  // (alphabetical position -> palette index). No more accidental collisions
+  // from hash collisions on similar-sounding names.
+  const orgColorMap = useMemo(() => buildOrgColorMap(orgs), [orgs]);
+  const paletteFor = (name) => orgColorMap.get(name) || colorForOrg(name);
 
   const arenas = useMemo(() => {
     const set = new Set();
@@ -548,7 +571,7 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
                             {orgsAtArena.length > 0 && (
                               <span className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
                                 {orgsAtArena.map(o => {
-                                  const p = colorForOrg(o);
+                                  const p = paletteFor(o);
                                   return (
                                     <span
                                       key={o}
@@ -565,7 +588,7 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
                           </div>
                           <div className="space-y-0.5">
                             {sess.map(s => (
-                              <AvailableSessionRow key={s.schedule_id} session={s} onSignup={onSignup} />
+                              <AvailableSessionRow key={s.schedule_id} session={s} onSignup={onSignup} palette={paletteFor(s.org_name)} />
                             ))}
                           </div>
                         </div>
