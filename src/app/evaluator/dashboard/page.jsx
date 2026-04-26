@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight } from "lucide-react";
 
 const qc = new QueryClient();
 
@@ -234,6 +234,251 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
   );
 }
 
+// ── Available Sessions: grouped by Date → Arena, with filters ────────────
+// Replaces the old flat chronological list. Evaluators think about their
+// schedule by "what rink am I at on what day" so they can chain sessions.
+
+function FilterChip({ value, options, onChange }) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-full bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] cursor-pointer"
+    >
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+}
+
+function AvailableSessionRow({ session, onSignup }) {
+  const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
+  return (
+    <div className="flex items-center gap-3 py-2 hover:bg-blue-50/30 -mx-2 px-2 rounded-lg transition-colors">
+      <div className="text-xs font-mono font-semibold text-gray-700 w-[88px] flex-shrink-0">
+        {formatTime(session.start_time)}{session.end_time ? `–${formatTime(session.end_time)}` : ""}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-gray-800 truncate">
+          <span className="font-semibold">{session.org_name}</span>
+          <span className="text-gray-300 mx-1">·</span>
+          <span>{session.category_name}</span>
+          {session.session_type && (
+            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded border font-medium capitalize ${SESSION_TYPE_COLORS[session.session_type] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+              {session.session_type}
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-gray-400">
+          S{session.session_number}{session.group_number ? ` G${session.group_number}` : ""} · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
+        </div>
+      </div>
+      <button
+        onClick={() => onSignup(session.schedule_id)}
+        className="px-3 py-1.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
+      >
+        <Plus size={12} /> Sign Up
+      </button>
+    </div>
+  );
+}
+
+function AvailableSessionsView({ sessions, onSignup, isLoading }) {
+  const [dateRange, setDateRange] = useState("all");
+  const [orgFilter, setOrgFilter] = useState("all");
+  const [arenaFilter, setArenaFilter] = useState("all");
+  const [collapsedDays, setCollapsedDays] = useState(new Set());
+
+  const orgs = useMemo(() => {
+    const set = new Set();
+    sessions.forEach(s => s.org_name && set.add(s.org_name));
+    return Array.from(set).sort();
+  }, [sessions]);
+
+  const arenas = useMemo(() => {
+    const set = new Set();
+    sessions.forEach(s => s.location && set.add(s.location));
+    return Array.from(set).sort();
+  }, [sessions]);
+
+  const filtered = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const in7days = new Date(today); in7days.setDate(today.getDate() + 7);
+
+    // Next upcoming Saturday + Sunday (today counts if it IS Sat/Sun)
+    const dow = today.getDay(); // 0=Sun..6=Sat
+    const nextSat = new Date(today);
+    if (dow !== 6) nextSat.setDate(today.getDate() + ((6 - dow + 7) % 7));
+    const nextSun = new Date(nextSat);
+    nextSun.setDate(nextSat.getDate() + 1);
+    if (dow === 0) { nextSat.setDate(today.getDate() - 1); nextSun.setDate(today.getDate()); }
+
+    return sessions.filter(s => {
+      if (dateRange !== "all") {
+        const dateStr = s.scheduled_date?.toString().split("T")[0];
+        if (!dateStr) return false;
+        const [y, m, d] = dateStr.split("-").map(Number);
+        const sessDate = new Date(y, m - 1, d);
+        if (dateRange === "week") {
+          if (sessDate < today || sessDate > in7days) return false;
+        } else if (dateRange === "weekend") {
+          const isSat = sessDate.getTime() === nextSat.getTime();
+          const isSun = sessDate.getTime() === nextSun.getTime();
+          if (!isSat && !isSun) return false;
+        }
+      }
+      if (orgFilter !== "all" && s.org_name !== orgFilter) return false;
+      if (arenaFilter !== "all" && s.location !== arenaFilter) return false;
+      return true;
+    });
+  }, [sessions, dateRange, orgFilter, arenaFilter]);
+
+  // Group: date → arena → sessions[] (sorted by start_time)
+  const grouped = useMemo(() => {
+    const byDate = {};
+    filtered.forEach(s => {
+      const dateKey = s.scheduled_date?.toString().split("T")[0];
+      if (!dateKey) return;
+      if (!byDate[dateKey]) byDate[dateKey] = {};
+      const arenaKey = s.location || "TBD";
+      if (!byDate[dateKey][arenaKey]) byDate[dateKey][arenaKey] = [];
+      byDate[dateKey][arenaKey].push(s);
+    });
+    Object.values(byDate).forEach(arenas => {
+      Object.values(arenas).forEach(list => {
+        list.sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
+      });
+    });
+    return byDate;
+  }, [filtered]);
+
+  const sortedDates = useMemo(() => Object.keys(grouped).sort(), [grouped]);
+
+  const toggleDay = (date) => {
+    setCollapsedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date); else next.add(date);
+      return next;
+    });
+  };
+
+  if (isLoading) {
+    return <div className="py-12 text-center text-gray-400 text-sm">Loading available sessions...</div>;
+  }
+  if (sessions.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <CheckCircle size={48} className="mx-auto text-gray-200 mb-4" />
+        <h3 className="font-semibold text-gray-700 mb-2">All sessions are full</h3>
+        <p className="text-sm text-gray-400">Check back later for new openings.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">Open Sessions</h2>
+        <span className="text-xs text-gray-400">
+          {filtered.length} of {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2">
+        <FilterChip
+          value={dateRange}
+          onChange={setDateRange}
+          options={[
+            { value: "all", label: "All upcoming" },
+            { value: "week", label: "Next 7 days" },
+            { value: "weekend", label: "This weekend" },
+          ]}
+        />
+        {orgs.length > 1 && (
+          <FilterChip
+            value={orgFilter}
+            onChange={setOrgFilter}
+            options={[
+              { value: "all", label: "All associations" },
+              ...orgs.map(o => ({ value: o, label: o })),
+            ]}
+          />
+        )}
+        {arenas.length > 1 && (
+          <FilterChip
+            value={arenaFilter}
+            onChange={setArenaFilter}
+            options={[
+              { value: "all", label: "All arenas" },
+              ...arenas.map(a => ({ value: a, label: a })),
+            ]}
+          />
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-sm text-gray-400">
+          No sessions match these filters. Try widening them.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedDates.map(date => {
+            const arenasForDate = grouped[date];
+            const arenaKeys = Object.keys(arenasForDate).sort();
+            const isCollapsed = collapsedDays.has(date);
+            const dayTotal = arenaKeys.reduce((sum, k) => sum + arenasForDate[k].length, 0);
+            return (
+              <div key={date} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleDay(date)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    {isCollapsed
+                      ? <ChevronRight size={16} className="text-gray-400" />
+                      : <ChevronDown size={16} className="text-gray-400" />}
+                    <Calendar size={14} className="text-gray-400" />
+                    <span className="font-bold text-gray-900">{formatDate(date)}</span>
+                    <span className="text-xs text-gray-400 font-normal">
+                      {dayTotal} session{dayTotal !== 1 ? "s" : ""} · {arenaKeys.length} {arenaKeys.length === 1 ? "rink" : "rinks"}
+                    </span>
+                  </div>
+                </button>
+                {!isCollapsed && (
+                  <div className="divide-y divide-gray-100">
+                    {arenaKeys.map(arena => {
+                      const sess = arenasForDate[arena];
+                      return (
+                        <div key={arena} className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-gray-700">
+                            <MapPin size={13} className="text-gray-400" />
+                            {arena}
+                            <span className="text-xs text-gray-400 font-normal">
+                              · {sess.length} session{sess.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {sess.map(s => (
+                              <AvailableSessionRow key={s.schedule_id} session={s} onSignup={onSignup} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EvaluatorDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("mine");
@@ -426,28 +671,11 @@ function EvaluatorDashboard() {
         )}
 
         {activeTab === "available" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Open Sessions</h2>
-              <span className="text-xs text-gray-400">Sessions where spots are still available</span>
-            </div>
-            {availLoading ? (
-              <div className="py-12 text-center text-gray-400 text-sm">Loading available sessions...</div>
-            ) : availSessions.length === 0 ? (
-              <div className="py-16 text-center">
-                <CheckCircle size={48} className="mx-auto text-gray-200 mb-4" />
-                <h3 className="font-semibold text-gray-700 mb-2">All sessions are full</h3>
-                <p className="text-sm text-gray-400">Check back later for new openings.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {availSessions.map(s => (
-                  <SessionCard key={s.schedule_id} session={s} mode="available"
-                    onSignup={id => signupMutation.mutate(id)} onCancel={() => {}} />
-                ))}
-              </div>
-            )}
-          </div>
+          <AvailableSessionsView
+            sessions={availSessions}
+            isLoading={availLoading}
+            onSignup={id => signupMutation.mutate(id)}
+          />
         )}
 
         {activeTab === "join" && (
