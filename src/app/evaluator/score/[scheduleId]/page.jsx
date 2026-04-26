@@ -217,6 +217,29 @@ function ScoringInterface() {
     refetchOnWindowFocus: true,
   });
 
+  // ── Calibration band ───────────────────────────────────────────────────
+  // Real-time min/max of OTHER evaluators' scores in this session. Shown as
+  // a subtle badge in the top bar so an evaluator with doubt can sanity-check
+  // they're using a similar slice of the scale as the room. Polled every
+  // ~20s; pauses while offline (the query is disabled when network is down).
+  const { data: rangeData } = useQuery({
+    queryKey: ["session-range", scheduleId, catId, scheduleData?.session_number],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        schedule_id: scheduleId,
+        category_id: String(catId),
+        session_number: String(scheduleData.session_number),
+      });
+      const res = await fetch(`/api/evaluator/session-range?${params}`);
+      if (!res.ok) throw new Error("range fetch failed");
+      return res.json();
+    },
+    enabled: !!(catId && scheduleData?.session_number && online),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+  });
+
   // Merge server scores into local state + write merged result back to
   // localStorage so the next offline reload has the server's data too.
   //
@@ -827,6 +850,15 @@ function ScoringInterface() {
               <span className="text-xs text-green-400 font-semibold">{complete} ✓</span>
               <span className="text-xs text-amber-400 font-semibold">{partial} partial</span>
               <span className="text-xs text-gray-500">{remaining} left</span>
+              {/* Calibration band: range of other evaluators' scores so far */}
+              {rangeData && rangeData.evaluator_count > 0 && rangeData.min != null && (
+                <span
+                  className="text-xs text-blue-300 font-medium pl-2 ml-1 border-l border-gray-700"
+                  title={`Range from ${rangeData.evaluator_count} other evaluator${rangeData.evaluator_count === 1 ? "" : "s"} (${rangeData.total_scores} scores so far)`}
+                >
+                  Room: {rangeData.min}–{rangeData.max}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
