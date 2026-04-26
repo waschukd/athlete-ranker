@@ -124,7 +124,9 @@ function ScoringInterface() {
       .catch(() => {});
   }, []);
 
-  // Load offline data on mount — only after we know who the user is
+  // Load offline data on mount — only after we know who the user is.
+  // This runs immediately so the page is usable offline; the server-hydrate
+  // query below will then merge in anything newer from the server.
   useEffect(() => {
     if (!currentUserId) return;
     const saved = loadLocal(scheduleId, currentUserId);
@@ -189,6 +191,84 @@ function ScoringInterface() {
 
   const catId = sessionData?.schedule?.category_id;
   const scheduleData = sessionData?.schedule;
+
+  // ── Cross-device hydrate ─────────────────────────────────────────────
+  // Pull this evaluator's existing scores + notes for THIS session from the
+  // server. Without this query, switching devices (phone -> tablet, dead
+  // battery -> backup) shows an empty scoring screen because localStorage
+  // is per-device. React Query's default refetchOnWindowFocus also picks up
+  // edits made on another device while this tab is open.
+  const hydrateEnabled = !!(currentUserId && catId && scheduleData?.session_number);
+  const { data: hydrateData } = useQuery({
+    queryKey: ["score-hydrate", scheduleId, catId, scheduleData?.session_number, currentUserId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        schedule_id: scheduleId,
+        category_id: String(catId),
+        session_number: String(scheduleData.session_number),
+        hydrate: "1",
+      });
+      const res = await fetch(`/api/evaluator/scores?${params}`);
+      if (!res.ok) throw new Error("hydrate failed");
+      return res.json();
+    },
+    enabled: hydrateEnabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  // Merge server scores into local state + write merged result back to
+  // localStorage so the next offline reload has the server's data too.
+  //
+  // INITIAL hydrate (first time the query resolves for this session): server
+  // wins on overlap — this is the cross-device case where Device B opens a
+  // session Device A has been scoring; we want everything from the server.
+  //
+  // SUBSEQUENT hydrates (window-focus refetches): LOCAL wins on overlap.
+  // Server only fills in cells the local evaluator hasn't touched yet. This
+  // prevents a stale background refetch from clobbering a score the user
+  // just typed but hasn't synced yet.
+  const initialHydrateDoneRef = useRef(false);
+  useEffect(() => {
+    if (!hydrateData?.scores || !currentUserId) return;
+    const serverScores = hydrateData.scores;
+    const isInitial = !initialHydrateDoneRef.current;
+
+    if (!Object.keys(serverScores).length) {
+      initialHydrateDoneRef.current = true;
+      return;
+    }
+
+    setScores(prev => {
+      const merged = { ...prev };
+      let changed = 0;
+      for (const [aidStr, srv] of Object.entries(serverScores)) {
+        const aid = aidStr;
+        const local = merged[aid] || { cats: {}, notes: "" };
+        const mergedCats = isInitial
+          ? { ...local.cats, ...srv.cats }   // initial: server wins
+          : { ...srv.cats, ...local.cats };  // refetch: local wins
+        // Notes: prefer the longer string (typed offline continuations beat
+        // a stale short server note; on initial hydrate this also recovers
+        // a long note from another device).
+        const mergedNotes = (srv.notes || "").length > (local.notes || "").length
+          ? (srv.notes || "")
+          : (local.notes || "");
+        const before = JSON.stringify(local);
+        const after = JSON.stringify({ cats: mergedCats, notes: mergedNotes });
+        if (before !== after) changed++;
+        merged[aid] = { cats: mergedCats, notes: mergedNotes };
+      }
+      saveLocal(scheduleId, currentUserId, merged);
+      if (changed > 0 && isInitial) {
+        setSyncStatus(`Loaded ${changed} athlete${changed === 1 ? "" : "s"} from server ✓`);
+        setTimeout(() => setSyncStatus(""), 3500);
+      }
+      return merged;
+    });
+
+    initialHydrateDoneRef.current = true;
+  }, [hydrateData, currentUserId, scheduleId]);
 
   // Fetch calibration data (previous session comparison)
   useEffect(() => {

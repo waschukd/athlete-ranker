@@ -18,7 +18,54 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const scheduleId = searchParams.get("schedule_id");
     const catId = searchParams.get("category_id");
+    const sessionNumber = searchParams.get("session_number");
 
+    // ── New shape (`?hydrate=1`): just this evaluator's scores + notes for this
+    // session, keyed by athlete_id. Returned in the exact format the scoring
+    // page's local `scores` state uses, so cross-device hydration is a merge.
+    if (searchParams.get("hydrate") === "1") {
+      if (!catId || !sessionNumber) {
+        return NextResponse.json({ error: "category_id and session_number required" }, { status: 400 });
+      }
+
+      const rows = await sql`
+        SELECT athlete_id, scoring_category_id, score, updated_at
+        FROM category_scores
+        WHERE evaluator_id = ${appUserId}
+          AND age_category_id = ${catId}
+          AND session_number = ${sessionNumber}
+      `;
+
+      // Most recent free-form note per athlete (player_notes table), in case
+      // the same evaluator dictated a long note and re-saved it from another device.
+      const notesRows = await sql`
+        SELECT DISTINCT ON (athlete_id) athlete_id, note_text, updated_at
+        FROM player_notes
+        WHERE evaluator_id = ${appUserId}
+          AND age_category_id = ${catId}
+          AND session_number = ${sessionNumber}
+        ORDER BY athlete_id, updated_at DESC NULLS LAST, created_at DESC
+      `;
+
+      const scores = {};
+      let lastUpdated = null;
+      for (const r of rows) {
+        const aid = r.athlete_id;
+        if (!scores[aid]) scores[aid] = { cats: {}, notes: "" };
+        scores[aid].cats[r.scoring_category_id] = parseFloat(r.score);
+        if (r.updated_at && (!lastUpdated || r.updated_at > lastUpdated)) lastUpdated = r.updated_at;
+      }
+      for (const n of notesRows) {
+        const aid = n.athlete_id;
+        if (!scores[aid]) scores[aid] = { cats: {}, notes: "" };
+        scores[aid].notes = n.note_text || "";
+        if (n.updated_at && (!lastUpdated || n.updated_at > lastUpdated)) lastUpdated = n.updated_at;
+      }
+
+      return NextResponse.json({ scores, lastUpdated });
+    }
+
+    // ── Legacy shape (existing callers, kept for compat) ─────────────────
     const athletes = await sql`
       SELECT
         a.id, a.first_name, a.last_name, a.external_id, a.position,
