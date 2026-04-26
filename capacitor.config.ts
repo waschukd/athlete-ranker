@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
     // /account/signin route redirects onward to /evaluator/dashboard.
     url: 'https://sidelinestar.com/account/signin',
     cleartext: false,
+    // Without this, Capacitor 8 treats sidelinestar.com as "external" and
+    // launches Chrome via Intent.ACTION_VIEW instead of loading in the WebView.
+    allowNavigation: ['sidelinestar.com', '*.sidelinestar.com'],
   },
   plugins: {
     SpeechRecognition: {
