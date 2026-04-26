@@ -2,7 +2,7 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, ChevronLeft, Copy, CalendarDays, List } from "lucide-react";
 
 const qc = new QueryClient();
 
@@ -473,11 +473,212 @@ function AvailableSessionRow({ session, onSignup, palette }) {
   );
 }
 
+// ── Date strip: horizontal scroll of dates, dots per association ────────
+// Always visible above the list. Tapping a pill filters the list to that
+// day; tapping the same pill again clears the filter.
+function DateStripBar({ sessions, selectedDate, onSelect, paletteFor }) {
+  const dateBuckets = useMemo(() => {
+    const map = new Map(); // dateKey -> { count, orgs: Set }
+    sessions.forEach(s => {
+      const key = s.scheduled_date?.toString().split("T")[0];
+      if (!key) return;
+      if (!map.has(key)) map.set(key, { count: 0, orgs: new Set() });
+      const bucket = map.get(key);
+      bucket.count++;
+      if (s.org_name) bucket.orgs.add(s.org_name);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, b]) => ({ key, count: b.count, orgs: Array.from(b.orgs).sort() }));
+  }, [sessions]);
+
+  if (dateBuckets.length === 0) return null;
+
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+      {dateBuckets.map(({ key, count, orgs }) => {
+        const [y, m, d] = key.split("-").map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const isSelected = selectedDate === key;
+        const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+        const dayMonth = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return (
+          <button
+            key={key}
+            onClick={() => onSelect(isSelected ? null : key)}
+            className={`flex-shrink-0 snap-start flex flex-col items-center justify-between rounded-lg px-2.5 py-2 min-w-[64px] border transition-colors ${
+              isSelected
+                ? "bg-[#1A6BFF] border-[#1A6BFF] text-white"
+                : "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+            }`}
+          >
+            <span className={`text-[10px] uppercase font-semibold ${isSelected ? "text-blue-100" : "text-gray-400"}`}>
+              {dayName}
+            </span>
+            <span className="text-sm font-bold whitespace-nowrap">{dayMonth}</span>
+            <div className="flex items-center gap-1 mt-1">
+              <span className={`text-[10px] font-semibold ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
+                {count}
+              </span>
+              <div className="flex gap-0.5">
+                {orgs.slice(0, 3).map(o => (
+                  <span
+                    key={o}
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ background: paletteFor(o).hex, boxShadow: isSelected ? "0 0 0 1px white" : "none" }}
+                  />
+                ))}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Month grid: full-month calendar with dots per day ─────────────────────
+// Shown in place of the list when the user toggles "Calendar" view. Tap any
+// day to switch back to the list filtered to that day. Navigates between
+// months but always stays bounded to months that have at least one session
+// (no point letting users wander into Sept 2027 if there's nothing there).
+function MonthCalendar({ sessions, onSelect, paletteFor }) {
+  // Index sessions by date for quick lookups
+  const byDate = useMemo(() => {
+    const map = new Map();
+    sessions.forEach(s => {
+      const key = s.scheduled_date?.toString().split("T")[0];
+      if (!key) return;
+      if (!map.has(key)) map.set(key, { count: 0, orgs: new Set() });
+      const b = map.get(key);
+      b.count++;
+      if (s.org_name) b.orgs.add(s.org_name);
+    });
+    return map;
+  }, [sessions]);
+
+  // Pick initial month: earliest session month, or current month if no sessions
+  const [viewMonth, setViewMonth] = useState(() => {
+    const first = sessions
+      .map(s => s.scheduled_date?.toString().split("T")[0])
+      .filter(Boolean)
+      .sort()[0];
+    if (first) {
+      const [y, m] = first.split("-").map(Number);
+      return new Date(y, m - 1, 1);
+    }
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const monthName = viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startWeekday = firstDayOfMonth.getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  // Build a grid of 6 weeks × 7 days = 42 cells, padded with prev/next month days
+  const cells = [];
+  // Leading days from previous month
+  for (let i = startWeekday - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrevMonth - i, inMonth: false, dateKey: null });
+  }
+  // Days in current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({ day: d, inMonth: true, dateKey });
+  }
+  // Trailing days from next month to fill 6 rows
+  while (cells.length < 42) {
+    const overflow = cells.length - (startWeekday + daysInMonth) + 1;
+    cells.push({ day: overflow, inMonth: false, dateKey: null });
+  }
+
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const goPrev = () => setViewMonth(new Date(year, month - 1, 1));
+  const goNext = () => setViewMonth(new Date(year, month + 1, 1));
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={goPrev}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <h3 className="text-base font-bold text-gray-900">{monthName}</h3>
+        <button
+          onClick={goNext}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          aria-label="Next month"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <div key={i} className="text-center text-[10px] font-semibold text-gray-400 uppercase">
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((cell, i) => {
+          const bucket = cell.dateKey ? byDate.get(cell.dateKey) : null;
+          const orgs = bucket ? Array.from(bucket.orgs).sort() : [];
+          const isToday = cell.dateKey === todayKey;
+          const hasSessions = bucket && bucket.count > 0;
+          return (
+            <button
+              key={i}
+              onClick={() => hasSessions && onSelect(cell.dateKey)}
+              disabled={!hasSessions}
+              className={`aspect-square min-h-[44px] flex flex-col items-center justify-center rounded-md text-xs transition-colors ${
+                cell.inMonth
+                  ? hasSessions
+                    ? "hover:bg-blue-50 cursor-pointer"
+                    : "cursor-default"
+                  : "opacity-30 cursor-default"
+              } ${isToday ? "ring-2 ring-blue-400" : ""}`}
+            >
+              <span className={`font-medium ${cell.inMonth ? "text-gray-900" : "text-gray-400"}`}>
+                {cell.day}
+              </span>
+              {hasSessions && (
+                <div className="flex gap-0.5 mt-0.5">
+                  {orgs.slice(0, 4).map(o => (
+                    <span
+                      key={o}
+                      className="inline-block w-1.5 h-1.5 rounded-full"
+                      style={{ background: paletteFor(o).hex }}
+                    />
+                  ))}
+                  {orgs.length > 4 && (
+                    <span className="text-[8px] text-gray-400">+</span>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AvailableSessionsView({ sessions, onSignup, isLoading }) {
   const [dateRange, setDateRange] = useState("all");
   const [orgFilter, setOrgFilter] = useState("all");
   const [arenaFilter, setArenaFilter] = useState("all");
   const [collapsedDays, setCollapsedDays] = useState(new Set());
+  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
+  const [selectedDate, setSelectedDate] = useState(null); // YYYY-MM-DD or null
 
   const orgs = useMemo(() => {
     const set = new Set();
@@ -510,8 +711,11 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
     if (dow === 0) { nextSat.setDate(today.getDate() - 1); nextSun.setDate(today.getDate()); }
 
     return sessions.filter(s => {
-      if (dateRange !== "all") {
-        const dateStr = s.scheduled_date?.toString().split("T")[0];
+      const dateStr = s.scheduled_date?.toString().split("T")[0];
+      // Specific-date pick from the strip / calendar overrides the range filter.
+      if (selectedDate) {
+        if (dateStr !== selectedDate) return false;
+      } else if (dateRange !== "all") {
         if (!dateStr) return false;
         const [y, m, d] = dateStr.split("-").map(Number);
         const sessDate = new Date(y, m - 1, d);
@@ -527,7 +731,7 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
       if (arenaFilter !== "all" && s.location !== arenaFilter) return false;
       return true;
     });
-  }, [sessions, dateRange, orgFilter, arenaFilter]);
+  }, [sessions, dateRange, orgFilter, arenaFilter, selectedDate]);
 
   // Group: date → arena → sessions[] (sorted by start_time)
   const grouped = useMemo(() => {
@@ -573,15 +777,80 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-base font-semibold text-gray-900">Open Sessions</h2>
-        <span className="text-xs text-gray-400">
-          {filtered.length} of {sessions.length} session{sessions.length !== 1 ? "s" : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {filtered.length} of {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+          </span>
+          {/* List / Calendar toggle */}
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "list" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
+              }`}
+              aria-label="List view"
+            >
+              <List size={12} /> List
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "calendar" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
+              }`}
+              aria-label="Calendar view"
+            >
+              <CalendarDays size={12} /> Calendar
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Selected-date chip — appears when user picks a specific date from strip / calendar */}
+      {selectedDate && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <Calendar size={14} className="text-blue-600" />
+          <span className="text-sm text-blue-900">
+            Showing only <strong>{(() => {
+              const [y, m, d] = selectedDate.split("-").map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+            })()}</strong>
+          </span>
+          <button
+            onClick={() => setSelectedDate(null)}
+            className="ml-auto text-blue-600 hover:text-blue-900"
+            aria-label="Clear date filter"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Calendar view: full month grid replaces list */}
+      {viewMode === "calendar" && (
+        <MonthCalendar
+          sessions={sessions}
+          paletteFor={paletteFor}
+          onSelect={(dateKey) => {
+            setSelectedDate(dateKey);
+            setViewMode("list");
+          }}
+        />
+      )}
+
+      {/* Date strip — shown only in list mode, lets user jump to a day quickly */}
+      {viewMode === "list" && (
+        <DateStripBar
+          sessions={sessions}
+          selectedDate={selectedDate}
+          onSelect={setSelectedDate}
+          paletteFor={paletteFor}
+        />
+      )}
+
       {/* Filter chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className={`flex flex-wrap gap-2 ${viewMode === "calendar" ? "hidden" : ""}`}>
         <FilterChip
           value={dateRange}
           onChange={setDateRange}
@@ -613,7 +882,7 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
         )}
       </div>
 
-      {filtered.length === 0 ? (
+      {viewMode === "list" && (filtered.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-400">
           No sessions match these filters. Try widening them.
         </div>
@@ -690,7 +959,7 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
             );
           })}
         </div>
-      )}
+      ))}
     </div>
   );
 }
