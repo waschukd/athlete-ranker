@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp } from "lucide-react";
+import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 const qc = new QueryClient();
 
@@ -144,6 +145,7 @@ function TeamGeneratorInner() {
                 <ArrowLeft size={16} /> Back
               </a>
               <div className="w-px h-5 bg-gray-200" />
+              <OrgBrandIcon orgId={orgId} size={36} />
               <div>
                 <h1 className="text-lg font-bold text-gray-900">Team Generation</h1>
                 <p className="text-xs text-gray-400">{category?.name} · {ranked.length} athletes · {ranked.filter(a => a.position !== 'goalie').length} skaters · {ranked.filter(a => a.position === 'goalie').length} goalies</p>

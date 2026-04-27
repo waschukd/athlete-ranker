@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Zap } from "lucide-react";
+import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 const qc = new QueryClient();
 
@@ -49,9 +50,7 @@ function AddCategoryForm() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <OrgBrandIcon orgId={orgId} size={40} />
             <div>
               <h1 className="text-xl font-bold text-gray-900">Add Age Category</h1>
               <p className="text-sm text-gray-500">Create a new age group for this association</p>

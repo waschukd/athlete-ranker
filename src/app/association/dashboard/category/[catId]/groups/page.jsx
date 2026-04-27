@@ -7,6 +7,7 @@ import {
   ArrowLeft, Users, Shuffle, Check, AlertCircle,
   GripVertical, ChevronRight, Copy, ExternalLink, RefreshCw, Download, Printer
 } from "lucide-react";
+import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 const qc = new QueryClient();
 
@@ -278,9 +279,12 @@ function GroupsManagerInner() {
             <ArrowLeft size={15} /> Back to Category
           </a>
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Group Management</h1>
-              <p className="text-sm text-gray-400 mt-0.5">Assign athletes to groups · drag and drop to move players</p>
+            <div className="flex items-center gap-3">
+              <OrgBrandIcon orgId={orgId} size={44} />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Group Management</h1>
+                <p className="text-sm text-gray-400 mt-0.5">Assign athletes to groups · drag and drop to move players</p>
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => refetch()} className="p-2 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors"><RefreshCw size={15} /></button>

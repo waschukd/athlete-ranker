@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, AlertTriangle, CheckCircle, Zap } from "lucide-react";
+import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 function FlagsContent() {
   const params = useParams();
@@ -74,6 +75,7 @@ function FlagsContent() {
                 className="p-2 text-gray-400 hover:text-[#1A6BFF] transition-colors rounded-lg hover:bg-gray-100">
                 <ArrowLeft size={18} />
               </a>
+              <OrgBrandIcon orgId={orgId} size={40} />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
                   Athlete Flags {sessionFilter ? `— Session ${sessionFilter}` : "— All Sessions"}

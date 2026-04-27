@@ -8,6 +8,7 @@ import {
   AlertCircle, ChevronUp, ChevronDown, Users, Calendar,
   Settings, Trophy, Zap, GripVertical
 } from "lucide-react";
+import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 const qc = new QueryClient();
 
@@ -740,6 +741,7 @@ function SetupWizard() {
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={18} />
           </a>
+          <OrgBrandIcon orgId={orgId} size={44} />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{catName}</h1>
             <p className="text-sm text-gray-500">Category Setup</p>
