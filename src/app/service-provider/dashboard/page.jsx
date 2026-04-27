@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus } from "lucide-react";
+import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus, CalendarDays, List } from "lucide-react";
+import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
+import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 
 const qc = new QueryClient();
 
@@ -246,6 +248,8 @@ function SPDashboard() {
   const [activeTab, setActiveTab] = useState("associations");
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
+  const [scheduleView, setScheduleView] = useState("list"); // "list" | "calendar"
+  const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null); // YYYY-MM-DD or null
   const [evalInviteEmail, setEvalInviteEmail] = useState("");
   const [evalInviteSending, setEvalInviteSending] = useState(false);
   const [evalInviteMsg, setEvalInviteMsg] = useState(null);
@@ -312,6 +316,20 @@ function SPDashboard() {
   const pastCount = allDates.filter(d => d < today).length;
   const needsEvaluators = schedule.filter(s => s.spots_open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
   const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
+
+  // Org -> palette map for the master schedule (deterministic, distinct).
+  // Built from the orgs actually present in the current schedule view.
+  const scheduleOrgColorMap = useMemo(() => {
+    const orgs = Array.from(new Set(schedule.map(s => s.org_name).filter(Boolean)));
+    return buildOrgColorMap(orgs);
+  }, [schedule]);
+  const scheduleOrgPalette = (name) => scheduleOrgColorMap.get(name) || colorForOrg(name);
+
+  // Date filter: when a specific date is picked from strip / calendar, show
+  // only that day's sessions in the list.
+  const visibleDates = scheduleSelectedDate
+    ? upcomingDates.filter(d => d === scheduleSelectedDate)
+    : upcomingDates;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -424,11 +442,14 @@ function SPDashboard() {
                   return (
                     <div key={assoc.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1A6BFF]/50 hover:shadow-md transition-all">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center"><Building2 size={18} className="text-[#1A6BFF]" /></div>
-                          <div><h3 className="font-bold text-gray-900">{assoc.name}</h3><p className="text-xs text-gray-400">{assoc.contact_email}</p></div>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <OrgAvatar name={assoc.name} logoUrl={assoc.logo_url} size={44} />
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-gray-900 truncate" title={assoc.name}>{assoc.name}</h3>
+                            <p className="text-xs text-gray-400 truncate">{assoc.contact_email}</p>
+                          </div>
                         </div>
-                        {needsEval > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">{needsEval} needs eval</span>}
+                        {needsEval > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{needsEval} needs eval</span>}
                       </div>
                       <div className="grid grid-cols-3 gap-2 mb-4 text-center">
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.age_categories || 0}</div><div className="text-xs text-gray-400">Categories</div></div>
@@ -450,54 +471,117 @@ function SPDashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-semibold text-gray-900">Master Schedule</h2>
-              <button onClick={() => setShowPastSessions(!showPastSessions)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
-                {showPastSessions ? "Hide Past" : `Show Past (${pastCount})`}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* List / Calendar toggle — same idiom as evaluator dashboard */}
+                <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+                  <button
+                    onClick={() => setScheduleView("list")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      scheduleView === "list" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <List size={12} /> List
+                  </button>
+                  <button
+                    onClick={() => setScheduleView("calendar")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      scheduleView === "calendar" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <CalendarDays size={12} /> Calendar
+                  </button>
+                </div>
+                <button onClick={() => setShowPastSessions(!showPastSessions)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
+                  {showPastSessions ? "Hide Past" : `Show Past (${pastCount})`}
+                </button>
+              </div>
             </div>
+
+            {/* Selected-date chip when a specific date is picked */}
+            {scheduleSelectedDate && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <Calendar size={14} className="text-blue-600" />
+                <span className="text-sm text-blue-900">
+                  Showing only <strong>{(() => {
+                    const [y, m, d] = scheduleSelectedDate.split("-").map(Number);
+                    return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+                  })()}</strong>
+                </span>
+                <button
+                  onClick={() => setScheduleSelectedDate(null)}
+                  className="ml-auto text-blue-600 hover:text-blue-900"
+                  aria-label="Clear date filter"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {schedLoading ? <div className="py-12 text-center text-gray-400">Loading schedule...</div> : upcomingDates.length === 0 ? (
               <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
                 <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                 <h3 className="font-semibold text-gray-600">No upcoming sessions</h3>
               </div>
+            ) : scheduleView === "calendar" ? (
+              <MonthCalendar
+                sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                paletteFor={scheduleOrgPalette}
+                onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+              />
             ) : (
-              <div className="space-y-6">
-                {upcomingDates.map(date => (
-                  <div key={date}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-px flex-1 bg-gray-200" />
-                      <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{formatDate(date)}</span>
-                      <div className="h-px flex-1 bg-gray-200" />
+              <>
+                <DateStripBar
+                  sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                  selectedDate={scheduleSelectedDate}
+                  onSelect={setScheduleSelectedDate}
+                  paletteFor={scheduleOrgPalette}
+                />
+                <div className="space-y-6">
+                  {visibleDates.map(date => (
+                    <div key={date}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-px flex-1 bg-gray-200" />
+                        <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{formatDate(date)}</span>
+                        <div className="h-px flex-1 bg-gray-200" />
+                      </div>
+                      <div className="space-y-2">
+                        {byDate[date].map(entry => {
+                          const palette = scheduleOrgPalette(entry.org_name);
+                          return (
+                            <div
+                              key={entry.schedule_id}
+                              className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
+                              style={{ borderLeft: `4px solid ${palette.hex}` }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <OrgChip name={entry.org_name} palette={palette} />
+                                  <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
+                                  {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                                  <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
+                                  {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
+                                  <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-center">
+                                  <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
+                                  <div className="text-xs text-gray-400">evaluators</div>
+                                </div>
+                                {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
+                                <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
+                                {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {byDate[date].map(entry => (
-                        <div key={entry.schedule_id} className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-semibold text-gray-900">{entry.org_name}</span>
-                              <span className="text-gray-600 text-sm">{entry.category_name}</span>
-                              {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                              <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
-                              {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
-                              <span>S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <div className="text-center">
-                              <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                              <div className="text-xs text-gray-400">evaluators</div>
-                            </div>
-                            {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
-                            <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
-                            {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

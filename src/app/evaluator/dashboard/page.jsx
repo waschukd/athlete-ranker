@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, ChevronLeft, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
+import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
+import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 
 const qc = new QueryClient();
 
@@ -20,8 +22,8 @@ function formatTime(t) {
 }
 
 // Compact time range used by the dense Available list. Drops the AM/PM on the
-// start when both ends share it ("9:00–10:15a"), keeps both when crossing
-// noon ("11:30a–12:30p"). Saves ~4 chars per row vs. the full formatTime.
+// start when both ends share it ("9:00â€“10:15a"), keeps both when crossing
+// noon ("11:30aâ€“12:30p"). Saves ~4 chars per row vs. the full formatTime.
 function formatTimeRange(start, end) {
   if (!start) return "";
   const parse = (t) => {
@@ -34,65 +36,12 @@ function formatTimeRange(start, end) {
   const s = parse(start);
   if (!end) return `${s.display}:${s.m}${s.ampm}`;
   const e = parse(end);
-  if (s.ampm === e.ampm) return `${s.display}:${s.m}–${e.display}:${e.m}${e.ampm}`;
-  return `${s.display}:${s.m}${s.ampm}–${e.display}:${e.m}${e.ampm}`;
+  if (s.ampm === e.ampm) return `${s.display}:${s.m}â€“${e.display}:${e.m}${e.ampm}`;
+  return `${s.display}:${s.m}${s.ampm}â€“${e.display}:${e.m}${e.ampm}`;
 }
 
-// Palette is intentionally spread across the color wheel so adjacent entries
-// are visually distinct even at chip-tint saturation. `bg` is the chip
-// background, `fg` is text on top, `hex` is the strong color used for the
-// row's left border. Inline hex avoids Tailwind purge issues with
-// dynamically-named classes.
-const ORG_PALETTE = [
-  { hex: "#2563eb", bg: "#bfdbfe", fg: "#1e3a8a" }, // blue
-  { hex: "#dc2626", bg: "#fecaca", fg: "#7f1d1d" }, // red
-  { hex: "#16a34a", bg: "#bbf7d0", fg: "#14532d" }, // green
-  { hex: "#ea580c", bg: "#fed7aa", fg: "#7c2d12" }, // orange
-  { hex: "#9333ea", bg: "#e9d5ff", fg: "#581c87" }, // purple
-  { hex: "#ca8a04", bg: "#fef08a", fg: "#713f12" }, // gold
-  { hex: "#0891b2", bg: "#a5f3fc", fg: "#164e63" }, // cyan
-  { hex: "#db2777", bg: "#fbcfe8", fg: "#831843" }, // pink
-  { hex: "#65a30d", bg: "#d9f99d", fg: "#365314" }, // lime
-  { hex: "#7c3aed", bg: "#ddd6fe", fg: "#4c1d95" }, // violet
-];
-
-// Hash-based fallback for places without access to the position-based map
-// below (e.g. SessionCard in the My Sessions tab). Keeps colors stable
-// across renders even when the AvailableSessionsView isn't mounted.
-function colorForOrg(name) {
-  if (!name) return ORG_PALETTE[0];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return ORG_PALETTE[Math.abs(h) % ORG_PALETTE.length];
-}
-
-// Build a deterministic, collision-free org -> palette map from the orgs
-// actually present in the current view. Sorts alphabetically so the same
-// set of orgs always assigns the same colors regardless of session order.
-// Wraps once palette is exhausted (rare — would need >10 distinct orgs).
-function buildOrgColorMap(orgNames) {
-  const unique = Array.from(new Set(orgNames.filter(Boolean))).sort();
-  const map = new Map();
-  unique.forEach((name, i) => {
-    map.set(name, ORG_PALETTE[i % ORG_PALETTE.length]);
-  });
-  return map;
-}
-
-// Short label for the org chip: keep short names as-is, abbreviate long
-// names as initials. "BAHA" -> "BAHA". "Millwoods Minor Hockey Association"
-// -> "MMHA". "South East Edmonton Recreational Assoc" -> "SEERA".
-function abbrevOrgName(name) {
-  if (!name) return "?";
-  const trimmed = name.trim();
-  if (trimmed.length <= 6) return trimmed.toUpperCase();
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    const initials = words.map(w => w[0]).join("").toUpperCase();
-    if (initials.length >= 3 && initials.length <= 6) return initials;
-  }
-  return trimmed.slice(0, 6).toUpperCase();
-}
+// Org visuals (palette + chip + abbreviation) are now in @/lib/orgVisuals.
+// Date strip + month calendar are in @/components/SessionDateNav.
 
 function formatDate(d) {
   if (!d) return "";
@@ -152,7 +101,7 @@ function InviteModal({ session, onClose }) {
           <div>
             <h3 className="font-bold text-gray-900">Invite an Evaluator</h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              {session.org_name} · {session.category_name} · S{session.session_number} G{session.group_number}
+              {session.org_name} Â· {session.category_name} Â· S{session.session_number} G{session.group_number}
             </p>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
@@ -235,7 +184,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <span className="font-bold text-gray-900">{session.org_name}</span>
-              <span className="text-gray-300">·</span>
+              <span className="text-gray-300">Â·</span>
               <span className="font-medium text-gray-700">{session.category_name}</span>
               {session.session_type && (
                 <span className={`text-xs px-2 py-0.5 rounded-full border font-medium capitalize ${SESSION_TYPE_COLORS[session.session_type] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
@@ -246,20 +195,20 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
             <div className="grid grid-cols-1 gap-1 text-sm text-gray-500 mt-1">
               <span className="flex items-center gap-1.5"><Calendar size={13} />{formatDate(session.scheduled_date)}</span>
               {session.start_time && (
-                <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` – ${formatTime(session.end_time)}` : ""}</span>
+                <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` â€“ ${formatTime(session.end_time)}` : ""}</span>
               )}
               {session.location && (
                 <span className="flex items-center gap-1.5"><MapPin size={13} />{session.location}</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
-              <span>Session {session.session_number}{session.group_number ? ` · Group ${session.group_number}` : ""}</span>
+              <span>Session {session.session_number}{session.group_number ? ` Â· Group ${session.group_number}` : ""}</span>
               <span className="flex items-center gap-1">
                 <Users size={11} />
                 {mode === "mine"
                   ? spotsAfterMe > 0
                     ? `${spotsAfterMe} more evaluator${spotsAfterMe !== 1 ? "s" : ""} needed`
-                    : "Session fully staffed ✓"
+                    : "Session fully staffed âœ“"
                   : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left of ${session.evaluators_required}`
                 }
               </span>
@@ -309,10 +258,10 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
   );
 }
 
-// ── Calendar subscribe panel ─────────────────────────────────────────
+// â”€â”€ Calendar subscribe panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // One-time subscription to a personal ICS feed. Once added, the user's
 // calendar app (Google / Apple / Outlook) auto-pulls new signups,
-// schedule changes, cancellations — no polling, no notifications to wire
+// schedule changes, cancellations â€” no polling, no notifications to wire
 // up, and the OS-level calendar reminders work for free.
 function CalendarSubscribePanel() {
   const [copied, setCopied] = useState(false);
@@ -364,7 +313,7 @@ function CalendarSubscribePanel() {
             <Calendar size={14} /> Sync to your calendar
           </h3>
           <p className="text-xs text-blue-700/80 mt-1 leading-relaxed">
-            Subscribe once. Sessions appear automatically in your calendar app — including reminders, future signups, and cancellations.
+            Subscribe once. Sessions appear automatically in your calendar app â€” including reminders, future signups, and cancellations.
           </p>
         </div>
         <button onClick={dismiss} className="text-blue-400 hover:text-blue-700 p-1 -m-1 flex-shrink-0" aria-label="Hide">
@@ -378,13 +327,13 @@ function CalendarSubscribePanel() {
           rel="noopener noreferrer"
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
         >
-          📅 Add to Google Calendar
+          ðŸ“… Add to Google Calendar
         </a>
         <a
           href={data?.webcalUrl || "#"}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
         >
-          🍎 Add to Apple Calendar
+          ðŸŽ Add to Apple Calendar
         </a>
         <button
           onClick={handleCopy}
@@ -399,7 +348,7 @@ function CalendarSubscribePanel() {
   );
 }
 
-// ── Available Sessions: grouped by Date → Arena, with filters ────────────
+// â”€â”€ Available Sessions: grouped by Date â†’ Arena, with filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replaces the old flat chronological list. Evaluators think about their
 // schedule by "what rink am I at on what day" so they can chain sessions.
 
@@ -430,7 +379,7 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         gridTemplateColumns: "auto 1fr auto",
       }}
     >
-      {/* Org chip — fixed width by content, color-coded so even tiny screens identify the association */}
+      {/* Org chip â€” fixed width by content, color-coded so even tiny screens identify the association */}
       <span
         className="inline-flex items-center justify-center text-[11px] font-bold tracking-wide rounded px-2 py-1 row-span-2 self-stretch flex-shrink-0"
         style={{ background: palette.bg, color: palette.fg, minWidth: "44px" }}
@@ -444,20 +393,20 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         <span className="font-semibold text-gray-900 text-sm truncate">
           {session.category_name}
         </span>
-        <span className="text-gray-300 flex-shrink-0">·</span>
+        <span className="text-gray-300 flex-shrink-0">Â·</span>
         <span className="text-gray-500 text-xs font-mono whitespace-nowrap flex-shrink-0">
           S{session.session_number}G{session.group_number}
         </span>
       </div>
 
-      {/* Sign Up button — replaced with a disabled Conflict button when this
+      {/* Sign Up button â€” replaced with a disabled Conflict button when this
           session overlaps one of the user's existing signups */}
       {conflict ? (
         <button
           disabled
           className="row-span-2 self-center px-3 py-2 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 cursor-not-allowed border border-amber-300"
           title={`Overlaps with ${conflict.label} (${conflict.start?.slice(0, 5)}-${conflict.end?.slice(0, 5)})`}
-          aria-label="Time conflict — already signed up for an overlapping session"
+          aria-label="Time conflict â€” already signed up for an overlapping session"
         >
           <AlertTriangle size={13} />
           <span>Conflict</span>
@@ -480,11 +429,11 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         </span>
         {conflict ? (
           <span className="text-amber-700 font-medium whitespace-nowrap">
-            · Overlaps {conflict.label}
+            Â· Overlaps {conflict.label}
           </span>
         ) : (
           <span className="text-amber-600 font-semibold whitespace-nowrap">
-            · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
+            Â· {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
           </span>
         )}
       </div>
@@ -492,204 +441,6 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
   );
 }
 
-// ── Date strip: horizontal scroll of dates, dots per association ────────
-// Always visible above the list. Tapping a pill filters the list to that
-// day; tapping the same pill again clears the filter.
-function DateStripBar({ sessions, selectedDate, onSelect, paletteFor }) {
-  const dateBuckets = useMemo(() => {
-    const map = new Map(); // dateKey -> { count, orgs: Set }
-    sessions.forEach(s => {
-      const key = s.scheduled_date?.toString().split("T")[0];
-      if (!key) return;
-      if (!map.has(key)) map.set(key, { count: 0, orgs: new Set() });
-      const bucket = map.get(key);
-      bucket.count++;
-      if (s.org_name) bucket.orgs.add(s.org_name);
-    });
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, b]) => ({ key, count: b.count, orgs: Array.from(b.orgs).sort() }));
-  }, [sessions]);
-
-  if (dateBuckets.length === 0) return null;
-
-  return (
-    <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-      {dateBuckets.map(({ key, count, orgs }) => {
-        const [y, m, d] = key.split("-").map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        const isSelected = selectedDate === key;
-        const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
-        const dayMonth = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        return (
-          <button
-            key={key}
-            onClick={() => onSelect(isSelected ? null : key)}
-            className={`flex-shrink-0 snap-start flex flex-col items-center justify-between rounded-lg px-2.5 py-2 min-w-[64px] border transition-colors ${
-              isSelected
-                ? "bg-[#1A6BFF] border-[#1A6BFF] text-white"
-                : "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-            }`}
-          >
-            <span className={`text-[10px] uppercase font-semibold ${isSelected ? "text-blue-100" : "text-gray-400"}`}>
-              {dayName}
-            </span>
-            <span className="text-sm font-bold whitespace-nowrap">{dayMonth}</span>
-            <div className="flex items-center gap-1 mt-1">
-              <span className={`text-[10px] font-semibold ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
-                {count}
-              </span>
-              <div className="flex gap-0.5">
-                {orgs.slice(0, 3).map(o => (
-                  <span
-                    key={o}
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ background: paletteFor(o).hex, boxShadow: isSelected ? "0 0 0 1px white" : "none" }}
-                  />
-                ))}
-              </div>
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Month grid: full-month calendar with dots per day ─────────────────────
-// Shown in place of the list when the user toggles "Calendar" view. Tap any
-// day to switch back to the list filtered to that day. Navigates between
-// months but always stays bounded to months that have at least one session
-// (no point letting users wander into Sept 2027 if there's nothing there).
-function MonthCalendar({ sessions, onSelect, paletteFor }) {
-  // Index sessions by date for quick lookups
-  const byDate = useMemo(() => {
-    const map = new Map();
-    sessions.forEach(s => {
-      const key = s.scheduled_date?.toString().split("T")[0];
-      if (!key) return;
-      if (!map.has(key)) map.set(key, { count: 0, orgs: new Set() });
-      const b = map.get(key);
-      b.count++;
-      if (s.org_name) b.orgs.add(s.org_name);
-    });
-    return map;
-  }, [sessions]);
-
-  // Pick initial month: earliest session month, or current month if no sessions
-  const [viewMonth, setViewMonth] = useState(() => {
-    const first = sessions
-      .map(s => s.scheduled_date?.toString().split("T")[0])
-      .filter(Boolean)
-      .sort()[0];
-    if (first) {
-      const [y, m] = first.split("-").map(Number);
-      return new Date(y, m - 1, 1);
-    }
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-
-  const monthName = viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const year = viewMonth.getFullYear();
-  const month = viewMonth.getMonth();
-  const firstDayOfMonth = new Date(year, month, 1);
-  const startWeekday = firstDayOfMonth.getDay(); // 0 = Sunday
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-  // Build a grid of 6 weeks × 7 days = 42 cells, padded with prev/next month days
-  const cells = [];
-  // Leading days from previous month
-  for (let i = startWeekday - 1; i >= 0; i--) {
-    cells.push({ day: daysInPrevMonth - i, inMonth: false, dateKey: null });
-  }
-  // Days in current month
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    cells.push({ day: d, inMonth: true, dateKey });
-  }
-  // Trailing days from next month to fill 6 rows
-  while (cells.length < 42) {
-    const overflow = cells.length - (startWeekday + daysInMonth) + 1;
-    cells.push({ day: overflow, inMonth: false, dateKey: null });
-  }
-
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-  const goPrev = () => setViewMonth(new Date(year, month - 1, 1));
-  const goNext = () => setViewMonth(new Date(year, month + 1, 1));
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4">
-      <div className="flex items-center justify-between mb-3">
-        <button
-          onClick={goPrev}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
-          aria-label="Previous month"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <h3 className="text-base font-bold text-gray-900">{monthName}</h3>
-        <button
-          onClick={goNext}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
-          aria-label="Next month"
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-1 mb-1">
-        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-          <div key={i} className="text-center text-[10px] font-semibold text-gray-400 uppercase">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((cell, i) => {
-          const bucket = cell.dateKey ? byDate.get(cell.dateKey) : null;
-          const orgs = bucket ? Array.from(bucket.orgs).sort() : [];
-          const isToday = cell.dateKey === todayKey;
-          const hasSessions = bucket && bucket.count > 0;
-          return (
-            <button
-              key={i}
-              onClick={() => hasSessions && onSelect(cell.dateKey)}
-              disabled={!hasSessions}
-              className={`aspect-square min-h-[44px] flex flex-col items-center justify-center rounded-md text-xs transition-colors ${
-                cell.inMonth
-                  ? hasSessions
-                    ? "hover:bg-blue-50 cursor-pointer"
-                    : "cursor-default"
-                  : "opacity-30 cursor-default"
-              } ${isToday ? "ring-2 ring-blue-400" : ""}`}
-            >
-              <span className={`font-medium ${cell.inMonth ? "text-gray-900" : "text-gray-400"}`}>
-                {cell.day}
-              </span>
-              {hasSessions && (
-                <div className="flex gap-0.5 mt-0.5">
-                  {orgs.slice(0, 4).map(o => (
-                    <span
-                      key={o}
-                      className="inline-block w-1.5 h-1.5 rounded-full"
-                      style={{ background: paletteFor(o).hex }}
-                    />
-                  ))}
-                  {orgs.length > 4 && (
-                    <span className="text-[8px] text-gray-400">+</span>
-                  )}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading }) {
   const [dateRange, setDateRange] = useState("all");
@@ -776,7 +527,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
     });
   }, [sessions, dateRange, orgFilter, arenaFilter, selectedDate]);
 
-  // Group: date → arena → sessions[] (sorted by start_time)
+  // Group: date â†’ arena â†’ sessions[] (sorted by start_time)
   const grouped = useMemo(() => {
     const byDate = {};
     filtered.forEach(s => {
@@ -850,7 +601,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         </div>
       </div>
 
-      {/* Selected-date chip — appears when user picks a specific date from strip / calendar */}
+      {/* Selected-date chip â€” appears when user picks a specific date from strip / calendar */}
       {selectedDate && (
         <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
           <Calendar size={14} className="text-blue-600" />
@@ -882,7 +633,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         />
       )}
 
-      {/* Date strip — shown only in list mode, lets user jump to a day quickly */}
+      {/* Date strip â€” shown only in list mode, lets user jump to a day quickly */}
       {viewMode === "list" && (
         <DateStripBar
           sessions={sessions}
@@ -950,7 +701,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                     <Calendar size={14} className="text-gray-400" />
                     <span className="font-bold text-gray-900">{formatDate(date)}</span>
                     <span className="text-xs text-gray-400 font-normal">
-                      {dayTotal} session{dayTotal !== 1 ? "s" : ""} · {arenaKeys.length} {arenaKeys.length === 1 ? "rink" : "rinks"}
+                      {dayTotal} session{dayTotal !== 1 ? "s" : ""} Â· {arenaKeys.length} {arenaKeys.length === 1 ? "rink" : "rinks"}
                     </span>
                   </div>
                 </button>
@@ -958,7 +709,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                   <div className="divide-y divide-gray-100">
                     {arenaKeys.map(arena => {
                       const sess = arenasForDate[arena];
-                      // Distinct orgs at this arena/day, in name order — shown
+                      // Distinct orgs at this arena/day, in name order â€” shown
                       // as colored dots so an evaluator can tell at a glance
                       // whether this rink today is single-org or mixed.
                       const orgsAtArena = Array.from(new Set(sess.map(s => s.org_name).filter(Boolean))).sort();
@@ -968,7 +719,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                             <MapPin size={13} className="text-gray-400" />
                             {arena}
                             <span className="text-xs text-gray-400 font-normal">
-                              · {sess.length} session{sess.length !== 1 ? "s" : ""}
+                              Â· {sess.length} session{sess.length !== 1 ? "s" : ""}
                             </span>
                             {orgsAtArena.length > 0 && (
                               <span className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
@@ -1056,7 +807,7 @@ function EvaluatorDashboard() {
       return { ok: res.ok, ...data };
     },
     onSuccess: (data) => {
-      // Server returned an error (409 conflict, 400 no spots, etc) — surface
+      // Server returned an error (409 conflict, 400 no spots, etc) â€” surface
       // it as a banner instead of treating it as a successful signup.
       if (!data.ok || data.error) {
         setSignupError(data.message || data.error || "Couldn't sign up.");
@@ -1153,7 +904,7 @@ function EvaluatorDashboard() {
         {/* Status banners */}
         {statusData?.suspended && (
           <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
-            <span className="text-red-500 text-xl flex-shrink-0">🚫</span>
+            <span className="text-red-500 text-xl flex-shrink-0">ðŸš«</span>
             <div>
               <p className="font-bold text-red-800">Your account has been suspended</p>
               <p className="text-sm text-red-600 mt-0.5">You have received two late cancellation strikes. You have been removed from all future sessions. Contact your service provider to be reinstated.</p>
@@ -1162,9 +913,9 @@ function EvaluatorDashboard() {
         )}
         {!statusData?.suspended && statusData?.strike_count === 1 && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
-            <span className="text-amber-500 text-xl flex-shrink-0">⚠️</span>
+            <span className="text-amber-500 text-xl flex-shrink-0">âš ï¸</span>
             <div>
-              <p className="font-bold text-amber-800">Warning — Strike 1 on record</p>
+              <p className="font-bold text-amber-800">Warning â€” Strike 1 on record</p>
               <p className="text-sm text-amber-600 mt-0.5">You have one late cancellation on record. A second cancellation with less than 24 hours notice will result in automatic suspension.</p>
             </div>
           </div>
