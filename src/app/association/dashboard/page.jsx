@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Users, Calendar, Trophy, Plus, ChevronRight, Zap, Copy, Check, ArrowLeft, Trash2, Mail, X, ExternalLink, LogOut } from "lucide-react";
+import { OrgAvatar } from "@/lib/orgVisuals";
 
 const qc = new QueryClient();
 
@@ -105,7 +106,23 @@ function Dashboard() {
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} alt="Sideline Star" />
+                <OrgAvatar
+                  name={org?.name}
+                  logoUrl={org?.logo_url}
+                  size={56}
+                  onUpload={async (file) => {
+                    const fd = new FormData();
+                    fd.append("logo", file);
+                    const res = await fetch(`/api/organizations/${orgId}/logo`, { method: "POST", body: fd });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Upload failed");
+                    queryClient.invalidateQueries(["org", orgId]);
+                  }}
+                  onRemove={async () => {
+                    const res = await fetch(`/api/organizations/${orgId}/logo`, { method: "DELETE" });
+                    if (res.ok) queryClient.invalidateQueries(["org", orgId]);
+                  }}
+                />
                 <h1 className="text-3xl font-bold text-gray-900">{org?.name || "Association Dashboard"}</h1>
               </div>
               <p className="text-gray-500 text-sm mt-1">Manage age categories, athletes, evaluations, and rankings</p>
