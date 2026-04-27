@@ -2,7 +2,7 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, ChevronLeft, Copy, CalendarDays, List } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, ChevronLeft, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
 
 const qc = new QueryClient();
 
@@ -417,12 +417,12 @@ function FilterChip({ value, options, onChange }) {
   );
 }
 
-function AvailableSessionRow({ session, onSignup, palette }) {
+function AvailableSessionRow({ session, onSignup, palette, conflict }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const orgAbbrev = abbrevOrgName(session.org_name);
   return (
     <div
-      className="grid items-center gap-x-2 gap-y-0.5 py-2 pl-3 pr-2 -mx-1 rounded-md hover:bg-gray-50 transition-colors"
+      className={`grid items-center gap-x-2 gap-y-0.5 py-2 pl-3 pr-2 -mx-1 rounded-md transition-colors ${conflict ? "bg-amber-50/50" : "hover:bg-gray-50"}`}
       style={{
         borderLeft: `4px solid ${palette.hex}`,
         // Two-row layout on narrow screens; single-row on wider.
@@ -450,24 +450,43 @@ function AvailableSessionRow({ session, onSignup, palette }) {
         </span>
       </div>
 
-      {/* Sign Up button — spans both rows on the right */}
-      <button
-        onClick={() => onSignup(session.schedule_id)}
-        className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
-        aria-label="Sign up for this session"
-      >
-        <Plus size={13} />
-        <span>Sign Up</span>
-      </button>
+      {/* Sign Up button — replaced with a disabled Conflict button when this
+          session overlaps one of the user's existing signups */}
+      {conflict ? (
+        <button
+          disabled
+          className="row-span-2 self-center px-3 py-2 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 cursor-not-allowed border border-amber-300"
+          title={`Overlaps with ${conflict.label} (${conflict.start?.slice(0, 5)}-${conflict.end?.slice(0, 5)})`}
+          aria-label="Time conflict — already signed up for an overlapping session"
+        >
+          <AlertTriangle size={13} />
+          <span>Conflict</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => onSignup(session.schedule_id)}
+          className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
+          aria-label="Sign up for this session"
+        >
+          <Plus size={13} />
+          <span>Sign Up</span>
+        </button>
+      )}
 
-      {/* Bottom text row: Time + spots remaining */}
-      <div className="flex items-center gap-2 text-xs">
+      {/* Bottom text row: Time + spots remaining (or conflict source) */}
+      <div className="flex items-center gap-2 text-xs flex-wrap">
         <span className="font-mono font-semibold text-gray-700 tabular-nums whitespace-nowrap">
           {formatTimeRange(session.start_time, session.end_time)}
         </span>
-        <span className="text-amber-600 font-semibold whitespace-nowrap">
-          · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
-        </span>
+        {conflict ? (
+          <span className="text-amber-700 font-medium whitespace-nowrap">
+            · Overlaps {conflict.label}
+          </span>
+        ) : (
+          <span className="text-amber-600 font-semibold whitespace-nowrap">
+            · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
+          </span>
+        )}
       </div>
     </div>
   );
@@ -672,13 +691,37 @@ function MonthCalendar({ sessions, onSelect, paletteFor }) {
   );
 }
 
-function AvailableSessionsView({ sessions, onSignup, isLoading }) {
+function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading }) {
   const [dateRange, setDateRange] = useState("all");
   const [orgFilter, setOrgFilter] = useState("all");
   const [arenaFilter, setArenaFilter] = useState("all");
   const [collapsedDays, setCollapsedDays] = useState(new Set());
   const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
   const [selectedDate, setSelectedDate] = useState(null); // YYYY-MM-DD or null
+
+  // Pre-flatten the user's existing signups into (date, start, end, label)
+  // shape so the row component can do an O(N) overlap check per render.
+  const myOccupied = useMemo(() => {
+    return (mySessions || [])
+      .filter(s => !s.signup_status || s.signup_status === "signed_up")
+      .map(s => ({
+        dateKey: s.scheduled_date?.toString().split("T")[0],
+        start: s.start_time?.toString(),
+        end: s.end_time?.toString(),
+        label: `${s.org_name} ${s.category_name} S${s.session_number}G${s.group_number}`,
+      }))
+      .filter(x => x.dateKey && x.start && x.end);
+  }, [mySessions]);
+
+  const findConflict = (session) => {
+    const dateKey = session.scheduled_date?.toString().split("T")[0];
+    const start = session.start_time?.toString();
+    const end = session.end_time?.toString();
+    if (!dateKey || !start || !end) return null;
+    return myOccupied.find(o =>
+      o.dateKey === dateKey && o.start < end && o.end > start
+    ) || null;
+  };
 
   const orgs = useMemo(() => {
     const set = new Set();
@@ -947,7 +990,13 @@ function AvailableSessionsView({ sessions, onSignup, isLoading }) {
                           </div>
                           <div className="space-y-0.5">
                             {sess.map(s => (
-                              <AvailableSessionRow key={s.schedule_id} session={s} onSignup={onSignup} palette={paletteFor(s.org_name)} />
+                              <AvailableSessionRow
+                                key={s.schedule_id}
+                                session={s}
+                                onSignup={onSignup}
+                                palette={paletteFor(s.org_name)}
+                                conflict={findConflict(s)}
+                              />
                             ))}
                           </div>
                         </div>
@@ -970,6 +1019,7 @@ function EvaluatorDashboard() {
   const [joinCode, setJoinCode] = useState("");
   const [joinMsg, setJoinMsg] = useState("");
   const [joiningOrg, setJoiningOrg] = useState(false);
+  const [signupError, setSignupError] = useState(null);
 
   const { data: statusData } = useQuery({
     queryKey: ["evaluator-status"],
@@ -1002,9 +1052,17 @@ function EvaluatorDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedule_id, action: "signup" }),
       });
-      return res.json();
+      const data = await res.json();
+      return { ok: res.ok, ...data };
     },
     onSuccess: (data) => {
+      // Server returned an error (409 conflict, 400 no spots, etc) — surface
+      // it as a banner instead of treating it as a successful signup.
+      if (!data.ok || data.error) {
+        setSignupError(data.message || data.error || "Couldn't sign up.");
+        return;
+      }
+      setSignupError(null);
       queryClient.invalidateQueries(["evaluator-sessions-mine"]);
       queryClient.invalidateQueries(["evaluator-sessions-available"]);
       if (data.ical) {
@@ -1157,11 +1215,30 @@ function EvaluatorDashboard() {
         )}
 
         {activeTab === "available" && (
-          <AvailableSessionsView
-            sessions={availSessions}
-            isLoading={availLoading}
-            onSignup={id => signupMutation.mutate(id)}
-          />
+          <>
+            {signupError && (
+              <div className="mb-3 flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg">
+                <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-amber-900 font-semibold">Couldn't sign up</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{signupError}</p>
+                </div>
+                <button
+                  onClick={() => setSignupError(null)}
+                  className="text-amber-600 hover:text-amber-900 flex-shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            <AvailableSessionsView
+              sessions={availSessions}
+              mySessions={mineSessions}
+              isLoading={availLoading}
+              onSignup={id => signupMutation.mutate(id)}
+            />
+          </>
         )}
 
         {activeTab === "join" && (

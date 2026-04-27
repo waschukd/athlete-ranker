@@ -183,6 +183,53 @@ export async function POST(request) {
       return NextResponse.json({ error: "No spots available" }, { status: 400 });
     }
 
+    // ── Time-conflict guard ────────────────────────────────────────────
+    // Reject signup if it overlaps any existing same-day signup. Two
+    // intervals overlap iff (existing.start < new.end) AND (existing.end >
+    // new.start) — strict less-than so back-to-back sessions are allowed.
+    if (info.start_time && info.end_time) {
+      const conflicts = await sql`
+        SELECT
+          sch.id            AS schedule_id,
+          sch.start_time,
+          sch.end_time,
+          sch.session_number,
+          sch.group_number,
+          sch.location,
+          ac.name           AS category_name,
+          o.name            AS org_name
+        FROM evaluator_session_signups ess
+        JOIN evaluation_schedule sch ON sch.id = ess.schedule_id
+        JOIN age_categories ac       ON ac.id  = sch.age_category_id
+        JOIN organizations o         ON o.id   = ac.organization_id
+        WHERE ess.user_id = ${appUserId}
+          AND ess.status = 'signed_up'
+          AND sch.scheduled_date = ${info.scheduled_date}
+          AND sch.id != ${schedule_id}
+          AND sch.start_time IS NOT NULL
+          AND sch.end_time IS NOT NULL
+          AND sch.start_time < ${info.end_time}
+          AND sch.end_time   > ${info.start_time}
+        LIMIT 1
+      `;
+      if (conflicts.length > 0) {
+        const c = conflicts[0];
+        return NextResponse.json({
+          error: "Time conflict",
+          conflict: {
+            org_name: c.org_name,
+            category_name: c.category_name,
+            session_number: c.session_number,
+            group_number: c.group_number,
+            start_time: c.start_time,
+            end_time: c.end_time,
+            location: c.location,
+          },
+          message: `You're already signed up for ${c.org_name} ${c.category_name} S${c.session_number}G${c.group_number} (${c.start_time?.toString().slice(0, 5)}-${c.end_time?.toString().slice(0, 5)}) at the same time.`,
+        }, { status: 409 });
+      }
+    }
+
     await sql`
       INSERT INTO evaluator_session_signups (user_id, schedule_id, status, notified_at)
       VALUES (${appUserId}, ${schedule_id}, 'signed_up', NOW())
