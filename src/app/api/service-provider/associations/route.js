@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const associations = await sql`
       SELECT
-        o.id, o.name, o.contact_email, o.contact_name, o.org_code,
+        o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url,
         sal.linked_at, sal.status,
         COUNT(DISTINCT ac.id) as age_categories,
         COUNT(DISTINCT a.id) FILTER (WHERE a.is_active = true) as athletes,
@@ -33,7 +33,7 @@ export async function GET(request) {
       LEFT JOIN athletes a ON a.organization_id = o.id
       LEFT JOIN evaluation_schedule es ON es.age_category_id = ac.id
       WHERE sal.service_provider_id = ${spId}
-      GROUP BY o.id, o.name, o.contact_email, o.contact_name, o.org_code, sal.linked_at, sal.status
+      GROUP BY o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url, sal.linked_at, sal.status
       ORDER BY o.name
     `;
 

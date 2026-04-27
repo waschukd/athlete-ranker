@@ -439,11 +439,29 @@ function SPDashboard() {
                 {associations.map(assoc => {
                   const assocSessions = schedule.filter(s => s.org_id === assoc.id && s.scheduled_date >= today);
                   const needsEval = assocSessions.filter(s => s.spots_open > 0).length;
+                  const uploadLogo = async (file) => {
+                    const fd = new FormData();
+                    fd.append("logo", file);
+                    const res = await fetch(`/api/organizations/${assoc.id}/logo`, { method: "POST", body: fd });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Upload failed");
+                    queryClient.invalidateQueries(["sp-associations"]);
+                  };
+                  const removeLogo = async () => {
+                    const res = await fetch(`/api/organizations/${assoc.id}/logo`, { method: "DELETE" });
+                    if (res.ok) queryClient.invalidateQueries(["sp-associations"]);
+                  };
                   return (
                     <div key={assoc.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1A6BFF]/50 hover:shadow-md transition-all">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3 min-w-0">
-                          <OrgAvatar name={assoc.name} logoUrl={assoc.logo_url} size={44} />
+                          <OrgAvatar
+                            name={assoc.name}
+                            logoUrl={assoc.logo_url}
+                            size={48}
+                            onUpload={uploadLogo}
+                            onRemove={removeLogo}
+                          />
                           <div className="min-w-0">
                             <h3 className="font-bold text-gray-900 truncate" title={assoc.name}>{assoc.name}</h3>
                             <p className="text-xs text-gray-400 truncate">{assoc.contact_email}</p>

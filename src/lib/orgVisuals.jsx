@@ -6,7 +6,8 @@
 //
 // All colors are inline hex so Tailwind's purge step doesn't drop them.
 
-import React from "react";
+import React, { useRef, useState } from "react";
+import { Camera, X } from "lucide-react";
 
 // Palette: 10 hues spread maximally around the color wheel so adjacent
 // palette indexes stay visually distinct even as background tints. `bg`
@@ -87,39 +88,150 @@ export function OrgChip({ name, palette, className = "", style = {}, title }) {
 
 /**
  * OrgAvatar — square colored tile with the org's initials. Used wherever
- * a generic "office building" icon was used for an org (e.g. association
- * cards on the SP admin dashboard). Custom size via prop.
+ * a generic "office building" icon was used for an org. Custom size via prop.
  *
- * If `logoUrl` is supplied, renders the uploaded image instead.
+ * If `logoUrl` is supplied, renders the uploaded image instead of initials.
+ *
+ * If `onUpload(file)` is supplied (admin context), the avatar becomes
+ * clickable: a hover overlay invites uploading; clicking opens a file
+ * picker; selecting a file calls `onUpload` with the File. While onUpload
+ * is in flight, a spinner is shown. If `onRemove` is also supplied AND the
+ * org currently has a logo, an "X" badge appears to clear it.
  */
-export function OrgAvatar({ name, logoUrl, palette, size = 40, className = "" }) {
+export function OrgAvatar({
+  name,
+  logoUrl,
+  palette,
+  size = 40,
+  className = "",
+  onUpload,
+  onRemove,
+}) {
   const p = palette || colorForOrg(name);
   const initials = avatarInitials(name);
   const fontSize = Math.round(size * 0.4);
-  if (logoUrl) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file || !onUpload) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onUpload(file);
+    } catch (err) {
+      setError(err?.message || "Upload failed");
+      setTimeout(() => setError(null), 3500);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async (e) => {
+    e.stopPropagation();
+    if (!onRemove) return;
+    setBusy(true);
+    try { await onRemove(); } finally { setBusy(false); }
+  };
+
+  // Pure display mode — no upload affordance
+  if (!onUpload) {
+    if (logoUrl) {
+      return (
+        <img
+          src={logoUrl}
+          alt={name || "Organization"}
+          className={`rounded-lg object-cover ${className}`}
+          style={{ width: size, height: size, background: p.bg }}
+        />
+      );
+    }
     return (
-      <img
-        src={logoUrl}
-        alt={name || "Organization"}
-        className={`rounded-lg object-cover ${className}`}
-        style={{ width: size, height: size, background: p.bg }}
-      />
+      <div
+        className={`rounded-lg flex items-center justify-center font-bold flex-shrink-0 ${className}`}
+        style={{ width: size, height: size, background: p.bg, color: p.fg, fontSize }}
+        aria-label={name || "Organization"}
+        title={name || undefined}
+      >
+        {initials}
+      </div>
     );
   }
+
+  // Editable mode — clickable, with hover overlay
   return (
     <div
-      className={`rounded-lg flex items-center justify-center font-bold flex-shrink-0 ${className}`}
-      style={{
-        width: size,
-        height: size,
-        background: p.bg,
-        color: p.fg,
-        fontSize,
-      }}
-      aria-label={name || "Organization"}
-      title={name || undefined}
+      className={`relative group flex-shrink-0 ${className}`}
+      style={{ width: size, height: size }}
     >
-      {initials}
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={name || "Organization"}
+          className="rounded-lg object-cover w-full h-full"
+          style={{ background: p.bg }}
+        />
+      ) : (
+        <div
+          className="rounded-lg flex items-center justify-center font-bold w-full h-full"
+          style={{ background: p.bg, color: p.fg, fontSize }}
+        >
+          {initials}
+        </div>
+      )}
+      {/* Click target + hover affordance */}
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={busy}
+        className="absolute inset-0 rounded-lg flex items-center justify-center bg-black/0 hover:bg-black/40 transition-colors opacity-0 group-hover:opacity-100 disabled:cursor-wait text-white"
+        title={logoUrl ? "Replace logo" : "Upload logo"}
+        aria-label={logoUrl ? "Replace logo" : "Upload logo"}
+      >
+        <Camera size={Math.max(14, Math.round(size * 0.35))} />
+      </button>
+      {/* Always-visible little camera badge so users know it's editable
+          even without hovering (desktop hover doesn't exist on touch) */}
+      {!busy && !logoUrl && (
+        <span
+          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 shadow-sm"
+          aria-hidden
+        >
+          <Camera size={10} />
+        </span>
+      )}
+      {/* Remove badge when there's already a logo */}
+      {!busy && logoUrl && onRemove && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center text-red-500 shadow-sm opacity-0 group-hover:opacity-100 hover:bg-red-50"
+          title="Remove logo"
+          aria-label="Remove logo"
+        >
+          <X size={11} />
+        </button>
+      )}
+      {busy && (
+        <div className="absolute inset-0 rounded-lg bg-black/40 flex items-center justify-center">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      {error && (
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] bg-red-600 text-white px-2 py-0.5 rounded shadow z-10">
+          {error}
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+        onChange={handleFile}
+        className="hidden"
+      />
     </div>
   );
 }
