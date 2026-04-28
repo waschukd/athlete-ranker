@@ -6,6 +6,7 @@ const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 const PUBLIC_PATHS = [
   "/landing",
+  "/privacy",
   "/account/signin",
   "/account/signup",
   "/account/forgot-password",
