@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 export async function GET(request) {
   try {
@@ -27,6 +28,9 @@ export async function GET(request) {
     if (!scheduleId || !catId || !sessionNumber) {
       return NextResponse.json({ error: "schedule_id, category_id, session_number required" }, { status: 400 });
     }
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Limit to athletes checked into THIS schedule (== this group's roster) so
     // we don't blend other groups' scores under the same age_category +

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { emailStrike1, emailStrike2Suspended, emailLateCancel48hr } from "@/lib/email";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 import { generateICS } from "@/lib/calendar";
 
 async function getAppUserId(session) {
@@ -27,6 +28,14 @@ export async function POST(request) {
     if (!appUserId) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const { schedule_id, action } = await request.json();
+
+    // Both cancel and signup mutate evaluator_session_signups for a specific
+    // schedule. Without this gate, anyone could sign up for any schedule by
+    // guessing its id, or trigger admin emails for orgs they don't belong to.
+    const sched = await sql`SELECT age_category_id FROM evaluation_schedule WHERE id = ${schedule_id}`;
+    if (!sched.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    const auth = await authorizeCategoryAccess(session, sched[0].age_category_id);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (action === "cancel") {
       // Get session info

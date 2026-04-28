@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, getAppUserId } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 
 export async function GET(request) {
   try {
@@ -16,6 +17,9 @@ export async function GET(request) {
     if (!catId || currentSession <= 1) {
       return NextResponse.json({ calibration: null }); // No prior session to compare
     }
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const prevSession = currentSession - 1;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 import sql from "@/lib/db";
 
 export async function POST(request) {
@@ -9,6 +10,13 @@ export async function POST(request) {
 
     const { schedule_id, email, session_info } = await request.json();
     if (!email || !schedule_id) return NextResponse.json({ error: "Email and session required" }, { status: 400 });
+
+    // Caller must have access to the schedule's category, otherwise this
+    // endpoint is a free outbound-email cannon for any logged-in user.
+    const sched = await sql`SELECT age_category_id FROM evaluation_schedule WHERE id = ${schedule_id}`;
+    if (!sched.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    const auth = await authorizeCategoryAccess(session, sched[0].age_category_id);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard`;
 
