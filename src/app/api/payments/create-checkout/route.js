@@ -1,3 +1,12 @@
+// Stripe Checkout creation for the parent-facing report purchase.
+//
+// Intentionally unauthenticated — parents arrive via a shared report
+// link and have no account. The share token in `report_links`
+// (random, marked is_active) is the authorization material here, the
+// same model used by /api/report/[token]. The token-share design is
+// out of scope to redesign in this PR (see the standing TODO on token
+// expiry + rate limiting).
+
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import sql from "@/lib/db";
