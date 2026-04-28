@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+// Default lifetime for a parent-facing share link. Bounded so that a
+// link leaked into search engines or shared in a parents' group chat
+// can't be replayed forever. Override per environment if a season runs
+// longer than 90 days.
+const TOKEN_TTL_DAYS = parseInt(process.env.REPORT_TOKEN_TTL_DAYS || "90", 10);
+
 export async function GET(request, { params }) {
   try {
     const { token } = params;
@@ -16,6 +22,15 @@ export async function GET(request, { params }) {
       WHERE rl.token = ${token} AND rl.is_active = true
     `;
     if (!link.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+
+    // Expiry check derived from created_at — keeps us off a schema
+    // migration. created_at is the row's insert default.
+    if (link[0].created_at) {
+      const ageMs = Date.now() - new Date(link[0].created_at).getTime();
+      if (ageMs > TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: "Report link expired" }, { status: 410 });
+      }
+    }
 
     const { athlete_id, age_category_id } = link[0];
 

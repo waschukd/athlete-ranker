@@ -11,6 +11,17 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import sql from "@/lib/db";
 
+// Mirror the read-side TTL on /api/report/[token] so a bought link can
+// never outlive its preview.
+const TOKEN_TTL_DAYS = parseInt(process.env.REPORT_TOKEN_TTL_DAYS || "90", 10);
+
+// Per-token throttle: how many checkout sessions we'll mint per token
+// inside a sliding window. Each create-checkout call writes a pending
+// row to report_purchases, so we count those instead of standing up a
+// dedicated rate-limit table.
+const MAX_CHECKOUTS_PER_WINDOW = parseInt(process.env.REPORT_CHECKOUT_MAX_PER_HOUR || "10", 10);
+const WINDOW_MINUTES = 60;
+
 export async function POST(request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -31,6 +42,25 @@ export async function POST(request) {
       WHERE rl.token = ${token} AND rl.is_active = true
     `;
     if (!link.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+
+    if (link[0].created_at) {
+      const ageMs = Date.now() - new Date(link[0].created_at).getTime();
+      if (ageMs > TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: "Report link expired" }, { status: 410 });
+      }
+    }
+
+    const recent = await sql`
+      SELECT COUNT(*)::int AS c FROM report_purchases
+      WHERE report_link_token = ${token}
+        AND created_at > NOW() - (${WINDOW_MINUTES} || ' minutes')::interval
+    `;
+    if ((recent[0]?.c || 0) >= MAX_CHECKOUTS_PER_WINDOW) {
+      return NextResponse.json(
+        { error: "Too many checkout attempts for this report. Please try again later." },
+        { status: 429 },
+      );
+    }
 
     const { athlete_id, age_category_id } = link[0];
 
