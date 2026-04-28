@@ -57,12 +57,18 @@ async function getSessionStaffing(orgId, daysAhead = 7) {
   }));
 }
 
+const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
+
 export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!ADMIN_ROLES.has(session.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const orgId = await getOrgId(session);
+    if (!orgId) return NextResponse.json({ error: "No org found for caller" }, { status: 403 });
     const body = await request.json();
     const { action } = body;
 
