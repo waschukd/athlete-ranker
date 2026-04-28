@@ -3,7 +3,7 @@ export const metadata = {
   description: "How Sideline Star collects, uses, and protects your information.",
 };
 
-const LAST_UPDATED = "April 24, 2026";
+const LAST_UPDATED = "April 28, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -93,13 +93,25 @@ export default function PrivacyPage() {
         </ul>
         <p>Each provider is subject to its own privacy policy. We share only the data necessary to operate the relevant feature.</p>
 
-        <h2 className="text-white text-xl font-semibold mt-8 mb-3">5. Data retention</h2>
+        <h2 className="text-white text-xl font-semibold mt-8 mb-3">5. Data retention and deletion</h2>
         <p>
-          We retain your account and evaluation data for as long as your account is active.
-          Evaluation data is typically retained by your association for the duration of a season
-          plus one year for historical comparison. If you want your account or data deleted,
-          contact us at the email below and we will honor the request within 30 days (subject to
-          any legal retention requirements).
+          Account records are retained for as long as the account is active. Evaluation data
+          (athlete profiles, scores, evaluator notes) is retained for the duration of the
+          relevant season plus three additional years, after which it is purged from production
+          databases.
+        </p>
+        <p>
+          <strong>Deletion requests for athlete records:</strong> Sideline Star does not have a
+          direct relationship with parents or athletes — registration, consent, and identity
+          verification all happen through your sports association. Parents who want an athlete
+          record removed should contact their association first; the association will route the
+          request to us and we will honor it within 30 days, subject to any legal hold or
+          ongoing-evaluation business requirement.
+        </p>
+        <p>
+          <strong>Deletion requests for your own user account:</strong> if you have a Sideline
+          Star account (evaluator, director, administrator), email us directly at the address
+          below and we will honor the request within 30 days.
         </p>
 
         <h2 className="text-white text-xl font-semibold mt-8 mb-3">6. Security</h2>
@@ -113,14 +125,31 @@ export default function PrivacyPage() {
         <h2 className="text-white text-xl font-semibold mt-8 mb-3">7. Children&rsquo;s data</h2>
         <p>
           The Service is designed for adult evaluators, coaches, and administrators. Athlete
-          profiles may include minors (their name, jersey number, team, and evaluation results)
-          entered by authorized association staff. We do not collect personal information
-          directly from children, and we do not knowingly permit children to create accounts.
-          Associations using the Service are responsible for obtaining any parental consents
-          required in their jurisdiction.
+          profiles may include minors (their name, birth year, jersey number, team, and
+          evaluation results) entered by authorized association staff. We do not collect
+          personal information directly from children, do not store full birthdates (birth
+          year only, used to determine age category eligibility), and do not knowingly permit
+          children to create accounts. Parents do not have self-serve access to the Service;
+          all athlete data is mediated through the sports association running the evaluation.
+          Associations are responsible for obtaining any parental consents required in their
+          jurisdiction before submitting an athlete to Sideline Star.
         </p>
 
-        <h2 className="text-white text-xl font-semibold mt-8 mb-3">8. Your rights</h2>
+        <h2 className="text-white text-xl font-semibold mt-8 mb-3">8. Canadian jurisdiction (PIPEDA, Quebec Law 25)</h2>
+        <p>
+          Sideline Star is operated from Canada. Personal information collected through the
+          Service is handled in accordance with Canada&rsquo;s Personal Information Protection
+          and Electronic Documents Act (PIPEDA) and, where applicable, provincial privacy
+          legislation including Quebec&rsquo;s Law 25 (Act respecting the protection of personal
+          information in the private sector). Athletes registered through associations operating
+          in Quebec may have additional rights, including data portability and the right to
+          de-indexing; contact your association or us directly to exercise them. If you have a
+          privacy complaint that we cannot resolve, you may contact the Office of the Privacy
+          Commissioner of Canada (federal) or the Commission d&rsquo;acc&egrave;s &agrave;
+          l&rsquo;information du Qu&eacute;bec (Quebec).
+        </p>
+
+        <h2 className="text-white text-xl font-semibold mt-8 mb-3">9. Your rights</h2>
         <p>Depending on where you live, you may have the right to:</p>
         <ul className="list-disc pl-6 space-y-1">
           <li>Access the personal information we hold about you</li>
@@ -131,14 +160,14 @@ export default function PrivacyPage() {
         </ul>
         <p>Contact us at the email below to exercise any of these rights.</p>
 
-        <h2 className="text-white text-xl font-semibold mt-8 mb-3">9. Changes to this policy</h2>
+        <h2 className="text-white text-xl font-semibold mt-8 mb-3">10. Changes to this policy</h2>
         <p>
           We may update this policy as the Service evolves. Material changes will be announced
           via email or a prominent notice in the app. Continued use of the Service after the
           effective date of an update constitutes acceptance of the revised policy.
         </p>
 
-        <h2 className="text-white text-xl font-semibold mt-8 mb-3">10. Contact</h2>
+        <h2 className="text-white text-xl font-semibold mt-8 mb-3">11. Contact</h2>
         <p>
           Questions, requests, or privacy concerns:{" "}
           <a href="mailto:waschukd@gmail.com" className="text-blue-400">waschukd@gmail.com</a>
