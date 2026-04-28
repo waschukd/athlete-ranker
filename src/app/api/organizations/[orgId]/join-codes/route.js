@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeOrgAccess } from "@/lib/authorize";
 import { emailEvaluatorApproved, emailEvaluatorDenied, emailEvaluatorPendingApproval } from "@/lib/email";
+
+const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -18,6 +21,9 @@ export async function GET(request, { params }) {
     const { orgId } = params;
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const orgAuth = await authorizeOrgAccess(session, orgId);
+    if (!orgAuth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const codes = await sql`
       SELECT ejc.*, 
@@ -48,6 +54,12 @@ export async function POST(request, { params }) {
     const { orgId } = params;
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!WRITE_ROLES.has(session.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const orgAuth = await authorizeOrgAccess(session, orgId);
+    if (!orgAuth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const user = await sql`SELECT id FROM users WHERE email = ${session.email}`;
     if (!user.length) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
