@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { canViewEvaluator } from "@/lib/authorize";
 
 export async function GET(request, { params }) {
   try {
@@ -8,6 +9,10 @@ export async function GET(request, { params }) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { evalId } = params;
+
+    if (!(await canViewEvaluator(session, evalId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Get evaluator basic info
     const evaluator = await sql`
