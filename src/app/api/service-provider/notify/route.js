@@ -56,15 +56,29 @@ export async function POST(request) {
     if (!spMembership.length) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const { sp_id, admin_name } = spMembership[0];
 
-    // Get session details
+    if (!schedule_id) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
+
+    // Get session details + the org the schedule belongs to so we can
+    // confirm it's one of this SP's linked associations (or the SP
+    // itself) before blasting its details out to the SP's evaluator
+    // pool.
     const schedInfo = await sql`
-      SELECT es.*, ac.name as category_name, o.name as org_name
+      SELECT es.*, ac.organization_id, ac.name as category_name, o.name as org_name
       FROM evaluation_schedule es
       JOIN age_categories ac ON ac.id = es.age_category_id
       JOIN organizations o ON o.id = ac.organization_id
       WHERE es.id = ${schedule_id}
     `;
-    if (!schedule_id) return NextResponse.json({ error: "Session not found" }, { status: 400 });
+    if (!schedInfo.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    const sched = schedInfo[0];
+
+    if (sched.organization_id !== sp_id) {
+      const linked = await sql`
+        SELECT 1 FROM sp_association_links
+        WHERE service_provider_id = ${sp_id} AND association_id = ${sched.organization_id}
+      `;
+      if (!linked.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Get all evaluators in SP pool who aren't already signed up
     const availableEvaluators = await sql`
