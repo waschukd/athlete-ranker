@@ -1,5 +1,21 @@
+// Volunteer check-in entry. Public by design — a director hands a printed
+// short code to walk-up volunteers (parents, etc.) so they can mark
+// players present without needing an account.
+//
+// After validating the code, we mint a short-lived signed JWT bound to
+// the resolved scheduleId and stash it in an httpOnly cookie. The
+// follow-on /api/checkin/[scheduleId] handler accepts either a normal
+// authenticated session OR a valid checkin-token whose scheduleId
+// matches the URL parameter — that's what closes the IDOR hole where
+// anyone could previously read/mutate any schedule by guessing its id.
+
 import { NextResponse } from "next/server";
+import { SignJWT } from "jose";
 import sql from "@/lib/db";
+
+if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
+const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
+const CHECKIN_TTL_SECONDS = 8 * 60 * 60; // 8h — long enough for a tryout day
 
 export async function POST(request) {
   try {
@@ -11,7 +27,7 @@ export async function POST(request) {
 
     // Find schedule entry by code
     const entries = await sql`
-      SELECT 
+      SELECT
         es.id as schedule_id,
         es.session_number, es.group_number,
         es.scheduled_date, es.start_time, es.end_time, es.location,
@@ -36,7 +52,16 @@ export async function POST(request) {
       VALUES (${entry.schedule_id}, ${volunteer_name}, ${volunteer_email}, ${ip})
     `;
 
-    return NextResponse.json({
+    const token = await new SignJWT({
+      scope: "checkin",
+      schedule_id: entry.schedule_id,
+      volunteer_email,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime(`${CHECKIN_TTL_SECONDS}s`)
+      .sign(SECRET);
+
+    const res = NextResponse.json({
       success: true,
       schedule_id: entry.schedule_id,
       session_info: {
@@ -49,6 +74,14 @@ export async function POST(request) {
         location: entry.location,
       },
     });
+    res.cookies.set("checkin-token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: CHECKIN_TTL_SECONDS,
+    });
+    return res;
   } catch (error) {
     console.error("Checkin entry error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

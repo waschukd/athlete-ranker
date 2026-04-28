@@ -1,9 +1,62 @@
+// Player check-in API. Accessible to two distinct caller types:
+//
+//   1. Authenticated staff (super_admin, association_admin,
+//      service_provider_admin, director, evaluator, volunteer with a
+//      membership in the schedule's org) — gated by
+//      authorizeCategoryAccess() against the schedule's age category.
+//
+//   2. Unauthenticated walk-up volunteers who came in via
+//      /api/checkin/entry with a director-issued short code. That
+//      endpoint mints a signed httpOnly checkin-token cookie bound to
+//      a specific scheduleId; we re-verify it here.
+//
+// Either path must succeed before any data is read or written. Prior
+// versions had no auth at all on this route, so any anon user could
+// enumerate schedules by id and check players in/out.
+
 import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
+import { cookies } from "next/headers";
 import sql from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
+
+if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
+const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
+
+async function authorizeCheckin(scheduleId) {
+  const sched = await sql`SELECT age_category_id FROM evaluation_schedule WHERE id = ${scheduleId}`;
+  if (!sched.length) return { ok: false, status: 404, error: "Session not found" };
+  const ageCategoryId = sched[0].age_category_id;
+
+  // Path 1: authenticated staff session
+  const session = await getSession();
+  if (session) {
+    const auth = await authorizeCategoryAccess(session, ageCategoryId);
+    if (auth.authorized) return { ok: true, ageCategoryId };
+  }
+
+  // Path 2: walk-up volunteer with a checkin-token cookie
+  const token = cookies().get("checkin-token")?.value;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, SECRET);
+      if (payload.scope === "checkin" && payload.schedule_id === scheduleId) {
+        return { ok: true, ageCategoryId };
+      }
+    } catch {
+      // fall through to 403
+    }
+  }
+
+  return { ok: false, status: 403, error: "Forbidden" };
+}
 
 export async function GET(request, { params }) {
   try {
     const { scheduleId } = params;
+    const auth = await authorizeCheckin(scheduleId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const scheduleInfo = await sql`
       SELECT sch.*, ac.id as category_id, ac.name as category_name,
@@ -125,6 +178,9 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { scheduleId } = params;
+    const auth = await authorizeCheckin(scheduleId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const body = await request.json();
     const { action, athlete_id, jersey_number, team_color } = body;
 
