@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { authorizeOrgAccess } from "@/lib/authorize";
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = new Set([
@@ -19,17 +20,14 @@ const ALLOWED_TYPES = new Set([
   "image/svg+xml",
 ]);
 
+const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
+
 async function authorize(session, orgId) {
   if (!session) return { ok: false, status: 401, error: "Unauthorized" };
-  if (session.role === "super_admin") return { ok: true };
-  // SP admin can edit any association linked to their service provider.
-  // Association admin can edit only their own org.
-  // For simplicity at this layer, allow any of those three roles to write
-  // and let the linkage-check live in the dashboard UI for v1.
-  if (["service_provider_admin", "association_admin"].includes(session.role)) {
-    return { ok: true };
-  }
-  return { ok: false, status: 403, error: "Forbidden" };
+  if (!WRITE_ROLES.has(session.role)) return { ok: false, status: 403, error: "Forbidden" };
+  const auth = await authorizeOrgAccess(session, orgId);
+  if (!auth.authorized) return { ok: false, status: 403, error: "Forbidden" };
+  return { ok: true };
 }
 
 export async function POST(request, { params }) {

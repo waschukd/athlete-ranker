@@ -195,3 +195,47 @@ export async function getAccessibleOrgIds(session) {
 
   return [...orgIds];
 }
+
+/**
+ * Check if a user session can view a specific evaluator's full record.
+ * Used by /api/service-provider/evaluator/[evalId] which exposes session
+ * history, flags, ratings, and hours — sensitive data only admins of an
+ * org the evaluator belongs to should see.
+ *
+ * Access rules:
+ *  - super_admin: always allowed
+ *  - service_provider_admin / association_admin: allowed if caller's
+ *    accessible org set intersects the evaluator's org set (where the
+ *    evaluator's orgs come from active evaluator_memberships or active
+ *    director_assignments via age_categories.organization_id)
+ *  - everyone else: denied
+ */
+export async function canViewEvaluator(session, evalId) {
+  if (!session?.email || !evalId) return false;
+
+  if (session.role === "super_admin") return true;
+
+  if (!["service_provider_admin", "association_admin"].includes(session.role)) {
+    return false;
+  }
+
+  const memberships = await sql`
+    SELECT organization_id FROM evaluator_memberships
+    WHERE user_id = ${evalId} AND status = 'active'
+  `;
+  const directorOrgs = await sql`
+    SELECT DISTINCT ac.organization_id
+    FROM director_assignments da
+    JOIN age_categories ac ON ac.id = da.age_category_id
+    WHERE da.user_id = ${evalId} AND da.status = 'active'
+  `;
+  const evalOrgIds = new Set([
+    ...memberships.map(m => m.organization_id),
+    ...directorOrgs.map(d => d.organization_id),
+  ]);
+  if (evalOrgIds.size === 0) return false;
+
+  const callerOrgIds = await getAccessibleOrgIds(session);
+  if (callerOrgIds === null) return true; // super_admin fallback
+  return callerOrgIds.some(id => evalOrgIds.has(id));
+}
