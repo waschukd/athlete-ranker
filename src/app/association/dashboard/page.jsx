@@ -79,24 +79,24 @@ function Dashboard() {
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
 
   if (orgLoading || catLoading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+    <div className="min-h-screen bg-app flex items-center justify-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" />
     </div>
   );
 
   if (!orgId) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-gray-500">No organization selected.</p>
+    <div className="min-h-screen bg-app flex items-center justify-center">
+      <p className="text-slate-400">No organization selected.</p>
     </div>
   );
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-br from-white via-blue-50/30 to-white border-b border-gray-200 shadow-sm">
+    <div className="min-h-screen bg-app text-slate-100">
+      <div className="bg-card border-b border-card-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 py-1">
             <LogOut size={14} /> Sign out
           </button>
         </div>
@@ -123,21 +123,21 @@ function Dashboard() {
                     if (res.ok) queryClient.invalidateQueries(["org", orgId]);
                   }}
                 />
-                <h1 className="text-3xl font-bold text-gray-900">{org?.name || "Association Dashboard"}</h1>
+                <h1 className="text-3xl font-bold text-white">{org?.name || "Association Dashboard"}</h1>
               </div>
-              <p className="text-gray-500 text-sm mt-1">Manage age categories, athletes, evaluations, and rankings</p>
+              <p className="text-slate-400 text-sm mt-1">Manage age categories, athletes, evaluations, and rankings</p>
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => { setShowInvite(true); setInviteResult(null); }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-card-border text-slate-200 hover:bg-card-hover transition-colors text-sm font-medium"
               >
                 <Mail size={15} /> Invite Admin
               </button>
               {categories.length > 0 && (
                 <a href={`/association/dashboard/add-category?org=${orgId}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold text-sm hover:shadow-lg transition-shadow">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand text-white font-semibold text-sm hover:bg-brand-strong transition-colors">
                   <Plus size={16} /> Add Age Category
                 </a>
               )}
@@ -145,17 +145,17 @@ function Dashboard() {
           </div>
 
           {org?.org_code && !serviceProvider && (
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="mt-6 bg-card-hover border border-card-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-gray-700">Organization Join Code</p>
-                <p className="text-xs text-gray-500 mt-0.5">Share with evaluators to join this association</p>
+                <p className="text-sm font-semibold text-slate-100">Organization Join Code</p>
+                <p className="text-xs text-slate-400 mt-0.5">Share with evaluators to join this association</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="bg-white px-5 py-2.5 rounded-lg border-2 border-blue-300 text-xl font-mono font-bold text-gray-900 tracking-widest">
+                <div className="bg-app px-5 py-2.5 rounded-lg border-2 border-brand/40 text-xl font-mono font-bold text-white tracking-widest">
                   {org.org_code}
                 </div>
                 <button onClick={() => { navigator.clipboard.writeText(org.org_code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                  className="px-4 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium">
+                  className="px-4 py-2.5 rounded-lg bg-brand text-white hover:bg-brand-strong transition-colors flex items-center gap-2 text-sm font-medium">
                   {codeCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy</>}
                 </button>
               </div>
@@ -165,18 +165,18 @@ function Dashboard() {
           {categories.length > 0 && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { label: "Age Categories", value: categories.length, color: "bg-[#1A6BFF]", gradient: "from-blue-500 to-blue-600", icon: Trophy },
-                { label: "Total Athletes", value: totalAthletes, color: "bg-purple-500", gradient: "from-purple-500 to-purple-600", icon: Users },
-                { label: "Total Sessions", value: totalSessions, color: "bg-emerald-500", gradient: "from-emerald-500 to-emerald-600", icon: Calendar },
-              ].map(({ label, value, color, gradient, icon: Icon }) => (
-                <div key={label} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all hover:-translate-y-0.5 relative overflow-hidden">
+                { label: "Age Categories", value: categories.length, icon: Trophy, accent: true },
+                { label: "Total Athletes", value: totalAthletes, icon: Users },
+                { label: "Total Sessions", value: totalSessions, icon: Calendar },
+              ].map(({ label, value, icon: Icon, accent }) => (
+                <div key={label} className="bg-card border border-card-border rounded-2xl p-6 hover:bg-card-hover hover:-translate-y-0.5 transition-all relative overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">{label}</p>
-                      <p className="text-4xl font-bold text-gray-900 mt-2">{value}</p>
+                      <p className="text-sm font-medium text-slate-400">{label}</p>
+                      <p className={`text-4xl font-bold mt-2 ${accent ? "text-accent" : "text-white"}`}>{value}</p>
                     </div>
-                    <div className={`p-4 rounded-xl bg-gradient-to-br ${gradient}`}>
-                      <Icon className="text-white" size={28} />
+                    <div className="p-4 rounded-xl bg-app border border-card-border">
+                      <Icon className={accent ? "text-accent" : "text-brand"} size={28} />
                     </div>
                   </div>
                 </div>
@@ -188,14 +188,14 @@ function Dashboard() {
 
       {/* Join Codes + Pending Approvals — hidden if association has an SP */}
       {joinCodeData && !serviceProvider && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Join Codes */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="bg-card border border-card-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-card-border">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Evaluator Join Codes</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Share with evaluators to let them sign up</p>
+                  <h3 className="text-sm font-semibold text-white">Evaluator Join Codes</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Share with evaluators to let them sign up</p>
                 </div>
                 <button
                   onClick={async () => {
@@ -206,26 +206,26 @@ function Dashboard() {
                     });
                     refetchCodes();
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-strong text-white rounded-lg text-xs font-semibold transition-colors"
                 >
                   + Generate
                 </button>
               </div>
               {(joinCodeData.codes || []).filter(c => c.uses < c.max_uses).length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-400">No active codes</div>
+                <div className="py-6 text-center text-sm text-slate-500">No active codes</div>
               ) : (joinCodeData.codes || []).filter(c => c.uses < c.max_uses).map(code => (
-                <div key={code.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
-                  <span className="font-mono font-bold text-gray-900 tracking-widest bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                <div key={code.id} className="flex items-center justify-between px-5 py-3 border-b border-card-border last:border-0">
+                  <span className="font-mono font-bold text-white tracking-widest bg-app px-3 py-1 rounded-lg border border-card-border text-sm">
                     {code.code}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{code.uses}/{code.max_uses} uses</span>
+                    <span className="text-xs text-slate-500">{code.uses}/{code.max_uses} uses</span>
                     <button
                       onClick={() => {
                         const url = `${window.location.origin}/evaluator/signup?code=${code.code}`;
                         navigator.clipboard.writeText(url);
                       }}
-                      className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium"
+                      className="text-xs px-3 py-1.5 border border-card-border text-slate-300 rounded-lg hover:bg-card-hover font-medium transition-colors"
                     >
                       Copy Link
                     </button>
@@ -235,26 +235,26 @@ function Dashboard() {
             </div>
 
             {/* Pending Approvals */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="bg-card border border-card-border rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-card-border flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Pending Approvals</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Evaluators waiting for access</p>
+                  <h3 className="text-sm font-semibold text-white">Pending Approvals</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Evaluators waiting for access</p>
                 </div>
                 {(joinCodeData.pending || []).length > 0 && (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                  <span className="text-xs px-2 py-0.5 bg-brand/15 text-brand rounded-full font-medium border border-brand/30">
                     {joinCodeData.pending.length} pending
                   </span>
                 )}
               </div>
               {(joinCodeData.pending || []).length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-400">No pending applications</div>
+                <div className="py-6 text-center text-sm text-slate-500">No pending applications</div>
               ) : (joinCodeData.pending || []).map(p => (
-                <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
+                <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-card-border last:border-0">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{p.name}</div>
-                    <div className="text-xs text-gray-400">{p.email}</div>
-                    {p.evaluator_id && <div className="text-xs font-mono text-[#1A6BFF]">{p.evaluator_id}</div>}
+                    <div className="text-sm font-medium text-white">{p.name}</div>
+                    <div className="text-xs text-slate-500">{p.email}</div>
+                    {p.evaluator_id && <div className="text-xs font-mono text-brand">{p.evaluator_id}</div>}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -266,7 +266,7 @@ function Dashboard() {
                         });
                         refetchCodes();
                       }}
-                      className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium"
+                      className="text-xs px-3 py-1.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/25 font-medium transition-colors"
                     >Approve</button>
                     <button
                       onClick={async () => {
@@ -279,7 +279,7 @@ function Dashboard() {
                           refetchCodes();
                         }
                       }}
-                      className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
+                      className="text-xs px-3 py-1.5 bg-red-500/15 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/25 font-medium transition-colors"
                     >Deny</button>
                   </div>
                 </div>
@@ -293,50 +293,50 @@ function Dashboard() {
 
 
         {categories.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-            <Trophy size={56} className="mx-auto text-gray-300 mb-5" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No age categories yet</h3>
-            <p className="text-gray-500 mb-8 max-w-sm mx-auto">Create your first age category to start organizing athletes and evaluations.</p>
+          <div className="text-center py-20 bg-card rounded-2xl border-2 border-dashed border-card-border">
+            <Trophy size={56} className="mx-auto text-slate-600 mb-5" />
+            <h3 className="text-2xl font-bold text-white mb-2">No age categories yet</h3>
+            <p className="text-slate-400 mb-8 max-w-sm mx-auto">Create your first age category to start organizing athletes and evaluations.</p>
             <a href={`/association/dashboard/add-category?org=${orgId}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold hover:shadow-lg transition-shadow">
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand hover:bg-brand-strong text-white font-semibold transition-colors">
               <Plus size={18} /> Add Age Category
             </a>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
-              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#1A6BFF]/40 transition-all hover:-translate-y-0.5 relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div key={cat.id} className="group bg-card rounded-2xl border border-card-border p-6 hover:bg-card-hover hover:border-brand/40 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-brand rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <a href={cat.setup_complete ? `/association/dashboard/category/${cat.id}?org=${orgId}` : `/association/dashboard/category/${cat.id}/setup?cat=${cat.id}&org=${orgId}`} className="block">
                   <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl font-bold text-gray-900">{cat.name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.setup_complete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-600"}`}>
+                      <h3 className="text-xl font-bold text-white">{cat.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.setup_complete ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/15 text-amber-300 border border-amber-500/30"}`}>
                         {cat.setup_complete ? "Active" : "Setup"}
                       </span>
                     </div>
-                    <ChevronRight className="text-gray-300 group-hover:text-[#1A6BFF] transition-colors" size={22} />
+                    <ChevronRight className="text-slate-600 group-hover:text-brand transition-colors" size={22} />
                   </div>
-                  <p className="text-sm text-gray-400 mb-5">Ages {cat.min_age}–{cat.max_age}</p>
+                  <p className="text-sm text-slate-500 mb-5">Ages {cat.min_age}–{cat.max_age}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-3xl font-bold text-[#1A6BFF]">{cat.athletes_count || 0}</div>
-                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Athletes</div>
+                      <div className="text-3xl font-bold text-accent">{cat.athletes_count || 0}</div>
+                      <div className="text-xs font-medium text-slate-500 mt-0.5 uppercase tracking-wide">Athletes</div>
                     </div>
                     <div>
-                      <div className="text-3xl font-bold text-gray-700">{cat.sessions_count || 0}</div>
-                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Sessions</div>
+                      <div className="text-3xl font-bold text-slate-200">{cat.sessions_count || 0}</div>
+                      <div className="text-xs font-medium text-slate-500 mt-0.5 uppercase tracking-wide">Sessions</div>
                     </div>
                   </div>
-                  <div className="mt-5 pt-5 border-t border-gray-100">
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#1A6BFF]/8 text-[#1A6BFF] border border-[#1A6BFF]/20 group-hover:bg-[#1A6BFF] group-hover:text-white transition-all">
+                  <div className="mt-5 pt-5 border-t border-card-border">
+                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-brand/10 text-brand border border-brand/30 group-hover:bg-brand group-hover:text-white transition-all">
                       Manage <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </span>
                   </div>
                 </a>
                 <button
                   onClick={(e) => { e.preventDefault(); if (deleteConfirm === cat.id) { deleteMutation.mutate(cat.id); } else { setDeleteConfirm(cat.id); setTimeout(() => setDeleteConfirm(null), 3000); } }}
-                  className={`absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs ${deleteConfirm === cat.id ? "bg-red-600 text-white" : "bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100"}`}
+                  className={`absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs ${deleteConfirm === cat.id ? "bg-red-600 text-white" : "bg-red-500/15 text-red-400 hover:text-red-300 hover:bg-red-500/25 border border-red-500/30"}`}
                   title={deleteConfirm === cat.id ? "Click again to confirm" : "Delete"}>
                   <Trash2 size={14} />
                 </button>
@@ -347,11 +347,11 @@ function Dashboard() {
       </div>
 
       {showInvite && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowInvite(false)}>
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowInvite(false)}>
+          <div className="bg-card border border-card-border rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">Invite Association Admin</h2>
-              <button onClick={() => setShowInvite(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-bold text-white">Invite Association Admin</h2>
+              <button onClick={() => setShowInvite(false)} className="p-1 text-slate-400 hover:text-slate-200">
                 <X size={18} />
               </button>
             </div>
@@ -360,45 +360,45 @@ function Dashboard() {
               <div className="text-center py-4">
                 {inviteResult.success ? (
                   <>
-                    <Check className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                    <p className="font-semibold text-gray-900 mb-2">{inviteResult.message}</p>
+                    <Check className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                    <p className="font-semibold text-white mb-2">{inviteResult.message}</p>
                     {inviteResult.inviteUrl && (
-                      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-xs text-gray-500 mb-2 font-medium">Invite link (copy if email not configured):</p>
+                      <div className="mt-4 p-3 bg-app rounded-lg border border-card-border">
+                        <p className="text-xs text-slate-500 mb-2 font-medium">Invite link (copy if email not configured):</p>
                         <div className="flex items-center gap-2">
-                          <input readOnly value={inviteResult.inviteUrl} className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-700 font-mono" />
+                          <input readOnly value={inviteResult.inviteUrl} className="flex-1 text-xs bg-card border border-card-border rounded px-2 py-1.5 text-slate-300 font-mono" />
                           <button onClick={() => navigator.clipboard.writeText(inviteResult.inviteUrl)}
-                            className="px-2 py-1.5 bg-gray-200 rounded text-xs hover:bg-gray-300">Copy</button>
+                            className="px-2 py-1.5 bg-card-hover rounded text-xs text-slate-200 hover:bg-card-border">Copy</button>
                         </div>
                       </div>
                     )}
                     <button onClick={() => { setShowInvite(false); setInviteResult(null); setInviteEmail(""); setInviteName(""); }}
-                      className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-[#0F4FCC]">Done</button>
+                      className="mt-4 px-5 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-strong">Done</button>
                   </>
                 ) : (
                   <>
-                    <p className="text-red-600 font-medium">{inviteResult.error}</p>
-                    <button onClick={() => setInviteResult(null)} className="mt-3 text-sm text-gray-500 hover:text-gray-700">Try again</button>
+                    <p className="text-red-400 font-medium">{inviteResult.error}</p>
+                    <button onClick={() => setInviteResult(null)} className="mt-3 text-sm text-slate-400 hover:text-slate-200">Try again</button>
                   </>
                 )}
               </div>
             ) : (
               <form onSubmit={sendInvite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-slate-200 mb-1">Name</label>
                   <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" placeholder="Their full name" />
+                    className="w-full px-3 py-2.5 bg-app border border-card-border text-slate-100 placeholder:text-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand" placeholder="Their full name" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
+                  <label className="block text-sm font-medium text-slate-200 mb-1">Email <span className="text-red-400">*</span></label>
                   <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" placeholder="admin@association.com" />
+                    className="w-full px-3 py-2.5 bg-app border border-card-border text-slate-100 placeholder:text-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand" placeholder="admin@association.com" />
                 </div>
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowInvite(false)}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+                    className="flex-1 px-4 py-2.5 border border-card-border text-slate-200 rounded-lg hover:bg-card-hover text-sm font-medium transition-colors">Cancel</button>
                   <button type="submit" disabled={inviteLoading}
-                    className="flex-1 px-4 py-2.5 bg-[#1A6BFF] text-white rounded-lg hover:bg-[#0F4FCC] text-sm font-medium disabled:opacity-50">
+                    className="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-strong text-sm font-medium disabled:opacity-50 transition-colors">
                     {inviteLoading ? "Sending..." : "Send Invite"}
                   </button>
                 </div>
@@ -414,7 +414,7 @@ function Dashboard() {
 export default function AssociationDashboard() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-app flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" /></div>}>
         <Dashboard />
       </Suspense>
     </QueryClientProvider>
