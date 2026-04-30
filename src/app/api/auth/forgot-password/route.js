@@ -3,14 +3,84 @@ import { randomBytes } from "node:crypto";
 import sql from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 
+// Forgot-password is an outbound-email cannon for any logged-out
+// caller, so we cap it twice over:
+//
+//  - 5 hits / hour from a single IP  -> returns 429
+//  - 3 hits / hour for a single email-> we still return {success: true}
+//                                       (no enumeration), just don't
+//                                       send a fresh email
+const MAX_BY_IP = 5;
+const MAX_BY_EMAIL = 3;
+const WINDOW_MINS = 60;
+const ENDPOINT = "forgot";
+
+async function ipOverLimit(ip) {
+  try {
+    const r = await sql`
+      SELECT COUNT(*)::int AS c FROM auth_rate_limit
+      WHERE endpoint = ${ENDPOINT} AND ip = ${ip}
+        AND attempted_at > NOW() - INTERVAL '60 minutes'
+    `;
+    return (r[0]?.c || 0) >= MAX_BY_IP;
+  } catch (err) {
+    console.error("[forgot-password] IP rate-limit query failed, allowing:", err?.message || err);
+    return false;
+  }
+}
+
+async function emailOverLimit(email) {
+  try {
+    const r = await sql`
+      SELECT COUNT(*)::int AS c FROM auth_rate_limit
+      WHERE endpoint = ${ENDPOINT} AND email = ${email}
+        AND attempted_at > NOW() - INTERVAL '60 minutes'
+    `;
+    return (r[0]?.c || 0) >= MAX_BY_EMAIL;
+  } catch (err) {
+    console.error("[forgot-password] email rate-limit query failed, allowing:", err?.message || err);
+    return false;
+  }
+}
+
+async function recordAttempt(ip, email) {
+  try {
+    await sql`
+      INSERT INTO auth_rate_limit (endpoint, ip, email, attempted_at)
+      VALUES (${ENDPOINT}, ${ip}, ${email || null}, NOW())
+    `;
+  } catch (err) {
+    console.error("[forgot-password] failed to record rate-limit row:", err?.message || err);
+  }
+}
+
 export async function POST(request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+
+    if (await ipOverLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many reset requests from this network. Please wait an hour." },
+        { status: 429 },
+      );
+    }
+
     const { email } = await request.json();
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
-    // Always return success to prevent email enumeration
+    // Always return success to prevent email enumeration. Record the
+    // attempt either way so the per-email cap counts against an
+    // attacker probing one address.
+    await recordAttempt(ip, email);
+
     const users = await sql`SELECT * FROM auth_users WHERE email = ${email}`;
     if (!users.length) {
+      return NextResponse.json({ success: true });
+    }
+
+    if (await emailOverLimit(email)) {
+      // Quiet success — don't tell the caller they're being throttled,
+      // but don't actually send another email either.
       return NextResponse.json({ success: true });
     }
 
