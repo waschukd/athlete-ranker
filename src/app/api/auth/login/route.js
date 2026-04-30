@@ -3,45 +3,96 @@ import sql from "@/lib/db";
 import { signToken } from "@/lib/auth";
 import { verifyPassword, hashPassword } from "@/lib/password";
 
-const MAX_ATTEMPTS = 10;
+// Rate limit policy:
+// - Per IP:    20 failures / 15 min  (catches a single source pounding away)
+// - Per email:  5 failures / 15 min  (catches distributed attacks against
+//                                     a known account, where the attacker
+//                                     is rotating IPs)
+// Successes are NOT counted, so a legitimate user logging in from
+// multiple devices doesn't burn through the budget.
+//
+// Both limits are checked BEFORE we try the password; failures are
+// recorded only AFTER an invalid-credentials outcome.
+const MAX_FAILS_BY_IP = 20;
+const MAX_FAILS_BY_EMAIL = 5;
 const WINDOW_MINS = 15;
 
-async function checkRateLimit(ip) {
+async function checkRateLimit(ip, email) {
   try {
-    // Clean up old entries and count recent attempts in one query
-    const result = await sql`
-      SELECT COUNT(*) as attempts FROM login_attempts
+    const ipFails = await sql`
+      SELECT COUNT(*)::int AS c FROM login_attempts
       WHERE ip = ${ip} AND attempted_at > NOW() - INTERVAL '15 minutes'
     `;
-    // This will fail gracefully if the table doesn't exist yet
-    const attempts = parseInt(result[0]?.attempts || 0);
-    if (attempts >= MAX_ATTEMPTS) return false;
-    await sql`INSERT INTO login_attempts (ip, attempted_at) VALUES (${ip}, NOW())`;
-    return true;
-  } catch {
-    // If login_attempts table doesn't exist, fall back to allowing the request
-    // (table creation is a one-time manual step in Neon)
-    return true;
+    if ((ipFails[0]?.c || 0) >= MAX_FAILS_BY_IP) {
+      return { allowed: false, reason: "ip" };
+    }
+    if (email) {
+      const emailFails = await sql`
+        SELECT COUNT(*)::int AS c FROM login_attempts
+        WHERE email = ${email} AND attempted_at > NOW() - INTERVAL '15 minutes'
+      `;
+      if ((emailFails[0]?.c || 0) >= MAX_FAILS_BY_EMAIL) {
+        return { allowed: false, reason: "email" };
+      }
+    }
+    return { allowed: true };
+  } catch (err) {
+    // Table missing or DB hiccup: log loudly and fail-open. Better to
+    // accept logins than lock everyone out of the product, but ops
+    // should see this in the logs and fix it fast.
+    console.error("[login] rate-limit table query failed, allowing request:", err?.message || err);
+    return { allowed: true };
+  }
+}
+
+async function recordFailure(ip, email) {
+  try {
+    await sql`INSERT INTO login_attempts (ip, email, attempted_at) VALUES (${ip}, ${email || null}, NOW())`;
+  } catch (err) {
+    console.error("[login] failed to record login_attempts row:", err?.message || err);
   }
 }
 
 export async function POST(request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+  let email;
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-    if (!(await checkRateLimit(ip))) {
-      return NextResponse.json({ error: "Too many login attempts. Please wait 15 minutes." }, { status: 429 });
+    const body = await request.json();
+    email = body.email;
+    const { password } = body;
+
+    const gate = await checkRateLimit(ip, email);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: "Too many failed login attempts. Please wait 15 minutes." },
+        { status: 429 },
+      );
     }
-    const { email, password } = await request.json();
+
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
+
     const authUsers = await sql`SELECT * FROM auth_users WHERE email = ${email}`;
-    if (!authUsers.length) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!authUsers.length) {
+      await recordFailure(ip, email);
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
     const authUser = authUsers[0];
+
     const accounts = await sql`SELECT password FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
-    if (!accounts.length || !accounts[0].password) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!accounts.length || !accounts[0].password) {
+      await recordFailure(ip, email);
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
     const storedHash = accounts[0].password;
-    if (!(await verifyPassword(password, storedHash))) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!(await verifyPassword(password, storedHash))) {
+      await recordFailure(ip, email);
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    // ── Successful login from here down ────────────────────────────
+
     // Transparently upgrade legacy SHA256 hashes to bcrypt on successful login
     if (/^[a-f0-9]{64}$/.test(storedHash)) {
       const bcryptHash = await hashPassword(password);
