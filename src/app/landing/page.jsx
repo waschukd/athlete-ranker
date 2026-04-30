@@ -172,9 +172,15 @@ export default function LandingPage() {
 
       {/* ─── Footer ─── */}
       <footer className="border-t border-gray-200 py-8 bg-white">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-3 text-sm text-gray-400">
-          <img src="/s-mark-dark.svg" style={{ width: "20px", height: "20px", objectFit: "contain", opacity: 0.4 }} alt="" />
-          <span>&copy; {new Date().getFullYear()} Sideline Star. All rights reserved.</span>
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
+          <div className="flex items-center gap-3">
+            <img src="/s-mark-dark.svg" style={{ width: "20px", height: "20px", objectFit: "contain", opacity: 0.4 }} alt="" />
+            <span>&copy; {new Date().getFullYear()} Sideline Star. All rights reserved.</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <a href="/privacy" className="hover:text-gray-600">Privacy</a>
+            <a href="/terms" className="hover:text-gray-600">Terms</a>
+          </div>
         </div>
       </footer>
     </div>
