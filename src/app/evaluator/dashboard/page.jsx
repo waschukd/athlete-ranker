@@ -22,8 +22,8 @@ function formatTime(t) {
 }
 
 // Compact time range used by the dense Available list. Drops the AM/PM on the
-// start when both ends share it ("9:00â€“10:15a"), keeps both when crossing
-// noon ("11:30aâ€“12:30p"). Saves ~4 chars per row vs. the full formatTime.
+// start when both ends share it ("9:00—10:15a"), keeps both when crossing
+// noon ("11:30a—12:30p"). Saves ~4 chars per row vs. the full formatTime.
 function formatTimeRange(start, end) {
   if (!start) return "";
   const parse = (t) => {
@@ -36,8 +36,8 @@ function formatTimeRange(start, end) {
   const s = parse(start);
   if (!end) return `${s.display}:${s.m}${s.ampm}`;
   const e = parse(end);
-  if (s.ampm === e.ampm) return `${s.display}:${s.m}â€“${e.display}:${e.m}${e.ampm}`;
-  return `${s.display}:${s.m}${s.ampm}â€“${e.display}:${e.m}${e.ampm}`;
+  if (s.ampm === e.ampm) return `${s.display}:${s.m}—${e.display}:${e.m}${e.ampm}`;
+  return `${s.display}:${s.m}${s.ampm}—${e.display}:${e.m}${e.ampm}`;
 }
 
 // Org visuals (palette + chip + abbreviation) are now in @/lib/orgVisuals.
@@ -101,7 +101,7 @@ function InviteModal({ session, onClose }) {
           <div>
             <h3 className="font-bold text-gray-900">Invite an Evaluator</h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              {session.org_name} Â· {session.category_name} Â· S{session.session_number} G{session.group_number}
+              {session.org_name} · {session.category_name} · S{session.session_number} G{session.group_number}
             </p>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
@@ -184,7 +184,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <span className="font-bold text-gray-900">{session.org_name}</span>
-              <span className="text-gray-300">Â·</span>
+              <span className="text-gray-300">·</span>
               <span className="font-medium text-gray-700">{session.category_name}</span>
               {session.session_type && (
                 <span className={`text-xs px-2 py-0.5 rounded-full border font-medium capitalize ${SESSION_TYPE_COLORS[session.session_type] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
@@ -195,20 +195,20 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
             <div className="grid grid-cols-1 gap-1 text-sm text-gray-500 mt-1">
               <span className="flex items-center gap-1.5"><Calendar size={13} />{formatDate(session.scheduled_date)}</span>
               {session.start_time && (
-                <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` â€“ ${formatTime(session.end_time)}` : ""}</span>
+                <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` — ${formatTime(session.end_time)}` : ""}</span>
               )}
               {session.location && (
                 <span className="flex items-center gap-1.5"><MapPin size={13} />{session.location}</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
-              <span>Session {session.session_number}{session.group_number ? ` Â· Group ${session.group_number}` : ""}</span>
+              <span>Session {session.session_number}{session.group_number ? ` · Group ${session.group_number}` : ""}</span>
               <span className="flex items-center gap-1">
                 <Users size={11} />
                 {mode === "mine"
                   ? spotsAfterMe > 0
                     ? `${spotsAfterMe} more evaluator${spotsAfterMe !== 1 ? "s" : ""} needed`
-                    : "Session fully staffed âœ“"
+                    : "Session fully staffed ✓"
                   : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left of ${session.evaluators_required}`
                 }
               </span>
@@ -258,10 +258,10 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
   );
 }
 
-// â”€â”€ Calendar subscribe panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Calendar subscribe panel ─────────────────────────────────────────
 // One-time subscription to a personal ICS feed. Once added, the user's
 // calendar app (Google / Apple / Outlook) auto-pulls new signups,
-// schedule changes, cancellations â€” no polling, no notifications to wire
+// schedule changes, cancellations — no polling, no notifications to wire
 // up, and the OS-level calendar reminders work for free.
 function CalendarSubscribePanel() {
   const [copied, setCopied] = useState(false);
@@ -313,7 +313,7 @@ function CalendarSubscribePanel() {
             <Calendar size={14} /> Sync to your calendar
           </h3>
           <p className="text-xs text-blue-700/80 mt-1 leading-relaxed">
-            Subscribe once. Sessions appear automatically in your calendar app â€” including reminders, future signups, and cancellations.
+            Subscribe once. Sessions appear automatically in your calendar app — including reminders, future signups, and cancellations.
           </p>
         </div>
         <button onClick={dismiss} className="text-blue-400 hover:text-blue-700 p-1 -m-1 flex-shrink-0" aria-label="Hide">
@@ -348,7 +348,7 @@ function CalendarSubscribePanel() {
   );
 }
 
-// â”€â”€ Available Sessions: grouped by Date â†’ Arena, with filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Available Sessions: grouped by Date → Arena, with filters ────────────
 // Replaces the old flat chronological list. Evaluators think about their
 // schedule by "what rink am I at on what day" so they can chain sessions.
 
@@ -379,7 +379,7 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         gridTemplateColumns: "auto 1fr auto",
       }}
     >
-      {/* Org chip â€” fixed width by content, color-coded so even tiny screens identify the association */}
+      {/* Org chip — fixed width by content, color-coded so even tiny screens identify the association */}
       <span
         className="inline-flex items-center justify-center text-[11px] font-bold tracking-wide rounded px-2 py-1 row-span-2 self-stretch flex-shrink-0"
         style={{ background: palette.bg, color: palette.fg, minWidth: "44px" }}
@@ -393,20 +393,20 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         <span className="font-semibold text-gray-900 text-sm truncate">
           {session.category_name}
         </span>
-        <span className="text-gray-300 flex-shrink-0">Â·</span>
+        <span className="text-gray-300 flex-shrink-0">·</span>
         <span className="text-gray-500 text-xs font-mono whitespace-nowrap flex-shrink-0">
           S{session.session_number}G{session.group_number}
         </span>
       </div>
 
-      {/* Sign Up button â€” replaced with a disabled Conflict button when this
+      {/* Sign Up button — replaced with a disabled Conflict button when this
           session overlaps one of the user's existing signups */}
       {conflict ? (
         <button
           disabled
           className="row-span-2 self-center px-3 py-2 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 cursor-not-allowed border border-amber-300"
           title={`Overlaps with ${conflict.label} (${conflict.start?.slice(0, 5)}-${conflict.end?.slice(0, 5)})`}
-          aria-label="Time conflict â€” already signed up for an overlapping session"
+          aria-label="Time conflict — already signed up for an overlapping session"
         >
           <AlertTriangle size={13} />
           <span>Conflict</span>
@@ -429,11 +429,11 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         </span>
         {conflict ? (
           <span className="text-amber-700 font-medium whitespace-nowrap">
-            Â· Overlaps {conflict.label}
+            · Overlaps {conflict.label}
           </span>
         ) : (
           <span className="text-amber-600 font-semibold whitespace-nowrap">
-            Â· {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
+            · {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
           </span>
         )}
       </div>
@@ -527,7 +527,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
     });
   }, [sessions, dateRange, orgFilter, arenaFilter, selectedDate]);
 
-  // Group: date â†’ arena â†’ sessions[] (sorted by start_time)
+  // Group: date → arena → sessions[] (sorted by start_time)
   const grouped = useMemo(() => {
     const byDate = {};
     filtered.forEach(s => {
@@ -601,7 +601,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         </div>
       </div>
 
-      {/* Selected-date chip â€” appears when user picks a specific date from strip / calendar */}
+      {/* Selected-date chip — appears when user picks a specific date from strip / calendar */}
       {selectedDate && (
         <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
           <Calendar size={14} className="text-blue-600" />
@@ -633,7 +633,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         />
       )}
 
-      {/* Date strip â€” shown only in list mode, lets user jump to a day quickly */}
+      {/* Date strip — shown only in list mode, lets user jump to a day quickly */}
       {viewMode === "list" && (
         <DateStripBar
           sessions={sessions}
@@ -701,7 +701,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                     <Calendar size={14} className="text-gray-400" />
                     <span className="font-bold text-gray-900">{formatDate(date)}</span>
                     <span className="text-xs text-gray-400 font-normal">
-                      {dayTotal} session{dayTotal !== 1 ? "s" : ""} Â· {arenaKeys.length} {arenaKeys.length === 1 ? "rink" : "rinks"}
+                      {dayTotal} session{dayTotal !== 1 ? "s" : ""} · {arenaKeys.length} {arenaKeys.length === 1 ? "rink" : "rinks"}
                     </span>
                   </div>
                 </button>
@@ -709,7 +709,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                   <div className="divide-y divide-gray-100">
                     {arenaKeys.map(arena => {
                       const sess = arenasForDate[arena];
-                      // Distinct orgs at this arena/day, in name order â€” shown
+                      // Distinct orgs at this arena/day, in name order — shown
                       // as colored dots so an evaluator can tell at a glance
                       // whether this rink today is single-org or mixed.
                       const orgsAtArena = Array.from(new Set(sess.map(s => s.org_name).filter(Boolean))).sort();
@@ -719,7 +719,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
                             <MapPin size={13} className="text-gray-400" />
                             {arena}
                             <span className="text-xs text-gray-400 font-normal">
-                              Â· {sess.length} session{sess.length !== 1 ? "s" : ""}
+                              · {sess.length} session{sess.length !== 1 ? "s" : ""}
                             </span>
                             {orgsAtArena.length > 0 && (
                               <span className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
@@ -807,7 +807,7 @@ function EvaluatorDashboard() {
       return { ok: res.ok, ...data };
     },
     onSuccess: (data) => {
-      // Server returned an error (409 conflict, 400 no spots, etc) â€” surface
+      // Server returned an error (409 conflict, 400 no spots, etc) — surface
       // it as a banner instead of treating it as a successful signup.
       if (!data.ok || data.error) {
         setSignupError(data.message || data.error || "Couldn't sign up.");
@@ -913,9 +913,9 @@ function EvaluatorDashboard() {
         )}
         {!statusData?.suspended && statusData?.strike_count === 1 && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
-            <span className="text-amber-500 text-xl flex-shrink-0">âš ï¸</span>
+            <span className="text-amber-500 text-xl flex-shrink-0">⚠️</span>
             <div>
-              <p className="font-bold text-amber-800">Warning â€” Strike 1 on record</p>
+              <p className="font-bold text-amber-800">Warning — Strike 1 on record</p>
               <p className="text-sm text-amber-600 mt-0.5">You have one late cancellation on record. A second cancellation with less than 24 hours notice will result in automatic suspension.</p>
             </div>
           </div>
