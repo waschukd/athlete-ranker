@@ -43,6 +43,17 @@ export async function POST(request) {
     const invite = invites[0];
     const hashedPassword = await hashPassword(password);
 
+    // Match the invitee's role to the org type. Service-provider orgs need
+    // a service_provider_admin so the invitee can manage the SP; everything
+    // else (associations, etc.) gets association_admin. The redirect target
+    // matches: /service-provider/dashboard auto-resolves the SP from session.
+    const targetRole =
+      invite.org_type === "service_provider" ? "service_provider_admin" : "association_admin";
+    const redirectTo =
+      invite.org_type === "service_provider"
+        ? "/service-provider/dashboard"
+        : `/association/dashboard?org=${invite.organization_id}`;
+
     // Create or update auth user
     const existingAuthUser = await sql`SELECT * FROM auth_users WHERE email = ${invite.email}`;
     let authUser;
@@ -80,7 +91,7 @@ export async function POST(request) {
     } else {
       const [created] = await sql`
         INSERT INTO users (email, name, role)
-        VALUES (${invite.email}, ${invite.name || invite.email}, 'association_admin')
+        VALUES (${invite.email}, ${invite.name || invite.email}, ${targetRole})
         RETURNING *
       `;
       appUser = created;
@@ -93,7 +104,7 @@ export async function POST(request) {
     if (!existing.length) {
       await sql`
         INSERT INTO user_organization_roles (user_id, organization_id, role)
-        VALUES (${appUser.id}, ${invite.organization_id}, 'association_admin')
+        VALUES (${appUser.id}, ${invite.organization_id}, ${targetRole})
       `;
     }
 
@@ -105,12 +116,12 @@ export async function POST(request) {
       userId: authUser.id,
       email: authUser.email,
       name: authUser.name,
-      role: "association_admin",
+      role: targetRole,
     });
 
     const response = NextResponse.json({
       success: true,
-      redirectTo: `/association/dashboard?org=${invite.organization_id}`,
+      redirectTo,
     });
 
     response.cookies.set("auth-token", jwtToken, {
