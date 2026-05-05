@@ -346,8 +346,8 @@ function SPDashboard() {
               <p className="text-xs text-gray-400">{orgParam ? "Viewing as Super Admin" : "Service Provider Dashboard"}</p>
             </div>
           </div>
-          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = orgParam ? "/admin/god-mode" : "/account/signin"; }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-            <LogOut size={15} /> {orgParam ? "Back to God Mode" : "Sign out"}
+          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+            <LogOut size={15} /> Sign out
           </button>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
@@ -486,6 +486,42 @@ function SPDashboard() {
                 })}
               </div>
             )}
+
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">Invite Service Provider Admin</h3>
+                <p className="text-xs text-gray-400 mt-0.5">They'll get full admin access to {sp?.name || "this service provider"} once they accept.</p>
+              </div>
+              <div className="p-5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <input type="text" placeholder="Name (optional)" value={adminInviteName} onChange={e => setAdminInviteName(e.target.value)} className="sm:w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" />
+                  <input type="email" placeholder="Admin email address" value={adminInviteEmail} onChange={e => setAdminInviteEmail(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" />
+                  <button disabled={!adminInviteEmail || adminInviteSending || !sp?.id}
+                    onClick={async () => {
+                      setAdminInviteSending(true);
+                      setAdminInviteMsg(null);
+                      try {
+                        const res = await fetch("/api/admin/invite-admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organization_id: sp.id, email: adminInviteEmail, name: adminInviteName || null }) });
+                        const data = await res.json();
+                        if (data.success) {
+                          setAdminInviteMsg({ type: "success", text: data.message || `Invitation sent to ${adminInviteEmail}` });
+                          setAdminInviteEmail("");
+                          setAdminInviteName("");
+                        } else {
+                          setAdminInviteMsg({ type: "error", text: data.error || "Failed to send invite" });
+                        }
+                      } catch {
+                        setAdminInviteMsg({ type: "error", text: "Failed to send invite" });
+                      }
+                      setAdminInviteSending(false);
+                    }}
+                    className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
+                    {adminInviteSending ? "Sending..." : "Send Invite"}
+                  </button>
+                </div>
+                {adminInviteMsg && <p className={`text-xs font-medium mt-2 break-words ${adminInviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{adminInviteMsg.text}</p>}
+              </div>
+            </div>
           </div>
         )}
 
@@ -665,42 +701,6 @@ function SPDashboard() {
             )}
 
             <JoinCodesPanel orgId={assocData?.sp?.id} data={joinCodeData} refetch={refetchCodes} />
-
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Invite Service Provider Admin</h3>
-                <p className="text-xs text-gray-400 mt-0.5">They'll get full admin access to {sp?.name || "this service provider"} once they accept.</p>
-              </div>
-              <div className="p-5">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <input type="text" placeholder="Name (optional)" value={adminInviteName} onChange={e => setAdminInviteName(e.target.value)} className="sm:w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" />
-                  <input type="email" placeholder="Admin email address" value={adminInviteEmail} onChange={e => setAdminInviteEmail(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30" />
-                  <button disabled={!adminInviteEmail || adminInviteSending || !sp?.id}
-                    onClick={async () => {
-                      setAdminInviteSending(true);
-                      setAdminInviteMsg(null);
-                      try {
-                        const res = await fetch("/api/admin/invite-admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organization_id: sp.id, email: adminInviteEmail, name: adminInviteName || null }) });
-                        const data = await res.json();
-                        if (data.success) {
-                          setAdminInviteMsg({ type: "success", text: data.message || `Invitation sent to ${adminInviteEmail}` });
-                          setAdminInviteEmail("");
-                          setAdminInviteName("");
-                        } else {
-                          setAdminInviteMsg({ type: "error", text: data.error || "Failed to send invite" });
-                        }
-                      } catch {
-                        setAdminInviteMsg({ type: "error", text: "Failed to send invite" });
-                      }
-                      setAdminInviteSending(false);
-                    }}
-                    className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
-                    {adminInviteSending ? "Sending..." : "Send Invite"}
-                  </button>
-                </div>
-                {adminInviteMsg && <p className={`text-xs font-medium mt-2 break-words ${adminInviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{adminInviteMsg.text}</p>}
-              </div>
-            </div>
 
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
