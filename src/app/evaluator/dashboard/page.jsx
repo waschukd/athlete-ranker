@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
@@ -269,6 +269,13 @@ function CalendarSubscribePanel() {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("ar_calendar_panel_dismissed") === "1";
   });
+  // webcal:// has no handler on Android, so the Apple Calendar button just
+  // errors out in the Capacitor APK. Hide it on android-native; iOS-native
+  // and any web browser still get all three.
+  const [isAndroidNative, setIsAndroidNative] = useState(false);
+  useEffect(() => {
+    setIsAndroidNative(window.Capacitor?.getPlatform?.() === "android");
+  }, []);
 
   const { data } = useQuery({
     queryKey: ["calendar-link"],
@@ -327,14 +334,16 @@ function CalendarSubscribePanel() {
           rel="noopener noreferrer"
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
         >
-          ðŸ“… Add to Google Calendar
+          📅 Add to Google Calendar
         </a>
-        <a
-          href={data?.webcalUrl || "#"}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
-        >
-          ðŸŽ Add to Apple Calendar
-        </a>
+        {!isAndroidNative && (
+          <a
+            href={data?.webcalUrl || "#"}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-blue-50 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
+          >
+            🍎 Add to Apple Calendar
+          </a>
+        )}
         <button
           onClick={handleCopy}
           disabled={!data}
@@ -904,7 +913,7 @@ function EvaluatorDashboard() {
         {/* Status banners */}
         {statusData?.suspended && (
           <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
-            <span className="text-red-500 text-xl flex-shrink-0">ðŸš«</span>
+            <span className="text-red-500 text-xl flex-shrink-0">🚫</span>
             <div>
               <p className="font-bold text-red-800">Your account has been suspended</p>
               <p className="text-sm text-red-600 mt-0.5">You have received two late cancellation strikes. You have been removed from all future sessions. Contact your service provider to be reinstated.</p>
