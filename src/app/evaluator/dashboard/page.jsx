@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
+import { useTrackPageView } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
 
@@ -774,6 +775,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
 }
 
 function EvaluatorDashboard() {
+  useTrackPageView("dashboard.evaluator.viewed");
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("mine");
   const [joinCode, setJoinCode] = useState("");

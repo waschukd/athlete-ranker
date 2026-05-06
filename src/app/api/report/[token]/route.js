@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { logEvent } from "@/lib/analytics";
 
 // Default lifetime for a parent-facing share link. Bounded so that a
 // link leaked into search engines or shared in a parents' group chat
@@ -22,6 +23,16 @@ export async function GET(request, { params }) {
       WHERE rl.token = ${token} AND rl.is_active = true
     `;
     if (!link.length) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+
+    // Anonymous report view — parents fetching their kid's report. We don't
+    // know who they are; the value is in counting views per athlete + how
+    // recently the link was used, not who clicked it.
+    logEvent({
+      role: "report_viewer",
+      event: "report.viewed",
+      orgId: link[0].organization_id || null,
+      metadata: { athleteId: link[0].athlete_id, catId: link[0].age_category_id },
+    });
 
     // Expiry check derived from created_at — keeps us off a schema
     // migration. created_at is the row's insert default.

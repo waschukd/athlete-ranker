@@ -12,6 +12,7 @@ import CopyCode from "@/components/CopyCode";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
+import { useTrackPageView } from "@/lib/useAnalytics";
 import PlayerComparison from "@/components/PlayerComparison";
 import { generateICS, downloadICS } from "@/lib/calendar";
 
@@ -25,6 +26,7 @@ const POSITION_COLORS = {
 const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 
 function DirectorDashboardInner() {
+  useTrackPageView("dashboard.director.viewed");
   const [activeTab, setActiveTab] = useState("rankings");
   const [positionFilter, setPositionFilter] = useState("all");
   const [compareIds, setCompareIds] = useState([]);

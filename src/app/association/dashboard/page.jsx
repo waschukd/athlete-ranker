@@ -5,12 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Users, Calendar, Trophy, Plus, ChevronRight, Zap, Copy, Check, ArrowLeft, Trash2, Mail, X, ExternalLink, LogOut } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
+import { useTrackPageView } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
 
 function Dashboard() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
+  useTrackPageView("dashboard.association.viewed", { orgId });
 
   const { data: joinCodeData, refetch: refetchCodes } = useQuery({
     queryKey: ["assoc-join-codes", orgId],

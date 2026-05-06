@@ -12,6 +12,7 @@ import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
 import CopyCode from "@/components/CopyCode";
 import ScoreManager from "@/components/ScoreManager";
+import { useTrackPageView } from "@/lib/useAnalytics";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
@@ -31,6 +32,7 @@ function CategoryHub() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
+  useTrackPageView("category.viewed", { catId, orgId });
   const [activeTab, setActiveTab] = useState("rankings");
   const queryClient = useQueryClient();
   const [positionFilter, setPositionFilter] = useState("all");

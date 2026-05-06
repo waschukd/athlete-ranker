@@ -970,7 +970,7 @@ function ScoringInterface() {
             </button>
           ))}
           <button
-            onClick={async () => { setShowConsensus(true); await loadConsensus(); }}
+            onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
             className="px-3 py-1.5 bg-amber-600/20 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-semibold hover:bg-amber-600/30"
           >
             Consensus
@@ -1365,7 +1365,7 @@ function ScoringInterface() {
                               {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
                             </div>
                             {!reviewedFlags.has(a.athlete_id) ? (
-                              <button onClick={() => setReviewedFlags(prev => new Set([...prev, a.athlete_id]))} className="text-xs px-2.5 py-1 bg-green-900/50 text-green-400 rounded-lg hover:bg-green-800/50">Discussed ✓</button>
+                              <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-900/50 text-green-400 rounded-lg hover:bg-green-800/50">Discussed ✓</button>
                             ) : (
                               <span className="text-xs text-green-500">✓ Done</span>
                             )}

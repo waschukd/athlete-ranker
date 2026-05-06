@@ -6,6 +6,7 @@ import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tan
 import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus, CalendarDays, List } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
+import { useTrackPageView } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
 
@@ -237,6 +238,7 @@ function StaffingReports() {
 }
 
 function SPDashboard() {
+  useTrackPageView("dashboard.service-provider.viewed");
   const searchParams = useSearchParams();
   const orgParam = searchParams.get("org");
   const spUrl = (path) => {
