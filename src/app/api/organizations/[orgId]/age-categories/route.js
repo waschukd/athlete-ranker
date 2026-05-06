@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
+import { logEvent } from "@/lib/analytics";
 
 export async function GET(request, { params }) {
   try {
@@ -39,6 +40,13 @@ export async function POST(request, { params }) {
       VALUES (${params.orgId}, ${name}, ${min_age || null}, ${max_age || null})
       RETURNING *
     `;
+    logEvent({
+      userId: await getAppUserId(session),
+      role: session.role || "anonymous",
+      event: "category.created",
+      orgId: parseInt(params.orgId, 10) || null,
+      metadata: { catId: result[0].id },
+    });
     return NextResponse.json({ category: result[0] }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

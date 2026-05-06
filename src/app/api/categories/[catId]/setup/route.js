@@ -1,5 +1,6 @@
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { logEvent } from "@/lib/analytics";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -43,6 +44,19 @@ export async function POST(request, { params }) {
     const body = await request.json();
     const { step, data } = body;
 
+    // Snapshot pre-update state so we can detect the setup_complete
+    // transition and the edited-after-complete signal in one place.
+    const existing = await sql`SELECT setup_complete, organization_id, created_at FROM age_categories WHERE id = ${catId}`;
+    const wasComplete = !!existing[0]?.setup_complete;
+    const orgId = existing[0]?.organization_id ?? null;
+    const createdAt = existing[0]?.created_at;
+    const userId = await getAppUserId(session);
+    const role = session.role || "anonymous";
+
+    if (wasComplete) {
+      logEvent({ userId, role, event: "category.edited_after_complete", orgId, metadata: { catId, step } });
+    }
+
     switch (step) {
       case "sessions": {
         // Delete existing sessions and recreate
@@ -85,6 +99,12 @@ export async function POST(request, { params }) {
         await sql`
           UPDATE age_categories SET setup_complete = true, status = 'active' WHERE id = ${catId}
         `;
+        // Only fire on the first transition to complete — re-completing
+        // an already-complete category is the edited_after_complete signal.
+        if (!wasComplete) {
+          const durationMs = createdAt ? Date.now() - new Date(createdAt).getTime() : null;
+          logEvent({ userId, role, event: "category.setup_completed", orgId, durationMs, metadata: { catId } });
+        }
         return NextResponse.json({ success: true });
       }
 
