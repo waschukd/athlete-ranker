@@ -12,7 +12,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { signCalendarToken } from "@/lib/calendar-token";
 
-export async function GET() {
+export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,7 +21,11 @@ export async function GET() {
     const userId = userRow[0]?.id;
     if (!userId) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
+    // Use the request's own origin instead of NEXT_PUBLIC_BASE_URL so the URL
+    // we hand to Google/Apple Calendar is the canonical host. Vercel
+    // 307-redirects bare sidelinestar.com → www.sidelinestar.com, and
+    // Google's calendar importer chokes on that cross-host redirect.
+    const baseUrl = new URL(request.url).origin;
     const token = signCalendarToken(userId);
     const httpsUrl = `${baseUrl}/api/evaluator/calendar?token=${token}`;
     const webcalUrl = httpsUrl.replace(/^https?:/, "webcal:");
