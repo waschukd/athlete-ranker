@@ -1229,38 +1229,41 @@ function ScoringInterface() {
               </div>
             )}
 
-            {/* Compare panel — shows athletes with similar scores */}
+            {/* Compare panel — find athletes I've rated with the same overall score.
+                "Overall" matches the rest of the app: mean of category scores
+                rounded to one decimal. Only my own scores are used; we
+                deliberately don't peek at other evaluators' ratings here. */}
             {showCompare && selected && (() => {
               const myScores = scores[selected.id]?.cats || {};
-              const myCats = Object.entries(myScores).filter(([, v]) => v !== null && v !== undefined);
-              if (!myCats.length) return <div className="text-xs text-gray-500 mt-3">Score this player first to compare.</div>;
+              const myFilled = Object.values(myScores).filter(v => v !== null && v !== undefined);
+              const totalCats = scoringCats.length;
+              if (myFilled.length < totalCats) {
+                return <div className="text-xs text-gray-500 mt-3">Score every category for this player to compare overall.</div>;
+              }
+              const myOverall = Math.round((myFilled.reduce((a, b) => a + b, 0) / myFilled.length) * 10) / 10;
 
-              // For each category, find athletes with the exact same score
-              const comparisons = scoringCats.map(cat => {
-                const myScore = myScores[cat.id];
-                if (myScore === null || myScore === undefined) return null;
-                const same = athletes.filter(a => {
-                  if (a.id === selected.id) return false;
-                  return scores[a.id]?.cats?.[cat.id] === myScore;
-                }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`);
-                return same.length ? { cat: cat.name, myScore, same } : null;
-              }).filter(Boolean);
+              const same = athletes.filter(a => {
+                if (a.id === selected.id) return false;
+                const theirCats = scores[a.id]?.cats || {};
+                const theirFilled = Object.values(theirCats).filter(v => v !== null && v !== undefined);
+                if (theirFilled.length < totalCats) return false; // only fully-rated peers
+                const theirOverall = Math.round((theirFilled.reduce((a, b) => a + b, 0) / theirFilled.length) * 10) / 10;
+                return theirOverall === myOverall;
+              }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`);
 
               return (
                 <div className="mt-3 bg-purple-900/20 border border-purple-800/30 rounded-xl p-3">
-                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Same Score — Are these players equal?</div>
-                  {comparisons.length === 0 ? (
-                    <div className="text-xs text-gray-500">No other athletes have identical scores.</div>
+                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Same Overall Score — Are these players equal?</div>
+                  {same.length === 0 ? (
+                    <div className="text-xs text-gray-500">No other player you've rated has an overall of {myOverall}.</div>
                   ) : (
                     <div className="space-y-1.5">
-                      {comparisons.map(comp => (
-                        <div key={comp.cat} className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] text-gray-400 w-16 flex-shrink-0">{comp.cat.split(/[\s/]/)[0]}: {comp.myScore}</span>
-                          {comp.same.map((label, i) => (
-                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-800/50 text-purple-300">{label}</span>
-                          ))}
-                        </div>
-                      ))}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] text-gray-400 w-16 flex-shrink-0">Overall: {myOverall}</span>
+                        {same.map((label, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-800/50 text-purple-300">{label}</span>
+                        ))}
+                      </div>
                       <div className="text-[10px] text-gray-600 mt-1">If not equal, adjust to differentiate.</div>
                     </div>
                   )}
