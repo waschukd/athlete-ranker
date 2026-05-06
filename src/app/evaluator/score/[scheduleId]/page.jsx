@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer } from "@/lib/speechAdapter";
+import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
 
@@ -151,15 +152,16 @@ function ScoringInterface() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [pending]);
 
-  // Online/offline
+  // Online/offline. Fire analytics on transitions so we can answer 'how
+  // often does the connection drop during scoring?' — a major perf signal.
   useEffect(() => {
-    const go = () => setOnline(true);
-    const stop = () => setOnline(false);
+    const go = () => { setOnline(true); logClientEvent("offline.recovered", { metadata: { scheduleId } }); };
+    const stop = () => { setOnline(false); logClientEvent("offline.entered", { metadata: { scheduleId } }); };
     window.addEventListener("online", go);
     window.addEventListener("offline", stop);
     setOnline(navigator.onLine);
     return () => { window.removeEventListener("online", go); window.removeEventListener("offline", stop); };
-  }, []);
+  }, [scheduleId]);
 
   // Ask service worker to trigger background sync when we come back online
   useEffect(() => {
@@ -190,6 +192,10 @@ function ScoringInterface() {
   });
 
   const catId = sessionData?.schedule?.category_id;
+  // Time spent in a scoring session — fires once on unmount with duration_ms.
+  // Metadata is read from a ref at flush time so the catId/scheduleId are
+  // current even though the hook bound on first mount.
+  useTrackPageView("session.scoring", { catId, scheduleId });
   // Hide athlete names from evaluators when the category opts in (default
   // true). Evaluators see jersey color + number, matching the Buttons /
   // Numpad views and removing identity bias from scoring. Default true while
@@ -753,6 +759,7 @@ function ScoringInterface() {
         navigator.mediaDevices?.removeEventListener('devicechange', deviceChangeRef.current);
         deviceChangeRef.current = null;
       }
+      logClientEvent("voice.toggled", { metadata: { state: "off", scheduleId } });
       return;
     }
     // ── Native app: use Capacitor speech plugin ──────────
@@ -766,6 +773,7 @@ function ScoringInterface() {
       nativeRec.start();
       setVoiceOn(true);
       setVoiceStatus("Listening (native)...");
+      logClientEvent("voice.toggled", { metadata: { state: "on", platform: "native", scheduleId } });
       return;
     }
 
@@ -825,7 +833,8 @@ function ScoringInterface() {
     rec.start();
     setVoiceOn(true);
     setVoiceStatus("Listening...");
-  }, [voiceOn, parseVoice, voiceMode]);
+    logClientEvent("voice.toggled", { metadata: { state: "on", platform: "web", scheduleId } });
+  }, [voiceOn, parseVoice, voiceMode, scheduleId]);
 
   // Stats
   const complete = athletes.filter(a => getStatus(a.id, scores, totalCats) === "complete").length;
@@ -977,7 +986,7 @@ function ScoringInterface() {
                 { id: "numpad", label: "Numpad" },
                 { id: "grid", label: "Grid" },
               ].map(m => (
-                <button key={m.id} onClick={() => setViewMode(m.id)}
+                <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
                   className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-[#1A6BFF] text-white" : "text-gray-400"}`}>
                   {m.label}
                 </button>

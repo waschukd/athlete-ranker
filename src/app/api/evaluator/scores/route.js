@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { logEvent } from "@/lib/analytics";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -151,6 +152,7 @@ export async function POST(request) {
 
     // ── 2. Transaction: batch upsert scores + audit log + notes ──────────
     const txnQueries = [];
+    let changedCount = 0;
 
     // Batch upsert all scores via individual ON CONFLICT statements in one transaction
     for (const { scoring_category_id, score } of validScores) {
@@ -169,6 +171,7 @@ export async function POST(request) {
       // Audit log for changed scores
       const oldScore = existingMap.get(scoring_category_id);
       if (oldScore !== undefined && oldScore !== parseFloat(score)) {
+        changedCount++;
         txnQueries.push(sql`
           INSERT INTO audit_log (user_id, action, entity_type, entity_id, field_changed, old_value, new_value, age_category_id)
           VALUES (${appUserId}, 'score_updated', 'athlete', ${athlete_id}, 'score',
@@ -205,6 +208,27 @@ export async function POST(request) {
     // Execute transaction (all score upserts + audits + notes atomically)
     if (txnQueries.length > 0) {
       await sql.transaction(txnQueries);
+    }
+
+    // Analytics: one event per submit request, regardless of how many scores
+    // were in the payload. changedCount tells us how often evaluators are
+    // editing existing scores vs writing fresh ones — a healthy debate signal.
+    if (validScores.length > 0) {
+      logEvent({
+        userId: appUserId,
+        role: session.role || "anonymous",
+        event: "score.submitted",
+        orgId: auth.orgId || null,
+        metadata: {
+          catId: parseInt(category_id, 10) || category_id,
+          scheduleId: schedule_id || null,
+          sessionNumber: session_number,
+          scoresCount: validScores.length,
+          changedCount,
+          scored_via: scored_via || "manual",
+          hasNote: !!(notes && notes.trim()),
+        },
+      });
     }
 
     // ── 3. Signup tracking (outside transaction — non-critical) ──────────
