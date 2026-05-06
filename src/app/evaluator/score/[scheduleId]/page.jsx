@@ -190,6 +190,13 @@ function ScoringInterface() {
   });
 
   const catId = sessionData?.schedule?.category_id;
+  // Hide athlete names from evaluators when the category opts in (default
+  // true). Evaluators see jersey color + number, matching the Buttons /
+  // Numpad views and removing identity bias from scoring. Default true while
+  // catData is still loading so we never accidentally flash names first.
+  const isAnon = catData?.category?.evaluators_anonymous ?? true;
+  const teamLabel = (a) => a?.team_color === "Dark" ? "Dark" : "Light";
+  const anonLabel = (a) => a?.jersey_number ? `${teamLabel(a)} ${a.jersey_number}` : `${teamLabel(a)} ?`;
   const scheduleData = sessionData?.schedule;
 
   // ── Cross-device hydrate ─────────────────────────────────────────────
@@ -608,7 +615,7 @@ function ScoringInterface() {
       const a = athletesRef.current.find(
         x => x.team_color?.toLowerCase() === color.toLowerCase() && x.jersey_number === jersey
       );
-      if (a) { setSelected(a); setVoiceStatus(`Selected: ${color} #${jersey} — ${a.last_name}`); beepPlayerSelected(); }
+      if (a) { setSelected(a); setVoiceStatus(isAnon ? `Selected: ${color} #${jersey}` : `Selected: ${color} #${jersey} — ${a.last_name}`); beepPlayerSelected(); }
       else { setVoiceStatus(`${color} #${jersey} not found`); beepError(); }
       return;
     }
@@ -617,7 +624,7 @@ function ScoringInterface() {
     if (/^\d+$/.test(t)) {
       const jersey = parseInt(t);
       const a = athletesRef.current.find(x => x.jersey_number === jersey);
-      if (a) { setSelected(a); setVoiceStatus(`Selected: #${jersey} ${a.last_name}`); beepPlayerSelected(); }
+      if (a) { setSelected(a); setVoiceStatus(isAnon ? `Selected: #${jersey}` : `Selected: #${jersey} ${a.last_name}`); beepPlayerSelected(); }
       else { setVoiceStatus(`No player with jersey #${jersey}`); beepError(); }
       return;
     }
@@ -1011,8 +1018,9 @@ function ScoringInterface() {
                   <tr key={athlete.id} className={`border-b border-gray-800 ${status === "complete" ? "bg-green-900/10" : status === "partial" ? "bg-amber-900/10" : ""}`}>
                     <td className="py-1.5 px-2 text-xs text-white font-medium sticky left-0 bg-gray-900 whitespace-nowrap">
                       <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-400" : "bg-white border border-gray-500"}`} />
-                      {athlete.last_name}, {athlete.first_name?.[0]}.
-                      {athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}
+                      {isAnon
+                        ? anonLabel(athlete)
+                        : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
                     </td>
                     {scoringCats.map(cat => {
                       const val = athleteScores[cat.id];
@@ -1110,9 +1118,9 @@ function ScoringInterface() {
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
                 <span className="font-bold text-white">#{selected.jersey_number ?? "?"}</span>
-                <span className="text-white font-semibold">{selected.last_name}, {selected.first_name}</span>
+                {!isAnon && <span className="text-white font-semibold">{selected.last_name}, {selected.first_name}</span>}
               </div>
-              {selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}{selected.position ? ` · ${selected.position}` : ""}</div>}
+              {!isAnon && selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}{selected.position ? ` · ${selected.position}` : ""}</div>}
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => {
@@ -1249,7 +1257,7 @@ function ScoringInterface() {
                 if (theirFilled.length < totalCats) return false; // only fully-rated peers
                 const theirOverall = Math.round((theirFilled.reduce((a, b) => a + b, 0) / theirFilled.length) * 10) / 10;
                 return theirOverall === myOverall;
-              }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : `${a.last_name}, ${a.first_name?.[0]}.`);
+              }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
 
               return (
                 <div className="mt-3 bg-purple-900/20 border border-purple-800/30 rounded-xl p-3">

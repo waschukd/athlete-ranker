@@ -57,13 +57,16 @@ export async function POST(request, { params }) {
       }
 
       case "scoring": {
-        // Update category scoring config
+        // Update category scoring config. evaluators_anonymous defaults to
+        // true at the column level so older clients that don't send it
+        // still leave the flag on (which is the safe / typical default).
         await sql`
           UPDATE age_categories SET
             scoring_scale = ${data.scoring_scale},
             scoring_increment = ${data.scoring_increment},
             position_tagging = ${data.position_tagging},
-            director_can_edit_scores = ${data.director_can_edit_scores || false}
+            director_can_edit_scores = ${data.director_can_edit_scores || false},
+            evaluators_anonymous = ${data.evaluators_anonymous ?? true}
           WHERE id = ${catId}
         `;
 

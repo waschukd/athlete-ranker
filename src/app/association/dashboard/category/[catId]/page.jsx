@@ -849,9 +849,18 @@ function CategoryHub() {
             <div className="bg-white border border-gray-200 rounded-xl p-5">
               <div className="flex items-center justify-between">
                 <div><div className="text-sm font-medium text-gray-700">Directors can edit scores</div><div className="text-xs text-gray-400 mt-0.5">Allow directors to clear or modify evaluator scores</div></div>
-                <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, director_can_edit_scores: !category?.director_can_edit_scores, categories: scoringCategories } }) }); queryClient.invalidateQueries(["category-setup", catId]); }}
+                <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, director_can_edit_scores: !category?.director_can_edit_scores, evaluators_anonymous: category?.evaluators_anonymous ?? true, categories: scoringCategories } }) }); queryClient.invalidateQueries(["category-setup", catId]); }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${category?.director_can_edit_scores ? "bg-[#1A6BFF]" : "bg-gray-200"}`}>
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${category?.director_can_edit_scores ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
+              <div className="flex items-center justify-between">
+                <div><div className="text-sm font-medium text-gray-700">Keep players anonymous to evaluators</div><div className="text-xs text-gray-400 mt-0.5">Hide athlete names — evaluators see jersey color + number only (recommended)</div></div>
+                <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, director_can_edit_scores: category?.director_can_edit_scores || false, evaluators_anonymous: !(category?.evaluators_anonymous ?? true), categories: scoringCategories } }) }); queryClient.invalidateQueries(["category-setup", catId]); }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(category?.evaluators_anonymous ?? true) ? "bg-[#1A6BFF]" : "bg-gray-200"}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${(category?.evaluators_anonymous ?? true) ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
               </div>
             </div>
