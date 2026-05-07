@@ -138,23 +138,42 @@ export async function GET(request, { params }) {
     const sessionNumber = searchParams.get("session");
     const search = searchParams.get("search");
 
-    // Search mode: return detailed per-evaluator scores for matching athletes
-    if (search && !sessionNumber) {
-      const searchPattern = `%${search}%`;
-      const detailedScores = await sql`
-        SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
-          a.first_name, a.last_name, a.jersey_number,
-          u.name as evaluator_name,
-          sc.name as category_name, sc.display_order
-        FROM category_scores cs
-        JOIN athletes a ON a.id = cs.athlete_id
-        JOIN users u ON u.id = cs.evaluator_id
-        JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
-        WHERE cs.age_category_id = ${catId}
-          AND (LOWER(a.first_name || ' ' || a.last_name) LIKE LOWER(${searchPattern})
-               OR CAST(a.jersey_number AS TEXT) = ${search})
-        ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
-      `;
+    // Detailed mode (no sessionNumber): return per-evaluator scores grouped
+    // by athlete. With a search term we filter by name/jersey; without one
+    // we return every scored athlete in the category alphabetically so the
+    // Scores tab has a default list to browse instead of an empty state.
+    if (!sessionNumber) {
+      let detailedScores;
+      if (search) {
+        const searchPattern = `%${search}%`;
+        detailedScores = await sql`
+          SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
+            a.first_name, a.last_name, a.jersey_number,
+            u.name as evaluator_name,
+            sc.name as category_name, sc.display_order
+          FROM category_scores cs
+          JOIN athletes a ON a.id = cs.athlete_id
+          JOIN users u ON u.id = cs.evaluator_id
+          JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
+          WHERE cs.age_category_id = ${catId}
+            AND (LOWER(a.first_name || ' ' || a.last_name) LIKE LOWER(${searchPattern})
+                 OR CAST(a.jersey_number AS TEXT) = ${search})
+          ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
+        `;
+      } else {
+        detailedScores = await sql`
+          SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
+            a.first_name, a.last_name, a.jersey_number,
+            u.name as evaluator_name,
+            sc.name as category_name, sc.display_order
+          FROM category_scores cs
+          JOIN athletes a ON a.id = cs.athlete_id
+          JOIN users u ON u.id = cs.evaluator_id
+          JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
+          WHERE cs.age_category_id = ${catId}
+          ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
+        `;
+      }
 
       // Get scoring categories for column headers
       const scoringCats = await sql`SELECT id, name FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order`;

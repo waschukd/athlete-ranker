@@ -22,6 +22,8 @@ export default function ScoreEditor({ catId, canEdit }) {
   }, []);
 
   // ── Edit Sub-Tab Data ─────────────────────────────────────
+  // Always-on: empty query fetches every scored athlete alphabetically so
+  // the tab has a useful default. Typing narrows the list server-side.
   const { data: searchData, isLoading: searchLoading } = useQuery({
     queryKey: ["score-search", catId, debouncedSearch],
     queryFn: async () => {
@@ -29,7 +31,6 @@ export default function ScoreEditor({ catId, canEdit }) {
       if (!res.ok) throw new Error("Failed to search");
       return res.json();
     },
-    enabled: debouncedSearch.length >= 2,
   });
 
   // Group search results by athlete, then session, then evaluator
@@ -177,12 +178,12 @@ export default function ScoreEditor({ catId, canEdit }) {
             </div>
           )}
 
-          {debouncedSearch.length < 2 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">Type at least 2 characters to search</div>
-          ) : searchLoading ? (
+          {searchLoading ? (
             <div className="text-center py-16"><Loader2 size={24} className="animate-spin mx-auto text-gray-400" /></div>
           ) : athletes.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">No athletes found for &ldquo;{debouncedSearch}&rdquo;</div>
+            <div className="text-center py-16 text-gray-400 text-sm">
+              {debouncedSearch ? <>No athletes found for &ldquo;{debouncedSearch}&rdquo;</> : <>No scored athletes in this category yet</>}
+            </div>
           ) : (
             <div className="space-y-3">
               {athletes.map(athlete => (
