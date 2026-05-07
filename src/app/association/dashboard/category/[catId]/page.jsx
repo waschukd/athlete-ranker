@@ -6,7 +6,7 @@ import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tan
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap,
-  Download, FileText, LogOut
+  Download, FileText, LogOut, Search, X
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -34,6 +34,17 @@ function CategoryHub() {
   const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
   useTrackPageView("category.viewed", { catId, orgId });
   const [activeTab, setActiveTab] = useState("rankings");
+  // Shared search box used by Rankings + Athletes tabs. Client-side filter
+  // over the already-loaded list — no API call needed since both tabs hold
+  // the full athlete set in memory.
+  const [tableSearch, setTableSearch] = useState("");
+  const matchesSearch = (a) => {
+    const q = tableSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (a.first_name || "").toLowerCase().includes(q)
+        || (a.last_name || "").toLowerCase().includes(q)
+        || (a.external_id || "").toLowerCase().includes(q);
+  };
   const queryClient = useQueryClient();
   const [positionFilter, setPositionFilter] = useState("all");
   const [compareIds, setCompareIds] = useState([]);
@@ -277,6 +288,21 @@ function CategoryHub() {
                   <p className="text-xs text-gray-400 mt-0.5">{phase === "pre_session" ? "Rankings update after Session 1 scores are entered" : `${completedSessions.length} of ${sessions.length} sessions - refreshes every 30s`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={tableSearch}
+                      onChange={e => setTableSearch(e.target.value)}
+                      placeholder="Search name or HC#"
+                      className="pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30 w-44"
+                    />
+                    {tableSearch && (
+                      <button onClick={() => setTableSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                   {hasPositions && category?.position_tagging && (
                     <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                       {["all", "forward", "defense", "goalie"].map(pos => (
@@ -310,7 +336,10 @@ function CategoryHub() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {sortedAthletes.map(a => (
+                    {sortedAthletes.filter(matchesSearch).length === 0 && tableSearch && (
+                      <tr><td colSpan={hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
+                    )}
+                    {sortedAthletes.filter(matchesSearch).map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : ""}`}>
                         <td className="px-2 py-3">
                           <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#1A6BFF] focus:ring-[#1A6BFF]" />
@@ -605,10 +634,29 @@ function CategoryHub() {
               </div>
             )}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              {athletes.length > 0 && (
+                <div className="px-5 py-3 border-b border-gray-100">
+                  <div className="relative max-w-sm">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={tableSearch}
+                      onChange={e => setTableSearch(e.target.value)}
+                      placeholder="Search name or HC#"
+                      className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30"
+                    />
+                    {tableSearch && (
+                      <button onClick={() => setTableSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {athletes.length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.map((a, i) => (
+                  {athletes.length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{a.last_name}, {a.first_name}</td>
