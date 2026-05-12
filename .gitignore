@@ -13,6 +13,7 @@ android/*
 !android/app/
 android/app/*
 !android/app/src/
+!android/app/build.gradle
 android/app/src/*
 !android/app/src/main/
 android/app/src/main/*
