@@ -6,4 +6,14 @@ node_modules/
 *.log
 .claude/
 ios/
-android/
+# Ignore the generated/build contents of android/ but keep the manifest
+# tracked. Git can't re-include a file whose parent dir is fully ignored,
+# so we un-ignore each parent step before re-ignoring the noisy children.
+android/*
+!android/app/
+android/app/*
+!android/app/src/
+android/app/src/*
+!android/app/src/main/
+android/app/src/main/*
+!android/app/src/main/AndroidManifest.xml
