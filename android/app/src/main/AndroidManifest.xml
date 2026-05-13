@@ -42,4 +42,17 @@
          plugin's requestPermissions() silently returns 'denied' on Android
          when this isn't declared, so the mic button taps did nothing. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Package visibility for the speech recognizer service.
+         Android 11+ (API 30) hides system services from apps unless they
+         explicitly declare interest. Without this, SpeechRecognizer
+         resolves to a no-op recognizer and the native voice button
+         flickers because every session ends immediately. The web app
+         on Chrome isn't affected because Chrome ships its own recognizer
+         — only the WebView-backed Capacitor APK needs this query. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>
