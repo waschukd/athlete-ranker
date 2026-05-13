@@ -19,6 +19,13 @@ const config: CapacitorConfig = {
       language: 'en-US',
     },
   },
+  android: {
+    // TEMPORARY: expose the WebView to chrome://inspect so we can read
+    // JS console errors from a connected dev laptop. Used to diagnose the
+    // mic-not-working bug on Samsung. Revert (remove this block, rebuild)
+    // before any production-facing release once that's resolved.
+    webContentsDebuggingEnabled: true,
+  },
 };
 
 export default config;
