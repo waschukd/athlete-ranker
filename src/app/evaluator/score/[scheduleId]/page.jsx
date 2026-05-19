@@ -701,7 +701,20 @@ function ScoringInterface() {
     if (/^(prev|previous|back)$/.test(t)) { navigate(-1); return; }
 
     setVoiceStatus(`Not understood: "${text}"`);
-    beepError();
+    // Only buzz when the input clearly looked like a command attempt.
+    // Otherwise every random word the recognizer picks up ("the", "and",
+    // "yeah") would beep, which is exhausting in a continuous-listening
+    // session. Real misses on command-shaped input still buzz so the
+    // evaluator knows their attempt failed.
+    const looksLikeCommand =
+      /\d/.test(t) ||
+      /\b(white|dark|black|wh|dk|bl)\b/i.test(t) ||
+      /\b(next|prev|previous|back|notes?|mic|microphone|stop|finish|done)\b/i.test(t) ||
+      cats.some(c => {
+        const first = c.name.toLowerCase().split(/[\s/]+/)[0];
+        return first && first.length >= 3 && t.includes(first);
+      });
+    if (looksLikeCommand) beepError();
 
   }, [scheduleId, updateScore, navigate]);
 
