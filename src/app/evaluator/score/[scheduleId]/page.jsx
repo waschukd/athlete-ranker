@@ -111,6 +111,10 @@ function ScoringInterface() {
   const recRef = useRef(null);
   const syncTimerRef = useRef(null);
   const aliasLookupRef = useRef({});
+  // Dedup ref for parseVoice — Android Chrome's continuous recognizer
+  // re-emits the same final transcript when it cycles a session, which
+  // doubled the success chime. Suppress repeats within a 1200ms window.
+  const lastVoiceRef = useRef({ text: "", ts: 0 });
   const deviceChangeRef = useRef(null);
 
   useEffect(() => { notesModeRef.current = notesMode; }, [notesMode]);
@@ -506,6 +510,16 @@ function ScoringInterface() {
 
   // ── Voice ─────────────────────────────────────────────────────────────────
   const parseVoice = useCallback((text) => {
+    // Drop duplicate emissions of the same final transcript inside a short
+    // window. Android Chrome's continuous recognizer fires the same final
+    // twice on session rollover, which previously produced a double chime
+    // (and before the toggle fix, also wiped just-set scores).
+    const now = Date.now();
+    if (lastVoiceRef.current.text === text && now - lastVoiceRef.current.ts < 1200) {
+      return;
+    }
+    lastVoiceRef.current = { text, ts: now };
+
     // ── Number normalization ─────────────────────────────────
     const wordNums = {
       'zero':'0','oh':'0',
