@@ -456,11 +456,17 @@ function ScoringInterface() {
   }, [online]);
 
   // ── Core score setter ─────────────────────────────────────────────────────
-  const updateScore = useCallback((athleteId, catId, value) => {
+  // allowToggle=true (default, used by tap UI): tapping a button that's
+  //   already at this value clears it — convenient for "I clicked the wrong
+  //   one, tap to undo."
+  // allowToggle=false (used by voice): always set the value as given.
+  //   Android Chrome's continuous recognizer occasionally emits the same
+  //   final transcript twice when a recognition session restarts; with
+  //   toggling on, the duplicate call would clear a just-spoken score.
+  const updateScore = useCallback((athleteId, catId, value, { allowToggle = true } = {}) => {
     setScores(prev => {
       const existing = prev[athleteId]?.cats?.[catId];
-      // Toggle off if same value tapped again
-      const newVal = existing === value ? null : value;
+      const newVal = allowToggle && existing === value ? null : value;
       const updated = {
         ...prev,
         [athleteId]: {
@@ -656,7 +662,7 @@ function ScoringInterface() {
             const inc = parseFloat(incrementRef.current) || 1;
             const max = parseFloat(scaleRef.current) || 10;
             if (val >= inc && val <= max) {
-              if (sel) { updateScore(sel.id, cat.id, val); scored++; break; }
+              if (sel) { updateScore(sel.id, cat.id, val, { allowToggle: false }); scored++; break; }
               else { setVoiceStatus("Select a player first"); beepError(); break; }
             }
           }
@@ -676,7 +682,7 @@ function ScoringInterface() {
             if (result) {
               const cat = cats.find(c => normalizeForMatch(c.name) === normalizeForMatch(result.match));
               if (cat) {
-                updateScore(sel.id, cat.id, value);
+                updateScore(sel.id, cat.id, value, { allowToggle: false });
                 scored++;
                 fuzzyMatches.push({ cat: cat.name, value, heard: phrase, method: result.method });
               }
@@ -701,20 +707,11 @@ function ScoringInterface() {
     if (/^(prev|previous|back)$/.test(t)) { navigate(-1); return; }
 
     setVoiceStatus(`Not understood: "${text}"`);
-    // Only buzz when the input clearly looked like a command attempt.
-    // Otherwise every random word the recognizer picks up ("the", "and",
-    // "yeah") would beep, which is exhausting in a continuous-listening
-    // session. Real misses on command-shaped input still buzz so the
-    // evaluator knows their attempt failed.
-    const looksLikeCommand =
-      /\d/.test(t) ||
-      /\b(white|dark|black|wh|dk|bl)\b/i.test(t) ||
-      /\b(next|prev|previous|back|notes?|mic|microphone|stop|finish|done)\b/i.test(t) ||
-      cats.some(c => {
-        const first = c.name.toLowerCase().split(/[\s/]+/)[0];
-        return first && first.length >= 3 && t.includes(first);
-      });
-    if (looksLikeCommand) beepError();
+    // No buzz on fall-through. Random transcription chatter (single words,
+    // partial commands, throat clears) hits this branch constantly and
+    // beeping every time was unbearable. Specific failure branches above
+    // (player not found, no player selected) still buzz so real command
+    // misses get audible feedback.
 
   }, [scheduleId, updateScore, navigate]);
 
