@@ -263,6 +263,20 @@ function SPDashboard() {
   const [newClient, setNewClient] = useState({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "" });
   const [newClientSaving, setNewClientSaving] = useState(false);
   const [newClientMsg, setNewClientMsg] = useState(null);
+  const [selHours, setSelHours] = useState([]);
+  const [selFlags, setSelFlags] = useState([]);
+  const [selEvals, setSelEvals] = useState([]);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [bulkDeleteMsg, setBulkDeleteMsg] = useState(null);
+
+  const bulkAction = async (payload) => {
+    const res = await fetch(spUrl("/api/service-provider/evaluators"), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  };
 
   const { data: assocData, isLoading: assocLoading } = useQuery({
     queryKey: ["sp-associations", orgParam],
@@ -663,18 +677,33 @@ function SPDashboard() {
               </div>
             </div>
 
+            {bulkDeleteMsg && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between text-sm text-green-700">
+                <span>{bulkDeleteMsg}</span>
+                <button onClick={() => setBulkDeleteMsg(null)} className="text-green-600 hover:text-green-800"><X size={14} /></button>
+              </div>
+            )}
+
             {flags.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-red-800 mb-3">Performance Flags</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-red-800">Performance Flags</h3>
+                  {selFlags.length > 0 && (
+                    <button onClick={async () => { await bulkAction({ action: "dismiss_flag", flag_ids: selFlags }); setSelFlags([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Dismiss selected ({selFlags.length})</button>
+                  )}
+                </div>
                 <div className="space-y-2">
                   {flags.map(flag => (
                     <div key={flag.id} className="flex items-center justify-between bg-white rounded-lg p-3 border border-red-100">
-                      <div>
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" checked={selFlags.includes(flag.id)} onChange={e => setSelFlags(e.target.checked ? [...selFlags, flag.id] : selFlags.filter(id => id !== flag.id))} className="rounded border-gray-300" />
+                        <div>
                         <span className="font-medium text-gray-900 text-sm">{flag.evaluator_name}</span>
                         <span className="mx-2 text-gray-300">-</span>
                         <span className="text-xs text-gray-500">{flag.org_name} S{flag.session_number}</span>
                         <span className="mx-2 text-gray-300">-</span>
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{flag.flag_type.replace(/_/g, " ")}</span>
+                        </div>
                       </div>
                       <button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss_flag", flag_id: flag.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">Dismiss</button>
                     </div>
@@ -685,12 +714,18 @@ function SPDashboard() {
 
             {pendingHours.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-5 py-3 bg-amber-50 border-b border-amber-200"><h3 className="text-sm font-semibold text-amber-800">Pending Hours Approval</h3></div>
+                <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-amber-800">Pending Hours Approval</h3>
+                  {selHours.length > 0 && (
+                    <button onClick={async () => { await bulkAction({ action: "approve_hours", hours_ids: selHours }); setSelHours([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
+                  )}
+                </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-100"><tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Session</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Hours</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th></tr></thead>
+                  <thead className="bg-gray-50 border-b border-gray-100"><tr><th className="px-4 py-2 text-center w-10"><input type="checkbox" checked={pendingHours.length > 0 && selHours.length === pendingHours.length} onChange={e => setSelHours(e.target.checked ? pendingHours.map(h => h.id) : [])} className="rounded border-gray-300" /></th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Session</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Hours</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th></tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {pendingHours.map(h => (
                       <tr key={h.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 text-center"><input type="checkbox" checked={selHours.includes(h.id)} onChange={e => setSelHours(e.target.checked ? [...selHours, h.id] : selHours.filter(id => id !== h.id))} className="rounded border-gray-300" /></td>
                         <td className="px-4 py-2.5 font-medium text-gray-900">{h.evaluator_name}</td>
                         <td className="px-4 py-2.5 text-gray-500">{h.org_name} - {h.category_name} S{h.session_number}</td>
                         <td className="px-4 py-2.5 text-center font-bold text-gray-900">{parseFloat(h.hours_worked).toFixed(1)}h</td>
@@ -731,10 +766,20 @@ function SPDashboard() {
               </div>
             </div>
 
+            {selEvals.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-700 mr-1">{selEvals.length} selected</span>
+                <button onClick={async () => { await bulkAction({ action: "approve", evaluator_ids: selEvals }); setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
+                <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { await bulkAction({ action: "suspend", evaluator_ids: selEvals }); setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
+                <button onClick={() => { setBulkDeleteMsg(null); setShowBulkDelete(true); }} className="text-xs px-3 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100 font-medium">Delete ({selEvals.length})</button>
+              </div>
+            )}
+
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-4 py-3 text-center w-10"><input type="checkbox" checked={evaluators.length > 0 && selEvals.length === evaluators.length} onChange={e => setSelEvals(e.target.checked ? evaluators.map(ev => ev.id) : [])} className="rounded border-gray-300" /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sessions</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hours</th>
@@ -744,8 +789,9 @@ function SPDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {evaluators.length === 0 ? <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">No evaluators in pool yet</td></tr> : evaluators.map(ev => (
+                  {evaluators.length === 0 ? <tr><td colSpan={7} className="py-10 text-center text-gray-400 text-sm">No evaluators in pool yet</td></tr> : evaluators.map(ev => (
                     <tr key={ev.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-center"><input type="checkbox" checked={selEvals.includes(ev.id)} onClick={e => e.stopPropagation()} onChange={e => setSelEvals(e.target.checked ? [...selEvals, ev.id] : selEvals.filter(id => id !== ev.id))} className="rounded border-gray-300" /></td>
                       <td className="px-4 py-3 cursor-pointer" onClick={() => window.location.href = `/service-provider/evaluator/${ev.id}`}>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900 hover:text-[#1A6BFF]">{ev.name}</span>
@@ -770,6 +816,34 @@ function SPDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {showBulkDelete && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-gray-900">Delete {selEvals.length} evaluators?</h3>
+                    <button onClick={() => { setShowBulkDelete(false); setDeleteConfirm(""); }} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4">This permanently deletes the selected accounts. Any evaluator with session history will be skipped automatically.</p>
+                  <input type="text" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="type DELETE to confirm" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 mb-4" />
+                  {bulkDeleteMsg && <p className="text-xs font-medium text-gray-600 mb-3">{bulkDeleteMsg}</p>}
+                  <div className="flex gap-3">
+                    <button onClick={() => { setShowBulkDelete(false); setDeleteConfirm(""); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm">Cancel</button>
+                    <button
+                      disabled={deleteConfirm !== "DELETE"}
+                      onClick={async () => {
+                        const data = await bulkAction({ action: "delete_account", evaluator_ids: selEvals });
+                        setSelEvals([]); setShowBulkDelete(false); setDeleteConfirm("");
+                        setBulkDeleteMsg(`${data.deleted} deleted, ${data.skipped} skipped`);
+                        queryClient.invalidateQueries(["sp-evaluators"]);
+                      }}
+                      className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
