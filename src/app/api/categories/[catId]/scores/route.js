@@ -14,16 +14,16 @@ export async function PATCH(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Directors can never edit scores
-    if (session.role === "director") {
-      return NextResponse.json({ error: "Directors cannot edit scores" }, { status: 403 });
-    }
-
     const editorId = await getAppUserId(session);
     const { athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason } = await request.json();
 
     if (!athlete_id || !evaluator_id || !scoring_category_id || !session_number || new_score === undefined) {
       return NextResponse.json({ error: "athlete_id, evaluator_id, scoring_category_id, session_number, new_score required" }, { status: 400 });
+    }
+
+    // Directors may correct scores, but must record a reason (audited).
+    if (session.role === "director" && !(reason && String(reason).trim())) {
+      return NextResponse.json({ error: "A reason is required for a director score correction" }, { status: 400 });
     }
 
     // Validate score against category scale
@@ -88,6 +88,10 @@ export async function DELETE(request, { params }) {
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    if (session.role === "director") {
+      return NextResponse.json({ error: "Directors cannot delete scores" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");

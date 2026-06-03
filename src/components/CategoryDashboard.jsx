@@ -1156,7 +1156,7 @@ export default function CategoryDashboard({
           )
         )}
 
-        {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={canManage} />}
+        {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={canManage || role === "director"} requireReason={role === "director"} />}
 
         {/* Comparison overlay */}
         {showCompare && (
