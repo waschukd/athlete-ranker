@@ -59,42 +59,60 @@ export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { action, evaluator_id, schedule_id, hours_id, rating, notes, flag_id } = await request.json();
+    const body = await request.json();
+    const { action, evaluator_id, schedule_id, hours_id, rating, notes, flag_id } = body;
+    const asArray = (arr, single) => Array.isArray(arr) ? arr : (single != null ? [single] : []);
     const { searchParams } = new URL(request.url);
     const sp_id = await resolveSpOrgId(session, searchParams.get("org"));
     if (!sp_id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const adminRes = await sql`SELECT id FROM users WHERE email = ${session.email} LIMIT 1`;
     const admin_id = adminRes[0]?.id;
     if (action === "approve_hours") {
-      await sql`UPDATE evaluator_hours SET status = 'approved', approved_by = ${admin_id}, approved_at = NOW() WHERE id = ${hours_id}`;
-      return NextResponse.json({ success: true });
+      const ids = asArray(body.hours_ids, hours_id);
+      if (!ids.length) return NextResponse.json({ error: "No hours ids" }, { status: 400 });
+      await sql`UPDATE evaluator_hours SET status = 'approved', approved_by = ${admin_id}, approved_at = NOW() WHERE id = ANY(${ids}) AND organization_id = ${sp_id}`;
+      return NextResponse.json({ success: true, count: ids.length });
     }
     if (action === "rate_evaluator") {
       await sql`INSERT INTO evaluator_ratings (evaluator_id, rated_by, organization_id, schedule_id, rating, notes) VALUES (${evaluator_id}, ${admin_id}, ${sp_id}, ${schedule_id}, ${rating}, ${notes || null}) ON CONFLICT (evaluator_id, schedule_id) DO UPDATE SET rating = ${rating}, notes = ${notes || null}`;
       return NextResponse.json({ success: true });
     }
     if (action === "approve") {
-      await sql`UPDATE evaluator_memberships SET status = 'active', pending = false WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
-      await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_approved', 'user', ${evaluator_id}, 'approved by SP admin')`;
-      return NextResponse.json({ success: true });
+      const ids = asArray(body.evaluator_ids, evaluator_id);
+      if (!ids.length) return NextResponse.json({ error: "No evaluator ids" }, { status: 400 });
+      await sql`UPDATE evaluator_memberships SET status = 'active', pending = false WHERE user_id = ANY(${ids}) AND organization_id = ${sp_id}`;
+      for (const id of ids) {
+        await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_approved', 'user', ${id}, 'approved by SP admin')`;
+      }
+      return NextResponse.json({ success: true, count: ids.length });
     }
     if (action === "suspend") {
-      await sql`UPDATE evaluator_memberships SET status = 'suspended' WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
-      await sql`UPDATE evaluator_session_signups SET status = 'suspended' WHERE user_id = ${evaluator_id} AND status = 'signed_up' AND schedule_id IN (SELECT id FROM evaluation_schedule WHERE scheduled_date > CURRENT_DATE)`;
-      await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_suspended', 'user', ${evaluator_id}, 'suspended by SP admin')`;
-      return NextResponse.json({ success: true });
+      const ids = asArray(body.evaluator_ids, evaluator_id);
+      if (!ids.length) return NextResponse.json({ error: "No evaluator ids" }, { status: 400 });
+      await sql`UPDATE evaluator_memberships SET status = 'suspended' WHERE user_id = ANY(${ids}) AND organization_id = ${sp_id}`;
+      await sql`UPDATE evaluator_session_signups SET status = 'suspended' WHERE user_id = ANY(${ids}) AND status = 'signed_up' AND schedule_id IN (SELECT id FROM evaluation_schedule WHERE scheduled_date > CURRENT_DATE)`;
+      for (const id of ids) {
+        await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_suspended', 'user', ${id}, 'suspended by SP admin')`;
+      }
+      return NextResponse.json({ success: true, count: ids.length });
     }
     if (action === "delete_account") {
-      const hasHistory = await sql`SELECT COUNT(*) as count FROM evaluator_session_signups WHERE user_id = ${evaluator_id}`;
-      if (parseInt(hasHistory[0].count) > 0) return NextResponse.json({ error: "Cannot delete an evaluator with session history. Use suspend instead." }, { status: 400 });
-      await sql`DELETE FROM evaluator_memberships WHERE user_id = ${evaluator_id}`;
-      const authUser = await sql`SELECT id FROM auth_users WHERE email = (SELECT email FROM users WHERE id = ${evaluator_id})`;
-      if (authUser.length) {
-        await sql`DELETE FROM auth_accounts WHERE "userId" = ${authUser[0].id}`;
-        await sql`DELETE FROM auth_users WHERE id = ${authUser[0].id}`;
+      const ids = asArray(body.evaluator_ids, evaluator_id);
+      if (!ids.length) return NextResponse.json({ error: "No evaluator ids" }, { status: 400 });
+      let deleted = 0; const skipped = [];
+      for (const id of ids) {
+        const hasHistory = await sql`SELECT COUNT(*) as count FROM evaluator_session_signups WHERE user_id = ${id}`;
+        if (parseInt(hasHistory[0].count) > 0) { skipped.push(id); continue; }
+        await sql`DELETE FROM evaluator_memberships WHERE user_id = ${id}`;
+        const authUser = await sql`SELECT id FROM auth_users WHERE email = (SELECT email FROM users WHERE id = ${id})`;
+        if (authUser.length) {
+          await sql`DELETE FROM auth_accounts WHERE "userId" = ${authUser[0].id}`;
+          await sql`DELETE FROM auth_users WHERE id = ${authUser[0].id}`;
+        }
+        await sql`DELETE FROM users WHERE id = ${id}`;
+        deleted++;
       }
-      await sql`DELETE FROM users WHERE id = ${evaluator_id}`;
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, deleted, skipped: skipped.length });
     }
     if (action === "reinstate") {
       await sql`UPDATE evaluator_flags SET reviewed = true, reviewed_by = ${admin_id}, reviewed_at = NOW() WHERE evaluator_id = ${evaluator_id} AND flag_type = 'late_cancel'`;
@@ -103,8 +121,10 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
     if (action === "dismiss_flag") {
-      await sql`UPDATE evaluator_flags SET reviewed = true, reviewed_by = ${admin_id}, reviewed_at = NOW() WHERE id = ${flag_id}`;
-      return NextResponse.json({ success: true });
+      const ids = asArray(body.flag_ids, flag_id);
+      if (!ids.length) return NextResponse.json({ error: "No flag ids" }, { status: 400 });
+      await sql`UPDATE evaluator_flags SET reviewed = true, reviewed_by = ${admin_id}, reviewed_at = NOW() WHERE id = ANY(${ids}) AND organization_id = ${sp_id}`;
+      return NextResponse.json({ success: true, count: ids.length });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
