@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle } from "lucide-react";
-import { groupDetailedScores } from "@/lib/scoreGrouping";
+import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle, LayoutGrid, Table2 } from "lucide-react";
+import { groupDetailedScores, toScoreGrid } from "@/lib/scoreGrouping";
 
 export default function ScoreEditor({ catId, canEdit }) {
   const [subTab, setSubTab] = useState("edit");
+  const [viewMode, setViewMode] = useState("cards"); // "cards" | "grid"
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [evaluatorFilter, setEvaluatorFilter] = useState("");
@@ -41,28 +42,33 @@ export default function ScoreEditor({ catId, canEdit }) {
     },
   });
 
-  // Group flat score rows into athlete → session → evaluator
+  // Group flat score rows into athlete → session → evaluator (cards view) and
+  // into a flat spreadsheet grid (grid view).
   const athletes = groupDetailedScores(searchData?.scores);
+  const grid = toScoreGrid(searchData?.scores);
 
   const scoringCats = searchData?.scoringCategories || [];
   const evaluatorOptions = searchData?.evaluators || [];
   const sessionOptions = searchData?.sessions || [];
   const hasFilters = Boolean(debouncedSearch || evaluatorFilter || sessionFilter);
 
-  // ── Score Edit Mutation ────────────────────────────────────
+  // Shared PATCH for a single score cell.
+  const patchScore = async ({ athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason }) => {
+    const res = await fetch(`/api/categories/${catId}/scores`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ athlete_id, evaluator_id, scoring_category_id, session_number, new_score: parseFloat(new_score), reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to update");
+    }
+    return res.json();
+  };
+
+  // ── Score Edit Mutation (cards view) ───────────────────────
   const editMutation = useMutation({
-    mutationFn: async ({ athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason }) => {
-      const res = await fetch(`/api/categories/${catId}/scores`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ athlete_id, evaluator_id, scoring_category_id, session_number, new_score: parseFloat(new_score), reason }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update");
-      }
-      return res.json();
-    },
+    mutationFn: patchScore,
     onSuccess: () => {
       queryClient.invalidateQueries(["score-search", catId]);
       queryClient.invalidateQueries(["category-rankings", catId]);
@@ -72,6 +78,15 @@ export default function ScoreEditor({ catId, canEdit }) {
       setEditReason("");
     },
   });
+
+  // ── Grid save: each cell saves itself. Deliberately does NOT invalidate the
+  // score-search query so the spreadsheet doesn't refetch/reset out from under
+  // rapid edits — the cell keeps its own value; rankings/audit still refresh.
+  const saveGridCell = async (args) => {
+    await patchScore({ ...args, reason: null });
+    queryClient.invalidateQueries(["category-rankings", catId]);
+    queryClient.invalidateQueries(["score-audit", catId]);
+  };
 
   // ── Audit Sub-Tab Data ─────────────────────────────────────
   const [auditOffset, setAuditOffset] = useState(0);
@@ -194,12 +209,28 @@ export default function ScoreEditor({ catId, canEdit }) {
             </div>
           )}
 
+          {/* View toggle: expandable cards vs flat spreadsheet grid */}
+          <div className="flex items-center justify-end mb-4">
+            <div className="inline-flex rounded-lg bg-gray-100 p-1">
+              <button onClick={() => setViewMode("cards")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <LayoutGrid size={13} /> Cards
+              </button>
+              <button onClick={() => setViewMode("grid")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <Table2 size={13} /> Spreadsheet
+              </button>
+            </div>
+          </div>
+
           {searchLoading ? (
             <div className="text-center py-16"><Loader2 size={24} className="animate-spin mx-auto text-gray-400" /></div>
           ) : athletes.length === 0 ? (
             <div className="text-center py-16 text-gray-400 text-sm">
               {hasFilters ? <>No scores match the current filters</> : <>No scored athletes in this category yet</>}
             </div>
+          ) : viewMode === "grid" ? (
+            <ScoreGrid grid={grid} scoringCats={scoringCats} canEdit={canEdit} onSave={saveGridCell} />
           ) : (
             <div className="space-y-3">
               {athletes.map(athlete => (
@@ -382,5 +413,113 @@ export default function ScoreEditor({ catId, canEdit }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Spreadsheet grid view ────────────────────────────────────
+// One row per athlete/session/evaluator; one column per scoring category.
+// Every existing score is an always-editable cell so a whole session can be
+// adjusted without expanding cards or scrolling name-to-name.
+function ScoreGrid({ grid, scoringCats, canEdit, onSave }) {
+  return (
+    <div className="overflow-x-auto border border-gray-200 rounded-xl">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="sticky left-0 bg-gray-50 z-10 text-left py-2.5 px-4 text-xs font-medium text-gray-500 whitespace-nowrap">Athlete</th>
+            <th className="text-center py-2.5 px-3 text-xs font-medium text-gray-500">Session</th>
+            <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 whitespace-nowrap">Evaluator</th>
+            {scoringCats.map(cat => (
+              <th key={cat.id} className="text-center py-2.5 px-2 text-xs font-medium text-gray-500 min-w-[72px]">{cat.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {grid.map(rowData => (
+            <tr key={rowData.key} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+              <td className="sticky left-0 bg-white py-1.5 px-4 whitespace-nowrap">
+                <span className="font-medium text-gray-900">{rowData.athlete_name}</span>
+                {rowData.jersey && <span className="ml-1.5 text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">#{rowData.jersey}</span>}
+              </td>
+              <td className="py-1.5 px-3 text-center text-gray-500">S{rowData.session_number}</td>
+              <td className="py-1.5 px-3 text-gray-600 whitespace-nowrap">{rowData.evaluator_name}</td>
+              {scoringCats.map(cat => (
+                <td key={cat.id} className="py-1.5 px-2 text-center">
+                  <ScoreGridCell
+                    value={rowData.scores[cat.id]}
+                    canEdit={canEdit}
+                    onSave={(newScore) => onSave({
+                      athlete_id: rowData.athlete_id,
+                      evaluator_id: rowData.evaluator_id,
+                      scoring_category_id: cat.id,
+                      session_number: rowData.session_number,
+                      new_score: newScore,
+                    })}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// A single always-on spreadsheet cell. Manages its own input state and saves
+// on blur / Enter; flashes green on success, reverts + red on failure.
+function ScoreGridCell({ value, canEdit, onSave }) {
+  const hasScore = value !== undefined && value !== null;
+  const [val, setVal] = useState(hasScore ? String(value) : "");
+  const [status, setStatus] = useState("idle"); // idle | saving | saved | error
+  const focused = useRef(false);
+
+  // Keep in sync if the underlying value changes (e.g. after a refetch), but
+  // never overwrite what the user is actively typing.
+  useEffect(() => {
+    if (!focused.current) setVal(hasScore ? String(value) : "");
+  }, [value, hasScore]);
+
+  // PATCH only updates existing evaluator scores, and directors are read-only,
+  // so non-editable cells render as plain text.
+  if (!hasScore || !canEdit) {
+    return <span className="text-gray-400 tabular-nums">{hasScore ? value : "—"}</span>;
+  }
+
+  const commit = async () => {
+    focused.current = false;
+    const trimmed = val.trim();
+    if (trimmed === "" || parseFloat(trimmed) === value) { setVal(String(value)); setStatus("idle"); return; }
+    setStatus("saving");
+    try {
+      await onSave(parseFloat(trimmed));
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 1200);
+    } catch {
+      setVal(String(value));
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2500);
+    }
+  };
+
+  const ring = status === "saving" ? "border-blue-300"
+    : status === "saved" ? "border-green-400 bg-green-50"
+    : status === "error" ? "border-red-400 bg-red-50"
+    : "border-gray-200";
+
+  return (
+    <input
+      type="number" step="0.5" min="0"
+      value={val}
+      disabled={status === "saving"}
+      onFocus={() => { focused.current = true; }}
+      onChange={e => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") { setVal(String(value)); e.currentTarget.blur(); }
+      }}
+      className={`w-14 px-1.5 py-1 text-center text-sm font-mono rounded border ${ring} focus:outline-none focus:ring-1 focus:ring-[#1A6BFF] focus:border-[#1A6BFF]`}
+    />
   );
 }

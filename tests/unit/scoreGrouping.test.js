@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupDetailedScores } from "@/lib/scoreGrouping";
+import { groupDetailedScores, toScoreGrid } from "@/lib/scoreGrouping";
 
 const row = (over = {}) => ({
   athlete_id: 1,
@@ -71,5 +71,44 @@ describe("groupDetailedScores", () => {
     ]);
     expect(grouped).toHaveLength(2);
     expect(grouped.map(a => a.id).sort()).toEqual([1, 2]);
+  });
+});
+
+describe("toScoreGrid", () => {
+  it("returns an empty array for no rows", () => {
+    expect(toScoreGrid([])).toEqual([]);
+    expect(toScoreGrid(undefined)).toEqual([]);
+  });
+
+  it("makes one row per athlete/session/evaluator with category scores", () => {
+    const grid = toScoreGrid([
+      row({ scoring_category_id: 100, score: "8" }),
+      row({ scoring_category_id: 200, score: "5" }),
+    ]);
+    expect(grid).toHaveLength(1);
+    expect(grid[0]).toMatchObject({
+      athlete_id: 1,
+      athlete_name: "Sam Jones",
+      jersey: 7,
+      session_number: 1,
+      evaluator_id: 10,
+      evaluator_name: "Coach A",
+    });
+    expect(grid[0].scores).toEqual({ 100: 8, 200: 5 });
+  });
+
+  it("splits rows across sessions and evaluators", () => {
+    const grid = toScoreGrid([
+      row({ session_number: 1, evaluator_id: 10 }),
+      row({ session_number: 2, evaluator_id: 10 }),
+      row({ session_number: 1, evaluator_id: 11 }),
+    ]);
+    expect(grid).toHaveLength(3);
+    expect(grid.map(r => r.key)).toEqual(["1|1|10", "1|2|10", "1|1|11"]);
+  });
+
+  it("parses score strings to numbers", () => {
+    const [r] = toScoreGrid([row({ scoring_category_id: 100, score: "6.5" })]);
+    expect(r.scores[100]).toBe(6.5);
   });
 });
