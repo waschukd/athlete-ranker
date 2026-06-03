@@ -275,7 +275,9 @@ function SPDashboard() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setBulkDeleteMsg(`⚠️ ${data.error || "Action failed"}`); return null; }
+    return data;
   };
 
   const { data: assocData, isLoading: assocLoading } = useQuery({
@@ -677,19 +679,22 @@ function SPDashboard() {
               </div>
             </div>
 
-            {bulkDeleteMsg && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between text-sm text-green-700">
-                <span>{bulkDeleteMsg}</span>
-                <button onClick={() => setBulkDeleteMsg(null)} className="text-green-600 hover:text-green-800"><X size={14} /></button>
-              </div>
-            )}
+            {bulkDeleteMsg && (() => {
+              const isErr = bulkDeleteMsg.startsWith("⚠️");
+              return (
+                <div className={`rounded-xl px-4 py-3 flex items-center justify-between text-sm ${isErr ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
+                  <span>{bulkDeleteMsg}</span>
+                  <button onClick={() => setBulkDeleteMsg(null)} className={isErr ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800"}><X size={14} /></button>
+                </div>
+              );
+            })()}
 
             {flags.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-red-800">Performance Flags</h3>
                   {selFlags.length > 0 && (
-                    <button onClick={async () => { await bulkAction({ action: "dismiss_flag", flag_ids: selFlags }); setSelFlags([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Dismiss selected ({selFlags.length})</button>
+                    <button onClick={async () => { const data = await bulkAction({ action: "dismiss_flag", flag_ids: selFlags }); if (!data) return; setSelFlags([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Dismiss selected ({selFlags.length})</button>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -717,7 +722,7 @@ function SPDashboard() {
                 <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-amber-800">Pending Hours Approval</h3>
                   {selHours.length > 0 && (
-                    <button onClick={async () => { await bulkAction({ action: "approve_hours", hours_ids: selHours }); setSelHours([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
+                    <button onClick={async () => { const data = await bulkAction({ action: "approve_hours", hours_ids: selHours }); if (!data) return; setSelHours([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
                   )}
                 </div>
                 <table className="w-full text-sm">
@@ -769,8 +774,8 @@ function SPDashboard() {
             {selEvals.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-gray-700 mr-1">{selEvals.length} selected</span>
-                <button onClick={async () => { await bulkAction({ action: "approve", evaluator_ids: selEvals }); setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
-                <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { await bulkAction({ action: "suspend", evaluator_ids: selEvals }); setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
+                <button onClick={async () => { const data = await bulkAction({ action: "approve", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
+                <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { const data = await bulkAction({ action: "suspend", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
                 <button onClick={() => { setBulkDeleteMsg(null); setShowBulkDelete(true); }} className="text-xs px-3 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100 font-medium">Delete ({selEvals.length})</button>
               </div>
             )}
@@ -833,6 +838,7 @@ function SPDashboard() {
                       disabled={deleteConfirm !== "DELETE"}
                       onClick={async () => {
                         const data = await bulkAction({ action: "delete_account", evaluator_ids: selEvals });
+                        if (!data) return;
                         setSelEvals([]); setShowBulkDelete(false); setDeleteConfirm("");
                         setBulkDeleteMsg(`${data.deleted} deleted, ${data.skipped} skipped`);
                         queryClient.invalidateQueries(["sp-evaluators"]);

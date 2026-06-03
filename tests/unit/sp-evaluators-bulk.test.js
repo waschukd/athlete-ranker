@@ -28,6 +28,13 @@ describe("SP evaluators bulk POST", () => {
     expect(res.status).toBe(403);
   });
 
+  it("401 when no session", async () => {
+    getSession.mockResolvedValue(null);
+    const { POST } = await import("@/app/api/service-provider/evaluators/route");
+    const res = await POST(makeReq({ action: "approve_hours", hours_ids: ["h1"] }));
+    expect(res.status).toBe(401);
+  });
+
   it("approve_hours bulk uses ANY + org scope and returns count", async () => {
     authOk();
     sql.mockResolvedValueOnce([]); // UPDATE evaluator_hours
