@@ -295,8 +295,9 @@ export async function POST(request, { params }) {
       const schedInfo = await sql`
         SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}
       `;
-      const sched = schedInfo[0] || {};
-      const like = `%${q}%`;
+      if (!schedInfo.length) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+      const sched = schedInfo[0];
+      const like = `%${q.replace(/[\\%_]/g, c => "\\" + c)}%`;
 
       // Athletes in this category whose name matches, excluding any already
       // assigned to THIS session's group (they're already in the main list).
@@ -308,9 +309,9 @@ export async function POST(request, { params }) {
         LEFT JOIN session_groups sg ON sg.id = pga.session_group_id
         WHERE a.age_category_id = ${auth.ageCategoryId}
           AND a.is_active = true
-          AND (a.first_name ILIKE ${like}
-               OR a.last_name ILIKE ${like}
-               OR (a.first_name || ' ' || a.last_name) ILIKE ${like})
+          AND (a.first_name ILIKE ${like} ESCAPE '\'
+               OR a.last_name ILIKE ${like} ESCAPE '\'
+               OR (a.first_name || ' ' || a.last_name) ILIKE ${like} ESCAPE '\')
           AND NOT EXISTS (
             SELECT 1 FROM player_group_assignments pga2
             JOIN session_groups sg2 ON sg2.id = pga2.session_group_id
