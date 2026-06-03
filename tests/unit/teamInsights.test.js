@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSignals, detectBreaks, computeLean, analyzeTeams, cutsToSizes } from "@/lib/teamInsights";
+import { buildSignals, detectBreaks, computeLean, analyzeTeams, cutsToSizes, snakeDistribute } from "@/lib/teamInsights";
 
 const sessions = [
   { session_number: 1, session_type: "testing" },
@@ -106,5 +106,20 @@ describe("cutsToSizes", () => {
   });
   it("sorts and ignores out-of-range cuts", () => {
     expect(cutsToSizes([23, 12, 0, 40], 34)).toEqual([12, 11, 11]);
+  });
+});
+
+describe("snakeDistribute", () => {
+  it("snakes assignments across teams", () => {
+    expect(snakeDistribute(5, 2)).toEqual([0, 1, 1, 0, 0]);
+  });
+  it("handles an even split", () => {
+    expect(snakeDistribute(4, 2)).toEqual([0, 1, 1, 0]);
+  });
+  it("one per team when count <= teams", () => {
+    expect(snakeDistribute(3, 3)).toEqual([0, 1, 2]);
+  });
+  it("returns empty for zero items", () => {
+    expect(snakeDistribute(0, 3)).toEqual([]);
   });
 });

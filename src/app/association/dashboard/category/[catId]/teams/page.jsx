@@ -109,6 +109,14 @@ function TeamGeneratorInner() {
     refetchTeams();
   };
 
+  const autoAssignGoalies = async () => {
+    await fetch(`/api/categories/${catId}/teams`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "auto_assign_goalies" }),
+    });
+    refetchTeams();
+  };
+
   const clearTeams = async () => {
     if (!confirm("Clear all teams and start over?")) return;
     await fetch(`/api/categories/${catId}/teams`, {
@@ -388,7 +396,15 @@ function TeamGeneratorInner() {
             {goalies.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
                 <h3 className="text-sm font-semibold text-amber-800 mb-1">🥅 Unassigned Goalies ({goalies.length})</h3>
-                <p className="text-xs text-amber-600 mb-4">Goalies are not included in auto-generation. Assign them manually.</p>
+                <p className="text-xs text-amber-600 mb-4">Goalies are not included in auto-generation. Assign them manually, or auto-assign them evenly across teams.</p>
+                {teams.length > 0 && (
+                  <div className="mb-4">
+                    <button onClick={autoAssignGoalies}
+                      className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-semibold">
+                      Auto-assign goalies ({goalies.length})
+                    </button>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-3">
                   {goalies.map(g => (
                     <div key={g.id} className="bg-white border border-amber-200 rounded-xl px-3 py-2">

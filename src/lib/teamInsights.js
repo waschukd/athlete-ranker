@@ -111,6 +111,25 @@ export function computeLean(signals, opts = {}) {
   return { lean, confidence, needsReview, reasons };
 }
 
+/** Snake-distribute `count` items across `teamCount` teams. Returns team index per item.
+ *  snakeDistribute(5, 2) → [0,1,1,0,0]. */
+export function snakeDistribute(count, teamCount) {
+  const out = [];
+  if (teamCount < 1) return out;
+  let idx = 0, dir = 1;
+  for (let i = 0; i < count; i++) {
+    out.push(idx);
+    if (teamCount === 1) continue;
+    if (dir === 1) {
+      if (idx === teamCount - 1) { dir = -1; } else { idx++; continue; }
+    } else {
+      if (idx === 0) { dir = 1; } else { idx--; continue; }
+    }
+    // direction just flipped at an edge → stay on the same team for the turn (snake)
+  }
+  return out;
+}
+
 export function analyzeTeams(ranked, sessions, teamSizes, opts = {}) {
   const { WINDOW } = { ...DEFAULTS, ...opts };
   const breaks = detectBreaks(ranked, teamSizes, opts);
