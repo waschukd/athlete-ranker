@@ -14,12 +14,9 @@ export async function PATCH(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Directors need explicit permission
+    // Directors can never edit scores
     if (session.role === "director") {
-      const cat = await sql`SELECT director_can_edit_scores FROM age_categories WHERE id = ${catId}`;
-      if (!cat.length || !cat[0].director_can_edit_scores) {
-        return NextResponse.json({ error: "Directors cannot edit scores for this category" }, { status: 403 });
-      }
+      return NextResponse.json({ error: "Directors cannot edit scores" }, { status: 403 });
     }
 
     const editorId = await getAppUserId(session);
