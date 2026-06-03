@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { analyzeTeams } from "@/lib/teamInsights";
+import { analyzeTeams, cutsToSizes } from "@/lib/teamInsights";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap,
@@ -992,6 +992,19 @@ export default function CategoryDashboard({
                   </div>
                 </div>
               </div>
+
+              {insights.breaks.length > 0 && (
+                <button
+                  onClick={() => {
+                    const cuts = insights.breaks.map(b => b.suggestedCut);
+                    const sizes = cutsToSizes(cuts, rankedForInsights.length);
+                    window.location.href = `/association/dashboard/category/${catId}/teams?org=${orgId}&sizes=${sizes.join(",")}`;
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  Build teams from these cuts →
+                </button>
+              )}
 
               {insights.breaks.map((b, bi) => {
                 const bubbles = insights.bubbles.filter(x => x.boundary === bi);

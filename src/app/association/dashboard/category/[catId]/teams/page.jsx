@@ -21,10 +21,14 @@ function TeamGeneratorInner() {
   const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
 
   const [step, setStep] = useState("setup"); // setup | review
-  const [teamConfig, setTeamConfig] = useState([
-    { name: "Team A", size: 16 },
-    { name: "Team B", size: 16 },
-  ]);
+  const [teamConfig, setTeamConfig] = useState(() => {
+    const sizesParam = searchParams.get("sizes");
+    if (sizesParam) {
+      const sizes = sizesParam.split(",").map(s => parseInt(s)).filter(n => n > 0);
+      if (sizes.length) return sizes.map((size, i) => ({ name: `Team ${String.fromCharCode(65 + i)}`, size }));
+    }
+    return [{ name: "Team A", size: 16 }, { name: "Team B", size: 16 }];
+  });
   const [method, setMethod] = useState("straight");
   const [useRange, setUseRange] = useState(false);
   const [snakeRange, setSnakeRange] = useState({ from: 1, to: 32 });
