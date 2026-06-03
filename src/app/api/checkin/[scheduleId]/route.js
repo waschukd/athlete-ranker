@@ -288,6 +288,93 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, athlete: newAthlete });
     }
 
+    if (action === "find_existing") {
+      const q = (body.query || "").trim();
+      if (q.length < 2) return NextResponse.json({ matches: [] });
+
+      const schedInfo = await sql`
+        SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}
+      `;
+      if (!schedInfo.length) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+      const sched = schedInfo[0];
+      const like = `%${q.replace(/[\\%_]/g, c => "\\" + c)}%`;
+
+      // Athletes in this category whose name matches, excluding any already
+      // assigned to THIS session's group (they're already in the main list).
+      const matches = await sql`
+        SELECT a.id, a.first_name, a.last_name, a.position,
+               sg.session_number, sg.group_number
+        FROM athletes a
+        LEFT JOIN player_group_assignments pga ON pga.athlete_id = a.id
+        LEFT JOIN session_groups sg ON sg.id = pga.session_group_id
+        WHERE a.age_category_id = ${auth.ageCategoryId}
+          AND a.is_active = true
+          AND (a.first_name ILIKE ${like} ESCAPE '\'
+               OR a.last_name ILIKE ${like} ESCAPE '\'
+               OR (a.first_name || ' ' || a.last_name) ILIKE ${like} ESCAPE '\')
+          AND NOT EXISTS (
+            SELECT 1 FROM player_group_assignments pga2
+            JOIN session_groups sg2 ON sg2.id = pga2.session_group_id
+            WHERE pga2.athlete_id = a.id
+              AND sg2.age_category_id = ${auth.ageCategoryId}
+              AND sg2.session_number = ${sched.session_number}
+              AND sg2.group_number = ${sched.group_number || 1}
+          )
+        ORDER BY a.last_name, a.first_name
+        LIMIT 8
+      `;
+
+      return NextResponse.json({ matches });
+    }
+
+    if (action === "add_existing") {
+      if (!athlete_id) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });
+
+      // Guard: the athlete must belong to this schedule's category. Prevents
+      // pulling an arbitrary athlete from another org/category via a guessed id.
+      const ath = await sql`SELECT id, age_category_id FROM athletes WHERE id = ${athlete_id}`;
+      if (!ath.length) return NextResponse.json({ error: "Athlete not found" }, { status: 404 });
+      if (ath[0].age_category_id !== auth.ageCategoryId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const schedInfo = await sql`
+        SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}
+      `;
+      if (!schedInfo.length) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+      const sched = schedInfo[0] || {};
+
+      // Attach to this session's group if one exists (mirrors add_player).
+      const sessionGroup = await sql`
+        SELECT id FROM session_groups
+        WHERE age_category_id = ${auth.ageCategoryId}
+          AND session_number = ${sched.session_number}
+          AND group_number = ${sched.group_number || 1}
+        LIMIT 1
+      `;
+      if (sessionGroup.length) {
+        await sql`
+          INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
+          VALUES (${athlete_id}, ${sessionGroup[0].id}, 99)
+          ON CONFLICT DO NOTHING
+        `;
+      }
+
+      // Check them into THIS session, reusing the existing athlete_id.
+      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      await sql`
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
+        VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || 'White'}, true, NOW())
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET
+          checked_in = true,
+          checked_in_at = NOW(),
+          jersey_number = COALESCE(${jersey_number || null}, player_checkins.jersey_number),
+          team_color = COALESCE(${team_color || null}, player_checkins.team_color)
+      `;
+
+      return NextResponse.json({ success: true });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error("Checkin POST error:", error);
