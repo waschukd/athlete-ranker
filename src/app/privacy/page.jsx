@@ -89,6 +89,8 @@ export default function PrivacyPage() {
           <li><strong>Vercel</strong> — web hosting and serverless runtime</li>
           <li><strong>Resend</strong> — transactional email delivery</li>
           <li><strong>Stripe</strong> — payment processing for paid reports / subscriptions</li>
+          <li><strong>Sentry</strong> — error monitoring / crash diagnostics (receives error reports which may include technical request context)</li>
+          <li><strong>Anthropic</strong> — AI provider used to generate optional scouting-report summaries (receives evaluator notes + athlete scores for that report only)</li>
           <li><strong>Google</strong> (Android) and <strong>Apple</strong> (iOS) — native speech recognition services, used only while the microphone is active in the mobile app</li>
         </ul>
         <p>Each provider is subject to its own privacy policy. We share only the data necessary to operate the relevant feature.</p>

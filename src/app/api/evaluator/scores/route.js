@@ -67,6 +67,17 @@ export async function GET(request) {
     }
 
     // ── Legacy shape (existing callers, kept for compat) ─────────────────
+
+    // Privacy: when the category is configured for anonymous evaluation,
+    // evaluators score by jersey/team only and must never receive athlete
+    // identities. We strip names + external_id server-side (the scoring UI
+    // already hides them, so this is invisible in anon mode). Flag defaults
+    // to TRUE at the column level, so treat a missing/null lookup as anon.
+    const flagRows = await sql`
+      SELECT evaluators_anonymous FROM age_categories WHERE id = ${catId}
+    `;
+    const isAnon = flagRows[0]?.evaluators_anonymous !== false;
+
     const athletes = await sql`
       SELECT
         a.id, a.first_name, a.last_name, a.external_id, a.position,
@@ -91,11 +102,23 @@ export async function GET(request) {
       ORDER BY pc.jersey_number, a.last_name
     `;
 
+    // In anonymous mode, NULL out identifying fields (names + external_id)
+    // while keeping position / jersey / team so the UI can still render the
+    // jersey-based labels. Response shape is unchanged — only values differ.
+    const safeAthletes = isAnon
+      ? athletes.map((a) => ({
+          ...a,
+          first_name: null,
+          last_name: null,
+          external_id: null,
+        }))
+      : athletes;
+
     const scoringCats = await sql`
       SELECT * FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order
     `;
 
-    return NextResponse.json({ athletes, scoringCategories: scoringCats });
+    return NextResponse.json({ athletes: safeAthletes, scoringCategories: scoringCats });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
