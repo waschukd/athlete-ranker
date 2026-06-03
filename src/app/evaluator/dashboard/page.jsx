@@ -328,6 +328,13 @@ function CalendarSubscribePanel() {
           <X size={14} />
         </button>
       </div>
+      <a
+        href={data?.httpsUrl ? `${data.httpsUrl}&download=1` : "#"}
+        download="sidelinestar-sessions.ics"
+        className={`inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 mb-3 bg-blue-600 border border-blue-600 rounded-lg text-sm font-semibold text-white hover:bg-blue-700 transition-colors ${!data ? "opacity-50 pointer-events-none" : ""}`}
+      >
+        ⬇ Download &amp; add my sessions (instant)
+      </a>
       <div className="flex flex-wrap gap-2">
         <a
           href={data?.googleUrl || "#"}
@@ -354,6 +361,9 @@ function CalendarSubscribePanel() {
           {copied ? "Copied!" : "Copy link"}
         </button>
       </div>
+      <p className="text-[11px] text-blue-700/70 mt-2 leading-relaxed">
+        Subscribing keeps your calendar auto-updated, but Google can take several hours to first sync. Use Download for an instant add.
+      </p>
     </div>
   );
 }
