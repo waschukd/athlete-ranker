@@ -137,48 +137,61 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");
     const search = searchParams.get("search");
+    const evaluatorId = searchParams.get("evaluator");
+    const detailed = searchParams.get("detailed");
 
-    // Detailed mode (no sessionNumber): return per-evaluator scores grouped
-    // by athlete. With a search term we filter by name/jersey; without one
-    // we return every scored athlete in the category alphabetically so the
-    // Scores tab has a default list to browse instead of an empty state.
-    if (!sessionNumber) {
-      let detailedScores;
-      if (search) {
-        const searchPattern = `%${search}%`;
-        detailedScores = await sql`
-          SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
-            a.first_name, a.last_name, a.jersey_number,
-            u.name as evaluator_name,
-            sc.name as category_name, sc.display_order
-          FROM category_scores cs
-          JOIN athletes a ON a.id = cs.athlete_id
-          JOIN users u ON u.id = cs.evaluator_id
-          JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
-          WHERE cs.age_category_id = ${catId}
-            AND (LOWER(a.first_name || ' ' || a.last_name) LIKE LOWER(${searchPattern})
-                 OR CAST(a.jersey_number AS TEXT) = ${search})
-          ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
-        `;
-      } else {
-        detailedScores = await sql`
-          SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
-            a.first_name, a.last_name, a.jersey_number,
-            u.name as evaluator_name,
-            sc.name as category_name, sc.display_order
-          FROM category_scores cs
-          JOIN athletes a ON a.id = cs.athlete_id
-          JOIN users u ON u.id = cs.evaluator_id
-          JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
-          WHERE cs.age_category_id = ${catId}
-          ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
-        `;
-      }
+    // The session-summary view (used by ScoreManager) keys off `?session=N`
+    // alone. The detailed editor passes `detailed=1`, which lets it also use
+    // the `session` param as a filter without colliding with summary mode.
+    const isSummary = sessionNumber && !detailed;
 
-      // Get scoring categories for column headers
+    // Detailed mode: per-evaluator scores grouped by athlete, filterable by
+    // player (name/jersey), evaluator, and session — each filter optional and
+    // composable. With no filters we return every scored athlete in the
+    // category alphabetically so the Scores tab has a default list to browse.
+    if (!isSummary) {
+      const searchPattern = search ? `%${search}%` : null;
+      const evalFilter = evaluatorId ? parseInt(evaluatorId) : null;
+      const sessFilter = sessionNumber ? parseInt(sessionNumber) : null;
+
+      const detailedScores = await sql`
+        SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
+          a.first_name, a.last_name, a.jersey_number,
+          u.name as evaluator_name,
+          sc.name as category_name, sc.display_order
+        FROM category_scores cs
+        JOIN athletes a ON a.id = cs.athlete_id
+        JOIN users u ON u.id = cs.evaluator_id
+        JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
+        WHERE cs.age_category_id = ${catId}
+          AND (${searchPattern}::text IS NULL
+               OR LOWER(a.first_name || ' ' || a.last_name) LIKE LOWER(${searchPattern})
+               OR CAST(a.jersey_number AS TEXT) = ${search})
+          AND (${evalFilter}::int IS NULL OR cs.evaluator_id = ${evalFilter})
+          AND (${sessFilter}::int IS NULL OR cs.session_number = ${sessFilter})
+        ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order
+      `;
+
+      // Column headers + full filter option lists (independent of the active
+      // filters, so the dropdowns stay stable as you narrow the results).
       const scoringCats = await sql`SELECT id, name FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order`;
+      const evaluators = await sql`
+        SELECT DISTINCT u.id, u.name
+        FROM category_scores cs JOIN users u ON u.id = cs.evaluator_id
+        WHERE cs.age_category_id = ${catId}
+        ORDER BY u.name
+      `;
+      const sessionRows = await sql`
+        SELECT DISTINCT session_number FROM category_scores
+        WHERE age_category_id = ${catId} ORDER BY session_number
+      `;
 
-      return NextResponse.json({ scores: detailedScores, scoringCategories: scoringCats });
+      return NextResponse.json({
+        scores: detailedScores,
+        scoringCategories: scoringCats,
+        evaluators,
+        sessions: sessionRows.map(r => r.session_number),
+      });
     }
 
     // Default mode: scores grouped by evaluator for a specific session

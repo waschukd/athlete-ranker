@@ -3,11 +3,14 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle } from "lucide-react";
+import { groupDetailedScores } from "@/lib/scoreGrouping";
 
 export default function ScoreEditor({ catId, canEdit }) {
   const [subTab, setSubTab] = useState("edit");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [evaluatorFilter, setEvaluatorFilter] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("");
   const [expanded, setExpanded] = useState(new Set());
   const [editing, setEditing] = useState(null); // { athleteId, evaluatorId, scoringCatId, session }
   const [editValue, setEditValue] = useState("");
@@ -23,45 +26,28 @@ export default function ScoreEditor({ catId, canEdit }) {
 
   // ── Edit Sub-Tab Data ─────────────────────────────────────
   // Always-on: empty query fetches every scored athlete alphabetically so
-  // the tab has a useful default. Typing narrows the list server-side.
+  // the tab has a useful default. The player search, evaluator dropdown and
+  // session dropdown narrow the list server-side and compose together.
   const { data: searchData, isLoading: searchLoading } = useQuery({
-    queryKey: ["score-search", catId, debouncedSearch],
+    queryKey: ["score-search", catId, debouncedSearch, evaluatorFilter, sessionFilter],
     queryFn: async () => {
-      const res = await fetch(`/api/categories/${catId}/scores?search=${encodeURIComponent(debouncedSearch)}`);
+      const params = new URLSearchParams({ detailed: "1" });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (evaluatorFilter) params.set("evaluator", evaluatorFilter);
+      if (sessionFilter) params.set("session", sessionFilter);
+      const res = await fetch(`/api/categories/${catId}/scores?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to search");
       return res.json();
     },
   });
 
-  // Group search results by athlete, then session, then evaluator
-  const athletes = (() => {
-    if (!searchData?.scores?.length) return [];
-    const map = {};
-    for (const row of searchData.scores) {
-      const key = row.athlete_id;
-      if (!map[key]) {
-        map[key] = {
-          id: row.athlete_id,
-          name: `${row.first_name} ${row.last_name}`,
-          jersey: row.jersey_number,
-          sessions: {},
-        };
-      }
-      const sKey = row.session_number;
-      if (!map[key].sessions[sKey]) map[key].sessions[sKey] = {};
-      const eKey = row.evaluator_id;
-      if (!map[key].sessions[sKey][eKey]) {
-        map[key].sessions[sKey][eKey] = { evaluator_name: row.evaluator_name, evaluator_id: row.evaluator_id, scores: {} };
-      }
-      map[key].sessions[sKey][eKey].scores[row.scoring_category_id] = {
-        score: parseFloat(row.score),
-        category_name: row.category_name,
-      };
-    }
-    return Object.values(map);
-  })();
+  // Group flat score rows into athlete → session → evaluator
+  const athletes = groupDetailedScores(searchData?.scores);
 
   const scoringCats = searchData?.scoringCategories || [];
+  const evaluatorOptions = searchData?.evaluators || [];
+  const sessionOptions = searchData?.sessions || [];
+  const hasFilters = Boolean(debouncedSearch || evaluatorFilter || sessionFilter);
 
   // ── Score Edit Mutation ────────────────────────────────────
   const editMutation = useMutation({
@@ -160,16 +146,46 @@ export default function ScoreEditor({ catId, canEdit }) {
       {/* ─── Edit Sub-Tab ──────────────────────────────────── */}
       {subTab === "edit" && (
         <div>
-          {/* Search */}
-          <div className="relative mb-6 max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-              placeholder="Search athlete by name or jersey number..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
-            />
+          {/* Search + filters: by player, evaluator, or session */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+                placeholder="Search athlete by name or jersey number..."
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+              />
+            </div>
+            <select
+              value={evaluatorFilter}
+              onChange={e => setEvaluatorFilter(e.target.value)}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+            >
+              <option value="">All evaluators</option>
+              {evaluatorOptions.map(ev => (
+                <option key={ev.id} value={ev.id}>{ev.name}</option>
+              ))}
+            </select>
+            <select
+              value={sessionFilter}
+              onChange={e => setSessionFilter(e.target.value)}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+            >
+              <option value="">All sessions</option>
+              {sessionOptions.map(s => (
+                <option key={s} value={s}>Session {s}</option>
+              ))}
+            </select>
+            {hasFilters && (
+              <button
+                onClick={() => { handleSearch(""); setEvaluatorFilter(""); setSessionFilter(""); }}
+                className="flex items-center gap-1 px-3 py-2.5 text-sm text-gray-500 hover:text-gray-700"
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
           </div>
 
           {editMutation.isError && (
@@ -182,7 +198,7 @@ export default function ScoreEditor({ catId, canEdit }) {
             <div className="text-center py-16"><Loader2 size={24} className="animate-spin mx-auto text-gray-400" /></div>
           ) : athletes.length === 0 ? (
             <div className="text-center py-16 text-gray-400 text-sm">
-              {debouncedSearch ? <>No athletes found for &ldquo;{debouncedSearch}&rdquo;</> : <>No scored athletes in this category yet</>}
+              {hasFilters ? <>No scores match the current filters</> : <>No scored athletes in this category yet</>}
             </div>
           ) : (
             <div className="space-y-3">
