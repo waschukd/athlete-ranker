@@ -32,6 +32,16 @@ function Dashboard() {
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  const { data: myOrgsData } = useQuery({
+    queryKey: ["my-organizations"],
+    queryFn: async () => {
+      const res = await fetch("/api/organizations");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+  const myOrgs = myOrgsData?.organizations || [];
+
   const { data: orgData, isLoading: orgLoading } = useQuery({
     queryKey: ["org", orgId],
     queryFn: async () => {
@@ -131,6 +141,18 @@ function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
+              {myOrgs.length > 1 && (
+                <select
+                  value={orgId || ""}
+                  onChange={(e) => { window.location.href = `/association/dashboard?org=${e.target.value}`; }}
+                  className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30 cursor-pointer max-w-[14rem]"
+                  aria-label="Switch club"
+                >
+                  {myOrgs.map(o => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                  ))}
+                </select>
+              )}
               <button
                 onClick={() => { setShowInvite(true); setInviteResult(null); }}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
