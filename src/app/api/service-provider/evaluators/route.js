@@ -118,7 +118,10 @@ export async function POST(request) {
       return NextResponse.json({ success: true, deleted, skipped: skipped.length });
     }
     if (action === "reinstate") {
-      await sql`UPDATE evaluator_flags SET reviewed = true, reviewed_by = ${admin_id}, reviewed_at = NOW() WHERE evaluator_id = ${evaluator_id} AND flag_type = 'late_cancel'`;
+      // Verify the evaluator belongs to this SP org before mutating (IDOR guard)
+      const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
+      if (!mem.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      await sql`UPDATE evaluator_flags SET reviewed = true, reviewed_by = ${admin_id}, reviewed_at = NOW() WHERE evaluator_id = ${evaluator_id} AND flag_type = 'late_cancel' AND organization_id = ${sp_id}`;
       await sql`UPDATE evaluator_session_signups SET status = 'cancelled' WHERE user_id = ${evaluator_id} AND status = 'suspended'`;
       await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_reinstated', 'user', ${evaluator_id}, 'reinstated by SP admin')`;
       return NextResponse.json({ success: true });

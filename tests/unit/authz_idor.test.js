@@ -198,6 +198,29 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
     expect(inserts).toHaveLength(0);
   });
 
+  // HOLE 2b: reinstate on an evaluator_id not in the SP org.
+  it("POST /api/service-provider/evaluators reinstate — foreign evaluator → 403, no flag/signup UPDATE", async () => {
+    resolveSpOrgId.mockResolvedValue("spA");        // caller's SP org
+    sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
+    sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
+    const { POST } = await import("@/app/api/service-provider/evaluators/route");
+    const req = new Request("http://test/api/service-provider/evaluators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reinstate", evaluator_id: "evalOther" }),
+    });
+    const res = await POST(req, {});
+    expect(res.status).toBe(403);
+    const flagUpdates = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("UPDATE evaluator_flags")
+    );
+    expect(flagUpdates).toHaveLength(0);
+    const signupUpdates = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("UPDATE evaluator_session_signups")
+    );
+    expect(signupUpdates).toHaveLength(0);
+  });
+
   // HOLE 3a: report for an athlete that isn't in the authorized category.
   it("GET /api/athletes/<id>/report?cat=catA — athlete not in catA → 404", async () => {
     // authorizeCategoryAccess (association_admin, allowed via owner):
@@ -209,6 +232,18 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
     const req = new Request("http://test/api/athletes/athOther/report?cat=catA");
     const res = await GET(req, { params: { athleteId: "athOther" } });
     expect(res.status).toBe(404);
+  });
+
+  // HOLE 3a': report with NO category param → must be rejected before any data query.
+  it("GET /api/athletes/<id>/report (no cat) → 400, no athlete data query", async () => {
+    const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
+    const req = new Request("http://test/api/athletes/athOther/report");
+    const res = await GET(req, { params: { athleteId: "athOther" } });
+    expect(res.status).toBe(400);
+    const athQueries = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("FROM athletes")
+    );
+    expect(athQueries).toHaveLength(0);
   });
 
   // HOLE 3b: scouting report for an athlete that isn't in the authorized category.
