@@ -10,8 +10,9 @@ export function getDashboardForRole(role) {
     case "director":
       return "/director/dashboard";
     case "association_evaluator":
-    case "volunteer":
       return "/evaluator/dashboard";
+    case "volunteer":
+      return "/checkin";
     default:
       return "/evaluator/dashboard";
   }

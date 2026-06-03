@@ -76,8 +76,10 @@ export async function authorizeCategoryAccess(session, catId) {
     return assignment.length ? { authorized: true, orgId } : { authorized: false };
   }
 
-  // Evaluator / Volunteer — allowed if they have membership in the category's organization
-  if (["association_evaluator", "service_provider_evaluator", "volunteer"].includes(session.role)) {
+  // Evaluator — allowed if they have membership in the category's organization.
+  // Volunteers are intentionally excluded: their only access is the separate
+  // check-in flow (checkin-token path), never authenticated category access.
+  if (["association_evaluator", "service_provider_evaluator"].includes(session.role)) {
     // Direct membership
     const membership = await sql`
       SELECT id FROM evaluator_memberships
@@ -137,7 +139,7 @@ export async function authorizeOrgAccess(session, orgId) {
   }
 
   // Evaluator membership
-  if (["association_evaluator", "service_provider_evaluator", "volunteer", "director"].includes(session.role)) {
+  if (["association_evaluator", "service_provider_evaluator", "director"].includes(session.role)) {
     const membership = await sql`
       SELECT id FROM evaluator_memberships
       WHERE user_id = ${userId} AND organization_id = ${orgId} AND status = 'active'

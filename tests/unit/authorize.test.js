@@ -110,6 +110,17 @@ describe("authorizeCategoryAccess", () => {
     expect(result.authorized).toBe(false);
   });
 
+  it("denies volunteer even with active membership (check-in only role)", async () => {
+    sql.mockResolvedValueOnce([{ organization_id: "org1" }]); // category
+    sql.mockResolvedValueOnce([{ id: "user1" }]); // user
+    sql.mockResolvedValueOnce([{ id: "mem1" }]); // membership (must be ignored)
+    const result = await authorizeCategoryAccess(
+      { email: "vol@test.com", role: "volunteer" },
+      "cat1"
+    );
+    expect(result.authorized).toBe(false);
+  });
+
   it("denies unknown role", async () => {
     sql.mockResolvedValueOnce([{ organization_id: "org1" }]); // category
     sql.mockResolvedValueOnce([{ id: "user1" }]); // user

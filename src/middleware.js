@@ -38,9 +38,9 @@ const ROLE_ROUTES = {
   "/service-provider": ["service_provider_admin", "super_admin"],
   "/association/dashboard": ["association_admin", "super_admin", "service_provider_admin"],
   "/association": ["association_admin", "super_admin", "service_provider_admin"],
-  "/player": ["association_admin", "super_admin", "service_provider_admin", "director", "association_evaluator", "service_provider_evaluator", "volunteer"],
+  "/player": ["association_admin", "super_admin", "service_provider_admin", "director", "association_evaluator", "service_provider_evaluator"],
   "/director/dashboard": ["director", "association_admin", "super_admin"],
-  "/evaluator": ["association_evaluator", "service_provider_evaluator", "super_admin", "association_admin", "service_provider_admin", "director", "volunteer"],
+  "/evaluator": ["association_evaluator", "service_provider_evaluator", "super_admin", "association_admin", "service_provider_admin", "director"],
 };
 
 export async function middleware(request) {

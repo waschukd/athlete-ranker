@@ -118,7 +118,7 @@ export async function POST(request) {
     else if (role === "director") redirectTo = "/director/dashboard";
     else if (role === "service_provider_evaluator") redirectTo = "/evaluator/dashboard";
     else if (role === "association_evaluator") redirectTo = "/evaluator/dashboard";
-    else if (role === "volunteer") redirectTo = "/evaluator/dashboard";
+    else if (role === "volunteer") redirectTo = "/checkin";
 
     const response = NextResponse.json({
       success: true,
