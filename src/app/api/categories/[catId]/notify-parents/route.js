@@ -50,7 +50,7 @@ export async function POST(request, { params }) {
           await sendEmail(a.parent_email, `Welcome to ${category_name} Evaluations — ${org_name}`, html);
           sent++;
         } catch (e) {
-          console.error(`Failed to send onboarding to ${a.parent_email}:`, e);
+          console.error("Failed to send onboarding to athlete " + a.id + ":", e?.message || e);
         }
       }
       return NextResponse.json({ success: true, sent, total: athletes.length });
@@ -134,7 +134,7 @@ export async function POST(request, { params }) {
             sent++;
           }
         } catch (e) {
-          console.error(`Failed to send schedule to ${athlete.parent_email}:`, e);
+          console.error("Failed to send schedule to athlete " + athlete.id + ":", e?.message || e);
           skipped++;
         }
       }
