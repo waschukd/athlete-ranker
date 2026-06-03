@@ -107,6 +107,17 @@ export default function CategoryDashboard({
     enabled: !!catId && canManage,
   });
 
+  const { data: checkinSummary } = useQuery({
+    queryKey: ["checkin-summary", catId],
+    queryFn: async () => {
+      const res = await fetch(`/api/categories/${catId}/checkin-summary`);
+      if (!res.ok) return { sessions: [] };
+      return res.json();
+    },
+    enabled: !!catId,
+    refetchInterval: 15000,
+  });
+
   const sessions = setupData?.sessions || [];
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
@@ -204,6 +215,7 @@ export default function CategoryDashboard({
     { id: "goalies", label: "Goalies", icon: Users },
     { id: "scores", label: "Scores", icon: Settings },
     { id: "reports", label: "Reports", icon: FileText },
+    { id: "groups", label: "Groups", icon: Users },
     { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "athletes", label: "Athletes", icon: Users },
     { id: "teams", label: "Teams", icon: Trophy },
@@ -532,7 +544,19 @@ export default function CategoryDashboard({
                             <td className="px-4 py-2.5 text-gray-500">{e.start_time && e.end_time ? `${e.start_time} - ${e.end_time}` : "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{e.location || "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{sess?.session_type === "testing" ? 0 : (e.evaluators_required || 4)}</td>
-                            <td className="px-4 py-2.5">{e.checkin_code ? <CopyCode code={e.checkin_code} scheduleId={e.id} /> : <span className="text-gray-300 text-xs">-</span>}</td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                {e.checkin_code ? <CopyCode code={e.checkin_code} scheduleId={e.id} /> : <span className="text-gray-300 text-xs">-</span>}
+                                {(() => {
+                                  const cs = (checkinSummary?.sessions || []).find(x => x.schedule_id === e.id);
+                                  return cs && Number(cs.total) > 0 ? (
+                                    <span className="text-xs px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg">
+                                      {cs.checked_in}/{cs.total} checked in
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
