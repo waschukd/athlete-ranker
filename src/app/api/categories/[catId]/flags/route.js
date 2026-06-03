@@ -49,6 +49,10 @@ export async function POST(request, { params }) {
         SET acknowledged = true, acknowledged_by = ${userId}, acknowledged_at = NOW()
         WHERE id = ${flag_id}
       `;
+      await sql`
+        INSERT INTO audit_log (user_id, action, entity_type, entity_id, age_category_id)
+        VALUES (${userId}, 'flag_acknowledged', 'athlete_flag', ${flag_id}, ${catId})
+      `;
       return NextResponse.json({ success: true });
     }
 
