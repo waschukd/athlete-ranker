@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { analyzeTeams } from "@/lib/teamInsights";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap,
@@ -75,6 +76,7 @@ export default function CategoryDashboard({
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
   const [csvPending, setCsvPending] = useState(null);
+  const [teamCount, setTeamCount] = useState(2);
 
   const { data: setupData } = useQuery({
     queryKey: ["category-setup", catId],
@@ -147,6 +149,18 @@ export default function CategoryDashboard({
 
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]);
 
+  // Team Insights — runs client-side on already-fetched rankings. Sessions come
+  // from setupData (the `sessions` variable), not rankingsData, in this codebase.
+  const rankedForInsights = (rankingsData?.athletes || []).filter(a => a.weighted_total != null);
+  const insights = useMemo(() => {
+    const filtered = (rankingsData?.athletes || []).filter(a => a.weighted_total != null);
+    const n = filtered.length;
+    if (!n || teamCount < 2) return { breaks: [], bubbles: [] };
+    const base = Math.floor(n / teamCount), rem = n % teamCount;
+    const sizes = Array.from({ length: teamCount }, (_, i) => base + (i < rem ? 1 : 0));
+    return analyzeTeams(filtered, sessions, sizes, {});
+  }, [rankingsData?.athletes, sessions, teamCount]);
+
   const sendVolunteers = async () => {
     if (!volunteerEmails.trim()) return;
     setVolunteerSending(true);
@@ -215,6 +229,7 @@ export default function CategoryDashboard({
     { id: "goalies", label: "Goalies", icon: Users },
     { id: "scores", label: "Scores", icon: Settings },
     { id: "reports", label: "Reports", icon: FileText },
+    { id: "insights", label: "Insights", icon: BarChart3 },
     { id: "groups", label: "Groups", icon: Users },
     { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "athletes", label: "Athletes", icon: Users },
@@ -936,6 +951,106 @@ export default function CategoryDashboard({
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "insights" && (
+          rankedForInsights.length === 0 ? (
+            <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-gray-400">
+              <BarChart3 size={40} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Team Insights appear once scores are in.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Team Insights</h2>
+                  <p className="text-sm text-gray-400 mt-0.5">Natural break lines and the players on the bubble around each cut</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">Number of teams</label>
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setTeamCount(c => Math.max(2, c - 1))}
+                      disabled={teamCount <= 2}
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#1A6BFF]"
+                      aria-label="Fewer teams"
+                    >−</button>
+                    <input
+                      type="number"
+                      min={2}
+                      max={8}
+                      value={teamCount}
+                      onChange={e => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) setTeamCount(Math.min(8, Math.max(2, v))); }}
+                      className="w-12 text-center bg-transparent text-sm font-semibold text-gray-900 focus:outline-none"
+                    />
+                    <button
+                      onClick={() => setTeamCount(c => Math.min(8, c + 1))}
+                      disabled={teamCount >= 8}
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#1A6BFF]"
+                      aria-label="More teams"
+                    >+</button>
+                  </div>
+                </div>
+              </div>
+
+              {insights.breaks.map((b, bi) => {
+                const bubbles = insights.bubbles.filter(x => x.boundary === bi);
+                return (
+                  <div key={bi} className="space-y-3">
+                    <div className={`rounded-xl border p-5 ${b.isClean ? "bg-green-50/50 border-green-200" : "bg-amber-50/50 border-amber-200"}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${b.isClean ? "bg-green-100" : "bg-amber-100"}`}>
+                          <span className={`text-lg ${b.isClean ? "text-green-600" : "text-amber-600"}`}>{b.isClean ? "✓" : "⚠️"}</span>
+                        </div>
+                        <div className="flex-1">
+                          <div className={`text-sm font-semibold ${b.isClean ? "text-green-800" : "text-amber-800"}`}>
+                            {b.isClean
+                              ? `✓ Clean break after #${b.suggestedCut} — ${b.gap}-pt gap (${b.cleanliness}× the typical spacing)`
+                              : `No clean break near the #${b.intendedCut} cut — this one's a judgment call.`}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">Team {b.teamAbove} ↑ / Team {b.teamBelow} ↓</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {bubbles.length === 0 ? (
+                      <div className="px-5 py-4 text-xs text-gray-400 bg-white border border-gray-200 rounded-xl">No bubble players near this cut.</div>
+                    ) : (
+                      <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+                        {bubbles.map(p => {
+                          const leanStyle = p.lean === "up"
+                            ? { cls: "bg-green-100 text-green-700", label: "↑ Lean up" }
+                            : p.lean === "down"
+                            ? { cls: "bg-red-100 text-red-700", label: "↓ Lean down" }
+                            : { cls: "bg-gray-100 text-gray-600", label: "~ Toss-up" };
+                          return (
+                            <div key={p.id} className="px-5 py-4 hover:bg-gray-50">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold text-gray-900">{p.name}</span>
+                                  <span className="text-xs font-medium text-gray-400">#{p.rank}</span>
+                                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${leanStyle.cls}`}>{leanStyle.label}</span>
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium capitalize">{p.confidence}</span>
+                                  {p.needsReview && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">needs a look</span>}
+                                </div>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1.5">{p.reasons.join(" · ")}</div>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 flex-wrap">
+                                <span>Composite <span className="font-semibold text-gray-700">{p.composite != null ? p.composite.toFixed(1) : "—"}</span></span>
+                                <span>Game <span className="font-semibold text-gray-700">{p.gameScore != null ? p.gameScore.toFixed(1) : "—"}</span></span>
+                                <span>Testing <span className="font-semibold text-gray-700">{p.testingScore != null ? p.testingScore.toFixed(1) : "—"}</span></span>
+                                <span>Agreement <span className="font-semibold text-gray-700">{p.agreement ?? "—"}{p.agreement != null ? "%" : ""}</span></span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
         )}
 
         {activeTab === "settings" && (
