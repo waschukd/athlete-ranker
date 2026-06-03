@@ -210,3 +210,49 @@ export function extractCandidates(text) {
   }
   return candidates;
 }
+
+// ── Normalize spoken numbers in an utterance ────────────────────────────────
+// Word/compound numbers are converted to digits FIRST, then fractions, so that
+// a spoken "seven point five" becomes "7.5" (not stranded as "7 point five").
+export function normalizeSpokenNumbers(text) {
+  const wordNums = {
+    'zero':'0','oh':'0',
+    'one':'1','won':'1',
+    'two':'2','to':'2','too':'2','tu':'2',
+    'three':'3','tree':'3',
+    'four':'4','for':'4','fore':'4',
+    'five':'5','fiver':'5',
+    'six':'6','sex':'6','sicks':'6','seeks':'6','sticks':'6','dix':'6','sick':'6','sits':'6',
+    'seven':'7','sven':'7',
+    'eight':'8','ate':'8','ait':'8',
+    'nine':'9','nein':'9','mine':'9',
+    'ten':'10',
+    'eleven':'11','twelve':'12','thirteen':'13','fourteen':'14',
+    'fifteen':'15','sixteen':'16','seventeen':'17','eighteen':'18',
+    'nineteen':'19','twenty':'20',
+  };
+  const compoundNums = {
+    'twenty one':'21','twenty two':'22','twenty three':'23','twenty four':'24',
+    'twenty five':'25','twenty six':'26','twenty seven':'27','twenty eight':'28',
+    'twenty nine':'29','thirty':'30','thirty one':'31','thirty two':'32',
+    'thirty three':'33','thirty four':'34','thirty five':'35',
+  };
+
+  let s = text.trim().toLowerCase();
+
+  // Compound numbers first (before single-word replacement).
+  for (const [words, num] of Object.entries(compoundNums)) {
+    s = s.replace(new RegExp('\\b' + words + '\\b', 'gi'), num);
+  }
+  // Single word numbers (longest first so multi-word keys aren't pre-empted).
+  const wordPattern = Object.keys(wordNums).sort((a, b) => b.length - a.length).join('|');
+  s = s.replace(new RegExp('\\b(' + wordPattern + ')\\b', 'gi'), m => wordNums[m.toLowerCase()] || m);
+
+  // Fractions AFTER digits exist, so spoken digit-words combine correctly.
+  s = s.replace(/(\d+)\s+and\s+a\s+half/gi, '$1.5');
+  s = s.replace(/(\d+)\s+point\s+five/gi, '$1.5');
+  s = s.replace(/(\d+)\s+point\s+5/gi, '$1.5');
+  s = s.replace(/(\d+)\s+point\s+(\d)/gi, '$1.$2');
+
+  return s;
+}
