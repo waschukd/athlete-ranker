@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Search, Trash2, X, Check, Mail, KeyRound, Loader2 } from "lucide-react";
+import { UserPlus, Search, Trash2, X, Check, Mail, KeyRound, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { LoadingState } from "./LoadingState";
 import { CreateUserModal } from "./CreateUserModal";
 
@@ -24,17 +24,34 @@ function RoleBadge({ role }) {
 }
 
 export function UsersTab() {
+  const PAGE_SIZE = 50;
   const [roleFilter, setRoleFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const queryClient = useQueryClient();
 
+  // Debounce the search box (~300ms) into the server-side `q` param.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Any filter change resets to page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [roleFilter, debouncedSearch]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["god-mode-users", roleFilter],
+    queryKey: ["god-mode-users", roleFilter, debouncedSearch, page, PAGE_SIZE],
+    keepPreviousData: true,
     queryFn: async () => {
-      const url = roleFilter ? `/api/admin/god-mode/users?role=${roleFilter}` : "/api/admin/god-mode/users";
-      const res = await fetch(url);
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (roleFilter) params.set("role", roleFilter);
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      const res = await fetch(`/api/admin/god-mode/users?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
@@ -86,10 +103,16 @@ export function UsersTab() {
     },
   });
 
-  const users = (data?.users || []).filter(u =>
-    !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Search & role filtering now happen server-side; render the page as-is.
+  const users = data?.users || [];
   const stats = data?.stats || {};
+  const total = data?.total ?? users.length;
+  const pageSize = data?.pageSize ?? PAGE_SIZE;
+  const currentPage = data?.page ?? page;
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(total, currentPage * pageSize);
+  const hasPrev = currentPage > 1;
+  const hasNext = rangeEnd < total;
 
   const statItems = [
     { label: "Total", value: stats.total || 0, color: "var(--gm-text)" },
@@ -251,6 +274,32 @@ export function UsersTab() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pager */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid var(--gm-border)", flexWrap: "wrap", gap: 10 }}>
+            <div style={{ fontSize: 12, color: "var(--gm-muted)", fontFamily: "'DM Mono', monospace" }}>
+              {total === 0 ? "No users" : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={!hasPrev}
+                style={{ padding: "5px 10px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: hasPrev ? "var(--gm-text)" : "var(--gm-dim)", cursor: hasPrev ? "pointer" : "not-allowed", fontSize: 12, display: "flex", alignItems: "center", gap: 4, opacity: hasPrev ? 1 : 0.5 }}
+              >
+                <ChevronLeft size={13} /> Prev
+              </button>
+              <span style={{ fontSize: 12, color: "var(--gm-muted)", padding: "0 4px", fontFamily: "'DM Mono', monospace" }}>
+                Page {currentPage}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!hasNext}
+                style={{ padding: "5px 10px", background: "transparent", border: "1px solid var(--gm-border)", borderRadius: 6, color: hasNext ? "var(--gm-text)" : "var(--gm-dim)", cursor: hasNext ? "pointer" : "not-allowed", fontSize: 12, display: "flex", alignItems: "center", gap: 4, opacity: hasNext ? 1 : 0.5 }}
+              >
+                Next <ChevronRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       )}
