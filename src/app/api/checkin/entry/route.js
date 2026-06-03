@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import sql from "@/lib/db";
+import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 
 if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
@@ -19,6 +20,18 @@ const CHECKIN_TTL_SECONDS = 8 * 60 * 60; // 8h — long enough for a tryout day
 
 export async function POST(request) {
   try {
+    // Throttle by IP before the code lookup — stops check-in code
+    // brute-force and keeps volunteer_checkins log bloat in check.
+    const { allowed } = await checkAndRecord({
+      endpoint: "checkin_entry",
+      identifier: clientIp(request),
+      max: 12,
+      windowMins: 1,
+    });
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many attempts, please wait a moment." }, { status: 429 });
+    }
+
     const { code, volunteer_name, volunteer_email } = await request.json();
 
     if (!code || !volunteer_name || !volunteer_email) {
