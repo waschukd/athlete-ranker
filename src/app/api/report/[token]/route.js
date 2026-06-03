@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { logEvent } from "@/lib/analytics";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
+import { anonymizeEvaluators } from "@/lib/reportAnon";
 
 // Default lifetime for a parent-facing share link. Bounded so that a
 // link leaked into search engines or shared in a parents' group chat
@@ -120,8 +121,8 @@ export async function GET(request, { params }) {
     // Paid tier — include detailed data
     if (purchased) {
       // Detailed per-evaluator scores
-      const detailedScores = await sql`
-        SELECT cs.session_number, cs.score, cs.scoring_category_id,
+      const rawDetailedScores = await sql`
+        SELECT cs.session_number, cs.score, cs.scoring_category_id, cs.evaluator_id,
           u.name as evaluator_name, sc.name as category_name, sc.display_order
         FROM category_scores cs
         JOIN users u ON u.id = cs.evaluator_id
@@ -129,6 +130,9 @@ export async function GET(request, { params }) {
         WHERE cs.athlete_id = ${athlete_id} AND cs.age_category_id = ${age_category_id}
         ORDER BY cs.session_number, u.name, sc.display_order
       `;
+      // Strip real evaluator identities, replacing them with stable
+      // "Evaluator N" labels before anything is returned to the client.
+      const detailedScores = anonymizeEvaluators(rawDetailedScores);
 
       // Evaluator notes
       const notes = await sql`
