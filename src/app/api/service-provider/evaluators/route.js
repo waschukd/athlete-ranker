@@ -74,6 +74,9 @@ export async function POST(request) {
       return NextResponse.json({ success: true, count: ids.length });
     }
     if (action === "rate_evaluator") {
+      // Verify the evaluator belongs to this SP org before rating (IDOR guard)
+      const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
+      if (!mem.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       await sql`INSERT INTO evaluator_ratings (evaluator_id, rated_by, organization_id, schedule_id, rating, notes) VALUES (${evaluator_id}, ${admin_id}, ${sp_id}, ${schedule_id}, ${rating}, ${notes || null}) ON CONFLICT (evaluator_id, schedule_id) DO UPDATE SET rating = ${rating}, notes = ${notes || null}`;
       return NextResponse.json({ success: true });
     }

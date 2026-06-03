@@ -15,6 +15,10 @@ export async function GET(request, { params }) {
     if (catId) {
       const auth = await authorizeCategoryAccess(session, catId);
       if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+      // Verify the athlete actually belongs to the authorized category (IDOR guard)
+      const ath = await sql`SELECT id FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+      if (!ath.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const athleteRes = await sql`
