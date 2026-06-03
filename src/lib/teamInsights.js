@@ -3,7 +3,7 @@
 // prioritized over testing, because the common association fear is a player who
 // "tests well but plays poorly." No DB/request concerns — unit-tested in isolation.
 
-const DEFAULTS = { WINDOW: 5, CLEAN_RATIO: 1.5, MIN_GAP: 1.0, DIVERGENCE: 15 };
+const DEFAULTS = { WINDOW: 5, CLEAN_RATIO: 1.5, MIN_GAP: 1.0, DIVERGENCE: 15, TIER_RATIO: 2.0 };
 
 function median(nums) {
   if (!nums.length) return 0;
@@ -128,6 +128,29 @@ export function snakeDistribute(count, teamCount) {
     // direction just flipped at an edge → stay on the same team for the turn (snake)
   }
   return out;
+}
+
+/** Segment the ranked field into natural skill tiers at significant score gaps.
+ *  A boundary is a gap >= TIER_RATIO * median gap AND >= MIN_GAP. */
+export function detectNaturalTiers(ranked, opts = {}) {
+  const { TIER_RATIO, MIN_GAP } = { ...DEFAULTS, ...opts };
+  const N = ranked.length;
+  if (!N) return [];
+  const comps = ranked.map(r => r.composite);
+  const gaps = [];
+  for (let i = 0; i < N - 1; i++) gaps.push(comps[i] - comps[i + 1]);
+  const med = median(gaps) || 0.0001;
+  const tiers = [];
+  let start = 0; // 0-based index of current tier start
+  for (let i = 0; i < N - 1; i++) {
+    const gap = comps[i] - comps[i + 1];
+    if (gap >= TIER_RATIO * med && gap >= MIN_GAP) {
+      tiers.push({ startRank: start + 1, endRank: i + 1, size: i + 1 - start });
+      start = i + 1;
+    }
+  }
+  tiers.push({ startRank: start + 1, endRank: N, size: N - start });
+  return tiers;
 }
 
 export function analyzeTeams(ranked, sessions, teamSizes, opts = {}) {
