@@ -302,6 +302,7 @@ export async function POST(request, { params }) {
       const schedInfo = await sql`
         SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}
       `;
+      if (!schedInfo.length) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
       const sched = schedInfo[0] || {};
 
       // Attach to this session's group if one exists (mirrors add_player).
