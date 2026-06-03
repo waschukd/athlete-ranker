@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { checkAndRecord } from "@/lib/rateLimit";
 
 export async function POST(request, { params }) {
   try {
@@ -98,6 +99,21 @@ Structure:
 5. Overall assessment (1 sentence)
 
 Keep it factual, professional, and grounded in what the evaluators actually observed. Maximum 200 words.`;
+
+    // Per-user daily cap on AI generation — bounds Anthropic spend so a
+    // single account can't run up a surprise bill.
+    const userId = await getAppUserId(session);
+    if (userId) {
+      const { allowed } = await checkAndRecord({
+        endpoint: "scouting_ai",
+        identifier: String(userId),
+        max: 60,
+        windowMins: 1440,
+      });
+      if (!allowed) {
+        return NextResponse.json({ error: "Too many attempts, please wait a moment." }, { status: 429 });
+      }
+    }
 
     // Call Anthropic API server-side
     if (!process.env.ANTHROPIC_API_KEY) {

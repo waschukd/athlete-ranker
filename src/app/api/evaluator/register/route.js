@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { emailEvaluatorPendingApproval } from "@/lib/email";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 
 function generateEvaluatorId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -21,6 +22,17 @@ async function sendEmail(to, subject, html) {
 
 export async function POST(request) {
   try {
+    // Throttle signups by IP — stops account-creation / outbound-email spam.
+    const { allowed } = await checkAndRecord({
+      endpoint: "evaluator_register",
+      identifier: clientIp(request),
+      max: 8,
+      windowMins: 60,
+    });
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many attempts, please wait a moment." }, { status: 429 });
+    }
+
     const { name, email, password, code } = await request.json();
 
     if (!name || !email || !password || !code) {
