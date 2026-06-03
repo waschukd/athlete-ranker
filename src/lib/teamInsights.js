@@ -45,6 +45,16 @@ function cutPositions(teamSizes) {
   return cuts;
 }
 
+/** Convert interior cut positions into team sizes. cutsToSizes([16], 34) → [16, 18]. */
+export function cutsToSizes(cuts, total) {
+  const valid = [...new Set(cuts.filter(c => c > 0 && c < total))].sort((a, b) => a - b);
+  const sizes = [];
+  let prev = 0;
+  for (const c of valid) { sizes.push(c - prev); prev = c; }
+  sizes.push(total - prev);
+  return sizes;
+}
+
 export function detectBreaks(ranked, teamSizes, opts = {}) {
   const { WINDOW, CLEAN_RATIO, MIN_GAP } = { ...DEFAULTS, ...opts };
   const N = ranked.length;
