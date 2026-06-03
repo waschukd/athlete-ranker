@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
@@ -88,6 +88,8 @@ function CheckinPageInner() {
     setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
     setMatches([]);
   };
+
+  useEffect(() => () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); }, []);
 
   const athletes = data?.athletes || [];
   const summary = data?.summary || {};
@@ -207,7 +209,7 @@ function CheckinPageInner() {
               className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-40 whitespace-nowrap">
               {addLoading ? "..." : "Add new"}
             </button>
-            <button onClick={() => { setShowAddPlayer(false); setMatches([]); }} className="text-gray-500 hover:text-white"><X size={14} /></button>
+            <button onClick={() => { if (lookupTimer.current) clearTimeout(lookupTimer.current); setShowAddPlayer(false); setMatches([]); }} className="text-gray-500 hover:text-white"><X size={14} /></button>
           </div>
 
           {/* Existing-roster matches — pick to check in without duplicating */}
