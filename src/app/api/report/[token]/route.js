@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { logEvent } from "@/lib/analytics";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
-import { anonymizeEvaluators } from "@/lib/reportAnon";
+import { anonymizeEvaluators, anonymizeNotes, buildEvaluatorLabelMap } from "@/lib/reportAnon";
 
 // Default lifetime for a parent-facing share link. Bounded so that a
 // link leaked into search engines or shared in a parents' group chat
@@ -130,22 +130,36 @@ export async function GET(request, { params }) {
         WHERE cs.athlete_id = ${athlete_id} AND cs.age_category_id = ${age_category_id}
         ORDER BY cs.session_number, u.name, sc.display_order
       `;
-      // Strip real evaluator identities, replacing them with stable
-      // "Evaluator N" labels before anything is returned to the client.
-      const detailedScores = anonymizeEvaluators(rawDetailedScores);
-
-      // Evaluator notes
-      const notes = await sql`
-        SELECT pn.session_number, pn.note_text, pn.created_at, u.name as evaluator_name
+      // Evaluator notes — also carry the real name (and evaluator_id, for the
+      // shared label map). These are anonymized below before being returned or
+      // fed to the AI summary.
+      const rawNotes = await sql`
+        SELECT pn.session_number, pn.note_text, pn.created_at, pn.evaluator_id, u.name as evaluator_name
         FROM player_notes pn
         JOIN users u ON u.id = pn.evaluator_id
         WHERE pn.athlete_id = ${athlete_id} AND pn.age_category_id = ${age_category_id}
         ORDER BY pn.session_number, pn.created_at
       `;
 
+      // ONE shared evaluator_id -> "Evaluator N" map for the whole report so the
+      // same evaluator gets the same label in BOTH the score breakdown and the
+      // notes (and the AI summary derived from them). Numbered scores-first by
+      // first appearance; notes-only evaluators get the next labels.
+      const labelMap = buildEvaluatorLabelMap([
+        ...rawDetailedScores.map((r) => r.evaluator_id),
+        ...rawNotes.map((n) => n.evaluator_id),
+      ]);
+
+      // Strip real evaluator identities, replacing them with the stable shared
+      // labels before anything is returned to the client.
+      const detailedScores = anonymizeEvaluators(rawDetailedScores, labelMap);
+      const notes = anonymizeNotes(rawNotes, labelMap);
+
       // Scouting report (cached or generate)
       let scoutingReport = purchase[0].cached_scouting_report;
       if (!scoutingReport && notes.length > 0 && process.env.ANTHROPIC_API_KEY) {
+        // `notes` is already anonymized, so evaluator_name here is the
+        // "Evaluator N" label — no real evaluator name reaches the AI prompt.
         const notesContext = notes.map(n => `Session ${n.session_number} — ${n.evaluator_name}: "${n.note_text}"`).join("\n");
         const prompt = `You are writing a scouting report for an athlete evaluation.
 
