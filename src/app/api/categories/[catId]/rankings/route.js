@@ -3,6 +3,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { agreementPct, normalizeScore, testingPercentile, round1 } from "@/lib/scoring";
 
 export async function GET(request, { params }) {
   try {
@@ -55,11 +56,8 @@ export async function GET(request, { params }) {
     for (const [key, vals] of Object.entries(evalByAthleteCat)) {
       const athleteId = key.split("_")[0];
       if (vals.length < 2) continue;
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const sd = Math.sqrt(vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vals.length);
-      const pct = Math.max(0, Math.min(100, Math.round((1 - sd / scale) * 100)));
       if (!agreementMap[athleteId]) agreementMap[athleteId] = [];
-      agreementMap[athleteId].push(pct);
+      agreementMap[athleteId].push(agreementPct(vals, scale));
     }
     for (const [id, vals] of Object.entries(agreementMap)) {
       agreementMap[id] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
@@ -97,10 +95,10 @@ export async function GET(request, { params }) {
 
     for (const s of sessionScores) {
       if (!scoreMap[s.athlete_id]) scoreMap[s.athlete_id] = {};
-      const normalized = Math.min(100, Math.max(0, (parseFloat(s.avg_score) / scale) * 100));
+      const normalized = normalizeScore(parseFloat(s.avg_score), scale);
       scoreMap[s.athlete_id][s.session_number] = {
-        normalized_score: Math.round(normalized * 10) / 10,
-        avg_score: Math.round(parseFloat(s.avg_score) * 10) / 10,
+        normalized_score: round1(normalized),
+        avg_score: round1(parseFloat(s.avg_score)),
         evaluator_count: parseInt(s.evaluator_count),
         source: "skills",
       };
@@ -108,9 +106,9 @@ export async function GET(request, { params }) {
 
     for (const t of testingRanks) {
       if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-      const percentile = N > 1 ? ((N - parseInt(t.overall_rank)) / (N - 1)) * 100 : 100;
+      const percentile = testingPercentile(parseInt(t.overall_rank), N);
       scoreMap[t.athlete_id][t.session_number] = {
-        normalized_score: Math.round(percentile * 10) / 10,
+        normalized_score: round1(percentile),
         overall_rank: parseInt(t.overall_rank),
         source: "testing",
       };

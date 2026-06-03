@@ -4,21 +4,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-
-// Calculate standard deviation
-function stdDev(values) {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const variance = values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length;
-  return Math.sqrt(variance);
-}
-
-// Agreement % = (1 - stdDev/scale) * 100, clamped 0-100
-function agreementPct(values, scale = 10) {
-  if (values.length < 2) return 100;
-  const sd = stdDev(values);
-  return Math.round(Math.max(0, Math.min(100, (1 - sd / scale) * 100)));
-}
+import { getTier } from "@/lib/scoring";
 
 export async function GET(request, { params }) {
   try {
@@ -90,14 +76,6 @@ export async function GET(request, { params }) {
     // Tier boundaries: top 25%, middle 50%, bottom 25%
     const topCutoff = Math.max(1, Math.ceil(N * 0.25));
     const bottomCutoff = Math.max(topCutoff + 1, N - Math.ceil(N * 0.25) + 1);
-
-    function getTier(rank, total) {
-      const t = Math.max(1, Math.ceil(total * 0.25));
-      const b = Math.max(t + 1, total - Math.ceil(total * 0.25) + 1);
-      if (rank <= t) return "top";
-      if (rank >= b) return "bottom";
-      return "middle";
-    }
 
     // For each evaluator, compute their ranking of all athletes
     const evalRankings = {}; // { evaluatorId: { athleteId: rank } }
