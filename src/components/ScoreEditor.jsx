@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle, LayoutGrid, Table2 } from "lucide-react";
 import { groupDetailedScores, toScoreGrid } from "@/lib/scoreGrouping";
 
-export default function ScoreEditor({ catId, canEdit }) {
+export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
   const [subTab, setSubTab] = useState("edit");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "grid"
   const [search, setSearch] = useState("");
@@ -54,6 +54,11 @@ export default function ScoreEditor({ catId, canEdit }) {
 
   // Shared PATCH for a single score cell.
   const patchScore = async ({ athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason }) => {
+    if (requireReason && !(reason && String(reason).trim())) {
+      const entered = typeof window !== "undefined" ? window.prompt("Reason for this score correction (required):") : null;
+      if (!entered || !entered.trim()) return; // abort if no reason given
+      reason = entered.trim();
+    }
     const res = await fetch(`/api/categories/${catId}/scores`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
