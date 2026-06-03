@@ -51,16 +51,20 @@ export async function POST(request) {
     }
 
     if (action === "approve") {
-      const rows = await sql`
-        SELECT * FROM signup_requests WHERE id = ${id} AND status = 'pending'
+      // Atomically claim the request — only one approver wins.
+      const claimed = await sql`
+        UPDATE signup_requests
+        SET status = 'approved', reviewed_by = ${adminId}, reviewed_at = NOW()
+        WHERE id = ${id} AND status = 'pending'
+        RETURNING association_name, contact_name, email, phone
       `;
-      if (!rows.length) {
-        return NextResponse.json({ error: "Pending request not found" }, { status: 404 });
+      if (!claimed.length) {
+        return NextResponse.json({ error: "Request not found or already processed" }, { status: 409 });
       }
-      const req = rows[0];
-      const name = req.association_name;
-      const email = req.email;
-      const contactName = req.contact_name || req.association_name;
+      const reqRow = claimed[0];
+      const name = reqRow.association_name;
+      const email = reqRow.email;
+      const contactName = reqRow.contact_name || reqRow.association_name;
 
       // --- Create the organization (reuse organizations POST pattern) ---
       let orgCode = null;
@@ -72,7 +76,7 @@ export async function POST(request) {
 
       const orgResult = await sql`
         INSERT INTO organizations (name, type, contact_email, contact_name, contact_phone, address, org_code)
-        VALUES (${name}, 'association', ${email}, ${contactName}, ${req.phone || null}, ${null}, ${orgCode})
+        VALUES (${name}, 'association', ${email}, ${contactName}, ${reqRow.phone || null}, ${null}, ${orgCode})
         RETURNING *
       `;
       const org = orgResult[0];
@@ -102,15 +106,10 @@ export async function POST(request) {
         `;
         await emailWelcomeAssociation({ name: contactName, email, tempPassword: password, orgName: name });
       } catch (provisionErr) {
-        // Best-effort: org is created; surface but don't fail the approval.
+        // Best-effort: request is already claimed/approved; surface but don't
+        // fail the approval (mirrors prior behavior — manual fixup if needed).
         console.error("Approve provisioning (user/email) error:", provisionErr);
       }
-
-      await sql`
-        UPDATE signup_requests
-        SET status = 'approved', reviewed_by = ${adminId}, reviewed_at = NOW()
-        WHERE id = ${id}
-      `;
 
       return NextResponse.json({ success: true, organization: org });
     }

@@ -129,15 +129,15 @@ describe("POST /api/admin/god-mode/signup-requests", () => {
     expect(calledWithSql(/INSERT INTO users/i)).toBe(false);
   });
 
-  it("approve provisions org + user and marks the request approved", async () => {
+  it("approve atomically claims the request then provisions org + user", async () => {
     requireSuperAdmin.mockResolvedValue({ id: "admin1", role: "super_admin" });
     // Route by SQL text so order doesn't matter.
     sql.mockImplementation((strings) => {
       const text = Array.isArray(strings) ? strings.join(" ") : "";
-      // load pending request
-      if (/SELECT[\s\S]*FROM signup_requests/i.test(text)) {
+      // atomic claim: UPDATE ... SET 'approved' ... RETURNING wins the row
+      if (/UPDATE signup_requests[\s\S]*'approved'[\s\S]*RETURNING/i.test(text)) {
         return Promise.resolve([
-          { id: "r1", association_name: "Foo Hockey", contact_name: "Jane", email: "jane@foo.com", status: "pending" },
+          { association_name: "Foo Hockey", contact_name: "Jane", email: "jane@foo.com", phone: null },
         ]);
       }
       // org code uniqueness check
@@ -155,19 +155,20 @@ describe("POST /api/admin/god-mode/signup-requests", () => {
     const body = await res.json();
     expect(body.success).toBe(true);
 
+    expect(calledWithSql(/UPDATE signup_requests[\s\S]*'approved'[\s\S]*RETURNING/i)).toBe(true);
     expect(calledWithSql(/INSERT INTO organizations/i)).toBe(true);
     expect(calledWithSql(/INSERT INTO auth_users/i)).toBe(true);
     expect(calledWithSql(/INSERT INTO users/i)).toBe(true);
-    expect(calledWithSql(/UPDATE signup_requests[\s\S]*'approved'/i)).toBe(true);
   });
 
-  it("approve on a non-pending/unknown request returns 4xx and provisions nothing", async () => {
+  it("approve when the claim loses (already processed) returns 409 and provisions nothing", async () => {
     requireSuperAdmin.mockResolvedValue({ id: "admin1", role: "super_admin" });
-    sql.mockResolvedValue([]); // no pending request found
+    sql.mockResolvedValue([]); // claim UPDATE ... RETURNING matched no pending row
     const { POST } = await import("@/app/api/admin/god-mode/signup-requests/route");
-    const res = await POST(postReq({ id: "missing", action: "approve" }));
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    const res = await POST(postReq({ id: "r1", action: "approve" }));
+    expect(res.status).toBe(409);
     expect(calledWithSql(/INSERT INTO organizations/i)).toBe(false);
+    expect(calledWithSql(/INSERT INTO users/i)).toBe(false);
+    expect(calledWithSql(/INSERT INTO auth_users/i)).toBe(false);
   });
 });
