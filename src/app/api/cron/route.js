@@ -41,6 +41,11 @@ async function getSessionStaffing(orgId, daysAhead) {
 }
 
 export async function GET(request) {
+  // Fail closed: an unconfigured secret must never authorize a request
+  // (otherwise a header of "Bearer undefined" would match).
+  if (!CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
   // Verify cron secret via Authorization header (Vercel sends this automatically)
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${CRON_SECRET}`) {

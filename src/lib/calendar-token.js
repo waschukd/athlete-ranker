@@ -9,7 +9,8 @@
 
 import crypto from "node:crypto";
 
-const SECRET_BASE = process.env.AUTH_SECRET || "dev-secret-do-not-use-in-prod";
+if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
+const SECRET_BASE = process.env.AUTH_SECRET;
 const KEY = SECRET_BASE + "/calendar-feed";
 
 // Calendar importers (Google/Apple) follow Vercel's apex→www 307 redirect and then
