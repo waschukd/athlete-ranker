@@ -28,6 +28,17 @@ function CheckinPageInner() {
   // Inline jersey editing
   const [editingJersey, setEditingJersey] = useState(null); // athlete id
   const [jerseyVal, setJerseyVal] = useState("");
+  // Action failure + offline feedback
+  const [actionError, setActionError] = useState("");
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    const set = () => setOnline(typeof navigator === "undefined" ? true : navigator.onLine);
+    set();
+    window.addEventListener("online", set);
+    window.addEventListener("offline", set);
+    return () => { window.removeEventListener("online", set); window.removeEventListener("offline", set); };
+  }, []);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["checkin", scheduleId],
@@ -40,12 +51,22 @@ function CheckinPageInner() {
   });
 
   const doAction = async (action, body = {}) => {
-    await fetch(`/api/checkin/${scheduleId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ...body }),
-    });
-    refetch();
+    try {
+      const res = await fetch(`/api/checkin/${scheduleId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...body }),
+      });
+      if (!res.ok) {
+        setActionError("That didn't save — check your connection and try again.");
+      } else {
+        setActionError("");
+      }
+    } catch {
+      setActionError("No connection — that didn't save. Try again when you're back online.");
+    } finally {
+      refetch();
+    }
   };
 
   const quickCheckin = async (athlete) => {
@@ -179,6 +200,19 @@ function CheckinPageInner() {
           </div>
         </div>
       </div>
+
+      {/* Connection / action-failure banners */}
+      {!online && (
+        <div className="bg-amber-500 text-amber-950 text-sm font-semibold px-4 py-2 text-center">
+          Offline — check-ins won't save until you're back online.
+        </div>
+      )}
+      {actionError && (
+        <div className="bg-red-600 text-white text-sm px-4 py-2 flex items-center justify-between gap-3">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError("")} className="underline font-semibold whitespace-nowrap">Dismiss</button>
+        </div>
+      )}
 
       {/* Add Player Inline */}
       {showAddPlayer && (
