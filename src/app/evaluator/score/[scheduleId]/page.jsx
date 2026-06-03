@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
-import { isCapacitorApp, createNativeContinuousRecognizer } from "@/lib/speechAdapter";
+import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
@@ -818,9 +818,21 @@ function ScoringInterface() {
       }
     };
     rec.onend = () => {
-      if (recRef.current === rec) {
-        try { setTimeout(() => rec.start(), isIOS ? 100 : 0); } catch {}
-      }
+      // Re-arm while voice is still on. Safari/iOS auto-stops after each phrase and
+      // has no real continuous mode, so this restart is what keeps it listening.
+      // Guarded by recRef identity so a stopped/replaced recognizer never re-arms.
+      if (recRef.current !== rec) return;
+      const tryStart = (retried) => {
+        if (recRef.current !== rec) return; // toggled off / replaced in the meantime
+        try {
+          rec.start();
+        } catch {
+          // Safari throws if start() is called before the previous session fully tears
+          // down. Back off once and retry rather than dropping voice silently.
+          if (!retried) setTimeout(() => tryStart(true), 300);
+        }
+      };
+      setTimeout(() => tryStart(false), isIOS ? 100 : 0);
     };
 
     // Restart recognition when audio device changes (Bluetooth connect/disconnect)
@@ -1085,7 +1097,7 @@ function ScoringInterface() {
           ))}
         </div>
 
-        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))" }}>
+        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))" }}>
           {filtered.map(athlete => {
             const status = getStatus(athlete.id, scores, totalCats);
             const isActive = selected?.id === athlete.id;
@@ -1104,13 +1116,18 @@ function ScoringInterface() {
                     ? "bg-amber-500 border-2 border-amber-300"
                     : "bg-gray-700 border-2 border-gray-600 hover:border-gray-400"
                   }`}
-                style={{ aspectRatio: "1", minHeight: "52px" }}
+                style={{ aspectRatio: "1", minHeight: "64px" }}
               >
                 {/* Team color dot */}
                 <div className={`w-2 h-2 rounded-full mb-0.5 ${isDark ? "bg-gray-900 border border-gray-400" : "bg-white border border-gray-400"}`} />
-                <span className="text-sm font-bold leading-none">
+                <span className="text-sm md:text-base font-bold leading-none">
                   {athlete.jersey_number ?? "?"}
                 </span>
+                {athlete.position && (
+                  <span className="text-[9px] md:text-[11px] font-semibold opacity-70 leading-none mt-0.5">
+                    {String(athlete.position).charAt(0).toUpperCase()}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1132,7 +1149,10 @@ function ScoringInterface() {
                 <span className="font-bold text-white">#{selected.jersey_number ?? "?"}</span>
                 {!isAnon && <span className="text-white font-semibold">{selected.last_name}, {selected.first_name}</span>}
               </div>
-              {!isAnon && selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}{selected.position ? ` · ${selected.position}` : ""}</div>}
+              {selected.position && (
+                <div className="text-xs text-gray-300 mt-0.5 font-medium">{selected.position}</div>
+              )}
+              {!isAnon && selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}</div>}
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => {
@@ -1212,7 +1232,7 @@ function ScoringInterface() {
                     <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(scoreValues.length, 10)}, 1fr)` }}>
                       {scoreValues.map(v => (
                         <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
-                          className={`py-2 rounded text-xs font-bold transition-all ${
+                          className={`py-2 md:py-3.5 rounded text-xs md:text-base font-bold transition-all ${
                             current === v
                               ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50"
                               : "bg-gray-700 text-gray-300 active:bg-[#1A6BFF] active:text-white"
@@ -1478,6 +1498,11 @@ function ScoringInterface() {
                   {notesMode ? "📝 Notes mode — say 'done' to stop" : "🎤 Listening — say 'White 21' · 'Skating 8' · 'Notes'"}
                 </div>
                 <div className="text-sm text-white truncate">{voiceStatus}</div>
+                {!notesMode && isAppleSpeechFlaky() && (
+                  <div className="text-[11px] text-amber-300/90 leading-snug mt-0.5">
+                    Voice on Safari can drop out — tap the mic again if it stops, or use tap scoring.
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-xs text-gray-500 leading-snug">
