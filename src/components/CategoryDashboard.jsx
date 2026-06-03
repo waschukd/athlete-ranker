@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { analyzeTeams, cutsToSizes } from "@/lib/teamInsights";
+import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsights";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus, ChevronRight, CheckCircle, Clock, Zap,
@@ -160,6 +160,11 @@ export default function CategoryDashboard({
     const sizes = Array.from({ length: teamCount }, (_, i) => base + (i < rem ? 1 : 0));
     return analyzeTeams(filtered, sessions, sizes, {});
   }, [rankingsData?.athletes, sessions, teamCount]);
+
+  const naturalTiers = useMemo(
+    () => detectNaturalTiers((rankingsData?.athletes || []).filter(a => a.weighted_total != null), {}),
+    [rankingsData?.athletes]
+  );
 
   const sendVolunteers = async () => {
     if (!volunteerEmails.trim()) return;
@@ -1004,6 +1009,32 @@ export default function CategoryDashboard({
                 >
                   Build teams from these cuts →
                 </button>
+              )}
+
+              {naturalTiers.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Natural skill bands ({naturalTiers.length})</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Distinct skill bands detected from score gaps, independent of team count</p>
+                  </div>
+                  <div className="space-y-2">
+                    {naturalTiers.map((t, ti) => {
+                      const names = rankedForInsights
+                        .slice(t.startRank - 1, t.endRank)
+                        .map(a => `${a.last_name}, ${a.first_name}`);
+                      return (
+                        <div key={ti} className="rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
+                          <div className="text-sm font-medium text-gray-800">
+                            Tier {ti + 1} — ranks #{t.startRank}–#{t.endRank} ({t.size} player{t.size === 1 ? "" : "s"})
+                          </div>
+                          {names.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">{names.join(" · ")}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {insights.breaks.map((b, bi) => {

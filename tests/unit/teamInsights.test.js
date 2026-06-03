@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSignals, detectBreaks, computeLean, analyzeTeams, cutsToSizes, snakeDistribute } from "@/lib/teamInsights";
+import { buildSignals, detectBreaks, computeLean, analyzeTeams, cutsToSizes, snakeDistribute, detectNaturalTiers } from "@/lib/teamInsights";
 
 const sessions = [
   { session_number: 1, session_type: "testing" },
@@ -121,5 +121,29 @@ describe("snakeDistribute", () => {
   });
   it("returns empty for zero items", () => {
     expect(snakeDistribute(0, 3)).toEqual([]);
+  });
+});
+
+describe("detectNaturalTiers", () => {
+  it("splits the field at significant gaps into tiers", () => {
+    const ranked = [
+      { composite: 95 }, { composite: 94 }, { composite: 93 }, // tier 1
+      { composite: 75 }, { composite: 74 },                    // tier 2 (big gap before)
+      { composite: 50 }, { composite: 49 }, { composite: 48 }, // tier 3 (big gap before)
+    ];
+    const tiers = detectNaturalTiers(ranked, {});
+    expect(tiers).toHaveLength(3);
+    expect(tiers[0]).toMatchObject({ startRank: 1, endRank: 3, size: 3 });
+    expect(tiers[1]).toMatchObject({ startRank: 4, endRank: 5, size: 2 });
+    expect(tiers[2]).toMatchObject({ startRank: 6, endRank: 8, size: 3 });
+  });
+  it("returns a single tier when the field is flat", () => {
+    const flat = [90, 89, 88, 87, 86].map(c => ({ composite: c }));
+    const tiers = detectNaturalTiers(flat, {});
+    expect(tiers).toHaveLength(1);
+    expect(tiers[0]).toMatchObject({ startRank: 1, endRank: 5, size: 5 });
+  });
+  it("handles an empty field", () => {
+    expect(detectNaturalTiers([], {})).toEqual([]);
   });
 });
