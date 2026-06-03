@@ -96,14 +96,18 @@ export async function POST(request, { params }) {
     }
 
     if (action === "approve") {
+      // Verify the membership belongs to this org before mutating (IDOR guard)
+      const m = await sql`SELECT id, user_id FROM evaluator_memberships WHERE id = ${body.membership_id} AND organization_id = ${orgId}`;
+      if (!m.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
       // Approve pending evaluator
       await sql`
         UPDATE evaluator_memberships SET pending = false, status = 'active'
-        WHERE id = ${body.membership_id}
+        WHERE id = ${body.membership_id} AND organization_id = ${orgId}
       `;
 
-      // Notify evaluator
-      const evalUser = await sql`SELECT email, name, evaluator_id FROM users WHERE id = ${body.user_id}`;
+      // Notify evaluator (use the validated user_id, not a body-supplied one)
+      const evalUser = await sql`SELECT email, name, evaluator_id FROM users WHERE id = ${m[0].user_id}`;
       const org = await sql`SELECT name FROM organizations WHERE id = ${orgId}`;
 
       if (evalUser.length) {
@@ -119,16 +123,17 @@ export async function POST(request, { params }) {
     }
 
     if (action === "deny") {
-      // Get evaluator info before deleting
+      // Get evaluator info before deleting — scoped to this org (IDOR guard)
       const membership = await sql`
         SELECT em.user_id, u.name, u.email, o.name as org_name
         FROM evaluator_memberships em
         JOIN users u ON u.id = em.user_id
         JOIN organizations o ON o.id = em.organization_id
-        WHERE em.id = ${body.membership_id}
+        WHERE em.id = ${body.membership_id} AND em.organization_id = ${orgId}
       `;
+      if (!membership.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       await sql`
-        DELETE FROM evaluator_memberships WHERE id = ${body.membership_id}
+        DELETE FROM evaluator_memberships WHERE id = ${body.membership_id} AND organization_id = ${orgId}
       `;
       // Notify the evaluator they were denied
       if (membership.length) {

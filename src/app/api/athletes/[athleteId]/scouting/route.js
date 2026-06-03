@@ -16,6 +16,10 @@ export async function POST(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    // Verify the athlete actually belongs to the authorized category (IDOR guard)
+    const ath = await sql`SELECT id FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+    if (!ath.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
     // Get athlete info
     const athlete = await sql`SELECT first_name, last_name, position FROM athletes WHERE id = ${athleteId}`;
     if (!athlete.length) return NextResponse.json({ error: "Athlete not found" }, { status: 404 });

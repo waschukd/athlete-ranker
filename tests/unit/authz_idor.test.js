@@ -28,7 +28,7 @@ vi.mock("@/lib/email", () => ({
 process.env.AUTH_SECRET = process.env.AUTH_SECRET || "test-secret-for-idor-suite";
 
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 
 const ORG_A_ADMIN = { email: "admin@orgA.test", role: "association_admin" };
 
@@ -44,6 +44,13 @@ function mockAuthorizeOrgAccessDeny() {
   sql.mockResolvedValueOnce([{ id: "userA" }]); // users
   sql.mockResolvedValueOnce([]);                 // not owner
   sql.mockResolvedValueOnce([]);                 // not in user_organization_roles
+}
+
+// authorizeOrgAccess granting access via direct ownership: users lookup, then
+// owner check returns a row (short-circuits before the roles check).
+function mockAuthorizeOrgAccessAllowOwner() {
+  sql.mockResolvedValueOnce([{ id: "userA" }]); // users
+  sql.mockResolvedValueOnce([{ id: "orgB" }]);  // owner row → authorized
 }
 
 describe("IDOR: Org A admin cannot touch Org B resources", () => {
@@ -130,5 +137,133 @@ describe("IDOR: Org A admin cannot touch Org B resources", () => {
     });
     const res = await POST(req, { params: { scheduleId: "schedB" } });
     expect(res.status).toBe(403);
+  });
+});
+
+describe("IDOR regression: cross-org / cross-category id smuggling", () => {
+  // HOLE 1: join-codes approve/deny on a membership_id from another org.
+  it("POST /api/organizations/<OrgB>/join-codes approve — foreign membership_id → 403, no UPDATE", async () => {
+    mockAuthorizeOrgAccessAllowOwner();            // authorized for orgB
+    sql.mockResolvedValueOnce([{ id: "userA" }]);  // userId lookup
+    sql.mockResolvedValueOnce([]);                  // membership guard: not in orgB → 403
+    const { POST } = await import("@/app/api/organizations/[orgId]/join-codes/route");
+    const req = new Request("http://test/api/organizations/orgB/join-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve", membership_id: "memOther", user_id: "victim" }),
+    });
+    const res = await POST(req, { params: { orgId: "orgB" } });
+    expect(res.status).toBe(403);
+    // No mutating sql may have run: the membership UPDATE must never fire.
+    const updates = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("UPDATE evaluator_memberships")
+    );
+    expect(updates).toHaveLength(0);
+  });
+
+  it("POST /api/organizations/<OrgB>/join-codes deny — foreign membership_id → 403, no DELETE", async () => {
+    mockAuthorizeOrgAccessAllowOwner();
+    sql.mockResolvedValueOnce([{ id: "userA" }]);  // userId lookup
+    sql.mockResolvedValueOnce([]);                  // membership guard: not in orgB → 403
+    const { POST } = await import("@/app/api/organizations/[orgId]/join-codes/route");
+    const req = new Request("http://test/api/organizations/orgB/join-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "deny", membership_id: "memOther" }),
+    });
+    const res = await POST(req, { params: { orgId: "orgB" } });
+    expect(res.status).toBe(403);
+    const deletes = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("DELETE FROM evaluator_memberships")
+    );
+    expect(deletes).toHaveLength(0);
+  });
+
+  // HOLE 2: rate_evaluator on an evaluator_id not in the SP org.
+  it("POST /api/service-provider/evaluators rate_evaluator — foreign evaluator → 403, no rating INSERT", async () => {
+    resolveSpOrgId.mockResolvedValue("spA");        // caller's SP org
+    sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
+    sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
+    const { POST } = await import("@/app/api/service-provider/evaluators/route");
+    const req = new Request("http://test/api/service-provider/evaluators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rate_evaluator", evaluator_id: "evalOther", schedule_id: "s1", rating: 5 }),
+    });
+    const res = await POST(req, {});
+    expect(res.status).toBe(403);
+    const inserts = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("INSERT INTO evaluator_ratings")
+    );
+    expect(inserts).toHaveLength(0);
+  });
+
+  // HOLE 2b: reinstate on an evaluator_id not in the SP org.
+  it("POST /api/service-provider/evaluators reinstate — foreign evaluator → 403, no flag/signup UPDATE", async () => {
+    resolveSpOrgId.mockResolvedValue("spA");        // caller's SP org
+    sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
+    sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
+    const { POST } = await import("@/app/api/service-provider/evaluators/route");
+    const req = new Request("http://test/api/service-provider/evaluators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reinstate", evaluator_id: "evalOther" }),
+    });
+    const res = await POST(req, {});
+    expect(res.status).toBe(403);
+    const flagUpdates = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("UPDATE evaluator_flags")
+    );
+    expect(flagUpdates).toHaveLength(0);
+    const signupUpdates = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("UPDATE evaluator_session_signups")
+    );
+    expect(signupUpdates).toHaveLength(0);
+  });
+
+  // HOLE 3a: report for an athlete that isn't in the authorized category.
+  it("GET /api/athletes/<id>/report?cat=catA — athlete not in catA → 404", async () => {
+    // authorizeCategoryAccess (association_admin, allowed via owner):
+    sql.mockResolvedValueOnce([{ organization_id: "orgA" }]); // category lookup
+    sql.mockResolvedValueOnce([{ id: "userA" }]);             // users
+    sql.mockResolvedValueOnce([{ id: "orgA" }]);              // owner → authorized
+    sql.mockResolvedValueOnce([]);                             // athlete-in-category guard: empty → 404
+    const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
+    const req = new Request("http://test/api/athletes/athOther/report?cat=catA");
+    const res = await GET(req, { params: { athleteId: "athOther" } });
+    expect(res.status).toBe(404);
+  });
+
+  // HOLE 3a': report with NO category param → must be rejected before any data query.
+  it("GET /api/athletes/<id>/report (no cat) → 400, no athlete data query", async () => {
+    const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
+    const req = new Request("http://test/api/athletes/athOther/report");
+    const res = await GET(req, { params: { athleteId: "athOther" } });
+    expect(res.status).toBe(400);
+    const athQueries = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("FROM athletes")
+    );
+    expect(athQueries).toHaveLength(0);
+  });
+
+  // HOLE 3b: scouting report for an athlete that isn't in the authorized category.
+  it("POST /api/athletes/<id>/scouting — athlete not in catA → 404, no AI/data path", async () => {
+    sql.mockResolvedValueOnce([{ organization_id: "orgA" }]); // category lookup
+    sql.mockResolvedValueOnce([{ id: "userA" }]);             // users
+    sql.mockResolvedValueOnce([{ id: "orgA" }]);              // owner → authorized
+    sql.mockResolvedValueOnce([]);                             // athlete-in-category guard: empty → 404
+    const { POST } = await import("@/app/api/athletes/[athleteId]/scouting/route");
+    const req = new Request("http://test/api/athletes/athOther/scouting", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ catId: "catA" }),
+    });
+    const res = await POST(req, { params: { athleteId: "athOther" } });
+    expect(res.status).toBe(404);
+    // The notes/scores queries must never run after the guard fires.
+    const noteQueries = sql.mock.calls.filter(
+      (c) => Array.isArray(c[0]) && c[0].join("").includes("FROM player_notes")
+    );
+    expect(noteQueries).toHaveLength(0);
   });
 });

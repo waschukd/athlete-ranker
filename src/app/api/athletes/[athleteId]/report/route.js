@@ -10,12 +10,19 @@ export async function GET(request, { params }) {
 
     const { athleteId } = params;
     const { searchParams } = new URL(request.url);
-    const catId = searchParams.get("cat");
+    const catId = searchParams.get("cat") || searchParams.get("catId");
 
-    if (catId) {
-      const auth = await authorizeCategoryAccess(session, catId);
-      if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // A category is required so every request is gated by authorizeCategoryAccess
+    // plus the athlete-in-category check below. Without it the route would return
+    // athlete data with no authorization gate at all (IDOR).
+    if (!catId) return NextResponse.json({ error: "category required" }, { status: 400 });
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Verify the athlete actually belongs to the authorized category (IDOR guard)
+    const ath = await sql`SELECT id FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+    if (!ath.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const athleteRes = await sql`
       SELECT a.*, o.name as org_name
