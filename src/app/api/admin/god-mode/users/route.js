@@ -68,7 +68,27 @@ export async function GET(request) {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
-    const baseQuery = sql`
+    const q = (searchParams.get("q") || "").trim();
+
+    // Pagination params: page >= 1, pageSize 1..200 (default 50).
+    const page = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
+    const rawPageSize = parseInt(searchParams.get("pageSize"), 10) || 50;
+    const pageSize = Math.min(200, Math.max(1, rawPageSize));
+    const offset = (page - 1) * pageSize;
+
+    // Shared WHERE for both the page slice and the count, so `total` reflects
+    // the active role + search filter.
+    const likeTerm = q ? `%${q}%` : null;
+    const whereClause =
+      roleFilter && q
+        ? sql`WHERE u.role = ${roleFilter} AND (u.name ILIKE ${likeTerm} OR u.email ILIKE ${likeTerm})`
+        : roleFilter
+        ? sql`WHERE u.role = ${roleFilter}`
+        : q
+        ? sql`WHERE (u.name ILIKE ${likeTerm} OR u.email ILIKE ${likeTerm})`
+        : sql``;
+
+    const users = await sql`
       SELECT u.*,
         o.name as org_name,
         o.type as org_type,
@@ -78,11 +98,18 @@ export async function GET(request) {
       LEFT JOIN organizations o ON o.contact_email = u.email
       LEFT JOIN evaluator_memberships em ON em.user_id = u.id AND em.status = 'active'
       LEFT JOIN evaluator_session_signups ess ON ess.user_id = u.id AND ess.status = 'signed_up'
-      ${roleFilter ? sql`WHERE u.role = ${roleFilter}` : sql``}
+      ${whereClause}
       GROUP BY u.id, o.name, o.type
       ORDER BY u.created_at DESC
+      LIMIT ${pageSize} OFFSET ${offset}
     `;
-    const users = await baseQuery;
+
+    const countRows = await sql`
+      SELECT COUNT(*) as total
+      FROM users u
+      ${whereClause}
+    `;
+    const total = parseInt(countRows[0]?.total, 10) || 0;
     const stats = await sql`
       SELECT
         COUNT(*) as total,
@@ -99,6 +126,9 @@ export async function GET(request) {
         organization_count: parseInt(u.organization_count) || 0,
         total_assignments: parseInt(u.total_assignments) || 0,
       })),
+      total,
+      page,
+      pageSize,
       stats: stats[0],
     });
   } catch (error) {
