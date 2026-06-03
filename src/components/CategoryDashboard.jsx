@@ -153,12 +153,13 @@ export default function CategoryDashboard({
   // from setupData (the `sessions` variable), not rankingsData, in this codebase.
   const rankedForInsights = (rankingsData?.athletes || []).filter(a => a.weighted_total != null);
   const insights = useMemo(() => {
-    const n = rankedForInsights.length;
+    const filtered = (rankingsData?.athletes || []).filter(a => a.weighted_total != null);
+    const n = filtered.length;
     if (!n || teamCount < 2) return { breaks: [], bubbles: [] };
     const base = Math.floor(n / teamCount), rem = n % teamCount;
     const sizes = Array.from({ length: teamCount }, (_, i) => base + (i < rem ? 1 : 0));
-    return analyzeTeams(rankedForInsights, sessions, sizes, {});
-  }, [rankedForInsights, sessions, teamCount]);
+    return analyzeTeams(filtered, sessions, sizes, {});
+  }, [rankingsData?.athletes, sessions, teamCount]);
 
   const sendVolunteers = async () => {
     if (!volunteerEmails.trim()) return;
