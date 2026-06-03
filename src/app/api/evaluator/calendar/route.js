@@ -109,6 +109,27 @@ export async function GET(request) {
     "X-WR-TIMEZONE:America/Edmonton",
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
     "X-PUBLISHED-TTL:PT1H",
+    // VTIMEZONE for America/Edmonton (Mountain Time). Without this, strict
+    // importers that see DTSTART;TZID=America/Edmonton with no matching
+    // VTIMEZONE definition can silently drop the events.
+    "BEGIN:VTIMEZONE",
+    "TZID:America/Edmonton",
+    "X-LIC-LOCATION:America/Edmonton",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:-0700",
+    "TZOFFSETTO:-0600",
+    "TZNAME:MDT",
+    "DTSTART:19700308T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+    "END:DAYLIGHT",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:-0600",
+    "TZOFFSETTO:-0700",
+    "TZNAME:MST",
+    "DTSTART:19701101T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
 
   for (const s of sessions) {
@@ -136,10 +157,18 @@ export async function GET(request) {
 
   lines.push("END:VCALENDAR");
 
+  // download=1 forces a file download (attachment) instead of inline. Opening
+  // the downloaded .ics imports every event immediately on Android/iOS/desktop,
+  // bypassing Google's slow (~hours) subscribe-and-first-sync path.
+  const isDownload = searchParams.get("download") === "1";
+  const disposition = isDownload
+    ? 'attachment; filename="sidelinestar-sessions.ics"'
+    : 'inline; filename="sidelinestar-sessions.ics"';
+
   return new NextResponse(lines.join("\r\n"), {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": 'inline; filename="sidelinestar-sessions.ics"',
+      "Content-Disposition": disposition,
       // Calendar apps cache aggressively. 5min cache is enough to take a
       // little load off the DB without making changes feel stale.
       "Cache-Control": "private, max-age=300",
