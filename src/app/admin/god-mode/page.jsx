@@ -6,6 +6,7 @@ import { OverviewTab } from "@/components/GodMode/OverviewTab";
 import { OrganizationsTab } from "@/components/GodMode/OrganizationsTab";
 import { UsersTab } from "@/components/GodMode/UsersTab";
 import { EvaluatorsTab } from "@/components/GodMode/EvaluatorsTab";
+import { SignupRequestsTab } from "@/components/GodMode/SignupRequestsTab";
 import { SessionsTab } from "@/components/GodMode/SessionsTab";
 import { SystemToolsTab } from "@/components/GodMode/SystemToolsTab";
 import { SPLinksTab } from "@/components/GodMode/SPLinksTab";
@@ -98,6 +99,7 @@ export default function GodModeDashboard() {
           {activeTab === "organizations" && <OrganizationsTab />}
           {activeTab === "users" && <UsersTab />}
           {activeTab === "evaluators" && <EvaluatorsTab />}
+          {activeTab === "signups" && <SignupRequestsTab />}
           {activeTab === "sessions" && <SessionsTab />}
           {activeTab === "sp-links" && <SPLinksTab />}
           {activeTab === "tools" && <SystemToolsTab />}
