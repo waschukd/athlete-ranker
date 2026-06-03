@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { snakeDistribute } from "@/lib/teamInsights";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -185,6 +186,36 @@ export async function POST(request, { params }) {
         ON CONFLICT DO NOTHING
       `;
       return NextResponse.json({ success: true });
+    }
+
+    if (action === "auto_assign_goalies") {
+      const teamsList = await sql`SELECT id FROM teams WHERE age_category_id = ${catId} ORDER BY rank_order, name`;
+      if (!teamsList.length) return NextResponse.json({ error: "Generate teams first" }, { status: 400 });
+      const goalieList = await sql`
+        SELECT a.id FROM athletes a
+        WHERE a.age_category_id = ${catId} AND a.position = 'goalie' AND a.is_active = true
+          AND a.id NOT IN (
+            SELECT tr.athlete_id FROM team_rosters tr
+            JOIN teams t ON t.id = tr.team_id WHERE t.age_category_id = ${catId}
+          )
+        ORDER BY a.last_name
+      `;
+      const dist = snakeDistribute(goalieList.length, teamsList.length);
+      let assigned = 0;
+      for (let i = 0; i < goalieList.length; i++) {
+        const team = teamsList[dist[i]];
+        if (!team) continue;
+        const maxRank = await sql`SELECT COALESCE(MAX(team_rank), 0) as max FROM team_rosters WHERE team_id = ${team.id}`;
+        await sql`
+          INSERT INTO team_rosters (team_id, athlete_id, team_rank, age_category_id)
+          VALUES (${team.id}, ${goalieList[i].id}, ${parseInt(maxRank[0].max) + 1}, ${catId})
+          ON CONFLICT DO NOTHING
+        `;
+        assigned++;
+      }
+      await sql`INSERT INTO audit_log (age_category_id, user_id, action, entity_type, new_value)
+        VALUES (${catId}, ${userId}, 'auto_assign_goalies', 'category', ${JSON.stringify({ assigned })})`;
+      return NextResponse.json({ success: true, assigned });
     }
 
     if (action === "clear") {
