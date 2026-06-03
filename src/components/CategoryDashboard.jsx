@@ -206,7 +206,7 @@ export default function CategoryDashboard({
     }).filter(r => r.first_name && r.last_name);
     const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
     const data = await res.json();
-    setAthleteMsg(`${data.inserted || 0} imported, ${data.skipped || 0} skipped`);
+    setAthleteMsg(`${data.imported ?? data.inserted ?? 0} imported, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped`);
     refetchAthletes(); refetchRankings(); setImporting(false); setTimeout(() => setAthleteMsg(''), 4000);
   };
 
@@ -482,7 +482,7 @@ export default function CategoryDashboard({
                     const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); return { session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6] }; }).filter(r => r.session_number && r.scheduled_date);
                     const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
                     const data = await res.json();
-                    setUploadMsg(data.success ? `${data.count} entries uploaded` : "Error: " + data.error);
+                    setUploadMsg(data.success ? `${data.inserted ?? data.count ?? 0} added, ${data.updated ?? 0} updated` : "Error: " + data.error);
                     if (data.success) { refetchSchedule(); refetchRankings(); }
                     setImporting(false); e.target.value = ""; setTimeout(() => setUploadMsg(""), 4000);
                   }} />

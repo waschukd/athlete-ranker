@@ -47,7 +47,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "schedule array required" }, { status: 400 });
     }
 
-    let count = 0;
+    let count = 0, inserted = 0, updated = 0;
     for (const entry of body.schedule) {
       const session_number = parseInt(entry.session_number);
       const group_number = parseInt(entry.group_number) || 1;
@@ -91,6 +91,7 @@ export async function POST(request, { params }) {
             evaluators_required = ${evaluators_required}
           WHERE id = ${existingEntry[0].id}
         `;
+        updated++;
       } else {
         await sql`
           INSERT INTO evaluation_schedule (
@@ -103,6 +104,7 @@ export async function POST(request, { params }) {
             ${location}, ${code}, ${evaluators_required}
           )
         `;
+        inserted++;
       }
       count++;
     }
@@ -169,7 +171,7 @@ export async function POST(request, { params }) {
       console.error("Schedule notification error:", notifyErr);
     }
 
-    return NextResponse.json({ success: true, count });
+    return NextResponse.json({ success: true, count, inserted, updated });
   } catch (error) {
     console.error("Schedule POST error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

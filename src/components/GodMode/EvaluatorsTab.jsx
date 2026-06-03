@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
 import { LoadingState } from "./LoadingState";
@@ -32,6 +33,21 @@ export function EvaluatorsTab() {
     },
     onSuccess: () => queryClient.invalidateQueries(["god-mode-evaluator-invites"]),
   });
+
+  const [selectedIds, setSelectedIds] = useState([]);
+  const bulkMutation = useMutation({
+    mutationFn: async ({ request_ids, action }) => {
+      const res = await fetch("/api/admin/god-mode/evaluator-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_ids, action }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { setSelectedIds([]); queryClient.invalidateQueries(["god-mode-evaluator-invites"]); },
+  });
+  const toggleId = (id) => setSelectedIds(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
 
   const stats = data?.stats || {};
   const joinRequests = data?.joinRequests || [];
@@ -69,6 +85,30 @@ export function EvaluatorsTab() {
             </span>
           )}
         </div>
+        {pendingRequests.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--gm-muted)", cursor: "pointer" }}>
+              <input type="checkbox"
+                checked={selectedIds.length === pendingRequests.length && pendingRequests.length > 0}
+                onChange={e => setSelectedIds(e.target.checked ? pendingRequests.map(r => r.id) : [])} />
+              Select all
+            </label>
+            {selectedIds.length > 0 && (
+              <>
+                <button onClick={() => bulkMutation.mutate({ request_ids: selectedIds, action: "approve" })}
+                  disabled={bulkMutation.isPending}
+                  style={{ padding: "6px 12px", background: "var(--gm-green-soft)", border: "1px solid rgba(34,211,160,0.2)", borderRadius: 7, color: "var(--gm-green)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  Approve selected ({selectedIds.length})
+                </button>
+                <button onClick={() => bulkMutation.mutate({ request_ids: selectedIds, action: "deny" })}
+                  disabled={bulkMutation.isPending}
+                  style={{ padding: "6px 12px", background: "var(--gm-red-soft)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: 7, color: "var(--gm-red)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  Deny selected ({selectedIds.length})
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {isLoading ? (
           <LoadingState text="Loading requests..." />
         ) : pendingRequests.length === 0 ? (
@@ -84,6 +124,7 @@ export function EvaluatorsTab() {
                 padding: "14px 16px", background: "var(--gm-surface2)",
                 borderRadius: 8, border: "1px solid var(--gm-border)", gap: 12, flexWrap: "wrap"
               }}>
+                <input type="checkbox" checked={selectedIds.includes(request.id)} onChange={() => toggleId(request.id)} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 500, color: "var(--gm-text)", fontSize: 13 }}>{request.user_name}</div>
                   <div style={{ fontSize: 11, color: "var(--gm-muted)", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>{request.user_email}</div>

@@ -40,10 +40,14 @@ export async function GET() {
 export async function POST(request) {
   try {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    const { request_id, action } = await request.json();
-    const status = action === "approve" ? "approved" : "denied";
-    await sql`UPDATE evaluator_join_requests SET status = ${status}, reviewed_at = NOW() WHERE id = ${request_id}`;
-    return NextResponse.json({ success: true });
+    const body = await request.json();
+    const ids = Array.isArray(body.request_ids)
+      ? body.request_ids
+      : (body.request_id ? [body.request_id] : []);
+    if (!ids.length) return NextResponse.json({ error: "No request ids" }, { status: 400 });
+    const status = body.action === "approve" ? "approved" : "denied";
+    await sql`UPDATE evaluator_join_requests SET status = ${status}, reviewed_at = NOW() WHERE id = ANY(${ids})`;
+    return NextResponse.json({ success: true, count: ids.length });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
