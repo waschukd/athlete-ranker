@@ -11,7 +11,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
-import { colorForOrg } from "@/lib/orgVisuals";
+import { colorForOrg, abbrevOrgName } from "@/lib/orgVisuals";
 
 /**
  * Horizontal scrollable strip of dates that have at least one session.
@@ -60,18 +60,26 @@ export function DateStripBar({ sessions, selectedDate, onSelect, paletteFor: pal
               {dayName}
             </span>
             <span className="text-sm font-bold whitespace-nowrap">{dayMonth}</span>
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex flex-col items-center gap-0.5 mt-1">
               <span className={`text-[10px] font-semibold ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
                 {count}
               </span>
-              <div className="flex gap-0.5">
+              <div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5 leading-none">
                 {orgs.slice(0, 3).map(o => (
                   <span
                     key={o}
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ background: paletteFor(o).hex, boxShadow: isSelected ? "0 0 0 1px white" : "none" }}
-                  />
+                    className="text-[8px] font-bold tracking-wide"
+                    style={{ color: isSelected ? "#fff" : paletteFor(o).hex }}
+                    title={o}
+                  >
+                    {abbrevOrgName(o)}
+                  </span>
                 ))}
+                {orgs.length > 3 && (
+                  <span className={`text-[8px] font-semibold ${isSelected ? "text-blue-100" : "text-gray-400"}`}>
+                    +{orgs.length - 3}
+                  </span>
+                )}
               </div>
             </div>
           </button>

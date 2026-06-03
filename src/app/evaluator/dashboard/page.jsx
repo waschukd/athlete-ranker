@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, CalendarDays, List, AlertCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
@@ -184,7 +184,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className="font-bold text-gray-900">{session.org_name}</span>
+              <OrgChip name={session.org_name} palette={colorForOrg(session.org_name)} />
               <span className="text-gray-300">·</span>
               <span className="font-medium text-gray-700">{session.category_name}</span>
               {session.session_type && (
@@ -457,7 +457,6 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
   const [orgFilter, setOrgFilter] = useState("all");
   const [arenaFilter, setArenaFilter] = useState("all");
   const [collapsedDays, setCollapsedDays] = useState(new Set());
-  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
   const [selectedDate, setSelectedDate] = useState(null); // YYYY-MM-DD or null
 
   // Pre-flatten the user's existing signups into (date, start, end, label)
@@ -583,32 +582,9 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-base font-semibold text-gray-900">Open Sessions</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">
-            {filtered.length} of {sessions.length} session{sessions.length !== 1 ? "s" : ""}
-          </span>
-          {/* List / Calendar toggle */}
-          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                viewMode === "list" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
-              }`}
-              aria-label="List view"
-            >
-              <List size={12} /> List
-            </button>
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                viewMode === "calendar" ? "bg-[#1A6BFF] text-white" : "text-gray-600 hover:bg-gray-50"
-              }`}
-              aria-label="Calendar view"
-            >
-              <CalendarDays size={12} /> Calendar
-            </button>
-          </div>
-        </div>
+        <span className="text-xs text-gray-400">
+          {filtered.length} of {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {/* Selected-date chip — appears when user picks a specific date from strip / calendar */}
@@ -631,30 +607,28 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         </div>
       )}
 
-      {/* Calendar view: full month grid replaces list */}
-      {viewMode === "calendar" && (
-        <MonthCalendar
-          sessions={sessions}
-          paletteFor={paletteFor}
-          onSelect={(dateKey) => {
-            setSelectedDate(dateKey);
-            setViewMode("list");
-          }}
-        />
-      )}
+      {/* Date strip — always visible; lets user jump to a day quickly */}
+      <DateStripBar
+        sessions={sessions}
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+        paletteFor={paletteFor}
+      />
 
-      {/* Date strip — shown only in list mode, lets user jump to a day quickly */}
-      {viewMode === "list" && (
-        <DateStripBar
-          sessions={sessions}
-          selectedDate={selectedDate}
-          onSelect={setSelectedDate}
-          paletteFor={paletteFor}
-        />
-      )}
+      {/* Full month grid — optional, collapsed by default; never hides the list */}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-sm font-medium text-gray-600 px-1 py-1">📅 View full month</summary>
+        <div className="mt-2">
+          <MonthCalendar
+            sessions={sessions}
+            paletteFor={paletteFor}
+            onSelect={(dateKey) => setSelectedDate(dateKey)}
+          />
+        </div>
+      </details>
 
       {/* Filter chips */}
-      <div className={`flex flex-wrap gap-2 ${viewMode === "calendar" ? "hidden" : ""}`}>
+      <div className="flex flex-wrap gap-2">
         <FilterChip
           value={dateRange}
           onChange={setDateRange}
@@ -686,7 +660,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         )}
       </div>
 
-      {viewMode === "list" && (filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-400">
           No sessions match these filters. Try widening them.
         </div>
@@ -769,7 +743,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
             );
           })}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -934,7 +908,6 @@ function EvaluatorDashboard() {
 
         {activeTab === "mine" && (
           <div className="space-y-4">
-            <CalendarSubscribePanel />
             {mineLoading ? (
               <div className="py-12 text-center text-gray-400 text-sm">Loading your sessions...</div>
             ) : upcoming.length === 0 && past.length === 0 ? (
@@ -951,7 +924,9 @@ function EvaluatorDashboard() {
               <>
                 {upcoming.length > 0 && (
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Upcoming</h2>
+                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                      Upcoming · next {formatDate(upcoming[0]?.scheduled_date)}
+                    </h2>
                     <div className="space-y-3">
                       {upcoming.map(s => (
                         <SessionCard key={s.signup_id} session={s} mode="mine"
@@ -973,6 +948,7 @@ function EvaluatorDashboard() {
                 )}
               </>
             )}
+            <CalendarSubscribePanel />
           </div>
         )}
 
