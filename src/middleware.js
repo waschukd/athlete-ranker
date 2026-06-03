@@ -43,6 +43,10 @@ const ROLE_ROUTES = {
   "/evaluator": ["association_evaluator", "service_provider_evaluator", "super_admin", "association_admin", "service_provider_admin", "director"],
 };
 
+// Directors are not association admins, but an assigned director may use the
+// group-building and flags sub-pages (the APIs already authorize them per-category).
+const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags)(\/|$)/;
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
@@ -66,6 +70,10 @@ export async function middleware(request) {
 
   try {
     const { payload } = await jwtVerify(token, SECRET);
+
+    if (payload.role === "director" && DIRECTOR_ASSOC_ALLOW.test(pathname)) {
+      return NextResponse.next();
+    }
 
     // Check role-based access
     for (const [route, roles] of Object.entries(ROLE_ROUTES)) {
