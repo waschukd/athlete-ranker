@@ -12,6 +12,14 @@ export function isCapacitorApp() {
   return typeof window !== "undefined" && window.Capacitor !== undefined;
 }
 
+// True for desktop Safari and iOS browsers (all iOS browsers use WebKit), where the
+// Web Speech API is unreliable (auto-stops, no real continuous mode).
+export function isAppleSpeechFlaky(ua = (typeof navigator !== "undefined" ? navigator.userAgent : "")) {
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /^((?!chrome|crios|chromium|android|edg).)*safari/i.test(ua);
+  return isIOS || isSafari;
+}
+
 /**
  * Start native speech recognition via Capacitor plugin.
  * Returns an object with stop() and event handlers.

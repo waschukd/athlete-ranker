@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
-import { isCapacitorApp, createNativeContinuousRecognizer } from "@/lib/speechAdapter";
+import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 
 const qc = new QueryClient();
@@ -818,9 +818,21 @@ function ScoringInterface() {
       }
     };
     rec.onend = () => {
-      if (recRef.current === rec) {
-        try { setTimeout(() => rec.start(), isIOS ? 100 : 0); } catch {}
-      }
+      // Re-arm while voice is still on. Safari/iOS auto-stops after each phrase and
+      // has no real continuous mode, so this restart is what keeps it listening.
+      // Guarded by recRef identity so a stopped/replaced recognizer never re-arms.
+      if (recRef.current !== rec) return;
+      const tryStart = (retried) => {
+        if (recRef.current !== rec) return; // toggled off / replaced in the meantime
+        try {
+          rec.start();
+        } catch {
+          // Safari throws if start() is called before the previous session fully tears
+          // down. Back off once and retry rather than dropping voice silently.
+          if (!retried) setTimeout(() => tryStart(true), 300);
+        }
+      };
+      setTimeout(() => tryStart(false), isIOS ? 100 : 0);
     };
 
     // Restart recognition when audio device changes (Bluetooth connect/disconnect)
@@ -1486,6 +1498,11 @@ function ScoringInterface() {
                   {notesMode ? "📝 Notes mode — say 'done' to stop" : "🎤 Listening — say 'White 21' · 'Skating 8' · 'Notes'"}
                 </div>
                 <div className="text-sm text-white truncate">{voiceStatus}</div>
+                {!notesMode && isAppleSpeechFlaky() && (
+                  <div className="text-[11px] text-amber-300/90 leading-snug mt-0.5">
+                    Voice on Safari can drop out — tap the mic again if it stops, or use tap scoring.
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-xs text-gray-500 leading-snug">
