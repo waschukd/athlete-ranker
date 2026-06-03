@@ -89,6 +89,10 @@ export async function DELETE(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    if (session.role === "director") {
+      return NextResponse.json({ error: "Directors cannot delete scores" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");
     const evaluatorId = searchParams.get("evaluator");

@@ -56,3 +56,15 @@ describe("PATCH score — director correction", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("DELETE score — director", () => {
+  it("blocks a director from deleting scores (403)", async () => {
+    getSession.mockResolvedValue({ email: "d@test", role: "director" });
+    authorizeCategoryAccess.mockResolvedValue({ authorized: true });
+    const { DELETE } = await import("@/app/api/categories/[catId]/scores/route");
+    const req = new Request("http://test/api/categories/cat1/scores?session=2&evaluator=e1", { method: "DELETE" });
+    const res = await DELETE(req, { params: { catId: "cat1" } });
+    expect(res.status).toBe(403);
+    expect(sql).not.toHaveBeenCalled();
+  });
+});
