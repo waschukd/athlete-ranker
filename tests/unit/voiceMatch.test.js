@@ -4,6 +4,7 @@ import {
   extractCandidates,
   buildAliasLookup,
   normalizeForMatch,
+  normalizeSpokenNumbers,
 } from "@/lib/voiceMatch";
 
 describe("normalizeForMatch", () => {
@@ -116,5 +117,29 @@ describe("extractCandidates", () => {
   it("handles empty string", () => {
     const result = extractCandidates("");
     expect(result).toEqual([]);
+  });
+});
+
+describe("normalizeSpokenNumbers", () => {
+  it("converts spoken digit-word + 'point five' to a decimal", () => {
+    expect(normalizeSpokenNumbers("seven point five")).toBe("7.5");
+  });
+  it("keeps surrounding words and converts the fraction", () => {
+    expect(normalizeSpokenNumbers("skating seven point five")).toBe("skating 7.5");
+  });
+  it("handles 'and a half' on a spoken number", () => {
+    expect(normalizeSpokenNumbers("seven and a half")).toBe("7.5");
+  });
+  it("converts compound numbers", () => {
+    expect(normalizeSpokenNumbers("twenty one")).toBe("21");
+  });
+  it("converts a word number mid-phrase", () => {
+    expect(normalizeSpokenNumbers("white fourteen")).toBe("white 14");
+  });
+  it("passes already-numeric decimals through unchanged", () => {
+    expect(normalizeSpokenNumbers("skating 7.5")).toBe("skating 7.5");
+  });
+  it("leaves plain integer scores intact", () => {
+    expect(normalizeSpokenNumbers("skating 8 puck skills 7")).toBe("skating 8 puck skills 7");
   });
 });

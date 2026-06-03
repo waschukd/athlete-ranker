@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } fr
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
-import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch } from "@/lib/voiceMatch";
+import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 
@@ -60,6 +60,7 @@ function beepNotesStart() { playTone(523, 0.08); setTimeout(() => playTone(659, 
 function beepNotesEnd() { playTone(784, 0.08); setTimeout(() => playTone(659, 0.08), 90); setTimeout(() => playTone(523, 0.1), 180); }
 // Low buzz — not understood
 function beepError() { playTone(220, 0.15, "square"); }
+function beepEdge() { playTone(440, 0.1); }
 
 // ── Status helpers ─────────────────────────────────────────────────────────
 function getStatus(athleteId, scores, totalCats) {
@@ -505,7 +506,8 @@ function ScoringInterface() {
     if (!current) { if (list.length) setSelected(list[0]); return; }
     const idx = list.findIndex(a => a.id === current.id);
     const next = list[idx + dir];
-    if (next) setSelected(next);
+    if (next) { setSelected(next); }
+    else { setVoiceStatus(dir > 0 ? "End of list" : "Start of list"); beepEdge(); }
   }, [filtered]);
 
   // ── Voice ─────────────────────────────────────────────────────────────────
@@ -521,41 +523,7 @@ function ScoringInterface() {
     lastVoiceRef.current = { text, ts: now };
 
     // ── Number normalization ─────────────────────────────────
-    const wordNums = {
-      'zero':'0','oh':'0',
-      'one':'1','won':'1',
-      'two':'2','to':'2','too':'2','tu':'2',
-      'three':'3','tree':'3',
-      'four':'4','for':'4','fore':'4',
-      'five':'5','fiver':'5',
-      'six':'6','sex':'6','sicks':'6','seeks':'6','sticks':'6','dix':'6','sick':'6','sits':'6',
-      'seven':'7','sven':'7',
-      'eight':'8','ate':'8','ait':'8',
-      'nine':'9','nein':'9','mine':'9',
-      'ten':'10',
-      'eleven':'11','twelve':'12','thirteen':'13','fourteen':'14',
-      'fifteen':'15','sixteen':'16','seventeen':'17','eighteen':'18',
-      'nineteen':'19','twenty':'20',
-    };
-    const compoundNums = {
-      'twenty one':'21','twenty two':'22','twenty three':'23','twenty four':'24',
-      'twenty five':'25','twenty six':'26','twenty seven':'27','twenty eight':'28',
-      'twenty nine':'29','thirty':'30','thirty one':'31','thirty two':'32',
-      'thirty three':'33','thirty four':'34','thirty five':'35',
-    };
-    let normalized = text.trim().toLowerCase();
-    // Handle "X and a half" / "X point five" / "X point 5" → X.5
-    normalized = normalized.replace(/(\d+)\s+and\s+a\s+half/gi, '$1.5');
-    normalized = normalized.replace(/(\d+)\s+point\s+five/gi, '$1.5');
-    normalized = normalized.replace(/(\d+)\s+point\s+5/gi, '$1.5');
-    normalized = normalized.replace(/(\d+)\s+point\s+(\d)/gi, '$1.$2');
-    // Handle compound numbers first (before single-word replacement)
-    for (const [words, num] of Object.entries(compoundNums)) {
-      normalized = normalized.replace(new RegExp('\\b' + words + '\\b', 'gi'), num);
-    }
-    // Single word number replacements
-    const wordPattern = Object.keys(wordNums).sort((a, b) => b.length - a.length).join('|');
-    normalized = normalized.replace(new RegExp('\\b(' + wordPattern + ')\\b', 'gi'), m => wordNums[m.toLowerCase()] || m);
+    let normalized = normalizeSpokenNumbers(text);
     const corrected = normalized.replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck");
     const t = corrected.trim().toLowerCase();
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
@@ -659,6 +627,7 @@ function ScoringInterface() {
     const cats = scoringCatsRef.current;
     const sel = selectedRef.current;
     if (cats.length) {
+      let rangeError = null;
       let scored = 0;
       for (const cat of cats) {
         const catName = cat.name.toLowerCase();
@@ -678,6 +647,8 @@ function ScoringInterface() {
             if (val >= inc && val <= max) {
               if (sel) { updateScore(sel.id, cat.id, val, { allowToggle: false }); scored++; break; }
               else { setVoiceStatus("Select a player first"); beepError(); break; }
+            } else if (!rangeError) {
+              rangeError = { cat: cat.name, val, inc, max };
             }
           }
         }
@@ -701,6 +672,9 @@ function ScoringInterface() {
                 fuzzyMatches.push({ cat: cat.name, value, heard: phrase, method: result.method });
               }
             }
+          } else if (!rangeError) {
+            const result = findBestCategoryMatch(phrase, cats, aliasLookupRef.current);
+            if (result) rangeError = { cat: result.match, val: value, inc, max };
           }
         }
         if (scored > 0) {
@@ -713,6 +687,11 @@ function ScoringInterface() {
           beepScoreSaved();
           return;
         }
+      }
+      if (scored === 0 && rangeError) {
+        setVoiceStatus(`${rangeError.cat}: ${rangeError.val} out of range (${rangeError.inc}–${rangeError.max})`);
+        beepError();
+        return;
       }
     }
 
