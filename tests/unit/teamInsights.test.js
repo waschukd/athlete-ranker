@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSignals, detectBreaks, computeLean, analyzeTeams } from "@/lib/teamInsights";
+import { buildSignals, detectBreaks, computeLean, analyzeTeams, cutsToSizes } from "@/lib/teamInsights";
 
 const sessions = [
   { session_number: 1, session_type: "testing" },
@@ -91,5 +91,20 @@ describe("analyzeTeams", () => {
     expect(out.bubbles.length).toBeGreaterThan(0);
     expect(out.bubbles[0]).toHaveProperty("lean");
     expect(out.bubbles[0]).toHaveProperty("reasons");
+  });
+});
+
+describe("cutsToSizes", () => {
+  it("turns a single cut into two team sizes", () => {
+    expect(cutsToSizes([16], 34)).toEqual([16, 18]);
+  });
+  it("turns multiple cuts into sizes", () => {
+    expect(cutsToSizes([12, 23], 34)).toEqual([12, 11, 11]);
+  });
+  it("returns one team when there are no cuts", () => {
+    expect(cutsToSizes([], 10)).toEqual([10]);
+  });
+  it("sorts and ignores out-of-range cuts", () => {
+    expect(cutsToSizes([23, 12, 0, 40], 34)).toEqual([12, 11, 11]);
   });
 });
