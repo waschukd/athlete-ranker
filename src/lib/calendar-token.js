@@ -12,6 +12,15 @@ import crypto from "node:crypto";
 const SECRET_BASE = process.env.AUTH_SECRET || "dev-secret-do-not-use-in-prod";
 const KEY = SECRET_BASE + "/calendar-feed";
 
+// Calendar importers (Google/Apple) follow Vercel's apex→www 307 redirect and then
+// fail. The mobile app + apex visitors are on the bare apex host, so the request
+// origin is NOT safe to hand out. Rewrite the exact apex origin to its www form;
+// leave localhost / preview / already-www origins untouched.
+export function canonicalCalendarBase(origin) {
+  if (origin === "https://sidelinestar.com") return "https://www.sidelinestar.com";
+  return origin;
+}
+
 export function signCalendarToken(userId) {
   const sig = crypto
     .createHmac("sha256", KEY)
