@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
@@ -23,6 +23,8 @@ function CheckinPageInner() {
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [addForm, setAddForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
   const [addLoading, setAddLoading] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [searching, setSearching] = useState(false);
   // Inline jersey editing
   const [editingJersey, setEditingJersey] = useState(null); // athlete id
   const [jerseyVal, setJerseyVal] = useState("");
@@ -34,7 +36,7 @@ function CheckinPageInner() {
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 
   const doAction = async (action, body = {}) => {
@@ -57,6 +59,34 @@ function CheckinPageInner() {
       jersey_number: jersey,
       team_color: athlete.team_color || "White",
     });
+  };
+
+  // Debounced roster lookup as the volunteer types a name in the Add form.
+  const lookupTimer = useRef(null);
+  const runLookup = (first, last) => {
+    const query = `${first} ${last}`.trim();
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    if (query.length < 2) { setMatches([]); return; }
+    lookupTimer.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/checkin/${scheduleId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "find_existing", query }),
+        });
+        const data = res.ok ? await res.json() : { matches: [] };
+        setMatches(data.matches || []);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+  };
+
+  const checkInExisting = async (athleteId) => {
+    await doAction("add_existing", { athlete_id: athleteId });
+    setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+    setMatches([]);
   };
 
   const athletes = data?.athletes || [];
@@ -152,9 +182,11 @@ function CheckinPageInner() {
       {showAddPlayer && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
           <div className="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-lg px-3 py-2">
-            <input value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))}
+            <input value={addForm.first_name}
+              onChange={e => { const v = e.target.value; setAddForm(f => ({ ...f, first_name: v })); runLookup(v, addForm.last_name); }}
               placeholder="First *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" autoFocus />
-            <input value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))}
+            <input value={addForm.last_name}
+              onChange={e => { const v = e.target.value; setAddForm(f => ({ ...f, last_name: v })); runLookup(addForm.first_name, v); }}
               placeholder="Last *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" />
             <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
               placeholder="#" type="number" className="w-14 bg-gray-700 rounded px-2 py-1.5 text-sm text-white text-center focus:outline-none" />
@@ -168,14 +200,37 @@ function CheckinPageInner() {
                 setAddLoading(true);
                 await doAction("add_player", { ...addForm, jersey_number: parseInt(addForm.jersey_number) || null });
                 setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+                setMatches([]);
                 setAddLoading(false);
               }}
               disabled={!addForm.first_name || !addForm.last_name || addLoading}
-              className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-40">
-              {addLoading ? "..." : "Add"}
+              className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-40 whitespace-nowrap">
+              {addLoading ? "..." : "Add new"}
             </button>
-            <button onClick={() => setShowAddPlayer(false)} className="text-gray-500 hover:text-white"><X size={14} /></button>
+            <button onClick={() => { setShowAddPlayer(false); setMatches([]); }} className="text-gray-500 hover:text-white"><X size={14} /></button>
           </div>
+
+          {/* Existing-roster matches — pick to check in without duplicating */}
+          {matches.length > 0 && (
+            <div className="mt-2 bg-gray-800 border border-gray-700 rounded-lg divide-y divide-gray-700/60">
+              {matches.map(m => (
+                <div key={m.id} className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-white truncate">
+                    {m.last_name}, {m.first_name}
+                    <span className="text-xs text-gray-500 ml-2">
+                      {m.position ? `${m.position} · ` : ""}
+                      {m.session_number ? `S${m.session_number}·G${m.group_number || 1}` : "unassigned"}
+                    </span>
+                  </span>
+                  <button onClick={() => checkInExisting(m.id)}
+                    className="px-3 py-1.5 bg-[#1A6BFF] text-white rounded text-xs font-semibold whitespace-nowrap">Check in here</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {searching && matches.length === 0 && (addForm.first_name + addForm.last_name).trim().length >= 2 && (
+            <div className="mt-2 px-3 py-2 text-xs text-gray-500">Searching roster…</div>
+          )}
         </div>
       )}
 
