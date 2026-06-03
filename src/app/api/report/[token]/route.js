@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { logEvent } from "@/lib/analytics";
+import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 
 // Default lifetime for a parent-facing share link. Bounded so that a
 // link leaked into search engines or shared in a parents' group chat
@@ -11,6 +12,16 @@ const TOKEN_TTL_DAYS = parseInt(process.env.REPORT_TOKEN_TTL_DAYS || "90", 10);
 export async function GET(request, { params }) {
   try {
     const { token } = params;
+
+    // Per-IP throttle before any DB work — this is a public, unauthenticated
+    // endpoint, so cap how many report tokens a single IP can probe per hour
+    // to blunt bulk token enumeration / guessing. 60/hour is generous for a
+    // parent reloading their kid's report.
+    const ip = clientIp(request);
+    const rl = await checkAndRecord({ endpoint: "report_view", identifier: ip, max: 60, windowMins: 60 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+    }
 
     // Look up share link
     const link = await sql`
