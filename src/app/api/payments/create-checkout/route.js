@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import sql from "@/lib/db";
+import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 
 // Mirror the read-side TTL on /api/report/[token] so a bought link can
 // never outlive its preview.
@@ -26,6 +27,15 @@ export async function POST(request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Payment service not configured" }, { status: 503 });
+    }
+
+    // Per-IP throttle in addition to the existing per-token cap below — the
+    // per-token limit doesn't stop one IP from churning many tokens, so cap
+    // total checkout creations per IP/hour to blunt enumeration + Stripe spam.
+    const ip = clientIp(request);
+    const rl = await checkAndRecord({ endpoint: "checkout_create", identifier: ip, max: 30, windowMins: 60 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
