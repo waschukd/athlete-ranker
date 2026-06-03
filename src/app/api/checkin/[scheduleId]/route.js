@@ -288,6 +288,44 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, athlete: newAthlete });
     }
 
+    if (action === "find_existing") {
+      const q = (body.query || "").trim();
+      if (q.length < 2) return NextResponse.json({ matches: [] });
+
+      const schedInfo = await sql`
+        SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}
+      `;
+      const sched = schedInfo[0] || {};
+      const like = `%${q}%`;
+
+      // Athletes in this category whose name matches, excluding any already
+      // assigned to THIS session's group (they're already in the main list).
+      const matches = await sql`
+        SELECT a.id, a.first_name, a.last_name, a.position,
+               sg.session_number, sg.group_number
+        FROM athletes a
+        LEFT JOIN player_group_assignments pga ON pga.athlete_id = a.id
+        LEFT JOIN session_groups sg ON sg.id = pga.session_group_id
+        WHERE a.age_category_id = ${auth.ageCategoryId}
+          AND a.is_active = true
+          AND (a.first_name ILIKE ${like}
+               OR a.last_name ILIKE ${like}
+               OR (a.first_name || ' ' || a.last_name) ILIKE ${like})
+          AND NOT EXISTS (
+            SELECT 1 FROM player_group_assignments pga2
+            JOIN session_groups sg2 ON sg2.id = pga2.session_group_id
+            WHERE pga2.athlete_id = a.id
+              AND sg2.age_category_id = ${auth.ageCategoryId}
+              AND sg2.session_number = ${sched.session_number}
+              AND sg2.group_number = ${sched.group_number || 1}
+          )
+        ORDER BY a.last_name, a.first_name
+        LIMIT 8
+      `;
+
+      return NextResponse.json({ matches });
+    }
+
     if (action === "add_existing") {
       if (!athlete_id) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });
 

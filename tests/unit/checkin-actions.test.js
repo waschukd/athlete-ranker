@@ -76,3 +76,39 @@ describe("add_existing", () => {
     expect(ran.some(s => s.includes("INTO player_checkins") && s.includes("checked_in"))).toBe(true);
   });
 });
+
+describe("find_existing", () => {
+  it("returns an empty list and runs no roster query for queries under 2 chars", async () => {
+    mockAuthPass("catX");
+
+    const { POST } = await import("@/app/api/checkin/[scheduleId]/route");
+    const res = await POST(makeReq({ action: "find_existing", query: "a" }), {
+      params: { scheduleId: "sched1" },
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ matches: [] });
+    // Only the 2 auth calls ran — no ILIKE roster scan.
+    const ran = sql.mock.calls.map(c => c[0].join("?"));
+    expect(ran.some(s => s.includes("ILIKE"))).toBe(false);
+    expect(sql.mock.calls.length).toBe(2);
+  });
+
+  it("returns roster matches in the same category for a valid query", async () => {
+    mockAuthPass("catX");
+    sql.mockResolvedValueOnce([{ session_number: 1, group_number: 1 }]); // schedInfo
+    sql.mockResolvedValueOnce([                                          // roster ILIKE scan
+      { id: "ath42", first_name: "Sarah", last_name: "Chen", position: "F", session_number: 2, group_number: 1 },
+    ]);
+
+    const { POST } = await import("@/app/api/checkin/[scheduleId]/route");
+    const res = await POST(makeReq({ action: "find_existing", query: "Sar" }), {
+      params: { scheduleId: "sched1" },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0]).toMatchObject({ id: "ath42", last_name: "Chen", session_number: 2 });
+  });
+});
