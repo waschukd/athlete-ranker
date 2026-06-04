@@ -2,10 +2,12 @@ import { Building2, ChevronRight, ExternalLink, Trash2 } from "lucide-react";
 import { StatBadge } from "./StatBadge";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export function OrganizationCard({ org }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   const href = org.type === "service_provider"
@@ -14,12 +16,14 @@ export function OrganizationCard({ org }) {
 
   const isProvider = org.type === "service_provider";
 
+  const closeConfirm = () => { setConfirming(false); setTyped(""); };
+
   const handleDelete = async () => {
     setDeleting(true);
     await fetch(`/api/organizations?id=${org.id}`, { method: "DELETE" });
     queryClient.invalidateQueries(["organizations"]);
     setDeleting(false);
-    setConfirming(false);
+    closeConfirm();
   };
 
   return (
@@ -69,32 +73,27 @@ export function OrganizationCard({ org }) {
           <ExternalLink size={13} /> Open Dashboard
         </a>
 
-        {confirming ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--gm-red)", whiteSpace: "nowrap" }}>Delete everything?</span>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: "var(--gm-red-soft)", color: "var(--gm-red)", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}
-            >
-              {deleting ? "Deleting..." : "Yes, delete"}
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: "var(--gm-surface3)", color: "var(--gm-muted)", fontSize: 11, fontFamily: "inherit" }}
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.2)", cursor: "pointer", background: "var(--gm-red-soft)", color: "var(--gm-red)", display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontFamily: "inherit" }}
-          >
-            <Trash2 size={13} />
-          </button>
-        )}
+        <button
+          onClick={() => setConfirming(true)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.2)", cursor: "pointer", background: "var(--gm-red-soft)", color: "var(--gm-red)", display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontFamily: "inherit" }}
+          title="Delete organization"
+        >
+          <Trash2 size={13} />
+        </button>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title={`Delete ${org.name}?`}
+        message={`This permanently deletes the entire ${isProvider ? "service provider" : "association"} — every age category, athlete, session, schedule, score, evaluator link, and admin. This is irreversible. There is no recovery.`}
+        confirmLabel="Permanently delete"
+        busy={deleting}
+        requireText={org.name}
+        typed={typed}
+        onTyped={setTyped}
+        onConfirm={handleDelete}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 }
