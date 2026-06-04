@@ -122,7 +122,7 @@ function EvaluatorDetailInner() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
@@ -132,30 +132,34 @@ function EvaluatorDetailInner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
           <a href="/service-provider/dashboard"
-            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#0b5cd6] mb-4 text-sm font-medium transition-colors">
-            <ArrowLeft size={15} /> Back to Dashboard
+            className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+            <ArrowLeft size={13} /> Back to Evaluators
           </a>
 
           <div className="flex items-start justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xl font-bold shadow-md">
-                {evaluator?.name?.split(" ").map(n => n[0]).join("").substring(0, 2)}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{evaluator?.name}</h1>
-                <p className="text-sm text-gray-400">{evaluator?.email}</p>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  {strikeCount > 0 && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${strikeCount >= 2 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                      {strikeCount >= 2 ? "🚫 Suspended" : `⚠ Strike ${strikeCount}`}
-                    </span>
-                  )}
-                  {stats.avg_rating > 0 && (
-                    <span className="text-xs text-gray-600">
-                      {stats.avg_rating.toFixed(1)} <span className="text-yellow-400">★</span>
-                    </span>
-                  )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{evaluator?.name}</h1>
+                <div className="w-11 h-11 rounded-full bg-accent flex items-center justify-center text-white text-base font-bold flex-shrink-0">
+                  {evaluator?.name?.split(" ").map(n => n[0]).join("").substring(0, 2)}
                 </div>
+              </div>
+              <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                <span>{evaluator?.email}</span>
+                {strikeCount > 0 && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${strikeCount >= 2 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                      {strikeCount >= 2 ? "Suspended" : `Strike ${strikeCount}`}
+                    </span>
+                  </>
+                )}
+                {stats.avg_rating > 0 && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span>{stats.avg_rating.toFixed(1)} <span className="text-yellow-400">★</span></span>
+                  </>
+                )}
               </div>
             </div>
             {/* Admin actions */}
@@ -201,8 +205,8 @@ function EvaluatorDetailInner() {
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
             {[
-              { label: "Sessions", value: stats.total_sessions || 0, icon: Calendar, color: "text-blue-600" },
-              { label: "Total Hours", value: `${parseFloat(stats.total_hours || 0).toFixed(1)}h`, icon: Clock, color: "text-[#0b5cd6]" },
+              { label: "Sessions", value: stats.total_sessions || 0, icon: Calendar, color: "text-accent" },
+              { label: "Total Hours", value: `${parseFloat(stats.total_hours || 0).toFixed(1)}h`, icon: Clock, color: "text-accent" },
               { label: "Pending Hours", value: `${parseFloat(stats.pending_hours || 0).toFixed(1)}h`, icon: DollarSign, color: "text-amber-500" },
               { label: "No-shows", value: stats.no_shows || 0, icon: XCircle, color: "text-red-500" },
               { label: "Open Flags", value: openFlags.length, icon: Flag, color: openFlags.length > 0 ? "text-red-500" : "text-gray-300" },
@@ -212,7 +216,7 @@ function EvaluatorDetailInner() {
                   <Icon size={14} className={color} />
                   <span className="text-xs text-gray-500">{label}</span>
                 </div>
-                <div className="text-xl font-bold text-gray-900">{value}</div>
+                <div className="text-xl font-bold text-ink">{value}</div>
               </div>
             ))}
           </div>
@@ -229,7 +233,7 @@ function EvaluatorDetailInner() {
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
+                  activeTab === tab.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 {tab.label}
               </button>
@@ -281,7 +285,7 @@ function EvaluatorDetailInner() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Scoring Summary */}
                 <div className="bg-white border border-gray-200 rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Scoring Summary</h3>
+                  <h3 className="font-display text-sm font-semibold text-ink mb-4">Scoring Summary</h3>
                   <div className="space-y-3">
                     {[
                       { label: "Total scores submitted", value: sc.total_scores },
@@ -301,13 +305,13 @@ function EvaluatorDetailInner() {
 
                 {/* Score Distribution */}
                 <div className="bg-white border border-gray-200 rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Score Distribution</h3>
+                  <h3 className="font-display text-sm font-semibold text-ink mb-4">Score Distribution</h3>
                   <div className="space-y-1.5">
                     {Object.entries(sc.distribution || {}).sort(([a], [b]) => parseFloat(a) - parseFloat(b)).map(([score, count]) => (
                       <div key={score} className="flex items-center gap-3">
                         <span className="text-xs font-mono text-gray-500 w-8 text-right">{score}</span>
                         <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] rounded-full transition-all"
+                          <div className="h-full bg-accent rounded-full transition-all"
                             style={{ width: `${(count / maxDist) * 100}%` }} />
                         </div>
                         <span className="text-xs text-gray-400 w-8">{count}</span>
@@ -324,7 +328,7 @@ function EvaluatorDetailInner() {
 
               {/* Interpretation */}
               <div className="bg-white border border-gray-200 rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Interpretation</h3>
+                <h3 className="font-display text-sm font-semibold text-ink mb-3">Interpretation</h3>
                 <div className="space-y-2 text-sm text-gray-600">
                   {sc.agreement_pct !== null && sc.agreement_pct >= 85 && <div className="flex items-start gap-2"><span className="text-green-500 mt-0.5">●</span>Agreement with peers is strong — this evaluator's scores align well with the group.</div>}
                   {sc.agreement_pct !== null && sc.agreement_pct < 75 && <div className="flex items-start gap-2"><span className="text-red-500 mt-0.5">●</span>Low agreement with peers — this evaluator's scores frequently differ from the group. May need coaching or re-calibration.</div>}
@@ -515,7 +519,7 @@ function EvaluatorDetailInner() {
             {/* Session hours breakdown */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <h3 className="text-sm font-semibold text-gray-700">Hours Breakdown</h3>
+                <h3 className="font-display text-sm font-semibold text-ink">Hours Breakdown</h3>
               </div>
               <table className="w-full text-sm">
                 <thead>
@@ -580,7 +584,7 @@ function EvaluatorDetailInner() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
               <textarea value={ratingNotes} onChange={e => setRatingNotes(e.target.value)}
                 placeholder="Performance notes..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] resize-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                 rows={3} />
             </div>
             <div className="flex gap-3">
@@ -589,7 +593,7 @@ function EvaluatorDetailInner() {
               <button
                 onClick={() => rateMutation.mutate({ schedule_id: ratingModal.schedule_id, rating, notes: ratingNotes })}
                 disabled={!rating || rateMutation.isPending}
-                className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                className="flex-1 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-50">
                 {rateMutation.isPending ? "Saving..." : "Save Rating"}
               </button>
             </div>
@@ -603,7 +607,7 @@ function EvaluatorDetailInner() {
 export default function EvaluatorDetailPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <EvaluatorDetailInner />
       </Suspense>
     </QueryClientProvider>

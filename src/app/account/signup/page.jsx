@@ -50,28 +50,34 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{background:"#080E1A"}}>
-      <div className="w-full max-w-md rounded-xl p-8" style={{background:"#0F1A2E",border:"1px solid rgba(255,255,255,0.08)"}}>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-5 flex flex-col items-center gap-3">
-            <img src="/s-mark-dark.svg" style={{width:"72px",height:"72px",objectFit:"contain"}} />
-          </div>
-          <h1 className="text-2xl font-semibold" style={{color:"#E8F0FF"}}>Request an account</h1>
-          <p className="text-sm mt-1" style={{color:"#3b82f6"}}>For associations new to Sideline Star</p>
+          <img
+            src="/s-mark-dark.svg"
+            style={{ width: 48, height: 48, objectFit: "contain" }}
+            alt="Sideline Star"
+            className="mx-auto mb-4"
+          />
+          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl text-center">
+            Request an account
+          </h1>
+          <p className="text-sm text-gray-500 text-center mt-1">
+            For associations new to Sideline Star
+          </p>
         </div>
 
         {submitted ? (
           <div className="space-y-5">
-            <div className="p-4 rounded-lg flex items-start gap-3" style={{background:"rgba(34,211,160,0.1)",border:"1px solid rgba(34,211,160,0.25)"}}>
-              <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0" style={{color:"#22d3a0"}} />
-              <p className="text-sm" style={{color:"#A0B4D0"}}>
+            <div className="p-4 bg-accent-soft border border-accent/20 rounded-lg flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-accent" />
+              <p className="text-sm text-ink">
                 Request received — we&apos;ll review it and email you when your account is ready.
               </p>
             </div>
             <a
               href="/account/signin"
-              className="block w-full text-center rounded-lg px-4 py-3 text-white font-medium transition-colors"
-              style={{background:"#0b5cd6"}}
+              className="block w-full text-center bg-accent text-white font-semibold rounded-lg py-2.5 hover:opacity-90 transition-opacity"
             >
               Back to sign in
             </a>
@@ -87,14 +93,14 @@ export default function SignUpPage() {
 
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Association name</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Association name</label>
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="text"
                     value={associationName}
                     onChange={(e) => setAssociationName(e.target.value)}
-                    className="w-full outline-none text-sm bg-transparent" style={{color:"#E8F0FF"}}
+                    className="w-full outline-none text-sm bg-transparent text-ink"
                     placeholder="Your association"
                     required
                     disabled={loading}
@@ -102,28 +108,28 @@ export default function SignUpPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Your name</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your name</label>
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="text"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
-                    className="w-full outline-none text-sm bg-transparent" style={{color:"#E8F0FF"}}
+                    className="w-full outline-none text-sm bg-transparent text-ink"
                     placeholder="Jane Doe"
                     disabled={loading}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Email</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full outline-none text-sm bg-transparent" style={{color:"#E8F0FF"}}
+                    className="w-full outline-none text-sm bg-transparent text-ink"
                     placeholder="your@email.com"
                     required
                     disabled={loading}
@@ -131,28 +137,32 @@ export default function SignUpPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Phone <span style={{color:"#4a4a6a"}}>(optional)</span></label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone <span className="text-gray-400">(optional)</span>
+                </label>
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full outline-none text-sm bg-transparent" style={{color:"#E8F0FF"}}
+                    className="w-full outline-none text-sm bg-transparent text-ink"
                     placeholder="(555) 555-5555"
                     disabled={loading}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Message <span style={{color:"#4a4a6a"}}>(optional)</span></label>
-                <div className="flex items-start gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Message <span className="text-gray-400">(optional)</span>
+                </label>
+                <div className="flex items-start gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={3}
-                    className="w-full outline-none text-sm bg-transparent resize-none" style={{color:"#E8F0FF"}}
+                    className="w-full outline-none text-sm bg-transparent resize-none text-ink"
                     placeholder="Tell us a bit about your association"
                     disabled={loading}
                   />
@@ -161,7 +171,7 @@ export default function SignUpPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors" style={{background:"#0b5cd6"}}
+                className="w-full flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-lg py-2.5 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
                 {loading ? "Sending…" : "Request account"}
@@ -171,7 +181,7 @@ export default function SignUpPage() {
         )}
 
         <div className="mt-6 text-center">
-          <a href="/account/signin" className="text-sm hover:underline" style={{color:"#3b82f6"}}>
+          <a href="/account/signin" className="text-sm text-accent hover:underline">
             ← Back to sign in
           </a>
         </div>

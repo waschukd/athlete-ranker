@@ -27,14 +27,12 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           <div className="mb-6 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-[#0b5cd6] flex items-center justify-center mb-3">
-              <Mail className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-gray-900">Forgot password?</h1>
+            <img src="/s-mark-dark.svg" style={{width:48,height:48,objectFit:"contain"}} alt="Sideline Star" className="mx-auto mb-4" />
+            <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl">Forgot password?</h1>
             <p className="text-sm text-gray-500 mt-1">Enter your email and we'll send a reset link</p>
           </div>
 
@@ -47,7 +45,7 @@ export default function ForgotPasswordPage() {
               </div>
               <p className="text-gray-700 font-medium">Check your inbox</p>
               <p className="text-sm text-gray-500">If an account exists for <strong>{email}</strong>, you'll receive a reset link shortly. Check your spam folder too.</p>
-              <a href="/account/signin" className="inline-flex items-center gap-2 text-sm text-[#0b5cd6] hover:underline mt-2">
+              <a href="/account/signin" className="inline-flex items-center gap-2 text-sm text-accent hover:underline mt-2">
                 <ArrowLeft size={14} /> Back to sign in
               </a>
             </div>
@@ -58,7 +56,7 @@ export default function ForgotPasswordPage() {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -68,7 +66,7 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading || !email}
-                className="w-full py-3 bg-[#0b5cd6] hover:bg-[#0F4FCC] text-white rounded-lg font-medium text-sm disabled:opacity-50 transition-colors">
+                className="w-full py-3 bg-accent text-white rounded-lg font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-opacity">
                 {loading ? "Sending..." : "Send Reset Link"}
               </button>
               <div className="text-center">

@@ -46,13 +46,17 @@ export default function CheckinEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/s-mark-dark.svg" style={{width:"56px",height:"56px",objectFit:"contain"}} />
-          <h1 className="text-2xl font-bold text-gray-900 mt-4">Player Check-in</h1>
-          <p className="text-gray-500 text-sm mt-1">Enter your session code to begin</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Check-In</div>
+          <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Player Check-In</h1>
+          <p className="text-gray-500 text-sm mt-2">Enter your session code to begin</p>
         </div>
+      </div>
+
+      <div className="flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
           {error && (
@@ -74,7 +78,7 @@ export default function CheckinEntryPage() {
                 placeholder="e.g. S1G2-XKJ"
                 required
                 autoFocus
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent uppercase"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent uppercase"
                 maxLength={10}
               />
               <p className="text-xs text-gray-400 mt-1.5 text-center">
@@ -93,7 +97,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setName(e.target.value)}
                     placeholder="First and last name"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                 </div>
                 <div>
@@ -104,7 +108,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="your@email.com"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                 </div>
               </div>
@@ -113,7 +117,7 @@ export default function CheckinEntryPage() {
             <button
               type="submit"
               disabled={loading || !code || !name || !email}
-              className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
+              className="w-full py-3 bg-accent text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
             >
               {loading ? "Verifying..." : "Enter Check-in"}
             </button>
@@ -123,6 +127,7 @@ export default function CheckinEntryPage() {
         <p className="text-center text-xs text-gray-400 mt-6">
           Sideline Star · Check-in Portal · No account required
         </p>
+      </div>
       </div>
     </div>
   );
