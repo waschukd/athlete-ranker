@@ -735,19 +735,22 @@ function SetupWizard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="flex items-center gap-3 mb-8">
-          <a href={`/association/dashboard?org=${orgId}`}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-            <ArrowLeft size={18} />
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 py-5">
+          <a
+            href={`/association/dashboard/category/${catId}?org=${orgId}`}
+            className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
+          >
+            <ArrowLeft size={13} /> {catName || "Back to category"}
           </a>
-          <OrgBrandIcon orgId={orgId} size={44} />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{catName}</h1>
-            <p className="text-sm text-gray-500">Category Setup</p>
+          <div className="flex items-end gap-4 flex-wrap">
+            <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Setup</h1>
+            <OrgBrandIcon orgId={orgId} size={44} />
           </div>
         </div>
+      </div>
 
+      <div className="max-w-3xl mx-auto px-4 py-10">
         <StepIndicator currentStep={step} />
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">

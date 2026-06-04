@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, AlertTriangle, CheckCircle, Zap } from "lucide-react";
-import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 
 function FlagsContent() {
   const params = useParams();
@@ -69,24 +68,45 @@ function FlagsContent() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="min-w-0">
               <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-                className="p-2 text-gray-400 hover:text-[#0b5cd6] transition-colors rounded-lg hover:bg-gray-100">
-                <ArrowLeft size={18} />
+                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+                <ArrowLeft size={13} /> Back to rankings
               </a>
-              <OrgBrandIcon orgId={orgId} size={40} />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Athlete Flags {sessionFilter ? `— Session ${sessionFilter}` : "— All Sessions"}
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+                  Flagged Athletes
                 </h1>
-                <p className="text-sm text-gray-400 mt-0.5">{categoryName} · Outlier detection</p>
               </div>
+              {!loading && displayed.length > 0 && (
+                <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                  <b className="text-ink">{displayed.length}</b> flag{displayed.length !== 1 ? "s" : ""}
+                  {sessionFilter ? (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span>Session {sessionFilter}</span>
+                    </>
+                  ) : null}
+                  {unreviewed.length > 0 && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <b className="text-ink">{unreviewed.length}</b> unreviewed
+                    </>
+                  )}
+                  {categoryName && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span>{categoryName}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-1">
               {msg && <span className="text-sm text-green-600 font-medium">{msg}</span>}
               <button onClick={detect} disabled={detecting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow">
+                className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow">
                 <Zap size={14} />
                 {detecting ? "Detecting..." : "Run Detection"}
               </button>
@@ -102,7 +122,7 @@ function FlagsContent() {
                 return (
                   <a key={sNum}
                     href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sNum}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-[#0b5cd6] hover:text-[#0b5cd6] whitespace-nowrap">
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-accent hover:text-accent whitespace-nowrap">
                     Session {sNum}
                     {sUnacked > 0 && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-bold">{sUnacked}</span>}
                   </a>

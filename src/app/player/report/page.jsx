@@ -226,32 +226,43 @@ function PlayerReportInner() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="min-w-0">
+              {/* Back link as kicker-row */}
               <button onClick={() => window.history.back()}
-                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-                <ArrowLeft size={16} /> Back
+                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+                <ArrowLeft size={13} /> {data.category?.name} · Player Report
               </button>
-              <div className="w-px h-5 bg-gray-200" />
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white font-bold text-sm">
+              {/* Title row */}
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+                  {athlete.first_name} {athlete.last_name}
+                </h1>
+                <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {athlete.first_name[0]}{athlete.last_name[0]}
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">{athlete.first_name} {athlete.last_name}</h1>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {athlete.position && (
-                      <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${POSITION_COLORS[athlete.position] || "bg-gray-100 text-gray-600"}`}>
-                        {athlete.position}
-                      </span>
-                    )}
-                    {athlete.external_id && <span className="text-xs text-gray-400 font-mono">{athlete.external_id}</span>}
-                    <span className="text-xs text-gray-400">{data.category?.name}</span>
-                  </div>
-                </div>
+              </div>
+              {/* Chips sub-line */}
+              <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                {athlete.position && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${POSITION_COLORS[athlete.position] || "bg-gray-100 text-gray-600"}`}>
+                    {athlete.position}
+                  </span>
+                )}
+                {athlete.position && (athlete.external_id || data.category?.name) && (
+                  <span className="text-gray-300">·</span>
+                )}
+                {athlete.external_id && (
+                  <>
+                    <span className="font-mono">{athlete.external_id}</span>
+                    {data.category?.name && <span className="text-gray-300">·</span>}
+                  </>
+                )}
+                {data.category?.name && <span>{data.category.name}</span>}
               </div>
             </div>
+            {/* Action buttons */}
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
@@ -266,7 +277,7 @@ function PlayerReportInner() {
                     alert("Parent report link copied to clipboard:\n" + data.url);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md">
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                 Share with Parent
               </button>
               <button
@@ -278,13 +289,13 @@ function PlayerReportInner() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-4 overflow-x-auto">
+          <div className="flex gap-1 mt-5 overflow-x-auto">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                    activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-[3px] whitespace-nowrap transition-colors ${
+                    activeTab === tab.id ? "border-accent text-ink" : "border-transparent text-gray-400 hover:text-gray-600"
                   }`}>
                   <Icon size={13} /> {tab.label}
                 </button>
