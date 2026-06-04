@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight } from "lucide-react";
 
-function StatBar({ value, max = 100, color = "#1A6BFF" }) {
+function StatBar({ value, max = 100, color = "#0b5cd6" }) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
   return (
     <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -147,7 +147,7 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
             value={search}
             onChange={e => handleSearch(e.target.value)}
             placeholder="Add player by name or jersey..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent"
           />
           {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />}
         </div>
@@ -183,7 +183,7 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
           <div>
             <button onClick={() => toggleSection("overview")} className="w-full flex items-center gap-2 px-6 py-3 text-left hover:bg-gray-50">
               {expandedSections.has("overview") ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <BarChart3 size={14} className="text-[#1A6BFF]" />
+              <BarChart3 size={14} className="text-[#0b5cd6]" />
               <span className="text-sm font-semibold text-gray-900">Overview</span>
             </button>
             {expandedSections.has("overview") && (
@@ -202,7 +202,7 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
                     </tr>
                     <tr className="border-b border-gray-50">
                       <td className="py-2.5 pr-4 text-xs text-gray-500 font-medium">Total Score</td>
-                      {players.map(p => <td key={p.athlete.id} className="text-center py-2.5 px-3 font-semibold text-[#1A6BFF]">{p.ranking?.weighted_total?.toFixed(1) || "—"}</td>)}
+                      {players.map(p => <td key={p.athlete.id} className="text-center py-2.5 px-3 font-semibold text-[#0b5cd6]">{p.ranking?.weighted_total?.toFixed(1) || "—"}</td>)}
                     </tr>
                     <tr className="border-b border-gray-50">
                       <td className="py-2.5 pr-4 text-xs text-gray-500 font-medium">Position</td>
@@ -246,7 +246,7 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
                               {val !== null ? (
                                 <div>
                                   <span className={`font-mono font-semibold text-sm ${val === best ? "text-green-600" : "text-gray-900"}`}>{val}</span>
-                                  <StatBar value={val} max={scale} color={val === best ? "#22c55e" : "#1A6BFF"} />
+                                  <StatBar value={val} max={scale} color={val === best ? "#22c55e" : "#0b5cd6"} />
                                 </div>
                               ) : <span className="text-gray-300">—</span>}
                             </td>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Stadium (navy/gold)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#0a1230;--navy-2:#0e1840;--card:#101c4d;--line:#26336e;--ink:#eef2ff;--dim:#9aa6d4;--gold:#f5b400;--gold-2:#ffd45e;--accent:#3d7bff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Sora',system-ui,sans-serif;color:var(--ink);min-height:100vh;
+    background:radial-gradient(1000px 600px at 90% -20%,rgba(245,180,0,.12),transparent 60%),linear-gradient(180deg,var(--navy-2),var(--navy));-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 24px 80px}
+  /* jersey-stripe header */
+  .head{position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(135deg,#0c1740,#0a1030);border:1px solid var(--line);padding:30px 28px;margin-bottom:22px}
+  .head::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,transparent 0 38px,rgba(245,180,0,.05) 38px 42px)}
+  .head::after{content:"";position:absolute;top:0;bottom:0;right:0;width:10px;background:var(--gold)}
+  .head .inner{position:relative;display:flex;align-items:center;gap:18px}
+  .crest{width:64px;height:64px;border-radius:14px;background:linear-gradient(135deg,var(--gold),var(--gold-2));color:#1a1300;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:40px}
+  .kicker{font-family:'Bebas Neue';letter-spacing:.28em;font-size:15px;color:var(--gold-2)}
+  .title{font-family:'Bebas Neue';font-size:64px;line-height:.86;letter-spacing:1px}
+  .sub{color:var(--dim);font-size:13px;margin-top:8px}.sub b{color:#fff}
+  .live{margin-left:auto;font-family:'Bebas Neue';letter-spacing:.18em;font-size:16px;color:#0a1030;background:var(--gold);padding:7px 15px;border-radius:8px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;border-top:3px solid var(--gold)}
+  .stat:nth-child(n+2){border-top-color:var(--accent)}
+  .stat .n{font-family:'Bebas Neue';font-size:42px;line-height:.9}
+  .stat .l{font-family:'Bebas Neue';letter-spacing:.16em;font-size:13px;color:var(--dim);margin-top:2px}
+  .board{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 70px -34px #000}
+  .bhead{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--line)}
+  .bhead h2{font-family:'Bebas Neue';font-size:28px;letter-spacing:.6px}
+  .bhead .m{font-family:'Bebas Neue';letter-spacing:.14em;font-size:13px;color:var(--dim)}
+  .row{display:grid;grid-template-columns:62px 1fr 130px 92px;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.05);opacity:0;animation:fade .5s forwards}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+  .row:hover{background:rgba(61,123,255,.07)}
+  .rank{font-family:'Bebas Neue';font-size:40px;color:var(--dim);text-align:center;line-height:1}
+  .row.lead{background:linear-gradient(90deg,rgba(245,180,0,.14),transparent)}
+  .row.lead .rank{color:var(--gold)}
+  .who .name{font-weight:700;font-size:16px}
+  .who .pos{font-family:'Bebas Neue';letter-spacing:.14em;font-size:13px;color:var(--dim);margin-top:1px}
+  .who .pos .pill{color:var(--gold-2);border:1px solid rgba(245,180,0,.4);padding:0 7px;border-radius:5px;margin-left:6px}
+  .bar{height:8px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7aa6ff);border-radius:5px}
+  .row.lead .bar>i{background:linear-gradient(90deg,var(--gold),var(--gold-2))}
+  .score{font-family:'Bebas Neue';font-size:38px;text-align:right;letter-spacing:1px}
+  .row.lead .score{color:var(--gold)}
+  .foot{display:flex;justify-content:space-between;align-items:center;padding:16px 24px}
+  .foot .x{font-family:'Bebas Neue';letter-spacing:.12em;color:var(--dim);font-size:14px}
+  .cta{font-family:'Bebas Neue';letter-spacing:.14em;font-size:16px;color:#1a1300;background:linear-gradient(90deg,var(--gold),var(--gold-2));border:none;padding:10px 18px;border-radius:9px;cursor:pointer}
+</style></head>
+<body><div class="wrap">
+  <div class="head"><div class="inner">
+    <div class="crest">B</div>
+    <div><div class="kicker">Burnaby Minor · Evaluation</div><div class="title">U15 Rankings</div>
+      <div class="sub"><b>100</b> athletes · <b>4</b> sessions · testing 10% · scrimmage 30%×3</div></div>
+    <div class="live">● Live</div>
+  </div></div>
+  <div class="stats">
+    <div class="stat"><div class="n">100</div><div class="l">Athletes</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Sessions</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Completed</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">Bubble</div></div>
+  </div>
+  <div class="board">
+    <div class="bhead"><h2>Live Standings</h2><div class="m">refreshes every 30s</div></div>
+    <div class="row lead" style="animation-delay:.05s"><div class="rank">1</div><div class="who"><div class="name">Sawyer Celebrini</div><div class="pos">Forward <span class="pill">#9</span></div></div><div class="bar"><i style="width:96%"></i></div><div class="score">80.3</div></div>
+    <div class="row" style="animation-delay:.12s"><div class="rank">2</div><div class="who"><div class="name">Jack Hughes</div><div class="pos">Forward <span class="pill">#86</span></div></div><div class="bar"><i style="width:95.7%"></i></div><div class="score">80.1</div></div>
+    <div class="row" style="animation-delay:.19s"><div class="rank">3</div><div class="who"><div class="name">Shane Gostisbehere</div><div class="pos">Defense <span class="pill">#53</span></div></div><div class="bar"><i style="width:93%"></i></div><div class="score">79.5</div></div>
+    <div class="row" style="animation-delay:.26s"><div class="rank">4</div><div class="who"><div class="name">Mitch Marner</div><div class="pos">Forward <span class="pill">#16</span></div></div><div class="bar"><i style="width:92.6%"></i></div><div class="score">79.4</div></div>
+    <div class="row" style="animation-delay:.33s"><div class="rank">5</div><div class="who"><div class="name">Tyler Seguin</div><div class="pos">Forward <span class="pill">#91</span></div></div><div class="bar"><i style="width:90%"></i></div><div class="score">78.7</div></div>
+    <div class="foot"><span class="x">Showing 1–5 of 100</span><button class="cta">Build teams from these cuts →</button></div>
+  </div>
+</div></body></html>

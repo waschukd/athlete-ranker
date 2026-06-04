@@ -49,7 +49,7 @@ function AcceptInviteForm() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -103,7 +103,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -117,7 +117,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -132,7 +132,7 @@ function AcceptInviteForm() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white font-semibold disabled:opacity-50 transition-opacity"
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white font-semibold disabled:opacity-50 transition-opacity"
                 >
                   {submitting ? "Setting up your account..." : "Create Account & Sign In"}
                 </button>
@@ -147,7 +147,7 @@ function AcceptInviteForm() {
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6]" /></div>}>
       <AcceptInviteForm />
     </Suspense>
   );

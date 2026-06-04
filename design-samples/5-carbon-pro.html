@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Carbon Pro (dark/tech)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@500;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0c0e10;--panel:#141719;--panel-2:#181c1f;--line:#262b2f;--ink:#e9eef0;--dim:#7e878d;--faint:#525a5f;--lime:#c6ff3a;--lime-d:#9bd400}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Sora',system-ui,sans-serif;color:var(--ink);min-height:100vh;background:
+    linear-gradient(var(--bg),var(--bg)),
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(255,255,255,.012) 39px 40px);
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:26px 24px 80px}
+  .head{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel-2),var(--panel));padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden}
+  .head::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--lime)}
+  .crest{width:54px;height:54px;border-radius:11px;background:#0c0e10;border:1px solid var(--line);color:var(--lime);display:flex;align-items:center;justify-content:center;font-family:'Chakra Petch';font-weight:700;font-size:26px}
+  .kicker{font-family:'JetBrains Mono';font-weight:500;letter-spacing:.22em;text-transform:uppercase;font-size:11px;color:var(--lime-d)}
+  .title{font-family:'Chakra Petch';font-weight:700;text-transform:uppercase;font-size:38px;letter-spacing:1px;line-height:1;margin-top:4px}
+  .sub{font-family:'JetBrains Mono';font-size:12px;color:var(--dim);margin-top:8px}.sub b{color:var(--ink)}
+  .live{margin-left:auto;font-family:'JetBrains Mono';font-weight:700;letter-spacing:.16em;font-size:11px;color:var(--lime);border:1px solid rgba(198,255,58,.3);background:rgba(198,255,58,.07);padding:6px 12px;border-radius:7px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .stat{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px}
+  .stat .n{font-family:'Chakra Petch';font-weight:700;font-size:32px;line-height:1}
+  .stat:last-child .n{color:var(--lime)}
+  .stat .l{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+  .board{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+  .bhead{display:flex;justify-content:space-between;align-items:center;padding:15px 22px;border-bottom:1px solid var(--line)}
+  .bhead h2{font-family:'Chakra Petch';font-weight:700;text-transform:uppercase;letter-spacing:.6px;font-size:18px}
+  .bhead .m{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .colhdr{display:grid;grid-template-columns:48px 1fr 130px 78px;gap:14px;padding:10px 22px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .colhdr .r{text-align:right}
+  .row{display:grid;grid-template-columns:48px 1fr 130px 78px;align-items:center;gap:14px;padding:13px 22px;border-bottom:1px solid rgba(255,255,255,.04);opacity:0;animation:f .45s forwards}
+  @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .row:hover{background:rgba(198,255,58,.04)}
+  .rank{font-family:'JetBrains Mono';font-weight:700;font-size:18px;color:var(--faint);text-align:center}
+  .row.lead .rank{color:var(--lime)}
+  .who .name{font-weight:600;font-size:15px}
+  .who .pos{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+  .who .pos .pill{color:var(--lime-d);border:1px solid var(--line);padding:0 6px;border-radius:4px;margin-left:6px}
+  .bar{height:6px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--lime);border-radius:4px;box-shadow:0 0 10px rgba(198,255,58,.35)}
+  .score{font-family:'Chakra Petch';font-weight:700;font-size:24px;text-align:right;font-variant-numeric:tabular-nums}
+  .row.lead .score{color:var(--lime)}
+  .foot{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;font-family:'JetBrains Mono';font-size:11px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+  .cta{font-family:'Chakra Petch';font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:#0c0e10;background:var(--lime);border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
+</style></head>
+<body><div class="wrap">
+  <div class="head">
+    <div class="crest">B</div>
+    <div><div class="kicker">Burnaby Minor // Evaluation</div><div class="title">U15 Rankings</div>
+      <div class="sub"><b>100</b> athletes // <b>4</b> sessions // T 10% · S 30%×3</div></div>
+    <div class="live">● LIVE</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">100</div><div class="l">Athletes</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Sessions</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Completed</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">Bubble</div></div>
+  </div>
+  <div class="board">
+    <div class="bhead"><h2>Live Standings</h2><div class="m">refresh 30s · weighted</div></div>
+    <div class="colhdr"><div>Rk</div><div>Athlete</div><div>Form</div><div class="r">Total</div></div>
+    <div class="row lead" style="animation-delay:.05s"><div class="rank">01</div><div class="who"><div class="name">Sawyer Celebrini</div><div class="pos">FWD <span class="pill">#9</span></div></div><div class="bar"><i style="width:96%"></i></div><div class="score">80.3</div></div>
+    <div class="row" style="animation-delay:.11s"><div class="rank">02</div><div class="who"><div class="name">Jack Hughes</div><div class="pos">FWD <span class="pill">#86</span></div></div><div class="bar"><i style="width:95.7%"></i></div><div class="score">80.1</div></div>
+    <div class="row" style="animation-delay:.17s"><div class="rank">03</div><div class="who"><div class="name">Shane Gostisbehere</div><div class="pos">DEF <span class="pill">#53</span></div></div><div class="bar"><i style="width:93%"></i></div><div class="score">79.5</div></div>
+    <div class="row" style="animation-delay:.23s"><div class="rank">04</div><div class="who"><div class="name">Mitch Marner</div><div class="pos">FWD <span class="pill">#16</span></div></div><div class="bar"><i style="width:92.6%"></i></div><div class="score">79.4</div></div>
+    <div class="row" style="animation-delay:.29s"><div class="rank">05</div><div class="who"><div class="name">Tyler Seguin</div><div class="pos">FWD <span class="pill">#91</span></div></div><div class="bar"><i style="width:90%"></i></div><div class="score">78.7</div></div>
+    <div class="foot"><span>1–5 / 100</span><button class="cta">Build teams →</button></div>
+  </div>
+</div></body></html>

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Primetime (dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800&family=Saira+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08090c; --panel:#0f1117; --panel-2:#151823; --line:#222636;
+    --ink:#f3f5fa; --dim:#8a90a3; --faint:#5a6075;
+    --accent:#2f7bff; --accent-2:#27e0c8; --gold:#ffc23d;
+    --hot:#ff4d6d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(47,123,255,.16), transparent 60%),
+      radial-gradient(700px 400px at 0% 110%, rgba(39,224,200,.10), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Archivo',system-ui,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:.1px;
+  }
+  /* grain */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:99;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 24px 80px}
+
+  /* ── Lower-third header bar ── */
+  .topstripe{height:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:4px;margin-bottom:22px}
+  .header{display:flex;align-items:center;gap:18px;margin-bottom:26px}
+  .crest{width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,#1b1f2c,#0c0e15);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-family:'Anton';font-size:30px;color:var(--accent-2);box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .titleblock{flex:1}
+  .kicker{font-family:'Saira Semi Condensed';font-weight:700;letter-spacing:.32em;font-size:12px;color:var(--accent-2);text-transform:uppercase}
+  .title{font-family:'Anton';font-size:54px;line-height:.92;letter-spacing:.5px;text-transform:uppercase}
+  .sub{color:var(--dim);font-size:13px;margin-top:7px;font-weight:500}
+  .sub b{color:var(--ink)}
+  .live{display:inline-flex;align-items:center;gap:8px;font-family:'Saira Semi Condensed';font-weight:700;
+    letter-spacing:.18em;font-size:12px;text-transform:uppercase;color:#ff8fa3;
+    background:rgba(255,77,109,.12);border:1px solid rgba(255,77,109,.3);padding:7px 13px;border-radius:999px}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--hot);box-shadow:0 0 0 0 rgba(255,77,109,.6);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,109,.55)}70%{box-shadow:0 0 0 9px rgba(255,77,109,0)}100%{box-shadow:0 0 0 0 rgba(255,77,109,0)}}
+
+  /* ── stat chips ── */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+  .stat{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}
+  .stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+  .stat:nth-child(2)::after{background:var(--accent-2)}
+  .stat:nth-child(3)::after{background:var(--gold)}
+  .stat:nth-child(4)::after{background:var(--faint)}
+  .stat .n{font-family:'Anton';font-size:34px;line-height:1}
+  .stat .l{font-family:'Saira Semi Condensed';font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:11px;color:var(--dim);margin-top:6px}
+
+  /* ── rankings ── */
+  .board{background:linear-gradient(180deg,var(--panel),#0b0d13);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+  .boardhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+  .boardhead h2{font-family:'Anton';text-transform:uppercase;letter-spacing:.5px;font-size:22px}
+  .boardhead .meta{font-family:'Saira Semi Condensed';font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:var(--faint)}
+  .row{display:grid;grid-template-columns:64px 1fr 120px 96px;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,.04);
+    opacity:0;transform:translateY(10px);animation:rise .5s forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .row:hover{background:rgba(47,123,255,.06)}
+  .rank{font-family:'Anton';font-size:30px;color:var(--faint);text-align:center;line-height:1}
+  .row.lead .rank{color:var(--gold)}
+  .row.p2 .rank,.row.p3 .rank{color:var(--accent-2)}
+  .who .name{font-weight:700;font-size:16px}
+  .who .pos{font-family:'Saira Semi Condensed';font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--dim);margin-top:2px}
+  .who .pos .pill{color:var(--accent);border:1px solid rgba(47,123,255,.35);background:rgba(47,123,255,.1);padding:1px 7px;border-radius:6px;margin-left:6px}
+  .bar{height:8px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));box-shadow:0 0 14px rgba(47,123,255,.5)}
+  .row.lead .bar > i{background:linear-gradient(90deg,var(--gold),#ffe08a);box-shadow:0 0 16px rgba(255,194,61,.5)}
+  .score{font-family:'Anton';font-size:30px;text-align:right;letter-spacing:.5px}
+  .row.lead .score{color:var(--gold)}
+  .delta{font-family:'Saira Semi Condensed';font-weight:700;font-size:12px;color:var(--accent-2);text-align:right;letter-spacing:.06em}
+  .delta.down{color:#ff8fa3}
+  .foot{padding:16px 22px;color:var(--faint);font-size:12px;font-family:'Saira Semi Condensed';letter-spacing:.1em;text-transform:uppercase;display:flex;justify-content:space-between}
+  .cta{font-family:'Saira Semi Condensed';font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:#07131f;background:linear-gradient(90deg,var(--accent-2),#7bf3e3);padding:9px 16px;border-radius:9px;border:none;cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topstripe"></div>
+    <div class="header">
+      <div class="crest">B</div>
+      <div class="titleblock">
+        <div class="kicker">Burnaby Minor · Evaluation</div>
+        <div class="title">U15 Rankings</div>
+        <div class="sub"><b>100</b> athletes · <b>4</b> sessions · testing 10% · scrimmage 30%×3</div>
+      </div>
+      <div class="live"><span class="dot"></span> Live</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">100</div><div class="l">Athletes</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Sessions</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Completed</div></div>
+      <div class="stat"><div class="n">9</div><div class="l">On the bubble</div></div>
+    </div>
+
+    <div class="board">
+      <div class="boardhead">
+        <h2>Live Standings</h2>
+        <div class="meta">refreshes every 30s · weighted total</div>
+      </div>
+
+      <div class="row lead"  style="animation-delay:.05s">
+        <div class="rank">1</div>
+        <div class="who"><div class="name">Sawyer Celebrini</div><div class="pos">Forward <span class="pill">#9</span></div></div>
+        <div class="bar"><i style="width:96%"></i></div>
+        <div class="score">80.3</div>
+      </div>
+      <div class="row p2" style="animation-delay:.12s">
+        <div class="rank">2</div>
+        <div class="who"><div class="name">Jack Hughes</div><div class="pos">Forward <span class="pill">#86</span></div></div>
+        <div class="bar"><i style="width:95.7%"></i></div>
+        <div class="score">80.1</div>
+      </div>
+      <div class="row p3" style="animation-delay:.19s">
+        <div class="rank">3</div>
+        <div class="who"><div class="name">Shane Gostisbehere</div><div class="pos">Defense <span class="pill">#53</span></div></div>
+        <div class="bar"><i style="width:93%"></i></div>
+        <div class="score">79.5</div>
+      </div>
+      <div class="row" style="animation-delay:.26s">
+        <div class="rank">4</div>
+        <div class="who"><div class="name">Mitch Marner</div><div class="pos">Forward <span class="pill">#16</span></div></div>
+        <div class="bar"><i style="width:92.6%"></i></div>
+        <div class="score">79.4</div>
+      </div>
+      <div class="row" style="animation-delay:.33s">
+        <div class="rank">5</div>
+        <div class="who"><div class="name">Tyler Seguin</div><div class="pos">Forward <span class="pill">#91</span></div></div>
+        <div class="bar"><i style="width:90%"></i></div>
+        <div class="score">78.7</div>
+      </div>
+
+      <div class="foot"><span>Showing 1–5 of 100</span><button class="cta">Build teams from these cuts →</button></div>
+    </div>
+  </div>
+</body>
+</html>

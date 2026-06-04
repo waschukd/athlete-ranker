@@ -72,7 +72,7 @@ function FlagsContent() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-                className="p-2 text-gray-400 hover:text-[#1A6BFF] transition-colors rounded-lg hover:bg-gray-100">
+                className="p-2 text-gray-400 hover:text-[#0b5cd6] transition-colors rounded-lg hover:bg-gray-100">
                 <ArrowLeft size={18} />
               </a>
               <OrgBrandIcon orgId={orgId} size={40} />
@@ -86,7 +86,7 @@ function FlagsContent() {
             <div className="flex items-center gap-3">
               {msg && <span className="text-sm text-green-600 font-medium">{msg}</span>}
               <button onClick={detect} disabled={detecting}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow">
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow">
                 <Zap size={14} />
                 {detecting ? "Detecting..." : "Run Detection"}
               </button>
@@ -102,7 +102,7 @@ function FlagsContent() {
                 return (
                   <a key={sNum}
                     href={`/association/dashboard/category/${catId}/flags?org=${orgId}&session=${sNum}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-[#1A6BFF] hover:text-[#1A6BFF] whitespace-nowrap">
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-[#0b5cd6] hover:text-[#0b5cd6] whitespace-nowrap">
                     Session {sNum}
                     {sUnacked > 0 && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-bold">{sUnacked}</span>}
                   </a>
@@ -116,7 +116,7 @@ function FlagsContent() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
           </div>
         ) : displayed.length === 0 ? (
           <div className="bg-white border border-dashed border-gray-200 rounded-2xl px-6 py-16 text-center">
@@ -157,7 +157,7 @@ function FlagsContent() {
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <a href={`/player/report?athlete=${f.athlete_id}&cat=${catId}`}
-                          className="text-xs px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg hover:border-[#1A6BFF] hover:text-[#1A6BFF] transition-colors">
+                          className="text-xs px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg hover:border-[#0b5cd6] hover:text-[#0b5cd6] transition-colors">
                           Report
                         </a>
                         <button onClick={() => acknowledge(f.id)}
@@ -213,7 +213,7 @@ export default function FlagsPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
       </div>
     }>
       <FlagsContent />

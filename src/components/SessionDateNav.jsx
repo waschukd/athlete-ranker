@@ -52,7 +52,7 @@ export function DateStripBar({ sessions, selectedDate, onSelect, paletteFor: pal
             onClick={() => onSelect(isSelected ? null : key)}
             className={`flex-shrink-0 snap-start flex flex-col items-center justify-between rounded-lg px-2.5 py-2 min-w-[64px] border transition-colors ${
               isSelected
-                ? "bg-[#1A6BFF] border-[#1A6BFF] text-white"
+                ? "bg-[#0b5cd6] border-[#0b5cd6] text-white"
                 : "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50"
             }`}
           >

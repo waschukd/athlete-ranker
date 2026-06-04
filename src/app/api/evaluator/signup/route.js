@@ -279,7 +279,7 @@ export async function POST(request) {
           to: evalUser[0].email,
           subject: `Session Confirmed — ${catInfo[0]?.category_name || "Evaluation"} S${info.session_number}`,
           html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
-            <div style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:28px 40px;text-align:center;border-radius:16px 16px 0 0;">
+            <div style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:28px 40px;text-align:center;border-radius:16px 16px 0 0;">
               <div style="font-size:22px;font-weight:800;color:#ffffff;">Sideline Star</div>
             </div>
             <div style="background:#ffffff;padding:36px 40px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 16px 16px;">
@@ -295,7 +295,7 @@ export async function POST(request) {
                 </table>
               </div>
               <p style="font-size:12px;color:#9ca3af;margin:16px 0 0;">A calendar invite (.ics) is attached. Open it to add this session to your calendar.</p>
-              <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a></div>
+              <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a></div>
             </div>
           </div>`,
           attachments: [{

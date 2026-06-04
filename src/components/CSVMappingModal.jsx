@@ -35,7 +35,7 @@ export default function CSVMappingModal({ headers, onConfirm, onCancel }) {
                 {f.required ? <span className="text-red-400 ml-1 text-xs">required</span> : <span className="text-gray-400 ml-1 text-xs">optional</span>}
               </div>
               <select value={mapping[f.key]} onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
-                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] bg-white ${f.required && !mapping[f.key] ? 'border-red-300 bg-red-50' : mapping[f.key] ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white ${f.required && !mapping[f.key] ? 'border-red-300 bg-red-50' : mapping[f.key] ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
                 <option value="">— Skip —</option>
                 {headers.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
@@ -46,7 +46,7 @@ export default function CSVMappingModal({ headers, onConfirm, onCancel }) {
           <p className="text-xs text-gray-400">* Required fields must be mapped to proceed</p>
           <div className="flex gap-3">
             <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-100">Cancel</button>
-            <button onClick={() => onConfirm(mapping)} disabled={!ok} className="px-5 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Import Athletes</button>
+            <button onClick={() => onConfirm(mapping)} disabled={!ok} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Import Athletes</button>
           </div>
         </div>
       </div>

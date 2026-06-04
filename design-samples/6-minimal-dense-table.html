@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Minimal Athletic · dense table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#fbfbf9;--card:#fff;--ink:#101113;--ink-2:#5b606b;--dim:#9aa0aa;--line:#ededeb;--line-2:#f3f3f1;--accent:#0b5cd6;--accent-soft:#eaf1fe;--up:#0b8a3e;--down:#d23b3b}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1140px;margin:0 auto;padding:44px 28px 90px}
+  .kicker{font-family:'Archivo';font-weight:700;letter-spacing:.26em;text-transform:uppercase;font-size:12px;color:var(--accent)}
+  .titlerow{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:10px}
+  .title{font-family:'Archivo';font-weight:900;font-size:58px;line-height:.9;letter-spacing:-2px}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-family:'Archivo';font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:8px 13px;border-radius:99px}
+  .pill .d{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:b 1.6s infinite}@keyframes b{50%{opacity:.3}}
+  .sub{color:var(--ink-2);font-size:15px;margin-top:14px;font-weight:500}.sub b{color:var(--ink)}
+  /* tabs (matching the 4-tab IA) */
+  .tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);margin:26px 0 0}
+  .tab{font-family:'Archivo';font-weight:700;font-size:14px;letter-spacing:.02em;color:var(--dim);padding:0 0 14px;border-bottom:3px solid transparent;cursor:pointer}
+  .tab.on{color:var(--ink);border-color:var(--accent)}
+  /* summary strip */
+  .strip{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:26px 0 18px}
+  .strip .t{font-family:'Archivo';font-weight:800;font-size:15px}
+  .chip{font-size:12px;font-weight:700;letter-spacing:.04em;padding:4px 11px;border-radius:99px}
+  .chip.b{background:var(--accent-soft);color:var(--accent)}.chip.g{background:#e9f6ee;color:var(--up)}.chip.n{background:#f1f1ef;color:var(--ink-2)}
+  /* table */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -34px rgba(10,12,16,.3)}
+  table{width:100%;border-collapse:collapse}
+  thead th{font-family:'Archivo';font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-align:right;padding:16px 14px;border-bottom:1px solid var(--line)}
+  thead th.l{text-align:left}
+  thead th small{display:block;color:#c2c6cd;font-weight:600;font-size:10px;letter-spacing:.08em}
+  tbody td{padding:14px;border-bottom:1px solid var(--line-2);text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-2)}
+  tbody td.l{text-align:left}
+  tbody tr{opacity:0;transform:translateY(5px);animation:r .45s forwards}@keyframes r{to{opacity:1;transform:none}}
+  tbody tr:hover{background:#fafbff}
+  .rk{font-family:'Archivo';font-weight:800;font-size:22px;color:#cdd0d6;text-align:center;width:54px}
+  tr.lead .rk{color:var(--accent)}
+  .nm{font-weight:700;color:var(--ink);font-size:15px}
+  .pos{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .pos b{color:var(--ink-2)}
+  .tot{font-family:'Archivo';font-weight:800;font-size:20px;color:var(--ink);letter-spacing:-.5px}
+  tr.lead .tot{color:var(--accent)}
+  .trk{display:inline-flex;gap:5px;align-items:center;justify-content:flex-end;font-size:12px;font-weight:700}
+  .trk .u{color:var(--up)}.trk .dn{color:var(--down)}
+  .badge{font-family:'Archivo';font-weight:800;font-size:12px;background:var(--ink);color:#fff;border-radius:6px;padding:2px 7px;margin-left:4px}
+  tr.lead .badge{background:var(--accent)}
+  .foot{display:flex;justify-content:space-between;align-items:center;padding:16px 18px}
+  .foot .x{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .cta{font-family:'Archivo';font-weight:700;font-size:14px;color:#fff;background:var(--ink);border:none;padding:12px 20px;border-radius:99px;cursor:pointer}
+  .cta:hover{background:var(--accent)}
+</style></head>
+<body><div class="wrap">
+  <div class="kicker">Burnaby Minor · U15 Evaluation</div>
+  <div class="titlerow">
+    <div class="title">Rankings.</div>
+    <div class="pill"><span class="d"></span> Live · refreshes 30s</div>
+  </div>
+  <div class="sub"><b>100</b> athletes &nbsp;·&nbsp; <b>4</b> sessions &nbsp;·&nbsp; testing 10% &nbsp;·&nbsp; scrimmage 30%×3</div>
+
+  <div class="tabs">
+    <div class="tab on">Rankings</div><div class="tab">Schedule</div><div class="tab">Analysis</div><div class="tab">Athletes</div>
+  </div>
+
+  <div class="strip">
+    <span class="t">100 players → 4 teams</span>
+    <span class="chip g">1 clean break</span>
+    <span class="chip n">2 judgment calls</span>
+    <span class="chip b">9 on the bubble</span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th class="l" style="width:54px">Rk</th><th class="l">Athlete</th>
+        <th>S1<small>10%</small></th><th>S2<small>30%</small></th><th>S3<small>30%</small></th><th>S4<small>30%</small></th>
+        <th>Total</th><th>Track</th>
+      </tr></thead>
+      <tbody>
+        <tr class="lead" style="animation-delay:.04s"><td class="rk">1</td><td class="l"><div class="nm">Sawyer Celebrini</div><div class="pos">Forward · <b>#9</b></div></td><td>78.8</td><td>78.5</td><td>77.8</td><td>85.0</td><td class="tot">80.3</td><td><span class="trk"><span class="u">▲ 22</span><span class="badge">1</span></span></td></tr>
+        <tr style="animation-delay:.09s"><td class="rk">2</td><td class="l"><div class="nm">Jack Hughes</div><div class="pos">Forward · <b>#86</b></div></td><td>85.9</td><td>74.4</td><td>76.3</td><td>87.5</td><td class="tot">80.1</td><td><span class="trk"><span class="dn">▼ 15</span><span class="badge">2</span></span></td></tr>
+        <tr style="animation-delay:.14s"><td class="rk">3</td><td class="l"><div class="nm">Shane Gostisbehere</div><div class="pos">Defense · <b>#53</b></div></td><td>74.7</td><td>81.9</td><td>80.3</td><td>77.5</td><td class="tot">79.5</td><td><span class="trk"><span class="u">▲ 26</span><span class="badge">3</span></span></td></tr>
+        <tr style="animation-delay:.19s"><td class="rk">4</td><td class="l"><div class="nm">Mitch Marner</div><div class="pos">Forward · <b>#16</b></div></td><td>61.6</td><td>72.8</td><td>78.8</td><td>92.5</td><td class="tot">79.4</td><td><span class="trk"><span class="u">▲ 39</span><span class="badge">4</span></span></td></tr>
+        <tr style="animation-delay:.24s"><td class="rk">5</td><td class="l"><div class="nm">Tyler Seguin</div><div class="pos">Forward · <b>#91</b></div></td><td>79.8</td><td>72.8</td><td>80.3</td><td>82.5</td><td class="tot">78.7</td><td><span class="trk"><span class="dn">▼ 21</span><span class="badge">5</span></span></td></tr>
+        <tr style="animation-delay:.29s"><td class="rk">6</td><td class="l"><div class="nm">Quinn Hughes</div><div class="pos">Defense · <b>#43</b></div></td><td>80.1</td><td>75.0</td><td>79.9</td><td>78.2</td><td class="tot">78.1</td><td><span class="trk"><span class="u">▲ 9</span><span class="badge">6</span></span></td></tr>
+        <tr style="animation-delay:.34s"><td class="rk">7</td><td class="l"><div class="nm">Connor Bedard</div><div class="pos">Forward · <b>#98</b></div></td><td>77.0</td><td>76.6</td><td>74.1</td><td>80.8</td><td class="tot">77.6</td><td><span class="trk"><span class="dn">▼ 3</span><span class="badge">7</span></span></td></tr>
+      </tbody>
+    </table>
+    <div class="foot"><span class="x">Showing 1–7 of 100</span><button class="cta">Build teams from these cuts →</button></div>
+  </div>
+</div></body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Minimal Athletic (light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#fbfbf9;--card:#fff;--ink:#101113;--ink-2:#5b606b;--dim:#9b9fa8;--line:#ececec;--accent:#0b5cd6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 28px 90px}
+  .kicker{font-family:'Archivo';font-weight:700;letter-spacing:.26em;text-transform:uppercase;font-size:12px;color:var(--accent)}
+  .title{font-family:'Archivo';font-weight:900;font-size:62px;line-height:.92;letter-spacing:-2px;margin-top:10px}
+  .sub{color:var(--ink-2);font-size:15px;margin-top:14px;font-weight:500}.sub b{color:var(--ink)}
+  .rule{height:2px;background:var(--ink);margin:26px 0 0}
+  .stats{display:flex;gap:42px;margin:24px 0 40px}
+  .stat .n{font-family:'Archivo';font-weight:800;font-size:40px;letter-spacing:-1px;line-height:1}
+  .stat .l{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:4px;font-weight:600}
+  .stat:last-child .n{color:var(--accent)}
+  .secthead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .secthead h2{font-family:'Archivo';font-weight:800;font-size:20px;letter-spacing:-.4px;text-transform:uppercase}
+  .secthead .m{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .row{display:grid;grid-template-columns:54px 1fr 150px 80px;align-items:center;gap:18px;padding:18px 6px;border-bottom:1px solid var(--line);opacity:0;transform:translateY(6px);animation:r .5s forwards}
+  @keyframes r{to{opacity:1;transform:none}}
+  .row:first-of-type{border-top:1px solid var(--line)}
+  .rank{font-family:'Archivo';font-weight:800;font-size:30px;color:#d7d9de;text-align:center}
+  .row.lead .rank{color:var(--ink)}
+  .who .name{font-weight:600;font-size:17px;letter-spacing:-.2px}
+  .who .pos{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:2px;font-weight:600}
+  .who .pos b{color:var(--ink-2)}
+  .bar{height:6px;background:#efefec;border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--ink);border-radius:99px}
+  .row.lead .bar>i{background:var(--accent)}
+  .score{font-family:'Archivo';font-weight:800;font-size:28px;text-align:right;letter-spacing:-1px}
+  .row.lead .score{color:var(--accent)}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:26px}
+  .foot .x{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .cta{font-family:'Archivo';font-weight:700;font-size:14px;letter-spacing:.02em;color:#fff;background:var(--ink);border:none;padding:13px 22px;border-radius:99px;cursor:pointer}
+  .cta:hover{background:var(--accent)}
+</style></head>
+<body><div class="wrap">
+  <div class="kicker">Burnaby Minor · U15 Evaluation</div>
+  <div class="title">Rankings.</div>
+  <div class="sub"><b>100</b> athletes &nbsp;·&nbsp; <b>4</b> sessions &nbsp;·&nbsp; testing 10% &nbsp;·&nbsp; scrimmage 30%×3</div>
+  <div class="rule"></div>
+  <div class="stats">
+    <div class="stat"><div class="n">100</div><div class="l">Athletes</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Sessions</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">Completed</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">On the bubble</div></div>
+  </div>
+  <div class="secthead"><h2>Live Standings</h2><div class="m">refreshes every 30s · weighted total</div></div>
+  <div class="row lead" style="animation-delay:.05s"><div class="rank">1</div><div class="who"><div class="name">Sawyer Celebrini</div><div class="pos">Forward · <b>#9</b></div></div><div class="bar"><i style="width:96%"></i></div><div class="score">80.3</div></div>
+  <div class="row" style="animation-delay:.11s"><div class="rank">2</div><div class="who"><div class="name">Jack Hughes</div><div class="pos">Forward · <b>#86</b></div></div><div class="bar"><i style="width:95.7%"></i></div><div class="score">80.1</div></div>
+  <div class="row" style="animation-delay:.17s"><div class="rank">3</div><div class="who"><div class="name">Shane Gostisbehere</div><div class="pos">Defense · <b>#53</b></div></div><div class="bar"><i style="width:93%"></i></div><div class="score">79.5</div></div>
+  <div class="row" style="animation-delay:.23s"><div class="rank">4</div><div class="who"><div class="name">Mitch Marner</div><div class="pos">Forward · <b>#16</b></div></div><div class="bar"><i style="width:92.6%"></i></div><div class="score">79.4</div></div>
+  <div class="row" style="animation-delay:.29s"><div class="rank">5</div><div class="who"><div class="name">Tyler Seguin</div><div class="pos">Forward · <b>#91</b></div></div><div class="bar"><i style="width:90%"></i></div><div class="score">78.7</div></div>
+  <div class="foot"><span class="x">Showing 1–5 of 100</span><button class="cta">Build teams from these cuts →</button></div>
+</div></body></html>

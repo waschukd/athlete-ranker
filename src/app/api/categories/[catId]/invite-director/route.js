@@ -89,7 +89,7 @@ export async function POST(request, { params }) {
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:32px 40px;text-align:center;">
+                  <td style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:32px 40px;text-align:center;">
                     <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Sideline Star</div>
                     <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Athlete Evaluation Platform</div>
                   </td>
@@ -114,7 +114,7 @@ export async function POST(request, { params }) {
                         <tr>
                           <td style="padding:6px 0;font-size:14px;color:#6b7280;">Temp Password</td>
                           <td style="padding:6px 0;">
-                            <code style="font-size:14px;font-weight:700;color:#1A6BFF;background:#fff7f4;border:1px solid #fed7c3;padding:3px 8px;border-radius:6px;">${tempPassword}</code>
+                            <code style="font-size:14px;font-weight:700;color:#0b5cd6;background:#fff7f4;border:1px solid #fed7c3;padding:3px 8px;border-radius:6px;">${tempPassword}</code>
                           </td>
                         </tr>
                       </table>
@@ -123,7 +123,7 @@ export async function POST(request, { params }) {
                     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Please sign in and update your password when prompted.</p>
 
                     <!-- CTA Button -->
-                    <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
+                    <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
                       Sign In to Sideline Star →
                     </a>
                   </td>
@@ -153,7 +153,7 @@ export async function POST(request, { params }) {
             <tr><td align="center">
               <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                 <tr>
-                  <td style="background:linear-gradient(135deg,#1A6BFF,#4D8FFF);padding:32px 40px;text-align:center;">
+                  <td style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:32px 40px;text-align:center;">
                     <div style="font-size:24px;font-weight:800;color:#ffffff;">Sideline Star</div>
                     <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Athlete Evaluation Platform</div>
                   </td>
@@ -164,7 +164,7 @@ export async function POST(request, { params }) {
                     <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
                       Hi <strong style="color:#111827;">${name}</strong>, you've been assigned as director for <strong style="color:#111827;">${cat.name}</strong> at <strong style="color:#111827;">${cat.org_name}</strong>.
                     </p>
-                    <a href="${dashUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;">
+                    <a href="${dashUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;">
                       View Dashboard →
                     </a>
                   </td>

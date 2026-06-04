@@ -133,7 +133,7 @@ export async function GET(request) {
               ${sessionRows}
             </table>
             <div style="margin-top:24px;">
-              <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View My Dashboard →</a>
+              <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View My Dashboard →</a>
             </div>
             <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
           `);
@@ -197,7 +197,7 @@ export async function GET(request) {
               <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${session.session_number} G${session.group_number || "1"}</td></tr>
             </table>
           </div>
-          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a>
+          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a>
           <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend, cancel at least 24 hours in advance to avoid a strike.</p>
         `);
 

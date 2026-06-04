@@ -133,7 +133,7 @@ function CheckinPageInner() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -192,7 +192,7 @@ function CheckinPageInner() {
                 { id: "all", label: "All" },
               ].map(f => (
                 <button key={f.id} onClick={() => setFilter(f.id)}
-                  className={`px-3 py-2 text-xs font-semibold transition-colors ${filter === f.id ? "bg-[#1A6BFF] text-white" : "text-gray-400 hover:text-white"}`}>
+                  className={`px-3 py-2 text-xs font-semibold transition-colors ${filter === f.id ? "bg-[#0b5cd6] text-white" : "text-gray-400 hover:text-white"}`}>
                   {f.label}
                 </button>
               ))}
@@ -259,7 +259,7 @@ function CheckinPageInner() {
                     </span>
                   </span>
                   <button onClick={() => checkInExisting(m.id)}
-                    className="px-3 py-1.5 bg-[#1A6BFF] text-white rounded text-xs font-semibold whitespace-nowrap">Check in here</button>
+                    className="px-3 py-1.5 bg-[#0b5cd6] text-white rounded text-xs font-semibold whitespace-nowrap">Check in here</button>
                 </div>
               ))}
             </div>
@@ -297,7 +297,7 @@ function CheckinPageInner() {
                     setTimeout(() => setEditingJersey(null), 200); // delay so "In" button can grab the value
                   }}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); quickCheckin(a); } }}
-                  className="w-14 bg-gray-700 border border-[#1A6BFF] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
+                  className="w-14 bg-gray-700 border border-[#0b5cd6] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
               ) : (
                 <button onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
                   className="w-10 text-center text-xs font-mono text-gray-400 hover:text-white rounded py-1">
@@ -317,7 +317,7 @@ function CheckinPageInner() {
                   className="px-3 py-1.5 bg-green-800/50 text-green-400 rounded text-xs font-semibold">✓</button>
               ) : (
                 <button onClick={() => quickCheckin(a)}
-                  className="px-3 py-1.5 bg-[#1A6BFF] text-white rounded text-xs font-semibold">In</button>
+                  className="px-3 py-1.5 bg-[#0b5cd6] text-white rounded text-xs font-semibold">In</button>
               )}
             </div>
           ))}
@@ -330,7 +330,7 @@ function CheckinPageInner() {
 export default function CheckinPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
         <CheckinPageInner />
       </Suspense>
     </QueryClientProvider>

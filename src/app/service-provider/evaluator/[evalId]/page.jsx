@@ -122,7 +122,7 @@ function EvaluatorDetailInner() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -132,13 +132,13 @@ function EvaluatorDetailInner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
           <a href="/service-provider/dashboard"
-            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#1A6BFF] mb-4 text-sm font-medium transition-colors">
+            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#0b5cd6] mb-4 text-sm font-medium transition-colors">
             <ArrowLeft size={15} /> Back to Dashboard
           </a>
 
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4 flex-1">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-xl font-bold shadow-md">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xl font-bold shadow-md">
                 {evaluator?.name?.split(" ").map(n => n[0]).join("").substring(0, 2)}
               </div>
               <div>
@@ -202,7 +202,7 @@ function EvaluatorDetailInner() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
             {[
               { label: "Sessions", value: stats.total_sessions || 0, icon: Calendar, color: "text-blue-600" },
-              { label: "Total Hours", value: `${parseFloat(stats.total_hours || 0).toFixed(1)}h`, icon: Clock, color: "text-[#1A6BFF]" },
+              { label: "Total Hours", value: `${parseFloat(stats.total_hours || 0).toFixed(1)}h`, icon: Clock, color: "text-[#0b5cd6]" },
               { label: "Pending Hours", value: `${parseFloat(stats.pending_hours || 0).toFixed(1)}h`, icon: DollarSign, color: "text-amber-500" },
               { label: "No-shows", value: stats.no_shows || 0, icon: XCircle, color: "text-red-500" },
               { label: "Open Flags", value: openFlags.length, icon: Flag, color: openFlags.length > 0 ? "text-red-500" : "text-gray-300" },
@@ -229,7 +229,7 @@ function EvaluatorDetailInner() {
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"
+                  activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 {tab.label}
               </button>
@@ -307,7 +307,7 @@ function EvaluatorDetailInner() {
                       <div key={score} className="flex items-center gap-3">
                         <span className="text-xs font-mono text-gray-500 w-8 text-right">{score}</span>
                         <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-full transition-all"
+                          <div className="h-full bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] rounded-full transition-all"
                             style={{ width: `${(count / maxDist) * 100}%` }} />
                         </div>
                         <span className="text-xs text-gray-400 w-8">{count}</span>
@@ -580,7 +580,7 @@ function EvaluatorDetailInner() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
               <textarea value={ratingNotes} onChange={e => setRatingNotes(e.target.value)}
                 placeholder="Performance notes..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] resize-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] resize-none"
                 rows={3} />
             </div>
             <div className="flex gap-3">
@@ -589,7 +589,7 @@ function EvaluatorDetailInner() {
               <button
                 onClick={() => rateMutation.mutate({ schedule_id: ratingModal.schedule_id, rating, notes: ratingNotes })}
                 disabled={!rating || rateMutation.isPending}
-                className="flex-1 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">
                 {rateMutation.isPending ? "Saving..." : "Save Rating"}
               </button>
             </div>
@@ -603,7 +603,7 @@ function EvaluatorDetailInner() {
 export default function EvaluatorDetailPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
         <EvaluatorDetailInner />
       </Suspense>
     </QueryClientProvider>

@@ -40,7 +40,7 @@ export default function SignInPage() {
             <img src="/s-mark-dark.svg" style={{width:"72px",height:"72px",objectFit:"contain"}} />
           </div>
           <h1 className="text-2xl font-semibold" style={{color:"#E8F0FF"}}>Sign in</h1>
-          <p className="text-sm mt-1" style={{color:"#4D8FFF"}}>Access your admin and evaluator tools</p>
+          <p className="text-sm mt-1" style={{color:"#3b82f6"}}>Access your admin and evaluator tools</p>
         </div>
 
         {error && (
@@ -53,7 +53,7 @@ export default function SignInPage() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Email</label>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
               <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <input
                 type="email"
@@ -69,9 +69,9 @@ export default function SignInPage() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium" style={{color:"#A0B4D0"}}>Password</label>
-              <a href="/account/forgot-password" className="text-xs hover:underline" style={{color:"#4D8FFF"}}>Forgot password?</a>
+              <a href="/account/forgot-password" className="text-xs hover:underline" style={{color:"#3b82f6"}}>Forgot password?</a>
             </div>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
               <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <input
                 type="password"
@@ -87,7 +87,7 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors" style={{background:"#1A6BFF"}}
+            className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors" style={{background:"#0b5cd6"}}
           >
             <LogIn className="w-4 h-4" />
             {loading ? "Signing in…" : "Sign in"}
@@ -95,7 +95,7 @@ export default function SignInPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <a href="/account/signup" className="text-sm hover:underline" style={{color:"#4D8FFF"}}>
+          <a href="/account/signup" className="text-sm hover:underline" style={{color:"#3b82f6"}}>
             New association? Request an account →
           </a>
         </div>

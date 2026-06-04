@@ -26,7 +26,7 @@ export async function POST(request, { params }) {
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${time || "-"}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${e.location || "-"}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${e.checkin_code ? '<code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px;">' + e.checkin_code + '</code>' : "-"}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${checkinUrl ? '<a href="' + checkinUrl + '" style="color:#1A6BFF;font-size:13px;">Open Check-in</a>' : "-"}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${checkinUrl ? '<a href="' + checkinUrl + '" style="color:#0b5cd6;font-size:13px;">Open Check-in</a>' : "-"}</td>
         </tr>
       `;
     }).join("");

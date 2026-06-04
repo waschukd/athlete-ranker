@@ -112,7 +112,7 @@ function GroupsManagerInner() {
   const exportPrint = () => {
     const sessionName = currentSession?.name || 'Session ' + selectedSession;
     const catName = setupData?.category?.name || '';
-    let html = '<html><head><title>' + catName + ' - ' + sessionName + '</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h1{font-size:20px;margin-bottom:4px}.subtitle{font-size:13px;color:#555;margin-bottom:24px}.group{margin-bottom:28px;page-break-inside:avoid}.group-header{background:#1A6BFF;color:white;padding:8px 14px;border-radius:6px 6px 0 0;font-size:14px;font-weight:bold}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f3f4f6;padding:7px 10px;text-align:left;font-size:12px;border-bottom:1px solid #e5e7eb}td{padding:7px 10px;border-bottom:1px solid #f3f4f6}</style></head><body>';
+    let html = '<html><head><title>' + catName + ' - ' + sessionName + '</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h1{font-size:20px;margin-bottom:4px}.subtitle{font-size:13px;color:#555;margin-bottom:24px}.group{margin-bottom:28px;page-break-inside:avoid}.group-header{background:#0b5cd6;color:white;padding:8px 14px;border-radius:6px 6px 0 0;font-size:14px;font-weight:bold}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f3f4f6;padding:7px 10px;text-align:left;font-size:12px;border-bottom:1px solid #e5e7eb}td{padding:7px 10px;border-bottom:1px solid #f3f4f6}</style></head><body>';
     html += '<h1>' + catName + ' — ' + sessionName + '</h1><div class="subtitle">Generated ' + new Date().toLocaleDateString() + '</div>';
     for (const group of groups) {
       const players = assignments.filter(a => a.session_group_id === group.id);
@@ -275,7 +275,7 @@ function GroupsManagerInner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#1A6BFF] mb-4 text-sm font-medium transition-colors">
+            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#0b5cd6] mb-4 text-sm font-medium transition-colors">
             <ArrowLeft size={15} /> Back to Category
           </a>
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -324,7 +324,7 @@ function GroupsManagerInner() {
                 onClick={() => setSelectedSession(s.session_number)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                   selectedSession === s.session_number
-                    ? "border-[#1A6BFF] text-[#1A6BFF]"
+                    ? "border-[#0b5cd6] text-[#0b5cd6]"
                     : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 Session {s.session_number}
@@ -407,7 +407,7 @@ function GroupsManagerInner() {
               </button>
               <button
                 onClick={() => autoAssign("ranking", false)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
               >
                 <Shuffle size={14} /> By Ranking
               </button>
@@ -423,7 +423,7 @@ function GroupsManagerInner() {
 
         {groupsLoading ? (
           <div className="py-12 text-center text-gray-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF] mx-auto mb-3" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6] mx-auto mb-3" />
             Loading groups...
           </div>
         ) : groups.length === 0 ? (
@@ -450,14 +450,14 @@ function GroupsManagerInner() {
                   onDragLeave={() => setDragOver(null)}
                   className={`bg-white border-2 rounded-2xl overflow-hidden transition-all ${
                     isDropTarget
-                      ? "border-[#1A6BFF] shadow-lg shadow-orange-100"
+                      ? "border-[#0b5cd6] shadow-lg shadow-orange-100"
                       : "border-gray-200"
                   }`}
                 >
                   {/* Group header */}
                   <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-sm font-bold">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-sm font-bold">
                         {group.group_number}
                       </div>
                       <div>
@@ -480,7 +480,7 @@ function GroupsManagerInner() {
                           </button>
                           {scheduleId && (
                             <a href={`/checkin/${scheduleId}`} target="_blank"
-                              className="p-1 text-[#1A6BFF] hover:text-[#0F4FCC] rounded"
+                              className="p-1 text-[#0b5cd6] hover:text-[#0F4FCC] rounded"
                               title="Open check-in">
                               <ExternalLink size={11} />
                             </a>
@@ -544,7 +544,7 @@ function GroupsManagerInner() {
                               {player.last_name}, {player.first_name}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#1A6BFF]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
+                              {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#0b5cd6]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
                               {player.external_id && <span className="text-xs text-gray-300 ml-1">{player.external_id}</span>}
                             </div>
                           </div>
@@ -580,7 +580,7 @@ function GroupsManagerInner() {
 
                     {/* Drop zone indicator */}
                     {isDropTarget && players.length > 0 && (
-                      <div className="py-2 text-center text-xs text-[#1A6BFF] bg-orange-50 font-medium">
+                      <div className="py-2 text-center text-xs text-[#0b5cd6] bg-orange-50 font-medium">
                         Drop to add to this group
                       </div>
                     )}
@@ -635,7 +635,7 @@ export default function GroupsPage() {
     <QueryClientProvider client={qc}>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
         </div>
       }>
         <GroupsManagerInner />

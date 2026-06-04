@@ -37,7 +37,7 @@ export default function PublicReportPDF({ params }) {
       `}</style>
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #1A6BFF, #4D8FFF)", borderRadius: 12, padding: "24px 32px", color: "white", marginBottom: 24 }}>
+      <div style={{ background: "linear-gradient(135deg, #0b5cd6, #3b82f6)", borderRadius: 12, padding: "24px 32px", color: "white", marginBottom: 24 }}>
         <div style={{ fontSize: 18, fontWeight: 800 }}>Sideline Star</div>
         <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>Player Evaluation Report</div>
       </div>
@@ -60,7 +60,7 @@ export default function PublicReportPDF({ params }) {
       {/* Stats Row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
         {[
-          { label: "Overall Rank", value: `#${rank || "—"}`, color: "#1A6BFF" },
+          { label: "Overall Rank", value: `#${rank || "—"}`, color: "#0b5cd6" },
           { label: "Percentile", value: percentile !== null ? `${percentile}%` : "—", color: "#16a34a" },
           { label: "Avg Score", value: `${overall_avg || "—"}/${scale}`, color: "#111" },
           { label: "Athletes", value: total_athletes, color: "#111" },
@@ -118,7 +118,7 @@ export default function PublicReportPDF({ params }) {
       {scouting_report && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333" }}>Scouting Report</div>
-          <div style={{ borderLeft: "4px solid #1A6BFF", paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap" }}>
+          <div style={{ borderLeft: "4px solid #0b5cd6", paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap" }}>
             {scouting_report}
           </div>
           <div style={{ fontSize: 10, color: "#999", marginTop: 8 }}>Generated from evaluator observations using AI analysis</div>

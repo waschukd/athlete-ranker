@@ -860,7 +860,7 @@ function ScoringInterface() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -966,7 +966,7 @@ function ScoringInterface() {
                 </div>
               )}
             </div>
-            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-[#1A6BFF] bg-blue-900/20 hover:bg-blue-900/30 border-t border-blue-800/30">
+            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-[#0b5cd6] bg-blue-900/20 hover:bg-blue-900/30 border-t border-blue-800/30">
               Got it — Start Scoring
             </button>
           </div>
@@ -978,7 +978,7 @@ function ScoringInterface() {
             <button key={t} onClick={() => setTeamFilter(t)}
               className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${
                 teamFilter === t
-                  ? "text-white border-b-2 border-[#1A6BFF]"
+                  ? "text-white border-b-2 border-[#0b5cd6]"
                   : "text-gray-500 border-b-2 border-transparent"
               }`}>
               {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
@@ -1002,7 +1002,7 @@ function ScoringInterface() {
                 { id: "grid", label: "Grid" },
               ].map(m => (
                 <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
-                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-[#1A6BFF] text-white" : "text-gray-400"}`}>
+                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-[#0b5cd6] text-white" : "text-gray-400"}`}>
                   {m.label}
                 </button>
               ))}
@@ -1063,7 +1063,7 @@ function ScoringInterface() {
                             }}
                             className={`w-full bg-transparent text-center text-sm font-mono outline-none rounded py-1 ${
                               val !== null && val !== undefined ? "text-white" : "text-gray-600"
-                            } focus:bg-gray-700 focus:ring-1 focus:ring-[#1A6BFF]`}
+                            } focus:bg-gray-700 focus:ring-1 focus:ring-[#0b5cd6]`}
                             placeholder="–"
                           />
                         </td>
@@ -1109,7 +1109,7 @@ function ScoringInterface() {
                 onClick={() => setSelected(isActive ? null : athlete)}
                 className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none
                   ${isActive
-                    ? "bg-[#1A6BFF] border-2 border-orange-300 ring-4 ring-[#1A6BFF]/40 scale-105 shadow-xl shadow-orange-900/40"
+                    ? "bg-[#0b5cd6] border-2 border-orange-300 ring-4 ring-[#0b5cd6]/40 scale-105 shadow-xl shadow-orange-900/40"
                     : status === "complete"
                     ? "bg-green-600 border-2 border-green-400"
                     : status === "partial"
@@ -1207,7 +1207,7 @@ function ScoringInterface() {
                       placeholder="—"
                       className={`w-20 py-3 text-center text-lg font-bold rounded-xl border-2 outline-none transition-colors ${
                         current !== null && current !== undefined
-                          ? "bg-[#1A6BFF]/10 border-[#1A6BFF] text-white"
+                          ? "bg-[#0b5cd6]/10 border-[#0b5cd6] text-white"
                           : "bg-gray-800 border-gray-600 text-gray-400"
                       }`}
                     />
@@ -1234,8 +1234,8 @@ function ScoringInterface() {
                         <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
                           className={`py-2 md:py-3.5 rounded text-xs md:text-base font-bold transition-all ${
                             current === v
-                              ? "bg-[#1A6BFF] text-white shadow-lg shadow-blue-900/50"
-                              : "bg-gray-700 text-gray-300 active:bg-[#1A6BFF] active:text-white"
+                              ? "bg-[#0b5cd6] text-white shadow-lg shadow-blue-900/50"
+                              : "bg-gray-700 text-gray-300 active:bg-[#0b5cd6] active:text-white"
                           }`}>
                           {v}
                         </button>
@@ -1257,7 +1257,7 @@ function ScoringInterface() {
                 onChange={e => updateNotes(selected.id, e.target.value)}
                 placeholder={voiceOn ? `Voice active — say "Notes" to dictate, or type here` : "Type notes here, or use voice..."}
                 rows={3}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#1A6BFF] resize-none"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#0b5cd6] resize-none"
               />
             </div>
 
@@ -1341,7 +1341,7 @@ function ScoringInterface() {
             </div>
 
             {consensusLoading ? (
-              <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A6BFF] mx-auto" /></div>
+              <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6] mx-auto" /></div>
             ) : !consensusData?.athletes?.length ? (
               <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
             ) : (
@@ -1449,7 +1449,7 @@ function ScoringInterface() {
                       : "All flagged athletes reviewed. Ready to close."}
                   </p>
                   <button onClick={closeSession} disabled={closing}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50">
+                    className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50">
                     {closing ? "Closing..." : "Close Session"}
                   </button>
                 </div>
@@ -1542,7 +1542,7 @@ export default function ScorePage() {
     <QueryClientProvider client={qc}>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
         </div>
       }>
         <ScoringInterface />
