@@ -1,10 +1,12 @@
 const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
+// Returns { ok, skipped?, error? } so callers can surface delivery status to the
+// user instead of silently swallowing failures.
 export async function sendEmail(to, subject, html) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set — skipping email to", to);
-    return;
+    return { ok: false, skipped: true, error: "Email is not configured" };
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -18,29 +20,40 @@ export async function sendEmail(to, subject, html) {
     if (!res.ok) {
       const err = await res.text();
       console.error("Resend error:", err);
+      return { ok: false, error: err || "Email provider rejected the message" };
     }
+    return { ok: true };
   } catch (e) {
     console.error("Email send failed:", e);
+    return { ok: false, error: e?.message || "Email send failed" };
   }
 }
+
+const BODY_FONT = "'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const DISPLAY_FONT = "'Archivo','Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 export function emailWrapper(content) {
   return `<!DOCTYPE html>
   <html>
-  <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body style="margin:0;padding:0;background:#fbfbf9;font-family:${BODY_FONT};-webkit-font-smoothing:antialiased;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbfbf9;padding:40px 20px;">
       <tr><td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #ededeb;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -34px rgba(10,12,16,0.3);">
           <tr>
-            <td style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:28px 40px;text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Sideline Star</div>
-              <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">Athlete Evaluation Platform</div>
+            <td style="background:#0b5cd6;padding:30px 40px;text-align:center;">
+              <div style="font-family:${DISPLAY_FONT};font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.6px;">Sideline Star</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.82);margin-top:4px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;">Athlete Evaluation Platform</div>
             </td>
           </tr>
           <tr><td style="padding:36px 40px;">${content}</td></tr>
           <tr>
-            <td style="padding:16px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#9ca3af;">© Sideline Star · sidelinestar.com</p>
+            <td style="padding:16px 40px;border-top:1px solid #ededeb;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#9aa0aa;">© Sideline Star · sidelinestar.com</p>
             </td>
           </tr>
         </table>
@@ -51,19 +64,19 @@ export function emailWrapper(content) {
 }
 
 function btn(url, label) {
-  return `<a href="${url}" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">${label}</a>`;
+  return `<a href="${url}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:14px 30px;background:#0b5cd6;color:#ffffff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;letter-spacing:0.01em;">${label}</a>`;
 }
 
 function credBox(rows) {
   const rowsHtml = rows.map(([label, value, highlight]) =>
     `<tr>
-      <td style="padding:6px 0;font-size:13px;color:#6b7280;width:140px;">${label}</td>
-      <td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">
-        ${highlight ? `<code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#0b5cd6;">${value}</code>` : value}
+      <td style="padding:6px 0;font-size:13px;color:#5b606b;width:140px;">${label}</td>
+      <td style="padding:6px 0;font-size:13px;font-weight:600;color:#101113;">
+        ${highlight ? `<code style="background:#eaf1fe;border:1px solid #c7dcfb;padding:2px 8px;border-radius:6px;color:#0b5cd6;font-weight:700;">${value}</code>` : value}
       </td>
     </tr>`
   ).join("");
-  return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
+  return `<div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:20px 0;">
     <table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
   </div>`;
 }
@@ -90,6 +103,20 @@ export async function emailWelcomeAssociation({ name, email, tempPassword, orgNa
     ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
   `);
   await sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
+}
+
+// Invite to finish setting up an org account (sets their own password via the
+// /accept-invite link). Replaces the old temp-password welcome for SP/God-Mode
+// created orgs. Returns the sendEmail status so callers can report it.
+export async function emailOrgInvite({ name, email, orgName, orgType, inviteUrl }) {
+  const kind = orgType === "service_provider" ? "service provider" : "association";
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#101113;">You're invited</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${name || "there"}</strong>, you've been invited to manage <strong style="color:#101113;">${orgName}</strong> as a ${kind} on Sideline Star. Click below to set your password and finish setting up your account.</p>
+    <div style="text-align:center;margin:28px 0;">${btn(inviteUrl, "Finish setting up →")}</div>
+    <p style="font-size:12px;color:#9aa0aa;text-align:center;margin:0;">This link expires in 7 days. If you didn't expect this invitation, you can ignore it.</p>
+  `);
+  return await sendEmail(email, `You're invited to manage ${orgName} on Sideline Star`, html);
 }
 
 export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId }) {

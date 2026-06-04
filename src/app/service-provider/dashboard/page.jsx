@@ -563,9 +563,19 @@ function SPDashboard() {
                       <div><label className="text-xs font-medium text-gray-500 mb-1 block">Phone</label><input type="text" placeholder="403-555-1234" value={newClient.contact_phone} onChange={e => setNewClient(p => ({ ...p, contact_phone: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
                       <div><label className="text-xs font-medium text-gray-500 mb-1 block">City / Address</label><input type="text" placeholder="Calgary, AB" value={newClient.address} onChange={e => setNewClient(p => ({ ...p, address: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
                     </div>
-                    {newClientMsg && <p className={`text-xs font-medium ${newClientMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{newClientMsg.text}</p>}
+                    {newClientMsg && (
+                      <div className={`text-xs font-medium ${newClientMsg.type === "success" ? "text-green-600" : newClientMsg.type === "warn" ? "text-amber-600" : "text-red-500"}`}>
+                        <p>{newClientMsg.text}</p>
+                        {newClientMsg.url && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <input readOnly value={newClientMsg.url} className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 font-mono" />
+                            <button type="button" onClick={() => navigator.clipboard.writeText(newClientMsg.url)} className="px-2.5 py-1.5 bg-accent text-white rounded text-xs font-semibold hover:opacity-90">Copy</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="flex gap-3 pt-2">
-                      <button onClick={() => setShowNewClient(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm">Cancel</button>
+                      <button onClick={() => setShowNewClient(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm">Close</button>
                       <button disabled={!newClient.name || !newClient.contact_email || !newClient.contact_name || newClientSaving}
                         onClick={async () => {
                           setNewClientSaving(true);
@@ -574,11 +584,16 @@ function SPDashboard() {
                           const data = await res.json();
                           if (!data.organization) { setNewClientMsg({ type: "error", text: data.error || "Failed to create" }); setNewClientSaving(false); return; }
                           await fetch(spUrl("/api/service-provider/associations"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ association_id: data.organization.id }) });
-                          setNewClientMsg({ type: "success", text: `${newClient.name} created and linked!` });
+                          const inv = data.invite;
+                          setNewClientMsg(
+                            inv?.sent
+                              ? { type: "success", text: `${newClient.name} created — ${inv.message}` }
+                              : { type: inv?.url ? "warn" : "success", text: inv?.message || `${newClient.name} created and linked!`, url: inv?.url || null }
+                          );
                           setNewClientSaving(false);
                           setNewClient({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "" });
                           queryClient.invalidateQueries(["sp-associations"]);
-                          setTimeout(() => setShowNewClient(false), 1500);
+                          if (inv?.sent) setTimeout(() => setShowNewClient(false), 1800);
                         }}
                         className="flex-1 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
                         {newClientSaving ? "Creating..." : "Create and Link"}

@@ -50,32 +50,53 @@ function parseCSV(text) {
   });
 }
 
-function StepIndicator({ currentStep }) {
+function StepIndicator({ currentStep, sessions, onJump }) {
+  // A step is reachable if all prerequisite steps are satisfied.
+  // Step 1 prerequisite: weights === 100%. Steps 2-5: step 1 must be valid first.
+  const step1Valid = Math.round(sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0)) === 100;
+
+  const canJumpTo = (targetId) => {
+    if (targetId === currentStep) return false; // already here
+    if (targetId > currentStep) {
+      // Can only jump forward to a step if step 1 weights are valid (gates the whole chain)
+      return step1Valid;
+    }
+    // Can always jump back to a completed step
+    return targetId < currentStep;
+  };
+
   return (
     <div className="flex items-center gap-0 mb-10">
       {STEPS.map((step, i) => {
         const Icon = step.icon;
         const done = currentStep > step.id;
         const active = currentStep === step.id;
+        const jumpable = canJumpTo(step.id);
         return (
           <div key={step.id} className="flex items-center flex-1">
             <div className="flex flex-col items-center flex-1">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all ${
-                done ? "bg-[#0b5cd6] border-[#0b5cd6]" :
-                active ? "bg-white border-[#0b5cd6]" :
-                "bg-white border-gray-200"
-              }`}>
+              <button
+                type="button"
+                onClick={() => jumpable && onJump(step.id)}
+                disabled={!jumpable}
+                title={jumpable ? `Go to ${step.label}` : undefined}
+                className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  done ? "bg-accent border-accent" :
+                  active ? "bg-white border-accent" :
+                  "bg-white border-gray-200"
+                } ${jumpable ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
+              >
                 {done
                   ? <Check size={15} className="text-white" />
-                  : <Icon size={15} className={active ? "text-[#0b5cd6]" : "text-gray-400"} />
+                  : <Icon size={15} className={active ? "text-accent" : "text-gray-400"} />
                 }
-              </div>
-              <span className={`text-xs mt-1.5 font-medium ${active ? "text-[#0b5cd6]" : done ? "text-gray-600" : "text-gray-400"}`}>
+              </button>
+              <span className={`text-xs mt-1.5 font-medium ${active ? "text-accent" : done ? "text-gray-600" : "text-gray-400"} ${jumpable ? "cursor-pointer" : ""}`}>
                 {step.label}
               </span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`h-0.5 flex-1 mb-5 ${done ? "bg-[#0b5cd6]" : "bg-gray-200"}`} />
+              <div className={`h-0.5 flex-1 mb-5 ${done ? "bg-accent" : "bg-gray-200"}`} />
             )}
           </div>
         );
@@ -102,6 +123,17 @@ function SessionsStep({ sessions, setSessions }) {
     setSessions(prev => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, session_number: idx + 1 })));
   };
 
+  const autoBalance = () => {
+    const count = sessions.length;
+    if (count === 0) return;
+    const base = Math.floor(100 / count);
+    const remainder = 100 - base * count;
+    setSessions(prev => prev.map((s, idx) => ({
+      ...s,
+      weight_percentage: idx < remainder ? base + 1 : base,
+    })));
+  };
+
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-1">Configure Sessions</h2>
@@ -111,20 +143,20 @@ function SessionsStep({ sessions, setSessions }) {
         {sessions.map((sess, i) => (
           <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-[#3b82f6] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                 {i + 1}
               </div>
               <input
                 type="text"
                 value={sess.name}
                 onChange={e => updateSession(i, "name", e.target.value)}
-                className="flex-1 min-w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                className="flex-1 min-w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 placeholder="Session name"
               />
               <select
                 value={sess.session_type}
                 onChange={e => updateSession(i, "session_type", e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
               >
                 {SESSION_TYPES.map(t => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -135,7 +167,7 @@ function SessionsStep({ sessions, setSessions }) {
                   type="number"
                   value={sess.weight_percentage}
                   onChange={e => updateSession(i, "weight_percentage", Number(e.target.value))}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] text-center"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent text-center"
                   min="0" max="100" step="5"
                 />
                 <span className="text-sm text-gray-500">%</span>
@@ -153,9 +185,19 @@ function SessionsStep({ sessions, setSessions }) {
         ))}
       </div>
 
-      <button onClick={addSession} className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-[#0b5cd6] hover:text-[#0b5cd6] text-sm transition-colors mb-6">
-        <Plus size={14} /> Add Session
-      </button>
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={addSession} className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-accent hover:text-accent text-sm transition-colors">
+          <Plus size={14} /> Add Session
+        </button>
+        {!isValid && (
+          <button
+            onClick={autoBalance}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-accent text-accent rounded-lg text-sm font-medium hover:bg-accent hover:text-white transition-colors"
+          >
+            <Zap size={14} /> Auto-balance to 100%
+          </button>
+        )}
+      </div>
 
       <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${isValid ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
         <span className={`text-sm font-medium ${isValid ? "text-green-700" : "text-amber-700"}`}>
@@ -201,7 +243,7 @@ function ScoringStep({ scoring, setScoring }) {
                 key={scale}
                 onClick={() => setScoring(prev => ({ ...prev, scoring_scale: scale }))}
                 className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
-                  scoring.scoring_scale === scale ? "border-[#0b5cd6] bg-orange-50 text-[#0b5cd6]" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  scoring.scoring_scale === scale ? "border-accent bg-orange-50 text-accent" : "border-gray-200 text-gray-600 hover:border-gray-300"
                 }`}
               >
                 Out of {scale}
@@ -218,7 +260,7 @@ function ScoringStep({ scoring, setScoring }) {
                 key={inc}
                 onClick={() => setScoring(prev => ({ ...prev, scoring_increment: inc }))}
                 className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
-                  scoring.scoring_increment === inc ? "border-[#0b5cd6] bg-orange-50 text-[#0b5cd6]" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  scoring.scoring_increment === inc ? "border-accent bg-orange-50 text-accent" : "border-gray-200 text-gray-600 hover:border-gray-300"
                 }`}
               >
                 {inc === 1 ? "Whole (1, 2...)" : "Half (0.5, 1...)"}
@@ -233,7 +275,7 @@ function ScoringStep({ scoring, setScoring }) {
           <label className="text-sm font-semibold text-gray-700">Position Tagging</label>
           <button
             onClick={() => setScoring(prev => ({ ...prev, position_tagging: !prev.position_tagging }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.position_tagging ? "bg-[#0b5cd6]" : "bg-gray-200"}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.position_tagging ? "bg-accent" : "bg-gray-200"}`}
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.position_tagging ? "translate-x-6" : "translate-x-1"}`} />
           </button>
@@ -248,7 +290,7 @@ function ScoringStep({ scoring, setScoring }) {
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-semibold text-gray-700">Scoring Categories</label>
-          <button onClick={addCategory} className="inline-flex items-center gap-1.5 text-xs text-[#0b5cd6] hover:text-[#0F4FCC] font-medium">
+          <button onClick={addCategory} className="inline-flex items-center gap-1.5 text-xs text-accent hover:opacity-70 font-medium">
             <Plus size={13} /> Add Category
           </button>
         </div>
@@ -261,14 +303,14 @@ function ScoringStep({ scoring, setScoring }) {
                 type="text"
                 value={cat.name}
                 onChange={e => updateCategory(i, "name", e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white"
+                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                 placeholder="Category name"
               />
               {scoring.position_tagging && (
                 <select
                   value={cat.applies_to}
                   onChange={e => updateCategory(i, "applies_to", e.target.value)}
-                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white"
+                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                 >
                   <option value="all">All</option>
                   <option value="skaters">Skaters</option>
@@ -369,7 +411,7 @@ function AthletesStep({ catId }) {
       </div>
 
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg transition-shadow">
+        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg transition-shadow">
           <Upload size={15} />
           {importing ? "Importing..." : "Upload CSV"}
           <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={importing} />
@@ -400,26 +442,26 @@ function AthletesStep({ catId }) {
           <p className="text-sm font-semibold text-gray-700 mb-3">Quick Add Player</p>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <input type="text" placeholder="First Name *" required value={quickAdd.first_name} onChange={e => setQuickAdd(p => ({ ...p, first_name: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <input type="text" placeholder="Last Name *" required value={quickAdd.last_name} onChange={e => setQuickAdd(p => ({ ...p, last_name: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <input type="text" placeholder="HC# / Player ID" value={quickAdd.external_id} onChange={e => setQuickAdd(p => ({ ...p, external_id: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <select value={quickAdd.position} onChange={e => setQuickAdd(p => ({ ...p, position: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white">
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white">
               <option value="">Position (optional)</option>
               <option value="forward">Forward</option>
               <option value="defense">Defense</option>
               <option value="goalie">Goalie</option>
             </select>
             <input type="number" placeholder="Birth Year" value={quickAdd.birth_year} onChange={e => setQuickAdd(p => ({ ...p, birth_year: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setShowQuickAdd(false)}
               className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
             <button type="submit" disabled={addingPlayer}
-              className="px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium hover:bg-[#0F4FCC] disabled:opacity-50">
+              className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
               {addingPlayer ? "Adding..." : "Add Player"}
             </button>
           </div>
@@ -519,8 +561,11 @@ function ScheduleStep({ catId }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-1">Upload Schedule</h2>
-      <p className="text-sm text-gray-500 mb-6">Upload your evaluation schedule. This creates the full evaluation timeline and is shared with your service provider and evaluators.</p>
+      <div className="flex items-start justify-between mb-1 gap-4">
+        <h2 className="text-xl font-bold text-gray-900">Upload Schedule</h2>
+        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 mt-0.5">Optional — can add later</span>
+      </div>
+      <p className="text-sm text-gray-500 mb-6">Upload your evaluation schedule. This creates the full evaluation timeline and is shared with your service provider and evaluators. You can skip this step and add it later.</p>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between mb-1">
@@ -535,7 +580,7 @@ function ScheduleStep({ catId }) {
       </div>
 
       <div className="flex items-center gap-3 mb-6">
-        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg transition-shadow">
+        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg transition-shadow">
           <Upload size={15} />
           {importing ? "Importing..." : "Upload Schedule CSV"}
           <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={importing} />
@@ -559,7 +604,7 @@ function ScheduleStep({ catId }) {
           {Object.entries(bySession).sort(([a], [b]) => Number(a) - Number(b)).map(([sessionNum, entries]) => (
             <div key={sessionNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-100">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold">
                   {sessionNum}
                 </div>
                 <span className="text-sm font-semibold text-gray-700">Session {sessionNum}</span>
@@ -608,12 +653,12 @@ function ReviewStep({ catName, sessions, scoring }) {
 
       <div className="space-y-4">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Trophy size={15} className="text-[#0b5cd6]" /> Sessions ({sessions.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Trophy size={15} className="text-accent" /> Sessions ({sessions.length})</h3>
           <div className="space-y-2">
             {sessions.map((s, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700">{s.name} <span className="text-gray-400 capitalize">({s.session_type})</span></span>
-                <span className="font-semibold text-[#0b5cd6]">{s.weight_percentage}%</span>
+                <span className="font-semibold text-accent">{s.weight_percentage}%</span>
               </div>
             ))}
             <div className={`flex items-center justify-between text-sm pt-2 border-t border-gray-200 font-semibold ${totalWeight === 100 ? "text-green-600" : "text-red-500"}`}>
@@ -624,7 +669,7 @@ function ReviewStep({ catName, sessions, scoring }) {
         </div>
 
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Settings size={15} className="text-[#0b5cd6]" /> Scoring</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Settings size={15} className="text-accent" /> Scoring</h3>
           <div className="grid grid-cols-2 gap-3 text-sm mb-3">
             <div><span className="text-gray-500">Scale:</span> <span className="font-medium">Out of {scoring.scoring_scale}</span></div>
             <div><span className="text-gray-500">Increments:</span> <span className="font-medium">{scoring.scoring_increment === 0.5 ? "0.5" : "1.0"}</span></div>
@@ -632,7 +677,7 @@ function ReviewStep({ catName, sessions, scoring }) {
           </div>
           <div className="flex flex-wrap gap-2">
             {scoring.categories.map((c, i) => (
-              <span key={i} className="px-2.5 py-1 bg-orange-50 text-[#0b5cd6] border border-orange-200 rounded-full text-xs font-medium">{c.name}</span>
+              <span key={i} className="px-2.5 py-1 bg-orange-50 text-accent border border-orange-200 rounded-full text-xs font-medium">{c.name}</span>
             ))}
           </div>
         </div>
@@ -751,7 +796,7 @@ function SetupWizard() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-10">
-        <StepIndicator currentStep={step} />
+        <StepIndicator currentStep={step} sessions={sessions} onJump={setStep} />
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
           {step === 1 && <SessionsStep sessions={sessions} setSessions={setSessions} />}
@@ -782,7 +827,7 @@ function SetupWizard() {
           <button
             onClick={saveStep}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50 transition-shadow"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50 transition-shadow"
           >
             {saving ? "Saving..." : step === 5 ? "Launch Category" : "Save & Continue"}
             {!saving && <ArrowRight size={15} />}
@@ -796,7 +841,7 @@ function SetupWizard() {
 export default function CategorySetupPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <SetupWizard />
       </Suspense>
     </QueryClientProvider>
