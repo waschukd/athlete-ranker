@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { computeCategoryRankings } from "@/lib/rankings";
 
 export async function GET(request, { params }) {
   try {
@@ -63,13 +64,10 @@ export async function GET(request, { params }) {
       ORDER BY pn.session_number, pn.created_at
     `;
 
-    // Get rankings from the single source of truth
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const rankRes = await fetch(`${baseUrl}/api/categories/${catId}/rankings`, {
-      headers: { cookie: request.headers.get("cookie") || "" },
-    });
-    let rankData = {};
-    try { if (rankRes.ok) rankData = await rankRes.json(); } catch {}
+    // Get rankings from the single source of truth (computed directly — no HTTP
+    // self-fetch, which previously fell back to localhost in production and left
+    // every report with null ranking and a 100th-percentile fallback).
+    const rankData = await computeCategoryRankings(catId);
     const athleteRanking = rankData.athletes?.find(a => String(a.id) === String(athleteId));
     const totalAthletes = rankData.athletes?.length || 0;
 
