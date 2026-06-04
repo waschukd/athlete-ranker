@@ -81,7 +81,7 @@ function PDFReportInner() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sideline Star · Player Report</div>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px" }}>{athlete.first_name} {athlete.last_name}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{athlete.first_name} {athlete.last_name}</div>
             <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
               {athlete.position && <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12, textTransform: "capitalize" }}>{athlete.position}</span>}
               {athlete.external_id && <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12 }}>{athlete.external_id}</span>}
@@ -113,7 +113,7 @@ function PDFReportInner() {
 
       {/* Session Scores */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}` }}>Session Scores</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}`, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Session Scores</div>
         {sessionBreakdown.map(({ session, sd, catAvgs, byEval }) => (
           <div key={session.session_number} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#f9fafb", borderBottom: "1px solid #f3f4f6" }}>
@@ -186,7 +186,7 @@ function PDFReportInner() {
       {/* Notes */}
       {notes.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}` }}>Evaluator Notes</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}`, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Evaluator Notes</div>
           {sessions.map(s => {
             const sNotes = notes.filter(n => n.session_number === s.session_number);
             if (!sNotes.length) return null;

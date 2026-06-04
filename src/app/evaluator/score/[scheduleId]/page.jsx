@@ -860,7 +860,7 @@ function ScoringInterface() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
@@ -868,23 +868,23 @@ function ScoringInterface() {
     <div className="min-h-screen bg-gray-950 text-white flex flex-col" style={{ paddingBottom: "80px" }}>
 
       {/* ── Top bar ────────────────────────────────────────── */}
-      <div className="bg-gray-900 border-b border-gray-800 sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="flex items-center justify-between px-3 py-3">
-          <a href="/evaluator/dashboard" className="p-1.5 text-gray-400 hover:text-white rounded-lg">
+          <a href="/evaluator/dashboard" className="p-1.5 text-gray-500 hover:text-ink rounded-lg">
             <ArrowLeft size={20} />
           </a>
           <div className="text-center flex-1 mx-2">
-            <div className="text-sm font-bold text-white leading-tight">
+            <div className="text-sm font-bold font-display text-ink leading-tight">
               {sessionData?.schedule?.org_name} · S{sessionData?.schedule?.session_number} G{sessionData?.schedule?.group_number}
             </div>
             <div className="flex items-center justify-center gap-3 mt-1">
-              <span className="text-xs text-green-400 font-semibold">{complete} ✓</span>
-              <span className="text-xs text-amber-400 font-semibold">{partial} partial</span>
-              <span className="text-xs text-gray-500">{remaining} left</span>
+              <span className="text-xs text-green-600 font-semibold">{complete} ✓</span>
+              <span className="text-xs text-amber-500 font-semibold">{partial} partial</span>
+              <span className="text-xs text-gray-400">{remaining} left</span>
               {/* Calibration band: range of other evaluators' scores so far */}
               {rangeData && rangeData.evaluator_count > 0 && rangeData.min != null && (
                 <span
-                  className="text-xs text-blue-300 font-medium pl-2 ml-1 border-l border-gray-700"
+                  className="text-xs text-accent font-medium pl-2 ml-1 border-l border-gray-300"
                   title={`Range from ${rangeData.evaluator_count} other evaluator${rangeData.evaluator_count === 1 ? "" : "s"} (${rangeData.total_scores} scores so far)`}
                 >
                   Room: {rangeData.min}–{rangeData.max}
@@ -896,10 +896,10 @@ function ScoringInterface() {
             {/* Connection dot */}
             <div className="flex items-center gap-1.5">
               <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${
-                online ? 'bg-green-400 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
+                online ? 'bg-green-500 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
               }`} />
               <span className={`text-xs font-medium ${
-                online ? 'text-green-400' : Object.keys(pending).length > 0 ? 'text-amber-400' : 'text-red-400'
+                online ? 'text-green-600' : Object.keys(pending).length > 0 ? 'text-amber-500' : 'text-red-500'
               }`}>
                 {online ? 'Live' : Object.keys(pending).length > 0 ? `${Object.keys(pending).length} pending` : 'Offline'}
               </span>
@@ -907,9 +907,9 @@ function ScoringInterface() {
             {/* Sync status message */}
             {syncStatus && (
               <span className={`text-xs px-2 py-1 rounded-lg ${
-                syncStatus.includes('✓') ? 'text-green-400' :
-                syncStatus.includes('fail') || syncStatus.includes('Error') ? 'text-red-400' :
-                'text-amber-400'
+                syncStatus.includes('✓') ? 'text-green-600' :
+                syncStatus.includes('fail') || syncStatus.includes('Error') ? 'text-red-500' :
+                'text-amber-500'
               }`}>{syncStatus}</span>
             )}
           </div>
@@ -917,48 +917,48 @@ function ScoringInterface() {
 
         {/* Calibration check banner */}
         {calibration && !calibrationDismissed && (
-          <div className="mx-3 mt-2 bg-gray-800 border border-blue-800/50 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 bg-blue-900/30">
-              <span className="text-xs font-semibold text-blue-300">📊 Session {calibration.prev_session} Review</span>
-              <button onClick={() => setCalibrationDismissed(true)} className="text-xs text-gray-500 hover:text-white">Dismiss</button>
+          <div className="mx-3 mt-2 bg-white border border-border rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 bg-accent-soft">
+              <span className="text-xs font-semibold text-accent">📊 Session {calibration.prev_session} Review</span>
+              <button onClick={() => setCalibrationDismissed(true)} className="text-xs text-gray-400 hover:text-ink">Dismiss</button>
             </div>
-            <div className="px-4 py-2 border-b border-gray-700/50">
-              <p className="text-[11px] text-gray-400 leading-relaxed">Quick look at how your rankings compared to the group last session. This isn't about right or wrong — it's about awareness. If you ranked a player very differently from the group, keep an eye on them today.</p>
+            <div className="px-4 py-2 border-b border-gray-200">
+              <p className="text-[11px] text-gray-500 leading-relaxed">Quick look at how your rankings compared to the group last session. This isn't about right or wrong — it's about awareness. If you ranked a player very differently from the group, keep an eye on them today.</p>
             </div>
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-4">
                 <div className="text-center" title="How often your ranking order matched the group's order">
-                  <div className={`text-lg font-bold ${calibration.rank_match >= 85 ? "text-green-400" : calibration.rank_match >= 70 ? "text-amber-400" : "text-red-400"}`}>{calibration.rank_match}%</div>
-                  <div className="text-[10px] text-gray-500">Ranking alignment</div>
+                  <div className={`text-lg font-bold font-display ${calibration.rank_match >= 85 ? "text-green-600" : calibration.rank_match >= 70 ? "text-amber-500" : "text-red-500"}`}>{calibration.rank_match}%</div>
+                  <div className="text-[10px] text-gray-400">Ranking alignment</div>
                 </div>
                 <div className="text-center" title="How many points of the scoring scale you used (higher = better differentiation)">
-                  <div className="text-lg font-bold text-white">{calibration.spread}</div>
-                  <div className="text-[10px] text-gray-500">Score range</div>
+                  <div className="text-lg font-bold font-display text-ink">{calibration.spread}</div>
+                  <div className="text-[10px] text-gray-400">Score range</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">{calibration.athletes_scored}</div>
-                  <div className="text-[10px] text-gray-500">Athletes</div>
+                  <div className="text-lg font-bold font-display text-ink">{calibration.athletes_scored}</div>
+                  <div className="text-[10px] text-gray-400">Athletes</div>
                 </div>
               </div>
               {calibration.disagreements?.length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Players you ranked differently from the group — worth a closer look today:</div>
+                  <div className="text-[10px] text-gray-400 mb-1">Players you ranked differently from the group — worth a closer look today:</div>
                   {calibration.disagreements.slice(0, 3).map((d, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-                      <span className="text-gray-300 flex-1">{d.name}</span>
+                      <span className="text-ink flex-1">{d.name}</span>
                       <span className="text-gray-500">You: #{d.your_rank}</span>
                       <span className="text-gray-500">Group: #{d.group_rank}</span>
-                      <span className={`font-bold ${d.diff >= 5 ? "text-red-400" : "text-amber-400"}`}>±{d.diff}</span>
+                      <span className={`font-bold ${d.diff >= 5 ? "text-red-500" : "text-amber-500"}`}>±{d.diff}</span>
                     </div>
                   ))}
                 </div>
               )}
               {Object.keys(calibration.category_bias || {}).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-1">Your avg vs group avg per category (+ means you scored higher, - means lower):</div>
+                  <div className="text-[10px] text-gray-400 mb-1">Your avg vs group avg per category (+ means you scored higher, - means lower):</div>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(calibration.category_bias).map(([cat, bias]) => (
-                      <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-900/30 text-amber-400" : "bg-gray-700 text-gray-400"}`}>
+                      <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-gray-100 text-gray-500"}`}>
                         {cat.split(/[\s/]/)[0]}: {bias > 0 ? "+" : ""}{bias}
                       </span>
                     ))}
@@ -966,43 +966,43 @@ function ScoringInterface() {
                 </div>
               )}
             </div>
-            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-[#0b5cd6] bg-blue-900/20 hover:bg-blue-900/30 border-t border-blue-800/30">
+            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-accent bg-accent-soft hover:opacity-90 border-t border-accent/20">
               Got it — Start Scoring
             </button>
           </div>
         )}
 
         {/* Team filter tabs */}
-        <div className="flex border-t border-gray-800">
+        <div className="flex border-t border-gray-200">
           {["all", ...teamColors].map(t => (
             <button key={t} onClick={() => setTeamFilter(t)}
               className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${
                 teamFilter === t
-                  ? "text-white border-b-2 border-[#0b5cd6]"
-                  : "text-gray-500 border-b-2 border-transparent"
+                  ? "text-accent border-b-2 border-accent"
+                  : "text-gray-400 border-b-2 border-transparent"
               }`}>
               {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
             </button>
           ))}
           <button
             onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
-            className="px-3 py-1.5 bg-amber-600/20 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-semibold hover:bg-amber-600/30"
+            className="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-600 rounded-lg text-xs font-semibold hover:bg-amber-100"
           >
             Consensus
           </button>
         </div>
           <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
-            <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-700 border-green-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+            <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
-            <div className="flex bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
               {[
                 { id: "card", label: "Buttons" },
                 { id: "numpad", label: "Numpad" },
                 { id: "grid", label: "Grid" },
               ].map(m => (
                 <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
-                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-[#0b5cd6] text-white" : "text-gray-400"}`}>
+                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
                   {m.label}
                 </button>
               ))}
@@ -1063,7 +1063,7 @@ function ScoringInterface() {
                             }}
                             className={`w-full bg-transparent text-center text-sm font-mono outline-none rounded py-1 ${
                               val !== null && val !== undefined ? "text-white" : "text-gray-600"
-                            } focus:bg-gray-700 focus:ring-1 focus:ring-[#0b5cd6]`}
+                            } focus:bg-gray-700 focus:ring-1 focus:ring-accent`}
                             placeholder="–"
                           />
                         </td>
@@ -1109,7 +1109,7 @@ function ScoringInterface() {
                 onClick={() => setSelected(isActive ? null : athlete)}
                 className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none
                   ${isActive
-                    ? "bg-[#0b5cd6] border-2 border-orange-300 ring-4 ring-[#0b5cd6]/40 scale-105 shadow-xl shadow-orange-900/40"
+                    ? "bg-accent border-2 border-orange-300 ring-4 ring-accent/40 scale-105 shadow-xl shadow-orange-900/40"
                     : status === "complete"
                     ? "bg-green-600 border-2 border-green-400"
                     : status === "partial"
@@ -1146,8 +1146,8 @@ function ScoringInterface() {
             <div className="flex-1 text-center">
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
-                <span className="font-bold text-white">#{selected.jersey_number ?? "?"}</span>
-                {!isAnon && <span className="text-white font-semibold">{selected.last_name}, {selected.first_name}</span>}
+                <span className="font-bold font-display text-white">#{selected.jersey_number ?? "?"}</span>
+                {!isAnon && <span className="text-white font-semibold font-display">{selected.last_name}, {selected.first_name}</span>}
               </div>
               {selected.position && (
                 <div className="text-xs text-gray-300 mt-0.5 font-medium">{selected.position}</div>
@@ -1207,7 +1207,7 @@ function ScoringInterface() {
                       placeholder="—"
                       className={`w-20 py-3 text-center text-lg font-bold rounded-xl border-2 outline-none transition-colors ${
                         current !== null && current !== undefined
-                          ? "bg-[#0b5cd6]/10 border-[#0b5cd6] text-white"
+                          ? "bg-accent/10 border-accent text-white"
                           : "bg-gray-800 border-gray-600 text-gray-400"
                       }`}
                     />
@@ -1234,8 +1234,8 @@ function ScoringInterface() {
                         <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
                           className={`py-2 md:py-3.5 rounded text-xs md:text-base font-bold transition-all ${
                             current === v
-                              ? "bg-[#0b5cd6] text-white shadow-lg shadow-blue-900/50"
-                              : "bg-gray-700 text-gray-300 active:bg-[#0b5cd6] active:text-white"
+                              ? "bg-accent text-white shadow-lg shadow-blue-900/50"
+                              : "bg-gray-700 text-gray-300 active:bg-accent active:text-white"
                           }`}>
                           {v}
                         </button>
@@ -1257,7 +1257,7 @@ function ScoringInterface() {
                 onChange={e => updateNotes(selected.id, e.target.value)}
                 placeholder={voiceOn ? `Voice active — say "Notes" to dictate, or type here` : "Type notes here, or use voice..."}
                 rows={3}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#0b5cd6] resize-none"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent resize-none"
               />
             </div>
 
@@ -1341,7 +1341,7 @@ function ScoringInterface() {
             </div>
 
             {consensusLoading ? (
-              <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6] mx-auto" /></div>
+              <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" /></div>
             ) : !consensusData?.athletes?.length ? (
               <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
             ) : (
@@ -1449,7 +1449,7 @@ function ScoringInterface() {
                       : "All flagged athletes reviewed. Ready to close."}
                   </p>
                   <button onClick={closeSession} disabled={closing}
-                    className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50">
+                    className="w-full py-3 bg-accent text-white rounded-xl font-semibold text-sm hover:opacity-90 disabled:opacity-50">
                     {closing ? "Closing..." : "Close Session"}
                   </button>
                 </div>
@@ -1542,7 +1542,7 @@ export default function ScorePage() {
     <QueryClientProvider client={qc}>
       <Suspense fallback={
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
         </div>
       }>
         <ScoringInterface />
