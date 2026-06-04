@@ -51,7 +51,7 @@ export default function PublicReportPage({ params }) {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
@@ -76,31 +76,49 @@ export default function PublicReportPage({ params }) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+    <div className="min-h-screen bg-gray-50">
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-3xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-3 mb-1">
-            <img src="/s-mark-dark.svg" style={{ width: 32, height: 32, objectFit: "contain" }} alt="Sideline Star" />
-            <span className="text-sm font-medium text-gray-400">Sideline Star</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">{athlete.first_name} {athlete.last_name}</h1>
-          <div className="flex items-center gap-3 mt-1">
-            {athlete.position && <span className="text-xs font-medium px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{athlete.position}</span>}
-            <span className="text-sm text-gray-500">{category_name}</span>
-            {org_name && <span className="text-xs text-gray-400">· {org_name}</span>}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-3xl mx-auto px-6 py-5">
+          <div className="min-w-0">
+            {/* Kicker */}
+            <div className="flex items-center gap-2 mb-2">
+              <img src="/s-mark-dark.svg" style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent">
+                {category_name || "Sideline Star"} · Player Report
+              </div>
+            </div>
+            {/* Title row */}
+            <div className="flex items-end gap-4 flex-wrap">
+              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+                {athlete.first_name} {athlete.last_name}
+              </h1>
+              <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {athlete.first_name[0]}{athlete.last_name[0]}
+              </div>
+            </div>
+            {/* Chips sub-line */}
+            <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+              {athlete.position && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 capitalize">
+                  {athlete.position}
+                </span>
+              )}
+              {athlete.position && (category_name || org_name) && <span className="text-gray-300">·</span>}
+              {category_name && <span>{category_name}</span>}
+              {org_name && <><span className="text-gray-300">·</span><span>{org_name}</span></>}
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="max-w-3xl mx-auto px-6">
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto">
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => !tab.locked && setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : tab.locked ? "border-transparent text-gray-300 cursor-not-allowed" : "border-transparent text-gray-500 hover:text-gray-700"
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-[3px] whitespace-nowrap transition-colors ${
+                  activeTab === tab.id ? "border-accent text-ink" : tab.locked ? "border-transparent text-gray-300 cursor-not-allowed" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 {tab.locked ? <Lock size={12} /> : <tab.icon size={14} />} {tab.label}
               </button>
@@ -133,7 +151,7 @@ export default function PublicReportPage({ params }) {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-[#0b5cd6]">#{rank || "—"}</div>
+                <div className="text-3xl font-bold text-accent">#{rank || "—"}</div>
                 <div className="text-xs text-gray-500 mt-1">Overall Rank</div>
               </div>
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
@@ -152,13 +170,13 @@ export default function PublicReportPage({ params }) {
 
             {/* Session performance */}
             <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Session Performance</h3>
+              <h3 className="font-display text-sm font-semibold text-ink mb-4">Session Performance</h3>
               <div className="space-y-3">
                 {sessions.map(s => (
                   <div key={s.session_number} className="flex items-center gap-4">
                     <div className="w-20 text-xs text-gray-500 flex-shrink-0">S{s.session_number} · {s.session_type}</div>
                     <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] rounded-full" style={{ width: s.avg_score ? `${(s.avg_score / scale) * 100}%` : "0%" }} />
+                      <div className="h-full bg-accent rounded-full" style={{ width: s.avg_score ? `${(s.avg_score / scale) * 100}%` : "0%" }} />
                     </div>
                     <div className="w-12 text-right text-sm font-semibold text-gray-900">{s.avg_score || "—"}</div>
                   </div>
@@ -171,7 +189,7 @@ export default function PublicReportPage({ params }) {
         {/* ─── Paid content ────────────────────────────── */}
         {activeTab === "scores" && purchased && data.scores && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-gray-900">Detailed Score Breakdown</h3>
+            <h3 className="font-display text-base font-semibold text-ink">Detailed Score Breakdown</h3>
             {sessions.map(s => {
               const sessionScores = data.scores.filter(sc => sc.session_number === s.session_number);
               if (!sessionScores.length) return null;
@@ -209,7 +227,7 @@ export default function PublicReportPage({ params }) {
 
         {activeTab === "notes" && purchased && data.notes && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-gray-900">Evaluator Notes</h3>
+            <h3 className="font-display text-base font-semibold text-ink">Evaluator Notes</h3>
             {data.notes.length === 0 ? (
               <div className="text-center py-12 text-gray-400 text-sm">No evaluator notes for this player</div>
             ) : (
@@ -236,11 +254,11 @@ export default function PublicReportPage({ params }) {
 
         {activeTab === "scout" && purchased && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-gray-900">AI Scouting Report</h3>
+            <h3 className="font-display text-base font-semibold text-ink">AI Scouting Report</h3>
             {data.scouting_report ? (
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
                     <Star size={14} className="text-white" />
                   </div>
                   <div>
@@ -248,7 +266,7 @@ export default function PublicReportPage({ params }) {
                     <div className="text-xs text-gray-400">{athlete.first_name} {athlete.last_name} · {category_name}</div>
                   </div>
                 </div>
-                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-[#0b5cd6]/30 pl-4">
+                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-accent/30 pl-4">
                   {data.scouting_report}
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
@@ -266,11 +284,11 @@ export default function PublicReportPage({ params }) {
         {/* ─── Paywall (shown on locked tabs or below overview) ── */}
         {!purchased && (
           <div className="mt-8">
-            <div className="bg-white border-2 border-[#0b5cd6]/20 rounded-2xl p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center mx-auto mb-4">
+            <div className="bg-white border-2 border-accent/20 rounded-2xl p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-4">
                 <Lock size={24} className="text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Unlock Full Report</h3>
+              <h3 className="font-display text-xl font-bold text-ink mb-2">Unlock Full Report</h3>
               <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">Get the complete evaluation breakdown for {athlete.first_name} including detailed scores, evaluator notes, and an AI-powered scouting report with development suggestions.</p>
 
               <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto mb-6 text-left">
@@ -294,7 +312,7 @@ export default function PublicReportPage({ params }) {
               <button
                 onClick={handleUnlock}
                 disabled={unlocking}
-                className="px-8 py-3.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-base hover:shadow-xl hover:shadow-blue-500/25 transition-all disabled:opacity-50"
+                className="px-8 py-3.5 bg-accent text-white rounded-xl font-semibold text-base hover:opacity-90 transition-all disabled:opacity-50"
               >
                 {unlocking ? "Redirecting to checkout..." : `Unlock Report — ${priceStr}`}
               </button>

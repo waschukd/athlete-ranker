@@ -36,20 +36,18 @@ function ResetPasswordInner() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
       <div className="text-center">
         <p className="text-gray-600">Invalid reset link.</p>
-        <a href="/account/forgot-password" className="text-[#0b5cd6] text-sm hover:underline mt-2 inline-block">Request a new one →</a>
+        <a href="/account/forgot-password" className="text-accent text-sm hover:underline mt-2 inline-block">Request a new one →</a>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           <div className="mb-6 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-[#0b5cd6] flex items-center justify-center mb-3">
-              <Lock className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-gray-900">Set new password</h1>
+            <img src="/s-mark-dark.svg" style={{width:48,height:48,objectFit:"contain"}} alt="Sideline Star" className="mx-auto mb-4" />
+            <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl">Set new password</h1>
             <p className="text-sm text-gray-500 mt-1">Choose a strong password</p>
           </div>
 
@@ -62,7 +60,7 @@ function ResetPasswordInner() {
               </div>
               <p className="text-gray-700 font-medium">Password updated!</p>
               <a href="/account/signin"
-                className="inline-block w-full py-3 bg-[#0b5cd6] text-white rounded-lg font-medium text-sm text-center hover:bg-[#0F4FCC] transition-colors">
+                className="inline-block w-full py-3 bg-accent text-white rounded-lg font-semibold text-sm text-center hover:opacity-90 transition-opacity">
                 Sign In →
               </a>
             </div>
@@ -73,7 +71,7 @@ function ResetPasswordInner() {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                     className="w-full outline-none text-gray-900 placeholder-gray-400 text-sm bg-transparent"
@@ -82,7 +80,7 @@ function ResetPasswordInner() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                   <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
                     className="w-full outline-none text-gray-900 placeholder-gray-400 text-sm bg-transparent"
@@ -90,7 +88,7 @@ function ResetPasswordInner() {
                 </div>
               </div>
               <button type="submit" disabled={loading || !password || !confirm}
-                className="w-full py-3 bg-[#0b5cd6] hover:bg-[#0F4FCC] text-white rounded-lg font-medium text-sm disabled:opacity-50 transition-colors">
+                className="w-full py-3 bg-accent text-white rounded-lg font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-opacity">
                 {loading ? "Updating..." : "Update Password"}
               </button>
             </form>

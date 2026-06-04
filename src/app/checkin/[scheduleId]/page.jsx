@@ -132,67 +132,94 @@ function CheckinPageInner() {
   const pct = summary.total > 0 ? Math.round((summary.checked_in / summary.total) * 100) : 0;
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   if (!data?.schedule) return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <AlertCircle size={40} className="mx-auto mb-3 text-red-400" />
-        <p className="text-lg font-semibold">Session not found</p>
+        <p className="text-lg font-semibold text-ink">Session not found</p>
       </div>
     </div>
   );
 
+  const lightCheckedIn = athletes.filter(a => a.team_color === "White" && a.checked_in).length;
+  const lightTotal = athletes.filter(a => a.team_color === "White").length;
+  const darkCheckedIn = athletes.filter(a => a.team_color === "Dark" && a.checked_in).length;
+  const darkTotal = athletes.filter(a => a.team_color === "Dark").length;
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Compact Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="font-bold text-white text-sm">{schedule.org_name} · {schedule.category_name}</div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                <span>S{schedule.session_number} · G{schedule.group_number || 1}</span>
-                {schedule.start_time && <span><Clock size={10} className="inline mr-0.5" />{formatTime(schedule.start_time)}{schedule.end_time ? ` – ${formatTime(schedule.end_time)}` : ""}</span>}
-                {schedule.location && <span><MapPin size={10} className="inline mr-0.5" />{schedule.location}</span>}
-              </div>
+    <div className="min-h-screen bg-gray-50 text-ink">
+      {/* Header — Minimal Athletic */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          {/* Kicker */}
+          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">
+            {schedule.org_name ? `${schedule.org_name}${schedule.category_name ? ` · ${schedule.category_name}` : ""}` : "Check-In"}
+          </div>
+
+          {/* Title row */}
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="flex items-end gap-4 flex-wrap">
+              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+                {schedule.session_number ? `Session ${schedule.session_number}` : "Check-In"}
+              </h1>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">+ Add</button>
-              <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700"><RefreshCw size={14} /></button>
+            <div className="flex items-center gap-1.5 pb-1">
+              <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">+ Add</button>
+              <button onClick={() => refetch()} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100"><RefreshCw size={16} /></button>
             </div>
           </div>
 
-          {/* Progress + counts */}
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="text-xs font-bold text-white">{summary.checked_in}/{summary.total}</span>
-            <span className="text-xs text-gray-500">L:{athletes.filter(a => a.team_color === "White" && a.checked_in).length}/{athletes.filter(a => a.team_color === "White").length}</span>
-            <span className="text-xs text-gray-500">D:{athletes.filter(a => a.team_color === "Dark" && a.checked_in).length}/{athletes.filter(a => a.team_color === "Dark").length}</span>
+          {/* Sub-line: counts + time/location */}
+          <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+            <span><b className="text-ink">{summary.checked_in ?? 0}</b> / <b className="text-ink">{summary.total ?? 0}</b> checked in</span>
+            {(lightTotal > 0 || darkTotal > 0) && <span className="text-gray-300">·</span>}
+            {lightTotal > 0 && <span>L <b className="text-ink">{lightCheckedIn}/{lightTotal}</b></span>}
+            {darkTotal > 0 && <span>D <b className="text-ink">{darkCheckedIn}/{darkTotal}</b></span>}
+            {(schedule.start_time || schedule.location) && <span className="text-gray-300">·</span>}
+            {schedule.start_time && (
+              <span className="flex items-center gap-1">
+                <Clock size={11} className="text-gray-400" />
+                {formatTime(schedule.start_time)}{schedule.end_time ? ` – ${formatTime(schedule.end_time)}` : ""}
+              </span>
+            )}
+            {schedule.location && (
+              <span className="flex items-center gap-1">
+                <MapPin size={11} className="text-gray-400" />
+                {schedule.location}
+              </span>
+            )}
+            {schedule.group_number && schedule.group_number > 1 && (
+              <><span className="text-gray-300">·</span><span>Group <b className="text-ink">{schedule.group_number}</b></span></>
+            )}
           </div>
 
-          {/* Search + filter (Out first) */}
-          <div className="flex gap-2">
-            <div className="flex-1 flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-2">
+          {/* Progress bar */}
+          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+
+          {/* Search + filter */}
+          <div className="flex gap-2 mt-3">
+            <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2.5">
               <Search size={13} className="text-gray-400 flex-shrink-0" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500" />
-              {search && <button onClick={() => setSearch("")} className="text-gray-500"><X size={12} /></button>}
+                className="flex-1 bg-transparent text-ink text-sm outline-none placeholder-gray-400" />
+              {search && <button onClick={() => setSearch("")} className="text-gray-400 hover:text-ink"><X size={12} /></button>}
             </div>
-            <div className="flex bg-gray-700 rounded-lg overflow-hidden">
+            <div className="flex bg-gray-100 rounded-lg overflow-hidden">
               {[
                 { id: "unchecked", label: "Out" },
                 { id: "checked", label: "In" },
                 { id: "all", label: "All" },
               ].map(f => (
                 <button key={f.id} onClick={() => setFilter(f.id)}
-                  className={`px-3 py-2 text-xs font-semibold transition-colors ${filter === f.id ? "bg-[#0b5cd6] text-white" : "text-gray-400 hover:text-white"}`}>
+                  className={`px-3 py-2.5 text-xs font-semibold transition-colors ${filter === f.id ? "bg-accent text-white" : "text-gray-500 hover:text-ink"}`}>
                   {f.label}
                 </button>
               ))}
@@ -217,17 +244,17 @@ function CheckinPageInner() {
       {/* Add Player Inline */}
       {showAddPlayer && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
-          <div className="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
             <input value={addForm.first_name}
               onChange={e => { const v = e.target.value; setAddForm(f => ({ ...f, first_name: v })); runLookup(v, addForm.last_name); }}
-              placeholder="First *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" autoFocus />
+              placeholder="First *" className="w-24 bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-accent" autoFocus />
             <input value={addForm.last_name}
               onChange={e => { const v = e.target.value; setAddForm(f => ({ ...f, last_name: v })); runLookup(addForm.first_name, v); }}
-              placeholder="Last *" className="w-24 bg-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none" />
+              placeholder="Last *" className="w-24 bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-accent" />
             <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
-              placeholder="#" type="number" className="w-14 bg-gray-700 rounded px-2 py-1.5 text-sm text-white text-center focus:outline-none" />
+              placeholder="#" type="number" className="w-14 bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-ink text-center focus:outline-none focus:border-accent" />
             <button onClick={() => setAddForm(f => ({ ...f, team_color: f.team_color === "White" ? "Dark" : "White" }))}
-              className={`px-2 py-1.5 rounded text-xs font-bold ${addForm.team_color === "Dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900"}`}>
+              className={`px-2 py-1.5 rounded text-xs font-bold border ${addForm.team_color === "Dark" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-900 border-gray-300"}`}>
               {addForm.team_color === "Dark" ? "D" : "L"}
             </button>
             <button
@@ -243,29 +270,29 @@ function CheckinPageInner() {
               className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-40 whitespace-nowrap">
               {addLoading ? "..." : "Add new"}
             </button>
-            <button onClick={() => { if (lookupTimer.current) clearTimeout(lookupTimer.current); setShowAddPlayer(false); setMatches([]); }} className="text-gray-500 hover:text-white"><X size={14} /></button>
+            <button onClick={() => { if (lookupTimer.current) clearTimeout(lookupTimer.current); setShowAddPlayer(false); setMatches([]); }} className="text-gray-400 hover:text-ink"><X size={14} /></button>
           </div>
 
           {/* Existing-roster matches — pick to check in without duplicating */}
           {matches.length > 0 && (
-            <div className="mt-2 bg-gray-800 border border-gray-700 rounded-lg divide-y divide-gray-700/60">
+            <div className="mt-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
               {matches.map(m => (
                 <div key={m.id} className="flex items-center justify-between px-3 py-2">
-                  <span className="text-sm text-white truncate">
+                  <span className="text-sm text-ink truncate">
                     {m.last_name}, {m.first_name}
-                    <span className="text-xs text-gray-500 ml-2">
+                    <span className="text-xs text-gray-400 ml-2">
                       {m.position ? `${m.position} · ` : ""}
                       {m.session_number ? `S${m.session_number}·G${m.group_number || 1}` : "unassigned"}
                     </span>
                   </span>
                   <button onClick={() => checkInExisting(m.id)}
-                    className="px-3 py-1.5 bg-[#0b5cd6] text-white rounded text-xs font-semibold whitespace-nowrap">Check in here</button>
+                    className="px-3 py-1.5 bg-accent text-white rounded text-xs font-semibold whitespace-nowrap">Check in here</button>
                 </div>
               ))}
             </div>
           )}
           {searching && matches.length === 0 && (addForm.first_name + addForm.last_name).trim().length >= 2 && (
-            <div className="mt-2 px-3 py-2 text-xs text-gray-500">Searching roster…</div>
+            <div className="mt-2 px-3 py-2 text-xs text-gray-400">Searching roster…</div>
           )}
         </div>
       )}
@@ -273,7 +300,7 @@ function CheckinPageInner() {
       {/* Player list — compact single-line rows */}
       <div className="max-w-2xl mx-auto px-4 py-3">
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-gray-500">
+          <div className="py-12 text-center text-gray-400">
             <p className="text-sm">{filter === "unchecked" ? "Everyone's checked in!" : "No players found"}</p>
           </div>
         )}
@@ -281,10 +308,10 @@ function CheckinPageInner() {
         <div className="space-y-1">
           {filtered.map(a => (
             <div key={a.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-              a.checked_in ? "bg-green-900/20 border border-green-800/30" : "bg-gray-800 border border-gray-700/50"
+              a.checked_in ? "bg-green-50 border border-green-200" : "bg-white border border-gray-200"
             }`}>
               {/* Name */}
-              <span className="text-sm text-white truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
+              <span className="text-sm text-ink truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
 
               {/* Jersey # — tap to edit, stays open until check-in or blur */}
               {editingJersey === a.id ? (
@@ -297,27 +324,27 @@ function CheckinPageInner() {
                     setTimeout(() => setEditingJersey(null), 200); // delay so "In" button can grab the value
                   }}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); quickCheckin(a); } }}
-                  className="w-14 bg-gray-700 border border-[#0b5cd6] rounded px-1 py-1 text-xs text-white text-center focus:outline-none" autoFocus />
+                  className="w-14 bg-white border border-accent rounded px-1 py-1 text-xs text-ink text-center focus:outline-none" autoFocus />
               ) : (
                 <button onClick={() => { setEditingJersey(a.id); setJerseyVal(a.jersey_number?.toString() || ""); }}
-                  className="w-10 text-center text-xs font-mono text-gray-400 hover:text-white rounded py-1">
+                  className="w-10 text-center text-xs font-mono text-gray-400 hover:text-ink rounded py-1">
                   {a.jersey_number || "# "}
                 </button>
               )}
 
               {/* W / D toggle */}
               <button onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
-                className={`w-7 h-7 rounded text-xs font-bold ${a.team_color === "Dark" ? "bg-gray-600 text-white" : "bg-white text-gray-900"}`}>
+                className={`w-7 h-7 rounded text-xs font-bold border ${a.team_color === "Dark" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-900 border-gray-300"}`}>
                 {a.team_color === "Dark" ? "D" : "L"}
               </button>
 
               {/* Check in / undo */}
               {a.checked_in ? (
                 <button onClick={() => doAction("undo_checkin", { athlete_id: a.id })}
-                  className="px-3 py-1.5 bg-green-800/50 text-green-400 rounded text-xs font-semibold">✓</button>
+                  className="px-3 py-1.5 bg-green-100 text-green-700 rounded text-xs font-semibold border border-green-200">✓</button>
               ) : (
                 <button onClick={() => quickCheckin(a)}
-                  className="px-3 py-1.5 bg-[#0b5cd6] text-white rounded text-xs font-semibold">In</button>
+                  className="px-3 py-1.5 bg-accent text-white rounded text-xs font-semibold">In</button>
               )}
             </div>
           ))}
@@ -330,7 +357,7 @@ function CheckinPageInner() {
 export default function CheckinPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <CheckinPageInner />
       </Suspense>
     </QueryClientProvider>

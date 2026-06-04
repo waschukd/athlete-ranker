@@ -49,35 +49,35 @@ function AcceptInviteForm() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6]" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
     </div>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} />
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">Sideline Star</h1>
+          <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} alt="Sideline Star" className="mx-auto mb-3" />
+          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl">Sideline Star</h1>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           {error && !invite ? (
             <div className="text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Invalid Invite</h2>
+              <h2 className="font-display font-extrabold tracking-tight text-ink text-lg mb-2">Invalid Invite</h2>
               <p className="text-gray-500 text-sm">{error}</p>
             </div>
           ) : success ? (
             <div className="text-center">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Account Created!</h2>
+              <h2 className="font-display font-extrabold tracking-tight text-ink text-lg mb-2">Account Created!</h2>
               <p className="text-gray-500 text-sm">Redirecting to your dashboard...</p>
             </div>
           ) : (
             <>
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Accept your invitation</h2>
+                <h2 className="font-display font-extrabold tracking-tight text-ink text-xl mb-1">Accept your invitation</h2>
                 <p className="text-gray-500 text-sm">
                   You've been invited to manage <strong>{invite?.org_name}</strong>.
                   Set a password to get started.
@@ -103,7 +103,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -117,7 +117,7 @@ function AcceptInviteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
                     <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="password"
@@ -132,7 +132,7 @@ function AcceptInviteForm() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white font-semibold disabled:opacity-50 transition-opacity"
+                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
                 >
                   {submitting ? "Setting up your account..." : "Create Account & Sign In"}
                 </button>
@@ -147,7 +147,7 @@ function AcceptInviteForm() {
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" /></div>}>
       <AcceptInviteForm />
     </Suspense>
   );

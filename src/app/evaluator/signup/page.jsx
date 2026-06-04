@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Zap, Eye, EyeOff, Check, AlertCircle, Loader } from "lucide-react";
+import { Eye, EyeOff, Check, AlertCircle, Loader } from "lucide-react";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -39,22 +39,22 @@ function SignupForm() {
   if (result) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8 text-center">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm w-full max-w-md p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">You're in the queue!</h1>
+          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl mb-2">You're in the queue!</h1>
           <p className="text-gray-500 mb-6">{result.message}</p>
 
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
             <p className="text-xs text-gray-400 mb-1">Your Evaluator ID</p>
-            <p className="text-2xl font-mono font-bold text-[#0b5cd6] tracking-widest">{result.evaluator_id}</p>
+            <p className="text-2xl font-mono font-bold text-accent tracking-widest">{result.evaluator_id}</p>
             <p className="text-xs text-gray-400 mt-1">Save this — it uniquely identifies you on the platform</p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
-            <p className="text-sm font-semibold text-blue-800 mb-1">What happens next?</p>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+          <div className="bg-accent-soft border border-accent/20 rounded-xl p-4 mb-6 text-left">
+            <p className="text-sm font-semibold text-ink mb-1">What happens next?</p>
+            <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
               <li>{result.org_name} will review your application</li>
               <li>You'll receive an email when approved</li>
               <li>Sign in and start picking up sessions</li>
@@ -62,7 +62,7 @@ function SignupForm() {
           </div>
 
           <a href="/account/signin"
-            className="block w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">
+            className="block w-full py-3 bg-accent text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity">
             Sign In →
           </a>
         </div>
@@ -72,18 +72,18 @@ function SignupForm() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-          <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
+          <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} alt="Sideline Star" />
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Sideline Star</h1>
+            <h1 className="font-display font-extrabold tracking-tight text-ink text-lg">Sideline Star</h1>
             <p className="text-xs text-gray-400">Evaluator Sign Up</p>
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h2>
-        <p className="text-sm text-gray-400 mb-6">You'll need a join code from your organization to get started.</p>
+        <h2 className="font-display font-extrabold tracking-tight text-ink text-2xl mb-1">Create your account</h2>
+        <p className="text-sm text-gray-500 mb-6">You'll need a join code from your organization to get started.</p>
 
         {error && (
           <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl mb-5">
@@ -105,7 +105,7 @@ function SignupForm() {
               placeholder="e.g. ABC-DEF"
               required
               maxLength={10}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] uppercase bg-gray-50"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent uppercase bg-gray-50"
             />
             <p className="text-xs text-gray-400 mt-1">Ask your service provider or association admin for this code</p>
           </div>
@@ -119,7 +119,7 @@ function SignupForm() {
                 onChange={e => set("name", e.target.value)}
                 placeholder="Dan Waschuk"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
               />
             </div>
 
@@ -131,7 +131,7 @@ function SignupForm() {
                 onChange={e => set("email", e.target.value)}
                 placeholder="dan@email.com"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
               />
             </div>
 
@@ -145,7 +145,7 @@ function SignupForm() {
                   placeholder="Min. 8 characters"
                   required
                   minLength={8}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] pr-10"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent pr-10"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -156,14 +156,14 @@ function SignupForm() {
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow disabled:opacity-60 flex items-center justify-center gap-2 mt-2">
+            className="w-full py-3 bg-accent text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 mt-2">
             {loading ? <><Loader size={16} className="animate-spin" /> Creating account...</> : "Create Account"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-400 mt-5">
           Already have an account?{" "}
-          <a href="/account/signin" className="text-[#0b5cd6] font-medium hover:underline">Sign in</a>
+          <a href="/account/signin" className="text-accent font-medium hover:underline">Sign in</a>
         </p>
       </div>
     </div>
@@ -172,7 +172,7 @@ function SignupForm() {
 
 export default function EvaluatorSignupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
       <SignupForm />
     </Suspense>
   );
