@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { snakeDistribute } from "@/lib/teamInsights";
+import { computeCategoryRankings } from "@/lib/rankings";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -80,9 +81,8 @@ export async function POST(request, { params }) {
       // snake_range = { from: 1, to: 36 } — optional, null means full list
       // position_balanced = true/false
 
-      // Get live rankings
-      const rankRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/categories/${catId}/rankings`, { headers: { cookie: request.headers.get("cookie") || "" } });
-      const rankData = await rankRes.json();
+      // Get live rankings (computed directly — see lib/rankings.js)
+      const rankData = await computeCategoryRankings(catId);
 
       if (!rankData.has_scores) {
         return NextResponse.json({ error: "No scores available. Complete all sessions first." }, { status: 400 });
