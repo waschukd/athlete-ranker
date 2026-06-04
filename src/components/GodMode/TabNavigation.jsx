@@ -1,4 +1,4 @@
-import { BarChart3, Building2, Users, Shield, Calendar, Wrench , Link2} from "lucide-react";
+import { BarChart3, Building2, Users, Shield, Calendar, Wrench , Link2, Inbox} from "lucide-react";
 
 export function TabNavigation({ activeTab, onTabChange }) {
   const tabs = [
@@ -6,6 +6,7 @@ export function TabNavigation({ activeTab, onTabChange }) {
     { id: "organizations", label: "Organizations", icon: Building2 },
     { id: "users", label: "Users", icon: Users },
     { id: "evaluators", label: "Evaluators", icon: Shield },
+    { id: "signups", label: "Signups", icon: Inbox },
     { id: "sessions", label: "Sessions", icon: Calendar },
     { id: "sp-links", label: "SP Links", icon: Link2 },
     { id: "tools", label: "Tools", icon: Wrench },

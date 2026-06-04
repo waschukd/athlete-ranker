@@ -93,6 +93,12 @@ export default function SignInPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <a href="/account/signup" className="text-sm hover:underline" style={{color:"#4D8FFF"}}>
+            New association? Request an account →
+          </a>
+        </div>
       </div>
     </div>
   );
