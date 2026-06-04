@@ -430,11 +430,12 @@ export default function CategoryDashboard({
                       {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Track</th>}
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.filter(matchesSearch).length === 0 && tableSearch && (
-                      <tr><td colSpan={hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
+                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : a.rank === 1 ? "bg-accent-soft" : ""}`}>
@@ -477,6 +478,11 @@ export default function CategoryDashboard({
                             </div>
                           ) : <span className="text-gray-200 text-xs">—</span>}
                         </td>}
+                        <td className="px-4 py-3 text-center">
+                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
+                            <FileText size={13} /> Report
+                          </a>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -816,7 +822,10 @@ export default function CategoryDashboard({
                             </td>
                             <td className="px-4 py-2.5 text-center font-semibold text-gray-900">{a.weighted_total?.toFixed(1)}</td>
                             <td className="px-4 py-2.5">
-                              <button onClick={() => { setCompareIds(prev => prev.includes(a.id) ? prev : [...prev, a.id]); }} className="text-xs text-[#0b5cd6] hover:underline">+ Compare</button>
+                              <div className="flex items-center gap-3">
+                                <button onClick={() => { setCompareIds(prev => prev.includes(a.id) ? prev : [...prev, a.id]); }} className="text-xs text-[#0b5cd6] hover:underline">+ Compare</button>
+                                <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-accent"><FileText size={12} /> Report</a>
+                              </div>
                             </td>
                           </tr>
                         ))}
