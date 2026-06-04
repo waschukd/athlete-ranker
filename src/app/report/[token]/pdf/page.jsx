@@ -38,14 +38,14 @@ export default function PublicReportPDF({ params }) {
 
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #0b5cd6, #3b82f6)", borderRadius: 12, padding: "24px 32px", color: "white", marginBottom: 24 }}>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>Sideline Star</div>
+        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Sideline Star</div>
         <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>Player Evaluation Report</div>
       </div>
 
       {/* Player Info */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 16, borderBottom: "2px solid #f0f0f0" }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{athlete.first_name} {athlete.last_name}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{athlete.first_name} {athlete.last_name}</div>
           <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
             {athlete.position && <span style={{ background: "#EFF6FF", color: "#1D4ED8", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, marginRight: 8 }}>{athlete.position}</span>}
             {category_name} · {org_name}
@@ -77,7 +77,7 @@ export default function PublicReportPDF({ params }) {
         const sess = sessions.find(s => s.session_number === parseInt(sessNum));
         return (
           <div key={sessNum} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333" }}>Session {sessNum}{sess ? ` — ${sess.name}` : ""}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Session {sessNum}{sess ? ` — ${sess.name}` : ""}</div>
             <table>
               <thead>
                 <tr>
@@ -104,7 +104,7 @@ export default function PublicReportPDF({ params }) {
       {/* Notes */}
       {(notes || []).length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333" }}>Evaluator Notes</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Evaluator Notes</div>
           {notes.map((n, i) => (
             <div key={i} style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginBottom: 6 }}>
               <div style={{ fontSize: 10, color: "#999" }}>S{n.session_number} · {n.evaluator_name}</div>
@@ -117,7 +117,7 @@ export default function PublicReportPDF({ params }) {
       {/* Scouting Report */}
       {scouting_report && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333" }}>Scouting Report</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Scouting Report</div>
           <div style={{ borderLeft: "4px solid #0b5cd6", paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap" }}>
             {scouting_report}
           </div>
