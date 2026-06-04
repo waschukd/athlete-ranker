@@ -243,6 +243,9 @@ export default function CategoryDashboard({
 
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
+  // Big title tracks the active tab (sample-6 look: group in the kicker, section as the headline)
+  const TAB_TITLES = { rankings: "Rankings", schedule: "Schedule", analysis: "Analysis", athletes: "Athletes", settings: "Settings" };
+  const activeTitle = TAB_TITLES[activeTab] || "Rankings";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -252,10 +255,10 @@ export default function CategoryDashboard({
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div className="min-w-0">
                 <a href={`/association/dashboard?org=${orgId}`} className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
-                  <ArrowLeft size={13} /> {orgName} · Evaluation
+                  <ArrowLeft size={13} /> {orgName} · {displayName} Evaluation
                 </a>
                 <div className="flex items-end gap-4 flex-wrap">
-                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{displayName}</h1>
+                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{activeTitle}</h1>
                   <OrgBrandIcon orgId={orgId} size={44} />
                   <span className="inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.14em] uppercase text-accent bg-accent-soft px-3 py-1.5 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /> Live · refreshes 30s
@@ -286,9 +289,9 @@ export default function CategoryDashboard({
           ) : (
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div className="min-w-0">
-                <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{orgName} · Evaluation</div>
+                <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{orgName} · {displayName} Evaluation</div>
                 <div className="flex items-end gap-4 flex-wrap">
-                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{displayName}</h1>
+                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{activeTitle}</h1>
                   <OrgBrandIcon orgId={orgId} size={44} />
                   <span className="inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.14em] uppercase text-accent bg-accent-soft px-3 py-1.5 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /> Live · refreshes 30s
