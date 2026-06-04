@@ -155,18 +155,6 @@ export async function emailStrike2Suspended({ name, email, orgName }) {
   await sendEmail(email, `Account Suspended — ${orgName}`, html);
 }
 
-export async function emailDirectorInvite({ name, email, catName, orgName, tempPassword }) {
-  const loginUrl = `${BASE_URL}/account/signin`;
-  const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">You're invited as a Director</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, you've been assigned as director for <strong style="color:#111827;">${catName}</strong> at <strong style="color:#111827;">${orgName}</strong>.</p>
-    ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
-    <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Please sign in and update your password.</p>
-    ${btn(loginUrl, "Sign In to Sideline Star →")}
-  `);
-  await sendEmail(email, `Director Invitation — ${catName} at ${orgName}`, html);
-}
-
 // ── Staffing / Session Reports ────────────────────────────────────────────────
 
 export async function emailLateCancel48hr({ adminEmail, adminName, evalName, sessionDate, sessionTime, groupName, orgName, spotsOpen, remainingEvals }) {

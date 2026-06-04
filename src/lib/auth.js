@@ -12,7 +12,7 @@ export async function signToken(payload) {
     .sign(SECRET);
 }
 
-export async function verifyToken(token) {
+async function verifyToken(token) {
   try {
     const { payload } = await jwtVerify(token, SECRET);
     return payload;
@@ -28,7 +28,7 @@ export async function getSession() {
   return verifyToken(token);
 }
 
-export async function getCurrentUser() {
+async function getCurrentUser() {
   const session = await getSession();
   if (!session?.email) return null;
   const users = await sql`SELECT * FROM users WHERE email = ${session.email}`;
