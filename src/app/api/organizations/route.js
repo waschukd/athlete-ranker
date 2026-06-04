@@ -1,10 +1,8 @@
 import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { emailWelcomeServiceProvider, emailWelcomeAssociation } from "@/lib/email";
-import { hashPassword } from "@/lib/password";
+import { createAndSendOrgInvite } from "@/lib/invites";
 import { getAccessibleOrgIds } from "@/lib/authorize";
-function tempPass() { return Math.random().toString(36).slice(-8) + "!A1"; }
 
 export async function GET() {
   try {
@@ -76,39 +74,27 @@ export async function POST(request) {
     `;
     const org = result[0];
 
-    if (contact_email && contact_name) {
-      const password = tempPass();
+    // Invite the contact to finish setting up their own account (set password via
+    // the /accept-invite link). No temp password is created here — the account +
+    // role + org link are provisioned when they accept. `invite` is returned so the
+    // caller can show whether the email was sent or a copyable fallback link.
+    let invite = null;
+    if (contact_email) {
       try {
-        const [authUser] = await sql`
-          INSERT INTO auth_users (email, name, "emailVerified")
-          VALUES (${contact_email}, ${contact_name}, NOW())
-          ON CONFLICT (email) DO UPDATE SET name = ${contact_name}
-          RETURNING *
-        `;
-        await sql`
-          DELETE FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'
-        `;
-        await sql`
-          INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-          VALUES (${authUser.id}, 'credentials', 'credentials', ${contact_email}, ${await hashPassword(password)})
-        `;
-        const role = type === "service_provider" ? "service_provider_admin" : "association_admin";
-        await sql`
-          INSERT INTO users (email, name, role)
-          VALUES (${contact_email}, ${contact_name}, ${role})
-          ON CONFLICT (email) DO UPDATE SET role = ${role}
-        `;
-        if (type === "service_provider") {
-          await emailWelcomeServiceProvider({ name: contact_name, email: contact_email, tempPassword: password, orgName: name });
-        } else {
-          await emailWelcomeAssociation({ name: contact_name, email: contact_email, tempPassword: password, orgName: name });
-        }
-      } catch (emailErr) {
-        console.error("User/email creation error:", emailErr);
+        invite = await createAndSendOrgInvite({
+          organizationId: org.id,
+          email: contact_email,
+          name: contact_name,
+          orgName: name,
+          orgType: type,
+        });
+      } catch (inviteErr) {
+        console.error("Org invite error:", inviteErr);
+        invite = { sent: false, url: null, message: "Organization created, but the invite could not be generated." };
       }
     }
 
-    return NextResponse.json({ organization: org }, { status: 201 });
+    return NextResponse.json({ organization: org, invite }, { status: 201 });
   } catch (error) {
     console.error("POST organizations error:", error);
     return NextResponse.json({ error: "Failed to create organization" }, { status: 500 });
