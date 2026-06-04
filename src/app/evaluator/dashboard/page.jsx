@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send, Bell } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
+import NotificationBell from "@/components/NotificationBell";
 
 const qc = new QueryClient();
 
@@ -160,11 +161,50 @@ function InviteModal({ session, onClose }) {
   );
 }
 
-function SessionCard({ session, onSignup, onCancel, mode }) {
+function CancelModal({ scheduleId, onClose, onConfirm, isPending }) {
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-900">Cancel Session</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+            <X size={16} />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Let your provider know why (optional).</p>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          rows={3}
+          placeholder="e.g. Scheduling conflict, family commitment…"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none mb-4"
+        />
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Keep Session
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => onConfirm(scheduleId, reason)}
+            className="flex-1 py-2.5 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 disabled:opacity-50">
+            {isPending ? "Cancelling…" : "Confirm Cancel"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const spotsAfterMe = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 1);
   const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(new Date().toISOString().split("T")[0]);
   const [showInvite, setShowInvite] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const downloadICal = () => {
     const ical = generateICal(session);
@@ -236,7 +276,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
                   <Download size={14} />
                 </button>
                 {isUpcoming && (
-                  <button onClick={() => onCancel(session.schedule_id)}
+                  <button onClick={() => setShowCancelModal(true)}
                     className="px-3 py-2 border border-red-200 text-red-500 rounded-lg text-xs hover:bg-red-50 transition-colors">
                     Cancel
                   </button>
@@ -254,6 +294,17 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
 
       {showInvite && (
         <InviteModal session={session} onClose={() => setShowInvite(false)} />
+      )}
+      {showCancelModal && (
+        <CancelModal
+          scheduleId={session.schedule_id}
+          isPending={cancelPending}
+          onClose={() => setShowCancelModal(false)}
+          onConfirm={(id, reason) => {
+            onCancelWithReason(id, reason);
+            setShowCancelModal(false);
+          }}
+        />
       )}
     </>
   );
@@ -758,6 +809,292 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
   );
 }
 
+function AvailabilitySection() {
+  const queryClient = useQueryClient();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [note, setNote] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState(null);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["evaluator-availability"],
+    queryFn: async () => {
+      const res = await fetch("/api/evaluator/availability");
+      if (!res.ok) throw new Error("fetch failed");
+      return res.json();
+    },
+  });
+
+  const blackouts = data?.blackouts || [];
+
+  const handleRemove = async (id) => {
+    await fetch(`/api/evaluator/availability?id=${id}`, { method: "DELETE" });
+    refetch();
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setAdding(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/evaluator/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate, note }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setAddError(d.error || "Failed to add");
+      } else {
+        setStartDate("");
+        setEndDate("");
+        setNote("");
+        refetch();
+      }
+    } catch {
+      setAddError("Failed to add");
+    }
+    setAdding(false);
+  };
+
+  const fmtBlackout = (b) => {
+    const fmt = (d) => {
+      if (!d) return "";
+      const [y, m, day] = d.toString().split("T")[0].split("-").map(Number);
+      return new Date(y, m - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+    const start = fmt(b.start_date);
+    const end = fmt(b.end_date);
+    return start === end ? start : `${start} – ${end}`;
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+      <h2 className="font-display font-bold text-ink text-base mb-1">Availability</h2>
+      <p className="text-xs text-gray-500 mb-4">Mark dates you can't evaluate — you won't be auto-invited to sessions on these dates.</p>
+
+      {isLoading ? (
+        <div className="text-sm text-gray-400 py-2">Loading…</div>
+      ) : blackouts.length === 0 ? (
+        <p className="text-sm text-gray-400 mb-4">No unavailable dates set.</p>
+      ) : (
+        <ul className="space-y-1.5 mb-4">
+          {blackouts.map(b => (
+            <li key={b.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm">
+              <span className="text-gray-800 font-medium">{fmtBlackout(b)}</span>
+              {b.note && <span className="text-gray-500 truncate flex-1 text-xs ml-1">· {b.note}</span>}
+              <button
+                onClick={() => handleRemove(b.id)}
+                className="text-gray-400 hover:text-red-500 p-1 rounded flex-shrink-0"
+                aria-label="Remove blackout">
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Start date</label>
+            <input type="date" required value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">End date</label>
+            <input type="date" required value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+        </div>
+        <input type="text" value={note} onChange={e => setNote(e.target.value)}
+          placeholder="Note (optional, e.g. Vacation)"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+        {addError && <p className="text-xs text-red-600">{addError}</p>}
+        <button type="submit" disabled={adding || !startDate || !endDate}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent-soft text-accent rounded-lg text-sm font-semibold hover:bg-accent hover:text-white transition-colors disabled:opacity-50">
+          <Plus size={14} /> {adding ? "Adding…" : "Add unavailable dates"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function MessagesSection() {
+  const queryClient = useQueryClient();
+  const [expanded, setExpanded] = useState(null);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentConfirm, setSentConfirm] = useState(false);
+  const [sendError, setSendError] = useState(null);
+  const [showCompose, setShowCompose] = useState(false);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["evaluator-messages"],
+    queryFn: async () => {
+      const res = await fetch("/api/messages");
+      if (!res.ok) throw new Error("fetch failed");
+      return res.json();
+    },
+  });
+
+  const inbox = data?.inbox || [];
+  const sent = data?.sent || [];
+  const unread = data?.unread || 0;
+
+  const handleExpand = async (id) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    const msg = inbox.find(m => m.id === id);
+    if (msg && !msg.read_at) {
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mark_read: id }),
+      });
+      refetch();
+    }
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, body }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setSendError(d.error || "Failed to send");
+      } else {
+        setSubject("");
+        setBody("");
+        setSentConfirm(true);
+        setShowCompose(false);
+        setTimeout(() => setSentConfirm(false), 4000);
+        refetch();
+      }
+    } catch {
+      setSendError("Failed to send");
+    }
+    setSending(false);
+  };
+
+  const fmtMsgDate = (d) => {
+    if (!d) return "";
+    return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-display font-bold text-ink text-base">Messages</h2>
+          {unread > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-accent text-white text-[11px] font-bold rounded-full">
+              {unread}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => { setShowCompose(v => !v); setSentConfirm(false); setSendError(null); }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
+          <Send size={12} /> Compose
+        </button>
+      </div>
+
+      {sentConfirm && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 mb-3">
+          <Check size={14} className="flex-shrink-0" /> Message sent to your provider.
+        </div>
+      )}
+
+      {showCompose && (
+        <form onSubmit={handleSend} className="space-y-3 mb-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700">New message to provider</h3>
+          <input type="text" required value={subject} onChange={e => setSubject(e.target.value)}
+            placeholder="Subject"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+          <textarea required value={body} onChange={e => setBody(e.target.value)}
+            rows={4} placeholder="Message…"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
+          {sendError && <p className="text-xs text-red-600">{sendError}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShowCompose(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100">
+              Cancel
+            </button>
+            <button type="submit" disabled={sending}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+              <Send size={13} /> {sending ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {isLoading ? (
+        <div className="text-sm text-gray-400 py-2">Loading…</div>
+      ) : inbox.length === 0 && sent.length === 0 ? (
+        <p className="text-sm text-gray-400">No messages yet.</p>
+      ) : (
+        <div className="space-y-4">
+          {inbox.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Inbox</h3>
+              <ul className="space-y-1.5">
+                {inbox.map(msg => (
+                  <li key={msg.id}
+                    className={`rounded-xl border transition-colors cursor-pointer ${!msg.read_at ? "border-accent/30 bg-accent-soft/10" : "border-gray-200 bg-white"}`}>
+                    <button type="button" onClick={() => handleExpand(msg.id)}
+                      className="w-full text-left px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {!msg.read_at && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
+                            <span className={`text-sm font-semibold truncate ${!msg.read_at ? "text-ink" : "text-gray-700"}`}>{msg.subject}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 mt-0.5 block">From {msg.from_user_name} · {fmtMsgDate(msg.created_at)}</span>
+                        </div>
+                        {expanded === msg.id ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0 mt-1" /> : <ChevronRight size={14} className="text-gray-400 flex-shrink-0 mt-1" />}
+                      </div>
+                      {expanded === msg.id && (
+                        <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap leading-relaxed border-t border-gray-100 pt-3">{msg.body}</p>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {sent.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sent</h3>
+              <ul className="space-y-1.5">
+                {sent.map(msg => (
+                  <li key={msg.id} className="px-4 py-3 border border-gray-200 rounded-xl bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-medium text-gray-700 truncate block">{msg.subject}</span>
+                        <span className="text-xs text-gray-400">To {msg.to_user_name} · {fmtMsgDate(msg.created_at)}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EvaluatorDashboard() {
   useTrackPageView("dashboard.evaluator.viewed");
   const queryClient = useQueryClient();
@@ -823,16 +1160,19 @@ function EvaluatorDashboard() {
     },
   });
 
+  const [cancelWarning, setCancelWarning] = useState(null);
+
   const cancelMutation = useMutation({
-    mutationFn: async (schedule_id) => {
+    mutationFn: async ({ schedule_id, reason }) => {
       const res = await fetch("/api/evaluator/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schedule_id, action: "cancel" }),
+        body: JSON.stringify({ schedule_id, action: "cancel", reason: reason || "" }),
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.warning) setCancelWarning(data.warning);
       queryClient.invalidateQueries(["evaluator-sessions-mine"]);
       queryClient.invalidateQueries(["evaluator-sessions-available"]);
     },
@@ -864,7 +1204,8 @@ function EvaluatorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex justify-end">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex justify-end items-center gap-3">
+          <NotificationBell />
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
             <LogOut size={14} /> Sign out
@@ -885,10 +1226,12 @@ function EvaluatorDashboard() {
               <span><b className="text-ink">{availSessions.length}</b> open to sign up</span>
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto">
             {[
               { id: "mine", label: `My Sessions (${upcoming.length})` },
               { id: "available", label: `Available (${availSessions.length})` },
+              { id: "availability", label: "Availability" },
+              { id: "messages", label: "Messages" },
               { id: "join", label: "Join Organization" },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -904,6 +1247,17 @@ function EvaluatorDashboard() {
 
       <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
         {/* Status banners */}
+        {cancelWarning && (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={18} />
+            <div className="flex-1">
+              <p className="text-sm text-amber-800">{cancelWarning}</p>
+            </div>
+            <button onClick={() => setCancelWarning(null)} className="text-amber-500 hover:text-amber-700 flex-shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        )}
         {statusData?.suspended && (
           <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
             <span className="text-red-500 text-xl flex-shrink-0">🚫</span>
@@ -947,7 +1301,10 @@ function EvaluatorDashboard() {
                     <div className="space-y-3">
                       {upcoming.map(s => (
                         <SessionCard key={s.signup_id} session={s} mode="mine"
-                          onCancel={id => cancelMutation.mutate(id)} onSignup={() => {}} />
+                          onCancel={() => {}}
+                          onCancelWithReason={(id, reason) => cancelMutation.mutate({ schedule_id: id, reason })}
+                          cancelPending={cancelMutation.isPending}
+                          onSignup={() => {}} />
                       ))}
                     </div>
                   </div>
@@ -958,7 +1315,7 @@ function EvaluatorDashboard() {
                     <div className="space-y-3 opacity-60">
                       {past.map(s => (
                         <SessionCard key={s.signup_id} session={s} mode="mine"
-                          onCancel={() => {}} onSignup={() => {}} />
+                          onCancel={() => {}} onCancelWithReason={() => {}} cancelPending={false} onSignup={() => {}} />
                       ))}
                     </div>
                   </div>
@@ -994,6 +1351,18 @@ function EvaluatorDashboard() {
               onSignup={id => signupMutation.mutate(id)}
             />
           </>
+        )}
+
+        {activeTab === "availability" && (
+          <div className="max-w-lg">
+            <AvailabilitySection />
+          </div>
+        )}
+
+        {activeTab === "messages" && (
+          <div className="max-w-lg">
+            <MessagesSection />
+          </div>
         )}
 
         {activeTab === "join" && (

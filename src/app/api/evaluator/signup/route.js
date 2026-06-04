@@ -27,7 +27,7 @@ export async function POST(request) {
     const appUserId = await getAppUserId(session);
     if (!appUserId) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const { schedule_id, action } = await request.json();
+    const { schedule_id, action, reason } = await request.json();
 
     // Both cancel and signup mutate evaluator_session_signups for a specific
     // schedule. Without this gate, anyone could sign up for any schedule by
@@ -63,6 +63,17 @@ export async function POST(request) {
         UPDATE evaluator_session_signups SET status = 'cancelled'
         WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
       `;
+      // Store the optional reason (best-effort — column added by comms migration)
+      const cancelReason = (reason || "").toString().trim().slice(0, 500) || null;
+      if (cancelReason) {
+        try {
+          await sql`
+            UPDATE evaluator_session_signups SET cancel_reason = ${cancelReason}
+            WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
+          `;
+        } catch { /* column not migrated yet */ }
+      }
+      const reasonLine = cancelReason ? `<p style="margin:8px 0 0;"><strong>Reason given:</strong> ${cancelReason.replace(/</g, "&lt;")}</p>` : "";
 
       // Get evaluator info
       const evalUser = await sql`SELECT name, email FROM users WHERE id = ${appUserId}`;
@@ -102,7 +113,7 @@ export async function POST(request) {
             ${schedule_id},
             'late_cancel',
             ${newStrikeCount >= 2 ? 'critical' : 'warning'},
-            ${JSON.stringify({ hours_until: hoursUntil.toFixed(1), session: `S${sched.session_number} G${sched.group_number}`, org: sched.org_name, strike_number: newStrikeCount })}
+            ${JSON.stringify({ hours_until: hoursUntil.toFixed(1), session: `S${sched.session_number} G${sched.group_number}`, org: sched.org_name, strike_number: newStrikeCount, reason: cancelReason })}
           )
         `;
 
@@ -129,7 +140,7 @@ export async function POST(request) {
           for (const admin of spAdmins) {
             await sendEmail(admin.email, `🚨 Evaluator Suspended: ${evalName}`,
               `<p>${evalName} has received their second late cancellation strike and has been automatically suspended from all future sessions.</p>
-              <p>Session cancelled: ${sched.org_name} · S${sched.session_number} G${sched.group_number}</p>
+              <p>Session cancelled: ${sched.org_name} · S${sched.session_number} G${sched.group_number}</p>${reasonLine}
               <p>Log in to reinstate them if needed.</p>`
             );
           }
@@ -144,7 +155,7 @@ export async function POST(request) {
           // Notify SP admins
           for (const admin of spAdmins) {
             await sendEmail(admin.email, `⚠ Late Cancellation: ${evalName} (Strike 1)`,
-              `<p>${evalName} cancelled with ${parseFloat(hoursUntil).toFixed(1)} hours notice for ${sched.org_name} S${sched.session_number} G${sched.group_number}.</p>
+              `<p>${evalName} cancelled with ${parseFloat(hoursUntil).toFixed(1)} hours notice for ${sched.org_name} S${sched.session_number} G${sched.group_number}.</p>${reasonLine}
               <p>This is their first strike. One open spot now needs to be filled.</p>`
             );
           }
@@ -154,7 +165,7 @@ export async function POST(request) {
         for (const admin of spAdmins) {
           await sendEmail(admin.email, `Evaluator Cancelled: ${evalName}`,
             `<p>${evalName} has cancelled their signup for ${sched.org_name} · ${sched.category_name} S${sched.session_number} G${sched.group_number}.</p>
-            <p>Session date: ${sched.scheduled_date?.toString().split("T")[0]}</p>`
+            <p>Session date: ${sched.scheduled_date?.toString().split("T")[0]}</p>${reasonLine}`
           );
         }
       }

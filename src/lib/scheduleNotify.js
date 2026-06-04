@@ -159,8 +159,8 @@ export async function offerOpenSession({ catId, scheduleRow }) {
     const sps = await sql`SELECT service_provider_id FROM sp_association_links WHERE association_id = ${org_id} AND status = 'active'`;
     sps.forEach(s => orgIds.push(s.service_provider_id));
 
-    const pool = await sql`
-      SELECT DISTINCT u.email, u.name FROM evaluator_memberships em
+    let pool = await sql`
+      SELECT DISTINCT u.id, u.email, u.name FROM evaluator_memberships em
       JOIN users u ON u.id = em.user_id
       WHERE em.organization_id = ANY(${orgIds}) AND em.status = 'active'
         AND u.role IN ('association_evaluator', 'service_provider_evaluator')
@@ -168,6 +168,18 @@ export async function offerOpenSession({ catId, scheduleRow }) {
           SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status != 'cancelled'
         )
     `;
+    // Skip evaluators who marked themselves unavailable on this date (best-effort:
+    // if the table isn't migrated yet, just don't filter).
+    if (r.scheduled_date) {
+      try {
+        const blocked = await sql`
+          SELECT DISTINCT user_id FROM evaluator_unavailability
+          WHERE start_date <= ${r.scheduled_date} AND end_date >= ${r.scheduled_date}
+        `;
+        const blockedSet = new Set(blocked.map(b => b.user_id));
+        pool = pool.filter(p => !blockedSet.has(p.id));
+      } catch { /* not migrated */ }
+    }
     if (!pool.length) return { offered: 0 };
 
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
