@@ -386,20 +386,6 @@ export default function CategoryDashboard({
               </div>
             ) : (
             <>
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Session Weighting</h3>
-              <div className="space-y-3">
-                {sessions.map(s => { const isComplete = completedSessions.includes(s.session_number); return (
-                  <div key={s.id} className="flex items-center gap-4">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${isComplete ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>{isComplete ? <CheckCircle size={13} /> : s.session_number}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1"><span className="text-sm text-gray-700">{s.name} <span className="text-xs text-gray-400 capitalize">({s.session_type})</span></span><span className="text-sm font-bold text-[#1A6BFF]">{s.weight_percentage}%</span></div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${isComplete ? "bg-green-500" : "bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"}`} style={{ width: `${s.weight_percentage}%` }} /></div>
-                    </div>
-                  </div>
-                ); })}
-              </div>
-            </div>
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
                 <div>
