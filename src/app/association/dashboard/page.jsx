@@ -105,23 +105,24 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-br from-white via-blue-50/30 to-white border-b border-gray-200 shadow-sm">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
             <LogOut size={14} /> Sign out
           </button>
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-1">
 
           <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
+            <div className="min-w-0">
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Association Dashboard</div>
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{org?.name || "Association"}</h1>
                 <OrgAvatar
                   name={org?.name}
                   logoUrl={org?.logo_url}
-                  size={56}
+                  size={48}
                   onUpload={async (file) => {
                     const fd = new FormData();
                     fd.append("logo", file);
@@ -135,9 +136,16 @@ function Dashboard() {
                     if (res.ok) queryClient.invalidateQueries(["org", orgId]);
                   }}
                 />
-                <h1 className="text-3xl font-bold text-gray-900">{org?.name || "Association Dashboard"}</h1>
               </div>
-              <p className="text-gray-500 text-sm mt-1">Manage age categories, athletes, evaluations, and rankings</p>
+              {categories.length > 0 && (
+                <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                  <span><b className="text-ink">{categories.length}</b> age categor{categories.length === 1 ? "y" : "ies"}</span>
+                  <span className="text-gray-300">·</span>
+                  <span><b className="text-ink">{totalAthletes}</b> athletes</span>
+                  <span className="text-gray-300">·</span>
+                  <span><b className="text-ink">{totalSessions}</b> sessions</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
@@ -186,27 +194,6 @@ function Dashboard() {
             </div>
           )}
 
-          {categories.length > 0 && (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { label: "Age Categories", value: categories.length, color: "bg-[#0b5cd6]", gradient: "from-blue-500 to-blue-600", icon: Trophy },
-                { label: "Total Athletes", value: totalAthletes, color: "bg-purple-500", gradient: "from-purple-500 to-purple-600", icon: Users },
-                { label: "Total Sessions", value: totalSessions, color: "bg-emerald-500", gradient: "from-emerald-500 to-emerald-600", icon: Calendar },
-              ].map(({ label, value, color, gradient, icon: Icon }) => (
-                <div key={label} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all hover:-translate-y-0.5 relative overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">{label}</p>
-                      <p className="text-4xl font-bold text-gray-900 mt-2">{value}</p>
-                    </div>
-                    <div className={`p-4 rounded-xl bg-gradient-to-br ${gradient}`}>
-                      <Icon className="text-white" size={28} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
