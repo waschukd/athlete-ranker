@@ -17,6 +17,7 @@ import CSVMappingModal from "@/components/CSVMappingModal";
 import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
 import { generateICS, downloadICS } from "@/lib/calendar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -80,6 +81,18 @@ export default function CategoryDashboard({
   const [athleteMsg, setAthleteMsg] = useState("");
   const [csvPending, setCsvPending] = useState(null);
   const [teamCount, setTeamCount] = useState(2);
+
+  // Schedule editing state
+  const canEditSchedule = role === "association" || role === "director";
+  const [scheduleEditRow, setScheduleEditRow] = useState(null); // { ...entry } being edited
+  const [scheduleEditForm, setScheduleEditForm] = useState({});
+  const [scheduleEditSaving, setScheduleEditSaving] = useState(false);
+  const [scheduleAddOpen, setScheduleAddOpen] = useState(false);
+  const [scheduleAddForm, setScheduleAddForm] = useState({ session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" });
+  const [scheduleAddSaving, setScheduleAddSaving] = useState(false);
+  const [scheduleCancelTarget, setScheduleCancelTarget] = useState(null); // entry to cancel
+  const [scheduleCancelBusy, setScheduleCancelBusy] = useState(false);
+  const [scheduleMsg, setScheduleMsg] = useState("");
 
   const { data: setupData } = useQuery({
     queryKey: ["category-setup", catId],
@@ -514,7 +527,7 @@ export default function CategoryDashboard({
                   </button>
                 )}
                 <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
-                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer ${importing ? "opacity-50" : ""}`}>
+                <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 ${importing ? "opacity-50" : ""}`}>
                   Upload / Update CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
                     const file = e.target.files[0]; if (!file) return;
@@ -531,9 +544,16 @@ export default function CategoryDashboard({
                     setImporting(false); e.target.value = ""; setTimeout(() => setUploadMsg(""), 4000);
                   }} />
                 </label>
+                {canEditSchedule && (
+                  <button
+                    onClick={() => { setScheduleAddForm({ session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" }); setScheduleAddOpen(true); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                  ><Plus size={14} /> Add Session</button>
+                )}
               </div>
             </div>
             {uploadMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{uploadMsg}</div>}
+            {scheduleMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{scheduleMsg}</div>}
             {schedule.length === 0 ? (
               <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-gray-400"><Calendar size={40} className="mx-auto mb-3 opacity-30" /><p className="text-sm">No schedule yet - upload a CSV above</p></div>
             ) : (
@@ -579,15 +599,21 @@ export default function CategoryDashboard({
                       </div>
                     </div>
                     <table className="w-full text-sm">
-                      <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Group</th><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Check-in</th></tr></thead>
+                      <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Group</th><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Day</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Check-in</th>{canEditSchedule && <th className="px-4 py-2 text-left">Actions</th>}</tr></thead>
                       <tbody className="divide-y divide-gray-50">
                         {entries.sort((a, b) => (a.group_number || 0) - (b.group_number || 0)).map((e, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
+                          <tr key={i} className={`hover:bg-gray-50 ${e.status === "cancelled" ? "opacity-60" : ""}`}>
                             <td className="px-4 py-2.5 font-medium text-gray-700">{e.group_number ? `Group ${e.group_number}` : "-"}</td>
                             <td className="px-4 py-2.5 text-gray-600">{e.scheduled_date?.toString().split("T")[0]}</td>
-                            <td className="px-4 py-2.5 text-gray-500">{e.start_time && e.end_time ? `${e.start_time} - ${e.end_time}` : "-"}</td>
+                            <td className="px-4 py-2.5 text-gray-500">{e.day_of_week || "-"}</td>
+                            <td className="px-4 py-2.5 text-gray-500">{e.start_time && e.end_time ? `${e.start_time} – ${e.end_time}` : "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{e.location || "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{sess?.session_type === "testing" ? 0 : (e.evaluators_required || 4)}</td>
+                            <td className="px-4 py-2.5">
+                              {e.status === "cancelled"
+                                ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Cancelled</span>
+                                : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Scheduled</span>}
+                            </td>
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2">
                                 {e.checkin_code ? <CopyCode code={e.checkin_code} scheduleId={e.id} /> : <span className="text-gray-300 text-xs">-</span>}
@@ -601,6 +627,33 @@ export default function CategoryDashboard({
                                 })()}
                               </div>
                             </td>
+                            {canEditSchedule && (
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-1.5">
+                                  {e.status !== "cancelled" ? (
+                                    <>
+                                      <button
+                                        onClick={() => { setScheduleEditRow(e); setScheduleEditForm({ scheduled_date: e.scheduled_date?.toString().split("T")[0] || "", day_of_week: e.day_of_week || "", start_time: e.start_time || "", end_time: e.end_time || "", location: e.location || "", evaluators_required: String(e.evaluators_required ?? 4) }); }}
+                                        className="text-xs px-2.5 py-1 bg-accent-soft text-accent border border-accent/20 rounded-lg font-medium hover:bg-accent hover:text-white transition-colors"
+                                      >Edit</button>
+                                      <button
+                                        onClick={() => setScheduleCancelTarget(e)}
+                                        className="text-xs px-2.5 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                                      >Cancel</button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={async () => {
+                                        const res = await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, status: "scheduled" }) });
+                                        const data = await res.json();
+                                        if (data.success || res.ok) { setScheduleMsg("Session reinstated."); refetchSchedule(); setTimeout(() => setScheduleMsg(""), 4000); }
+                                      }}
+                                      className="text-xs px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 transition-colors"
+                                    >Reinstate</button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -631,6 +684,158 @@ export default function CategoryDashboard({
           </div>
         </div>
       )}
+
+        {/* ── Schedule: Edit session modal ── */}
+        {scheduleEditRow && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && !scheduleEditSaving && setScheduleEditRow(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-7">
+              <h3 className="font-display font-extrabold tracking-tight text-ink text-xl mb-1">Edit Session</h3>
+              <p className="text-sm text-gray-500 mb-5">Session {scheduleEditRow.session_number}{scheduleEditRow.group_number ? ` · Group ${scheduleEditRow.group_number}` : ""}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
+                  <input type="date" value={scheduleEditForm.scheduled_date} onChange={e => setScheduleEditForm(f => ({ ...f, scheduled_date: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Day of Week</label>
+                  <select value={scheduleEditForm.day_of_week} onChange={e => setScheduleEditForm(f => ({ ...f, day_of_week: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white">
+                    <option value="">—</option>
+                    {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Start Time</label>
+                  <input type="time" value={scheduleEditForm.start_time} onChange={e => setScheduleEditForm(f => ({ ...f, start_time: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">End Time</label>
+                  <input type="time" value={scheduleEditForm.end_time} onChange={e => setScheduleEditForm(f => ({ ...f, end_time: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                  <input type="text" value={scheduleEditForm.location} onChange={e => setScheduleEditForm(f => ({ ...f, location: e.target.value }))} placeholder="Arena / rink name" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Evaluators Required</label>
+                  <input type="number" min="0" value={scheduleEditForm.evaluators_required} onChange={e => setScheduleEditForm(f => ({ ...f, evaluators_required: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6 justify-end">
+                <button onClick={() => setScheduleEditRow(null)} disabled={scheduleEditSaving} className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button
+                  disabled={scheduleEditSaving}
+                  onClick={async () => {
+                    setScheduleEditSaving(true);
+                    const orig = scheduleEditRow;
+                    const patch = { id: orig.id };
+                    if (scheduleEditForm.scheduled_date !== (orig.scheduled_date?.toString().split("T")[0] || "")) patch.scheduled_date = scheduleEditForm.scheduled_date;
+                    if (scheduleEditForm.day_of_week !== (orig.day_of_week || "")) patch.day_of_week = scheduleEditForm.day_of_week;
+                    if (scheduleEditForm.start_time !== (orig.start_time || "")) patch.start_time = scheduleEditForm.start_time;
+                    if (scheduleEditForm.end_time !== (orig.end_time || "")) patch.end_time = scheduleEditForm.end_time;
+                    if (scheduleEditForm.location !== (orig.location || "")) patch.location = scheduleEditForm.location;
+                    if (String(scheduleEditForm.evaluators_required) !== String(orig.evaluators_required ?? 4)) patch.evaluators_required = Number(scheduleEditForm.evaluators_required);
+                    await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+                    setScheduleEditRow(null);
+                    setScheduleEditSaving(false);
+                    setScheduleMsg("Saved — everyone tied to this session was notified.");
+                    refetchSchedule(); refetchRankings();
+                    setTimeout(() => setScheduleMsg(""), 5000);
+                  }}
+                  className="px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                >{scheduleEditSaving ? "Saving…" : "Save Changes"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Schedule: Add session modal ── */}
+        {scheduleAddOpen && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && !scheduleAddSaving && setScheduleAddOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-7">
+              <h3 className="font-display font-extrabold tracking-tight text-ink text-xl mb-5">Add Session</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Session #</label>
+                  <input type="number" min="1" value={scheduleAddForm.session_number} onChange={e => setScheduleAddForm(f => ({ ...f, session_number: e.target.value }))} placeholder="1" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Group #</label>
+                  <input type="number" min="1" value={scheduleAddForm.group_number} onChange={e => setScheduleAddForm(f => ({ ...f, group_number: e.target.value }))} placeholder="1" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
+                  <input type="date" value={scheduleAddForm.scheduled_date} onChange={e => setScheduleAddForm(f => ({ ...f, scheduled_date: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Day of Week</label>
+                  <select value={scheduleAddForm.day_of_week} onChange={e => setScheduleAddForm(f => ({ ...f, day_of_week: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white">
+                    <option value="">—</option>
+                    {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Start Time</label>
+                  <input type="time" value={scheduleAddForm.start_time} onChange={e => setScheduleAddForm(f => ({ ...f, start_time: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">End Time</label>
+                  <input type="time" value={scheduleAddForm.end_time} onChange={e => setScheduleAddForm(f => ({ ...f, end_time: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                  <input type="text" value={scheduleAddForm.location} onChange={e => setScheduleAddForm(f => ({ ...f, location: e.target.value }))} placeholder="Arena / rink name" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Evaluators Required</label>
+                  <input type="number" min="0" value={scheduleAddForm.evaluators_required} onChange={e => setScheduleAddForm(f => ({ ...f, evaluators_required: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6 justify-end">
+                <button onClick={() => setScheduleAddOpen(false)} disabled={scheduleAddSaving} className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button
+                  disabled={scheduleAddSaving || !scheduleAddForm.session_number || !scheduleAddForm.scheduled_date}
+                  onClick={async () => {
+                    setScheduleAddSaving(true);
+                    const res = await fetch(`/api/categories/${catId}/schedule`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ add: { session_number: Number(scheduleAddForm.session_number), group_number: Number(scheduleAddForm.group_number) || 1, scheduled_date: scheduleAddForm.scheduled_date, day_of_week: scheduleAddForm.day_of_week, start_time: scheduleAddForm.start_time, end_time: scheduleAddForm.end_time, location: scheduleAddForm.location, evaluators_required: Number(scheduleAddForm.evaluators_required) || 4 } })
+                    });
+                    const data = await res.json();
+                    setScheduleAddSaving(false);
+                    if (data.success || res.ok) {
+                      setScheduleAddOpen(false);
+                      setScheduleMsg("Saved — everyone tied to this session was notified.");
+                      refetchSchedule(); refetchRankings();
+                      setTimeout(() => setScheduleMsg(""), 5000);
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                >{scheduleAddSaving ? "Saving…" : "Add Session"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Schedule: Cancel session confirmation ── */}
+        <ConfirmDialog
+          open={!!scheduleCancelTarget}
+          title="Cancel this session?"
+          message="Any evaluators signed up for this session will have their sign-ups released and will be notified. The service provider will also be notified of the cancellation."
+          confirmLabel="Cancel session"
+          danger={true}
+          busy={scheduleCancelBusy}
+          onCancel={() => setScheduleCancelTarget(null)}
+          onConfirm={async () => {
+            setScheduleCancelBusy(true);
+            await fetch(`/api/categories/${catId}/schedule?id=${scheduleCancelTarget.id}`, { method: "DELETE" });
+            setScheduleCancelTarget(null);
+            setScheduleCancelBusy(false);
+            setScheduleMsg("Saved — everyone tied to this session was notified.");
+            refetchSchedule(); refetchRankings();
+            setTimeout(() => setScheduleMsg(""), 5000);
+          }}
+        />
 
         {csvPending && <CSVMappingModal headers={csvPending.headers} onCancel={() => setCsvPending(null)} onConfirm={handleCSVConfirm} />}
 

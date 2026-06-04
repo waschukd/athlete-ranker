@@ -3,10 +3,13 @@
 import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus, CalendarDays, List } from "lucide-react";
+import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
+import ConfirmDialog from "@/components/ConfirmDialog";
+
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const qc = new QueryClient();
 
@@ -117,6 +120,208 @@ function BlastButton({ scheduleId, spotsOpen }) {
             )}
           </div>
         </div>
+      )}
+    </>
+  );
+}
+
+// Shared modal shell for the schedule add/edit forms — Minimal Athletic look.
+function ScheduleFormModal({ title, subtitle, form, setForm, showSessionGroup, busy, error, onSubmit, onClose, submitLabel }) {
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30";
+  const labelCls = "text-xs font-medium text-gray-500 mb-1 block";
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-start justify-between mb-1">
+          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">{title}</h3>
+          <button onClick={onClose} disabled={busy} className="text-gray-400 hover:text-gray-600 disabled:opacity-50"><X size={18} /></button>
+        </div>
+        {subtitle && <p className="text-xs text-gray-400 mb-4">{subtitle}</p>}
+        <div className="space-y-3 mt-3">
+          {showSessionGroup && (
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelCls}>Session # *</label><input type="number" min="1" value={form.session_number} onChange={set("session_number")} className={inputCls} /></div>
+              <div><label className={labelCls}>Group #</label><input type="number" min="1" value={form.group_number} onChange={set("group_number")} className={inputCls} /></div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={labelCls}>Date *</label><input type="date" value={form.scheduled_date} onChange={set("scheduled_date")} className={inputCls} /></div>
+            <div>
+              <label className={labelCls}>Day</label>
+              <select value={form.day_of_week || ""} onChange={set("day_of_week")} className={inputCls}>
+                <option value="">Auto</option>
+                {DAYS_OF_WEEK.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={labelCls}>Start time</label><input type="time" value={form.start_time || ""} onChange={set("start_time")} className={inputCls} /></div>
+            <div><label className={labelCls}>End time</label><input type="time" value={form.end_time || ""} onChange={set("end_time")} className={inputCls} /></div>
+          </div>
+          <div><label className={labelCls}>Location</label><input type="text" placeholder="Arena / rink" value={form.location || ""} onChange={set("location")} className={inputCls} /></div>
+          <div><label className={labelCls}>Evaluators required</label><input type="number" min="0" value={form.evaluators_required} onChange={set("evaluators_required")} className={inputCls} /></div>
+          {error && <p className="text-xs font-medium text-red-500">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} disabled={busy} className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-50">Cancel</button>
+            <button onClick={onSubmit} disabled={busy} className="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40">{busy ? "Saving…" : submitLabel}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Per-row schedule controls: Edit / Cancel / Reinstate, calling the per-category
+// schedule endpoints. Reports back to the parent via onSaved (which refetches and
+// shows the confirmation line). Self-contained so no existing state changes.
+function ScheduleRowControls({ entry, onSaved }) {
+  const catId = entry.age_category_id;
+  const [showEdit, setShowEdit] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [form, setForm] = useState(null);
+
+  const toTime = (t) => (t ? t.toString().slice(0, 5) : "");
+  const openEdit = () => {
+    setError(null);
+    setForm({
+      scheduled_date: entry.scheduled_date?.toString().split("T")[0] || "",
+      day_of_week: entry.day_of_week || "",
+      start_time: toTime(entry.start_time),
+      end_time: toTime(entry.end_time),
+      location: entry.location || "",
+      evaluators_required: entry.evaluators_required ?? 4,
+    });
+    setShowEdit(true);
+  };
+
+  const submitEdit = async () => {
+    setBusy(true); setError(null);
+    const res = await fetch(`/api/categories/${catId}/schedule`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: entry.id,
+        scheduled_date: form.scheduled_date,
+        day_of_week: form.day_of_week || null,
+        start_time: form.start_time || null,
+        end_time: form.end_time || null,
+        location: form.location || null,
+        evaluators_required: form.evaluators_required,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok || data.error) { setError(data.error || "Failed to save"); return; }
+    setShowEdit(false);
+    onSaved();
+  };
+
+  const doCancel = async () => {
+    setBusy(true);
+    const res = await fetch(`/api/categories/${catId}/schedule?id=${entry.id}`, { method: "DELETE" });
+    setBusy(false);
+    setShowCancel(false);
+    if (res.ok) onSaved();
+  };
+
+  const doReinstate = async () => {
+    setBusy(true);
+    const res = await fetch(`/api/categories/${catId}/schedule`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: entry.id, status: "scheduled" }),
+    });
+    setBusy(false);
+    if (res.ok) onSaved();
+  };
+
+  const isCancelled = entry.status === "cancelled";
+
+  return (
+    <>
+      <button onClick={openEdit} disabled={busy} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1 disabled:opacity-50">
+        <Pencil size={11} /> Edit
+      </button>
+      {isCancelled ? (
+        <button onClick={doReinstate} disabled={busy} className="text-xs px-3 py-1.5 border border-green-200 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 inline-flex items-center gap-1 disabled:opacity-50">
+          <RotateCcw size={11} /> Reinstate
+        </button>
+      ) : (
+        <button onClick={() => setShowCancel(true)} disabled={busy} className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 inline-flex items-center gap-1 disabled:opacity-50">
+          <Ban size={11} /> Cancel session
+        </button>
+      )}
+
+      {showEdit && form && (
+        <ScheduleFormModal
+          title="Edit session"
+          subtitle={`${entry.org_name} · ${entry.category_name} · S${entry.session_number}${entry.group_number ? ` G${entry.group_number}` : ""}`}
+          form={form} setForm={setForm} showSessionGroup={false}
+          busy={busy} error={error} onSubmit={submitEdit} onClose={() => setShowEdit(false)} submitLabel="Save changes"
+        />
+      )}
+
+      <ConfirmDialog
+        open={showCancel}
+        title="Cancel this session?"
+        message="The association admin, directors, and any signed-up evaluators will all be notified."
+        confirmLabel="Cancel session"
+        cancelLabel="Keep session"
+        busy={busy}
+        onConfirm={doCancel}
+        onCancel={() => setShowCancel(false)}
+      />
+    </>
+  );
+}
+
+// "Add session" affordance scoped to a single association/category context.
+function AddSessionButton({ category, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const blank = { session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" };
+  const [form, setForm] = useState(blank);
+
+  const submit = async () => {
+    if (!form.session_number || !form.scheduled_date) { setError("Session # and date are required."); return; }
+    setBusy(true); setError(null);
+    const res = await fetch(`/api/categories/${category.age_category_id}/schedule`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        add: {
+          session_number: form.session_number,
+          group_number: form.group_number || 1,
+          scheduled_date: form.scheduled_date,
+          day_of_week: form.day_of_week || null,
+          start_time: form.start_time || null,
+          end_time: form.end_time || null,
+          location: form.location || null,
+          evaluators_required: form.evaluators_required,
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok || data.error) { setError(data.error || "Failed to add session"); return; }
+    setOpen(false);
+    setForm(blank);
+    onSaved();
+  };
+
+  return (
+    <>
+      <button onClick={() => { setForm(blank); setError(null); setOpen(true); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold hover:opacity-90">
+        <Plus size={13} /> Add session
+      </button>
+      {open && (
+        <ScheduleFormModal
+          title="Add session"
+          subtitle={`${category.org_name} · ${category.category_name}`}
+          form={form} setForm={setForm} showSessionGroup={true}
+          busy={busy} error={error} onSubmit={submit} onClose={() => setOpen(false)} submitLabel="Add session"
+        />
       )}
     </>
   );
@@ -448,7 +653,7 @@ function SPDashboard() {
     },
   });
 
-  const { data: schedData, isLoading: schedLoading } = useQuery({
+  const { data: schedData, isLoading: schedLoading, refetch: refetchSchedule } = useQuery({
     queryKey: ["sp-schedule", orgParam],
     queryFn: async () => {
       const res = await fetch(spUrl("/api/service-provider/schedule"));
@@ -456,6 +661,15 @@ function SPDashboard() {
       return res.json();
     },
   });
+
+  // Master Schedule editing: brief confirmation line + add-session category context.
+  const [scheduleSavedMsg, setScheduleSavedMsg] = useState(false);
+  const [addSessionCatId, setAddSessionCatId] = useState("");
+  const onScheduleSaved = () => {
+    refetchSchedule();
+    setScheduleSavedMsg(true);
+    setTimeout(() => setScheduleSavedMsg(false), 4000);
+  };
 
   const sp = assocData?.sp;
   const associations = assocData?.associations || [];
@@ -486,6 +700,19 @@ function SPDashboard() {
     return buildOrgColorMap(orgs);
   }, [schedule]);
   const scheduleOrgPalette = (name) => scheduleOrgColorMap.get(name) || colorForOrg(name);
+
+  // Distinct association/category contexts present in the schedule — drives the
+  // "Add session" picker (the POST endpoint is keyed by age_category_id).
+  const scheduleCategories = useMemo(() => {
+    const map = new Map();
+    for (const s of schedule) {
+      if (s.age_category_id && !map.has(s.age_category_id)) {
+        map.set(s.age_category_id, { age_category_id: s.age_category_id, org_name: s.org_name, category_name: s.category_name });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => (a.org_name + a.category_name).localeCompare(b.org_name + b.category_name));
+  }, [schedule]);
+  const addSessionCategory = scheduleCategories.find(c => String(c.age_category_id) === String(addSessionCatId));
 
   // Date filter: when a specific date is picked from strip / calendar, show
   // only that day's sessions in the list.
@@ -723,8 +950,30 @@ function SPDashboard() {
                 <button onClick={() => setShowPastSessions(!showPastSessions)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
                   {showPastSessions ? "Hide Past" : `Show Past (${pastCount})`}
                 </button>
+                {/* Add session — pick an association/category context first */}
+                {scheduleCategories.length > 0 && (
+                  <div className="inline-flex items-center gap-2">
+                    <select
+                      value={addSessionCatId}
+                      onChange={(e) => setAddSessionCatId(e.target.value)}
+                      className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-accent/30 max-w-[14rem]"
+                    >
+                      <option value="">Add to…</option>
+                      {scheduleCategories.map(c => (
+                        <option key={c.age_category_id} value={c.age_category_id}>{c.org_name} · {c.category_name}</option>
+                      ))}
+                    </select>
+                    {addSessionCategory && <AddSessionButton category={addSessionCategory} onSaved={onScheduleSaved} />}
+                  </div>
+                )}
               </div>
             </div>
+
+            {scheduleSavedMsg && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700">
+                Saved — association, directors and evaluators notified.
+              </div>
+            )}
 
             {/* Selected-date chip when a specific date is picked */}
             {scheduleSelectedDate && (
@@ -779,7 +1028,7 @@ function SPDashboard() {
                           return (
                             <div
                               key={entry.schedule_id}
-                              className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
+                              className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.status === "cancelled" ? "border-gray-200 opacity-60" : entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
                               style={{ borderLeft: `4px solid ${palette.hex}` }}
                             >
                               <div className="flex-1 min-w-0">
@@ -787,6 +1036,7 @@ function SPDashboard() {
                                   <OrgChip name={entry.org_name} palette={palette} />
                                   <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
                                   {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
+                                  {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                                   <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
@@ -794,14 +1044,19 @@ function SPDashboard() {
                                   <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
-                                <div className="text-center">
-                                  <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                                  <div className="text-xs text-gray-400">evaluators</div>
-                                </div>
-                                {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
-                                <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
-                                {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
+                              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                                {entry.status !== "cancelled" && (
+                                  <>
+                                    <div className="text-center">
+                                      <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
+                                      <div className="text-xs text-gray-400">evaluators</div>
+                                    </div>
+                                    {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
+                                    <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
+                                    {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
+                                  </>
+                                )}
+                                <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} />
                               </div>
                             </div>
                           );

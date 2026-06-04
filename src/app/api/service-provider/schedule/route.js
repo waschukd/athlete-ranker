@@ -30,12 +30,13 @@ export async function GET(request) {
 
     // Get all sessions across all client associations
     const schedule = await sql`
-      SELECT 
+      SELECT
         es.id as schedule_id,
+        es.id as id,
         es.scheduled_date, es.day_of_week, es.start_time, es.end_time,
         es.location, es.session_number, es.group_number, es.status,
         es.checkin_code,
-        ac.id as category_id, ac.name as category_name,
+        ac.id as category_id, ac.id as age_category_id, ac.name as category_name,
         o.id as org_id, o.name as org_name,
         cs.session_type, cs.name as session_name,
         COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
