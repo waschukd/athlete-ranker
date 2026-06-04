@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 import { Users, Calendar, Trophy, Plus, ChevronRight, Zap, Copy, Check, ArrowLeft, Trash2, Mail, X, ExternalLink, LogOut } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
 import { useTrackPageView } from "@/lib/useAnalytics";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const qc = new QueryClient();
 
@@ -341,9 +342,9 @@ function Dashboard() {
                   </div>
                 </a>
                 <button
-                  onClick={(e) => { e.preventDefault(); if (deleteConfirm === cat.id) { deleteMutation.mutate(cat.id); } else { setDeleteConfirm(cat.id); setTimeout(() => setDeleteConfirm(null), 3000); } }}
-                  className={`absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs ${deleteConfirm === cat.id ? "bg-red-600 text-white opacity-100" : "bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 opacity-0 group-hover:opacity-100"}`}
-                  title={deleteConfirm === cat.id ? "Click again to confirm" : "Delete"}>
+                  onClick={(e) => { e.preventDefault(); setDeleteConfirm(cat); }}
+                  className="absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 opacity-0 group-hover:opacity-100"
+                  title="Delete category">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -352,6 +353,16 @@ function Dashboard() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title={`Delete ${deleteConfirm?.name || "this category"}?`}
+        message="This permanently removes the category along with all its athletes, sessions, schedule, and scores. This can't be undone."
+        confirmLabel="Delete category"
+        busy={deleteMutation.isPending}
+        onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
       {showInvite && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowInvite(false)}>
