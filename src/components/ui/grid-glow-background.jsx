@@ -91,5 +91,3 @@ export function GridGlowBackground({
     </div>
   );
 }
-
-export default GridGlowBackground;

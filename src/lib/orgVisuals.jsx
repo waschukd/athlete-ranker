@@ -13,7 +13,7 @@ import { Camera, X } from "lucide-react";
 // palette indexes stay visually distinct even as background tints. `bg`
 // is the chip/avatar background; `fg` is the readable text color on top;
 // `hex` is the strong saturated tone used for a row's left border.
-export const ORG_PALETTE = [
+const ORG_PALETTE = [
   { hex: "#2563eb", bg: "#bfdbfe", fg: "#1e3a8a" }, // blue
   { hex: "#dc2626", bg: "#fecaca", fg: "#7f1d1d" }, // red
   { hex: "#16a34a", bg: "#bbf7d0", fg: "#14532d" }, // green

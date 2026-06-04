@@ -43,7 +43,7 @@ async function detectOnDeviceSupport(SpeechRecognition) {
   return _onDeviceAvailable;
 }
 
-export async function startNativeSpeech({ onResult, onPartial, onError, onEnd }) {
+async function startNativeSpeech({ onResult, onPartial, onError, onEnd }) {
   try {
     const { SpeechRecognition } = await import("@capgo/capacitor-speech-recognition");
 
