@@ -514,28 +514,6 @@ export default function CategoryDashboard({
         )}
 
         {activeTab === "schedule" && (
-          <div className="space-y-4 mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Group Management</h2>
-              <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-shadow">Manage Groups</a>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sessions.map(s => (
-                <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1A6BFF]/50 hover:shadow-md transition-all cursor-pointer" onClick={() => window.location.href = `/association/dashboard/category/${catId}/groups?org=${orgId}&session=${s.session_number}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm ${completedSessions.includes(s.session_number) ? "bg-green-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>{completedSessions.includes(s.session_number) ? <CheckCircle size={16} /> : s.session_number}</div>
-                      <div><div className="font-semibold text-gray-900">{s.name}</div><div className="text-xs text-gray-400 capitalize">{s.session_type}</div></div>
-                    </div>
-                    <ChevronRight size={16} className="text-gray-300" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "schedule" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
