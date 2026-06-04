@@ -2,7 +2,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { sendEmail, emailWrapper } from "@/lib/email";
+import { notifySessionChange } from "@/lib/scheduleNotify";
 
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -11,6 +11,32 @@ function generateCheckinCode(session, group) {
   for (let i = 0; i < 4; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
   return `${prefix}-${suffix}`;
 }
+
+async function uniqueCheckinCode(session_number, group_number) {
+  let code = generateCheckinCode(session_number, group_number || 0);
+  let existing = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
+  while (existing.length) {
+    code = generateCheckinCode(session_number, group_number || 0);
+    existing = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
+  }
+  return code;
+}
+
+async function ensureSessionGroup(catId, session_number, group_number) {
+  if (!group_number) return;
+  const existingGroup = await sql`
+    SELECT id FROM session_groups
+    WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number}
+  `;
+  if (!existingGroup.length) {
+    await sql`
+      INSERT INTO session_groups (age_category_id, session_number, group_number, name, display_order)
+      VALUES (${catId}, ${session_number}, ${group_number}, ${'Group ' + group_number}, ${group_number})
+    `;
+  }
+}
+
+const initiatorOf = (session) => ({ name: session.name || session.email, role: session.role });
 
 export async function GET(request, { params }) {
   try {
@@ -43,8 +69,41 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
 
+    // ── Add a single session ────────────────────────────────────────────────
+    if (body.add) {
+      const a = body.add;
+      const session_number = parseInt(a.session_number);
+      const group_number = parseInt(a.group_number) || 1;
+      if (!session_number || !a.scheduled_date) {
+        return NextResponse.json({ error: "session_number and scheduled_date required" }, { status: 400 });
+      }
+      const typeLookup = await sql`
+        SELECT session_type FROM category_sessions
+        WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1
+      `;
+      const isTesting = typeLookup[0]?.session_type === "testing";
+      const evaluators_required = isTesting ? 0 : (parseInt(a.evaluators_required ?? 4) || 4);
+      const code = await uniqueCheckinCode(session_number, group_number);
+      const [row] = await sql`
+        INSERT INTO evaluation_schedule (
+          age_category_id, session_number, group_number, scheduled_date, day_of_week,
+          start_time, end_time, location, checkin_code, evaluators_required, status
+        ) VALUES (
+          ${catId}, ${session_number}, ${group_number}, ${a.scheduled_date}, ${a.day_of_week || null},
+          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, 'scheduled'
+        ) RETURNING *
+      `;
+      await ensureSessionGroup(catId, session_number, group_number);
+      const { notified } = await notifySessionChange({
+        catId, scheduleRow: row, scheduleId: row.id, changeType: "added",
+        summary: "A new session was added to the schedule.", initiator: initiatorOf(session),
+      });
+      return NextResponse.json({ success: true, session: row, notified });
+    }
+
+    // ── Bulk upload / replace (CSV) ───────────────────────────────────────────
     if (!body.schedule || !Array.isArray(body.schedule)) {
-      return NextResponse.json({ error: "schedule array required" }, { status: 400 });
+      return NextResponse.json({ error: "schedule array or add object required" }, { status: 400 });
     }
 
     let count = 0, inserted = 0, updated = 0;
@@ -52,124 +111,53 @@ export async function POST(request, { params }) {
       const session_number = parseInt(entry.session_number);
       const group_number = parseInt(entry.group_number) || 1;
       const scheduled_date = entry.scheduled_date;
+      if (!session_number || !scheduled_date) continue;
       const day_of_week = entry.day_of_week || null;
       const start_time = entry.start_time || null;
       const end_time = entry.end_time || null;
       const location = entry.location || null;
-      // Check if this session is a testing session — testing needs no evaluators
-      const sessionTypeLookup = await sql`
+      const typeLookup = await sql`
         SELECT session_type FROM category_sessions
-        WHERE age_category_id = ${catId} AND session_number = ${session_number}
-        LIMIT 1
+        WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1
       `;
-      const isTesting = sessionTypeLookup[0]?.session_type === 'testing';
-      const evaluators_required = isTesting ? 0 : (parseInt(entry.evaluators_required || entry['Evaluators Required'] || 4) || 4);
-
-      if (!session_number || !scheduled_date) continue;
-
-      let code = generateCheckinCode(session_number, group_number || 0);
-      let existing = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
-      while (existing.length) {
-        code = generateCheckinCode(session_number, group_number || 0);
-        existing = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
-      }
+      const isTesting = typeLookup[0]?.session_type === "testing";
+      const evaluators_required = isTesting ? 0 : (parseInt(entry.evaluators_required || entry["Evaluators Required"] || 4) || 4);
 
       const existingEntry = await sql`
         SELECT id FROM evaluation_schedule
-        WHERE age_category_id = ${catId}
-          AND session_number = ${session_number}
-          AND group_number = ${group_number}
+        WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number}
       `;
-
       if (existingEntry.length) {
         await sql`
           UPDATE evaluation_schedule SET
-            scheduled_date = ${scheduled_date},
-            start_time = ${start_time},
-            end_time = ${end_time},
-            location = ${location},
-            evaluators_required = ${evaluators_required}
+            scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
+            start_time = ${start_time}, end_time = ${end_time},
+            location = ${location}, evaluators_required = ${evaluators_required}
           WHERE id = ${existingEntry[0].id}
         `;
         updated++;
       } else {
+        const code = await uniqueCheckinCode(session_number, group_number);
         await sql`
           INSERT INTO evaluation_schedule (
-            age_category_id, session_number, group_number,
-            scheduled_date, day_of_week, start_time, end_time,
-            location, checkin_code, evaluators_required
+            age_category_id, session_number, group_number, scheduled_date, day_of_week,
+            start_time, end_time, location, checkin_code, evaluators_required, status
           ) VALUES (
-            ${catId}, ${session_number}, ${group_number},
-            ${scheduled_date}, ${day_of_week}, ${start_time}, ${end_time},
-            ${location}, ${code}, ${evaluators_required}
+            ${catId}, ${session_number}, ${group_number}, ${scheduled_date}, ${day_of_week},
+            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, 'scheduled'
           )
         `;
         inserted++;
       }
       count++;
+      await ensureSessionGroup(catId, session_number, group_number);
     }
 
-    // Create session_groups for any group entries
-    const groupEntries = body.schedule.filter(e => e.group_number);
-    const uniqueGroups = new Map(groupEntries.map(e => [`${e.session_number}-${e.group_number}`, e]));
-    for (const [, entry] of uniqueGroups) {
-      const existingGroup = await sql`
-        SELECT id FROM session_groups
-        WHERE age_category_id = ${catId}
-          AND session_number = ${entry.session_number}
-          AND group_number = ${entry.group_number}
-      `;
-      if (!existingGroup.length) {
-        await sql`
-          INSERT INTO session_groups (age_category_id, session_number, group_number, name, display_order)
-          VALUES (${catId}, ${entry.session_number}, ${entry.group_number}, ${'Group ' + entry.group_number}, ${entry.group_number})
-        `;
-      }
-    }
-
-    // Notify signed-up evaluators and directors about schedule changes
-    try {
-      const catInfo = await sql`
-        SELECT ac.name as category_name, o.name as org_name
-        FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
-        WHERE ac.id = ${catId}
-      `;
-      const catName = catInfo[0]?.category_name || "Evaluation";
-      const orgName = catInfo[0]?.org_name || "";
-      const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
-
-      // Get all evaluators signed up for sessions in this category
-      const evaluators = await sql`
-        SELECT DISTINCT u.email, u.name FROM evaluator_session_signups ess
-        JOIN evaluation_schedule es ON es.id = ess.schedule_id
-        JOIN users u ON u.id = ess.user_id
-        WHERE es.age_category_id = ${catId} AND ess.status = 'signed_up'
-      `;
-
-      // Get directors assigned to this category
-      const directors = await sql`
-        SELECT DISTINCT u.email, u.name FROM director_assignments da
-        JOIN users u ON u.id = da.user_id
-        WHERE da.age_category_id = ${catId} AND da.status = 'active'
-      `;
-
-      if (evaluators.length || directors.length) {
-        const html = emailWrapper(`
-          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
-          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong>${orgName ? ` at ${orgName}` : ""} has been updated. Please check your dashboard for the latest times and locations.</p>
-          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
-        `);
-        const dirHtml = emailWrapper(`
-          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
-          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong> has been updated.</p>
-          <a href="${BASE_URL}/director/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
-        `);
-        for (const e of evaluators) await sendEmail(e.email, `Schedule Updated — ${catName}`, html);
-        for (const d of directors) await sendEmail(d.email, `Schedule Updated — ${catName}`, dirHtml);
-      }
-    } catch (notifyErr) {
-      console.error("Schedule notification error:", notifyErr);
-    }
+    await notifySessionChange({
+      catId, changeType: "edited",
+      summary: "The full schedule was updated — please review your session times and locations.",
+      initiator: initiatorOf(session),
+    });
 
     return NextResponse.json({ success: true, count, inserted, updated });
   } catch (error) {
@@ -178,6 +166,67 @@ export async function POST(request, { params }) {
   }
 }
 
+// Edit one session's details, or reinstate a cancelled one (status: "scheduled").
+export async function PATCH(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { catId } = params;
+
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const body = await request.json();
+    const id = body.id;
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+    const before = await sql`SELECT * FROM evaluation_schedule WHERE id = ${id} AND age_category_id = ${catId}`;
+    if (!before.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const prev = before[0];
+
+    // Coalesce only provided fields
+    const scheduled_date = body.scheduled_date ?? prev.scheduled_date;
+    const day_of_week = body.day_of_week ?? prev.day_of_week;
+    const start_time = body.start_time ?? prev.start_time;
+    const end_time = body.end_time ?? prev.end_time;
+    const location = body.location ?? prev.location;
+    const evaluators_required = body.evaluators_required != null ? parseInt(body.evaluators_required) : prev.evaluators_required;
+    const reinstating = body.status === "scheduled" && prev.status === "cancelled";
+    const status = body.status ?? prev.status;
+
+    const [row] = await sql`
+      UPDATE evaluation_schedule SET
+        scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
+        start_time = ${start_time}, end_time = ${end_time},
+        location = ${location}, evaluators_required = ${evaluators_required}, status = ${status}
+      WHERE id = ${id} RETURNING *
+    `;
+
+    // Build a short human summary of what changed
+    const changes = [];
+    if (fmt(prev.scheduled_date) !== fmt(row.scheduled_date)) changes.push(`date → ${fmt(row.scheduled_date)}`);
+    if ((prev.start_time || "") !== (row.start_time || "")) changes.push(`time → ${row.start_time || "TBD"}`);
+    if ((prev.location || "") !== (row.location || "")) changes.push(`location → ${row.location || "TBD"}`);
+    const summary = reinstating
+      ? "This session is back on."
+      : changes.length ? `Changed: ${changes.join(", ")}.` : undefined;
+
+    const { notified } = await notifySessionChange({
+      catId, scheduleRow: row, scheduleId: row.id,
+      changeType: reinstating ? "reinstated" : "edited", summary, initiator: initiatorOf(session),
+    });
+    return NextResponse.json({ success: true, session: row, notified });
+  } catch (error) {
+    console.error("Schedule PATCH error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+function fmt(d) { return d ? d.toString().split("T")[0] : ""; }
+
+// Soft-cancel a session: mark it cancelled, release any evaluator sign-ups, and
+// notify everyone tied to it. (No hard delete — keeps history and is reversible
+// via PATCH status:"scheduled".)
 export async function DELETE(request, { params }) {
   try {
     const session = await getSession();
@@ -192,80 +241,25 @@ export async function DELETE(request, { params }) {
     if (!scheduleId) return NextResponse.json({ error: "id required" }, { status: 400 });
 
     const entry = await sql`
-      SELECT es.*, ac.name as category_name, o.name as org_name, o.id as org_id
-      FROM evaluation_schedule es
-      JOIN age_categories ac ON ac.id = es.age_category_id
-      JOIN organizations o ON o.id = ac.organization_id
-      WHERE es.id = ${scheduleId} AND es.age_category_id = ${catId}
+      SELECT * FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}
     `;
     if (!entry.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const e = entry[0];
 
-    await sql`DELETE FROM evaluation_schedule WHERE id = ${scheduleId}`;
-
-    const signedUp = await sql`
-      SELECT u.email, u.name FROM evaluator_session_signups ess
-      JOIN users u ON u.id = ess.user_id
-      WHERE ess.schedule_id = ${scheduleId} AND ess.status = 'signed_up'
+    const [row] = await sql`
+      UPDATE evaluation_schedule SET status = 'cancelled' WHERE id = ${scheduleId} RETURNING *
     `;
-    const admins = await sql`
-      SELECT u.email, u.name FROM users u
-      JOIN organizations o ON o.contact_email = u.email
-      WHERE o.id = ${e.org_id}
+    // Release sign-ups so the slot frees up and evaluators stop counting toward staffing
+    await sql`
+      UPDATE evaluator_session_signups SET status = 'released'
+      WHERE schedule_id = ${scheduleId} AND status = 'signed_up'
     `;
 
-    const dateStr = e.scheduled_date?.toString().split("T")[0];
-    const subject = `Session Cancelled — ${e.category_name} Group ${e.group_number} (${dateStr})`;
+    const { notified } = await notifySessionChange({
+      catId, scheduleRow: row, scheduleId: row.id, changeType: "cancelled",
+      summary: "This session has been cancelled.", initiator: initiatorOf(session),
+    });
 
-    // Get directors for this category
-    const directors = await sql`
-      SELECT DISTINCT u.email, u.name FROM director_assignments da
-      JOIN users u ON u.id = da.user_id
-      WHERE da.age_category_id = ${catId} AND da.status = 'active'
-    `;
-
-    // Email admins
-    const adminHtml = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
-      <h2 style="color:#dc2626;">Session Cancelled</h2>
-      <p>The following session has been cancelled and all signed-up evaluators have been notified:</p>
-      <ul>
-        <li><strong>Category:</strong> ${e.category_name}</li>
-        <li><strong>Group:</strong> Group ${e.group_number}</li>
-        <li><strong>Date:</strong> ${dateStr}</li>
-        <li><strong>Time:</strong> ${e.start_time || "—"}</li>
-        <li><strong>Evaluators notified:</strong> ${signedUp.length}</li>
-      </ul>
-    </div>`;
-    for (const admin of admins) {
-      await sendEmail(admin.email, subject, adminHtml);
-    }
-
-    // Email each signed-up evaluator with clear messaging
-    const evalHtml = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
-      <h2 style="color:#dc2626;">⚠️ Session Cancelled</h2>
-      <p>A session you were signed up for has been cancelled. <strong>No action is required from you</strong> and this will not affect your record.</p>
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:20px 0;">
-        <table cellpadding="0" cellspacing="0">
-          <tr><td style="padding:4px 0;font-size:13px;color:#6b7280;width:120px;">Organization</td><td style="font-size:13px;font-weight:600;color:#111827;">${e.org_name}</td></tr>
-          <tr><td style="padding:4px 0;font-size:13px;color:#6b7280;">Category</td><td style="font-size:13px;font-weight:600;color:#111827;">${e.category_name}</td></tr>
-          <tr><td style="padding:4px 0;font-size:13px;color:#6b7280;">Group</td><td style="font-size:13px;font-weight:600;color:#111827;">Group ${e.group_number}</td></tr>
-          <tr><td style="padding:4px 0;font-size:13px;color:#6b7280;">Date</td><td style="font-size:13px;font-weight:600;color:#111827;">${dateStr}</td></tr>
-          <tr><td style="padding:4px 0;font-size:13px;color:#6b7280;">Time</td><td style="font-size:13px;font-weight:600;color:#111827;">${e.start_time || "—"}</td></tr>
-        </table>
-      </div>
-      <p style="font-size:13px;color:#6b7280;">Check your dashboard for other available sessions.</p>
-      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Available Sessions →</a>
-    </div>`;
-    for (const eval_ of signedUp) {
-      await sendEmail(eval_.email, `Session Cancelled — ${e.category_name} G${e.group_number} (${dateStr})`, evalHtml);
-    }
-
-    // Email directors
-    for (const dir of directors) {
-      await sendEmail(dir.email, subject, adminHtml);
-    }
-
-    return NextResponse.json({ success: true, notified: admins.length + signedUp.length + directors.length });
+    return NextResponse.json({ success: true, notified });
   } catch (error) {
     console.error("Schedule DELETE error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
