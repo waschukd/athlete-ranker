@@ -92,7 +92,7 @@ function Dashboard() {
 
   if (orgLoading || catLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
@@ -153,7 +153,7 @@ function Dashboard() {
                 <select
                   value={orgId || ""}
                   onChange={(e) => { window.location.href = `/association/dashboard?org=${e.target.value}`; }}
-                  className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 cursor-pointer max-w-[14rem]"
+                  className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer max-w-[14rem]"
                   aria-label="Switch club"
                 >
                   {myOrgs.map(o => (
@@ -169,7 +169,7 @@ function Dashboard() {
               </button>
               {categories.length > 0 && (
                 <a href={`/association/dashboard/add-category?org=${orgId}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white font-semibold text-sm hover:shadow-lg transition-shadow">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white font-semibold text-sm hover:shadow-lg transition-shadow">
                   <Plus size={16} /> Add Age Category
                 </a>
               )}
@@ -177,17 +177,17 @@ function Dashboard() {
           </div>
 
           {org?.org_code && !serviceProvider && (
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="mt-6 bg-accent-soft border border-accent/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-gray-700">Organization Join Code</p>
                 <p className="text-xs text-gray-500 mt-0.5">Share with evaluators to join this association</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="bg-white px-5 py-2.5 rounded-lg border-2 border-blue-300 text-xl font-mono font-bold text-gray-900 tracking-widest">
+                <div className="bg-white px-5 py-2.5 rounded-lg border-2 border-accent/30 text-xl font-mono font-bold text-ink tracking-widest">
                   {org.org_code}
                 </div>
                 <button onClick={() => { navigator.clipboard.writeText(org.org_code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                  className="px-4 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium">
+                  className="px-4 py-2.5 rounded-lg bg-accent text-white hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium">
                   {codeCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy</>}
                 </button>
               </div>
@@ -217,7 +217,7 @@ function Dashboard() {
                     });
                     refetchCodes();
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-xs font-semibold"
                 >
                   + Generate
                 </button>
@@ -253,7 +253,7 @@ function Dashboard() {
                   <p className="text-xs text-gray-400 mt-0.5">Evaluators waiting for access</p>
                 </div>
                 {(joinCodeData.pending || []).length > 0 && (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                  <span className="text-xs px-2 py-0.5 bg-accent-soft text-accent rounded-full font-medium">
                     {joinCodeData.pending.length} pending
                   </span>
                 )}
@@ -265,7 +265,7 @@ function Dashboard() {
                   <div>
                     <div className="text-sm font-medium text-gray-900">{p.name}</div>
                     <div className="text-xs text-gray-400">{p.email}</div>
-                    {p.evaluator_id && <div className="text-xs font-mono text-[#0b5cd6]">{p.evaluator_id}</div>}
+                    {p.evaluator_id && <div className="text-xs font-mono text-accent">{p.evaluator_id}</div>}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -304,55 +304,51 @@ function Dashboard() {
 
 
         {categories.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-300">
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <Trophy size={56} className="mx-auto text-gray-300 mb-5" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No age categories yet</h3>
+            <h3 className="font-display font-black tracking-tight text-ink text-2xl mb-2">No age categories yet</h3>
             <p className="text-gray-500 mb-8 max-w-sm mx-auto">Create your first age category to start organizing athletes and evaluations.</p>
             <a href={`/association/dashboard/add-category?org=${orgId}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white font-semibold hover:shadow-lg transition-shadow">
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:opacity-90 transition-opacity">
               <Plus size={18} /> Add Age Category
             </a>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat) => (
-              <div key={cat.id} className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-[#0b5cd6]/40 transition-all hover:-translate-y-0.5 relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <a href={cat.setup_complete ? `/association/dashboard/category/${cat.id}?org=${orgId}` : `/association/dashboard/category/${cat.id}/setup?cat=${cat.id}&org=${orgId}`} className="block">
-                  <div className="flex items-center justify-between mb-5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl font-bold text-gray-900">{cat.name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.setup_complete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-600"}`}>
-                        {cat.setup_complete ? "Active" : "Setup"}
-                      </span>
-                    </div>
-                    <ChevronRight className="text-gray-300 group-hover:text-[#0b5cd6] transition-colors" size={22} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {categories.map((cat) => {
+              const ready = cat.setup_complete;
+              return (
+              <div key={cat.id} className="group relative bg-white rounded-2xl border border-[#ededeb] p-5 transition-all hover:border-accent/40 hover:shadow-[0_20px_50px_-34px_rgba(10,12,16,0.35)]">
+                <a href={ready ? `/association/dashboard/category/${cat.id}?org=${orgId}` : `/association/dashboard/category/${cat.id}/setup?cat=${cat.id}&org=${orgId}`} className="block">
+                  <div className="mb-3">
+                    <span className={`inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.12em] uppercase px-2.5 py-1 rounded-full ${ready ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${ready ? "bg-green-500" : "bg-amber-500"}`} />
+                      {ready ? "Active" : "Needs setup"}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-400 mb-5">Ages {cat.min_age}–{cat.max_age}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-3xl font-bold text-[#0b5cd6]">{cat.athletes_count || 0}</div>
-                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Athletes</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-gray-700">{cat.sessions_count || 0}</div>
-                      <div className="text-xs font-medium text-gray-400 mt-0.5 uppercase tracking-wide">Sessions</div>
-                    </div>
+                  <h3 className="font-display font-black tracking-tight text-ink text-2xl leading-none">{cat.name}</h3>
+                  <p className="text-xs text-gray-400 mt-1.5">Ages {cat.min_age}–{cat.max_age}</p>
+                  <div className="flex items-center gap-2 mt-4 text-sm text-gray-500 font-medium">
+                    <span><b className="text-ink tabular-nums">{cat.athletes_count || 0}</b> athletes</span>
+                    <span className="text-gray-300">·</span>
+                    <span><b className="text-ink tabular-nums">{cat.sessions_count || 0}</b> sessions</span>
                   </div>
-                  <div className="mt-5 pt-5 border-t border-gray-100">
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#0b5cd6]/8 text-[#0b5cd6] border border-[#0b5cd6]/20 group-hover:bg-[#0b5cd6] group-hover:text-white transition-all">
-                      Manage <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  <div className="mt-4 pt-4 border-t border-[#ededeb]">
+                    <span className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-wide text-accent group-hover:gap-2.5 transition-all">
+                      {ready ? "Open rankings" : "Finish setup"}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </span>
                   </div>
                 </a>
                 <button
                   onClick={(e) => { e.preventDefault(); if (deleteConfirm === cat.id) { deleteMutation.mutate(cat.id); } else { setDeleteConfirm(cat.id); setTimeout(() => setDeleteConfirm(null), 3000); } }}
-                  className={`absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs ${deleteConfirm === cat.id ? "bg-red-600 text-white" : "bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100"}`}
+                  className={`absolute top-4 right-4 p-1.5 rounded-lg transition-all text-xs ${deleteConfirm === cat.id ? "bg-red-600 text-white opacity-100" : "bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 opacity-0 group-hover:opacity-100"}`}
                   title={deleteConfirm === cat.id ? "Click again to confirm" : "Delete"}>
                   <Trash2 size={14} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -384,7 +380,7 @@ function Dashboard() {
                       </div>
                     )}
                     <button onClick={() => { setShowInvite(false); setInviteResult(null); setInviteEmail(""); setInviteName(""); }}
-                      className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium hover:bg-[#0F4FCC]">Done</button>
+                      className="mt-4 px-5 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90">Done</button>
                   </>
                 ) : (
                   <>
@@ -398,18 +394,18 @@ function Dashboard() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" placeholder="Their full name" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Their full name" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
                   <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" placeholder="admin@association.com" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" placeholder="admin@association.com" />
                 </div>
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowInvite(false)}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
                   <button type="submit" disabled={inviteLoading}
-                    className="flex-1 px-4 py-2.5 bg-[#0b5cd6] text-white rounded-lg hover:bg-[#0F4FCC] text-sm font-medium disabled:opacity-50">
+                    className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">
                     {inviteLoading ? "Sending..." : "Send Invite"}
                   </button>
                 </div>
@@ -425,7 +421,7 @@ function Dashboard() {
 export default function AssociationDashboard() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <Dashboard />
       </Suspense>
     </QueryClientProvider>
