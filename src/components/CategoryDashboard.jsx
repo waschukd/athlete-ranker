@@ -44,6 +44,9 @@ export default function CategoryDashboard({
   const canManage = role === "association";
 
   const [activeTab, setActiveTab] = useState("rankings");
+  const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
+  const [scoresOpen, setScoresOpen] = useState(false);
+  const [analysisView, setAnalysisView] = useState("insights"); // insights | reports
   // Shared search box used by Rankings + Athletes tabs. Client-side filter
   // over the already-loaded list — no API call needed since both tabs hold
   // the full athlete set in memory.
@@ -231,14 +234,9 @@ export default function CategoryDashboard({
 
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
-    { id: "goalies", label: "Goalies", icon: Users },
-    { id: "scores", label: "Scores", icon: Settings },
-    { id: "reports", label: "Reports", icon: FileText },
-    { id: "insights", label: "Insights", icon: BarChart3 },
-    { id: "groups", label: "Groups", icon: Users },
     { id: "schedule", label: "Schedule", icon: Calendar },
+    { id: "analysis", label: "Analysis", icon: FileText },
     { id: "athletes", label: "Athletes", icon: Users },
-    { id: "teams", label: "Teams", icon: Trophy },
   ];
 
   if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
@@ -332,6 +330,62 @@ export default function CategoryDashboard({
 
         {activeTab === "rankings" && (
           <div className="space-y-5">
+            {/* Rankings hub control row */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                {[{ id: "skaters", label: "Skaters" }, { id: "goalies", label: "Goalies" }].map(v => (
+                  <button key={v.id} onClick={() => setRankingsView(v.id)} disabled={scoresOpen} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${rankingsView === v.id && !scoresOpen ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"} ${scoresOpen ? "opacity-40 cursor-not-allowed" : ""}`}>{v.label}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]"}`}>
+                  {scoresOpen ? "← Back to Rankings" : "Edit Scores"}
+                </button>
+                <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
+              </div>
+            </div>
+
+            {scoresOpen ? (
+              <ScoreEditor catId={catId} canEdit={canManage || role === "director"} requireReason={role === "director"} />
+            ) : rankingsView === "goalies" ? (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Goalie Rankings</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Ranked independently — goalie categories only</p>
+                  </div>
+                </div>
+                {goalieAthletes.length === 0 ? (
+                  <div className="px-5 py-12 text-center text-sm text-gray-400">No goalies in this category yet. Make sure goalies are tagged with position = goalie in the roster.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
+                          {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {goalieAthletes.map(a => (
+                          <tr key={a.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
+                            <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
+                            <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
+                            {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                            <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+            <>
             <div className="bg-white border border-gray-200 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">Session Weighting</h3>
               <div className="space-y-3">
@@ -451,11 +505,16 @@ export default function CategoryDashboard({
                 </table>
               </div>
             </div>
+            <div className="flex justify-end">
+              <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
+            </div>
+            </>
+            )}
           </div>
         )}
 
-        {activeTab === "groups" && (
-          <div className="space-y-4">
+        {activeTab === "schedule" && (
+          <div className="space-y-4 mb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Group Management</h2>
               <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-shadow">Manage Groups</a>
@@ -748,65 +807,13 @@ export default function CategoryDashboard({
           </div>
         )}
 
-        {activeTab === "goalies" && (
-          <div className="space-y-5">
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">Goalie Rankings</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Ranked independently — goalie categories only</p>
-                </div>
-              </div>
-              {goalieAthletes.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">No goalies in this category yet. Make sure goalies are tagged with position = goalie in the roster.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
-                        {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {goalieAthletes.map(a => (
-                        <tr key={a.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
-                          <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
-                          <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
-                          {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
-                          <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "teams" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div><h2 className="text-lg font-semibold text-gray-900">Team Generation</h2><p className="text-sm text-gray-400 mt-0.5">Generate teams from final rankings once all sessions are complete</p></div>
-              <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Generate Teams</a>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-6">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-gray-50 rounded-xl py-3"><div className="text-2xl font-bold text-gray-900">{rankedAthletes.filter(a => a.position !== "goalie").length}</div><div className="text-xs text-gray-400 mt-0.5">Skaters</div></div>
-                <div className="bg-gray-50 rounded-xl py-3"><div className="text-2xl font-bold text-gray-900">{rankedAthletes.filter(a => a.position === "goalie").length}</div><div className="text-xs text-gray-400 mt-0.5">Goalies</div></div>
-                <div className="bg-gray-50 rounded-xl py-3"><div className="text-2xl font-bold text-[#1A6BFF]">{completedSessions.length}/{sessions.length}</div><div className="text-xs text-gray-400 mt-0.5">Sessions</div></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "reports" && (
+        {activeTab === "analysis" && analysisView === "reports" && (
           <div className="space-y-6">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+              {[{ id: "insights", label: "Insights" }, { id: "reports", label: "Reports" }].map(v => (
+                <button key={v.id} onClick={() => setAnalysisView(v.id)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${analysisView === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>{v.label}</button>
+              ))}
+            </div>
             <h2 className="text-lg font-semibold text-gray-900">Reports</h2>
 
             {/* Player Comparison Tool */}
@@ -958,8 +965,14 @@ export default function CategoryDashboard({
           </div>
         )}
 
-        {activeTab === "insights" && (
-          rankedForInsights.length === 0 ? (
+        {activeTab === "analysis" && analysisView === "insights" && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+              {[{ id: "insights", label: "Insights" }, { id: "reports", label: "Reports" }].map(v => (
+                <button key={v.id} onClick={() => setAnalysisView(v.id)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${analysisView === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>{v.label}</button>
+              ))}
+            </div>
+          {rankedForInsights.length === 0 ? (
             <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-gray-400">
               <BarChart3 size={40} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm">Team Insights appear once scores are in.</p>
@@ -1094,7 +1107,8 @@ export default function CategoryDashboard({
                 );
               })}
             </div>
-          )
+          )}
+          </div>
         )}
 
         {activeTab === "settings" && (
@@ -1186,8 +1200,6 @@ export default function CategoryDashboard({
             </div>
           )
         )}
-
-        {activeTab === "scores" && <ScoreEditor catId={catId} canEdit={canManage || role === "director"} requireReason={role === "director"} />}
 
         {/* Comparison overlay */}
         {showCompare && (
