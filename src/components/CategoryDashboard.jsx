@@ -249,16 +249,21 @@ export default function CategoryDashboard({
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           {canManage ? (
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <a href={`/association/dashboard?org=${orgId}`} className="text-gray-400 hover:text-[#0b5cd6] transition-colors"><ArrowLeft size={18} /></a>
-                <OrgBrandIcon orgId={orgId} size={44} />
-                <div>
-                  <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">{displayName}</h1>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${displayStatus === "active" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{displayStatus === "active" ? "Active" : "Setup"}</span>
-                    <span className="text-xs text-gray-400">{athletes.length} athletes - {sessions.length} sessions</span>
-                  </div>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="min-w-0">
+                <a href={`/association/dashboard?org=${orgId}`} className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+                  <ArrowLeft size={13} /> {orgName} · Evaluation
+                </a>
+                <div className="flex items-end gap-4 flex-wrap">
+                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{displayName}</h1>
+                  <OrgBrandIcon orgId={orgId} size={44} />
+                  <span className="inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.14em] uppercase text-accent bg-accent-soft px-3 py-1.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /> Live · refreshes 30s
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${displayStatus === "active" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{displayStatus === "active" ? "Active" : "Setup"}</span>
+                  <span><b className="text-ink">{athletes.length}</b> athletes · <b className="text-ink">{sessions.length}</b> sessions</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -279,19 +284,20 @@ export default function CategoryDashboard({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
-                <div>
-                  <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">{displayName}</h1>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-xs text-gray-400">{orgName}</span>
-                    <span className="text-gray-200">·</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${displayStatus === "active" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                      {displayStatus === "active" ? "Active" : "Setup"}
-                    </span>
-                    <span className="text-xs text-gray-400 font-medium">· Director</span>
-                  </div>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="min-w-0">
+                <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{orgName} · Evaluation</div>
+                <div className="flex items-end gap-4 flex-wrap">
+                  <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{displayName}</h1>
+                  <OrgBrandIcon orgId={orgId} size={44} />
+                  <span className="inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.14em] uppercase text-accent bg-accent-soft px-3 py-1.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /> Live · refreshes 30s
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${displayStatus === "active" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{displayStatus === "active" ? "Active" : "Setup"}</span>
+                  <span><b className="text-ink">{athletes.length}</b> athletes · <b className="text-ink">{sessions.length}</b> sessions</span>
+                  <span className="text-gray-300">· Director</span>
                 </div>
               </div>
               <button onClick={onSignOut}
@@ -300,20 +306,6 @@ export default function CategoryDashboard({
               </button>
             </div>
           )}
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
-            {[
-              { label: "Athletes", value: athletes.length, icon: Users, color: "text-blue-600" },
-              { label: "Sessions", value: sessions.length, icon: Trophy, color: "text-[#0b5cd6]" },
-              { label: "Completed", value: completedSessions.length, icon: CheckCircle, color: "text-green-600" },
-              { label: "Upcoming", value: upcomingSchedule.length, icon: Calendar, color: "text-purple-600" },
-            ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                <Icon size={18} className={color} />
-                <div><div className={`font-display text-3xl font-extrabold tabular-nums ${color}`}>{value}</div><div className="text-xs text-gray-500">{label}</div></div>
-              </div>
-            ))}
-          </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-7 overflow-x-auto border-b border-[#ededeb]">
