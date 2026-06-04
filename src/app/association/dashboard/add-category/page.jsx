@@ -40,22 +40,24 @@ function AddCategoryForm() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <a
-          href={`/association/dashboard?org=${orgId}`}
-          className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#0b5cd6] mb-8 text-sm font-medium transition-colors"
-        >
-          <ArrowLeft size={15} /> Back to Dashboard
-        </a>
-
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-8">
-            <OrgBrandIcon orgId={orgId} size={40} />
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Add Age Category</h1>
-              <p className="text-sm text-gray-500">Create a new age group for this association</p>
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="min-w-0">
+            <a
+              href={`/association/dashboard?org=${orgId}`}
+              className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
+            >
+              <ArrowLeft size={13} /> Back to dashboard
+            </a>
+            <div className="flex items-end gap-4 flex-wrap">
+              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Add Age Category</h1>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
 
           {error && (
             <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

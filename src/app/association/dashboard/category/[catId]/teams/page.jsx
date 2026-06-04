@@ -149,19 +149,29 @@ function TeamGeneratorInner() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="min-w-0">
               <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-                <ArrowLeft size={16} /> Back
+                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+                <ArrowLeft size={13} /> Back to rankings
               </a>
-              <div className="w-px h-5 bg-gray-200" />
-              <OrgBrandIcon orgId={orgId} size={36} />
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">Team Generation</h1>
-                <p className="text-xs text-gray-400">{category?.name} · {ranked.length} athletes · {ranked.filter(a => a.position !== 'goalie').length} skaters · {ranked.filter(a => a.position === 'goalie').length} goalies</p>
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Build Teams</h1>
               </div>
+              {ranked.length > 0 && (
+                <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                  <b className="text-ink">{ranked.filter(a => a.position !== 'goalie').length}</b> skaters
+                  <span className="text-gray-300">·</span>
+                  <b className="text-ink">{ranked.filter(a => a.position === 'goalie').length}</b> goalies
+                  {teams.length > 0 && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <b className="text-ink">{teams.length}</b> teams
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {hasExistingTeams && (
