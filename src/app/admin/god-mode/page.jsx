@@ -33,7 +33,7 @@ export default function GodModeDashboard() {
             --gm-text: #f0f0f8;
             --gm-muted: #7878a0;
             --gm-dim: #4a4a6a;
-            --gm-accent: #1A6BFF;
+            --gm-accent: #0b5cd6;
             --gm-accent-soft: rgba(255,107,53,0.12);
             --gm-green: #22d3a0;
             --gm-green-soft: rgba(34,211,160,0.12);
@@ -85,8 +85,8 @@ export default function GodModeDashboard() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 20, background: "rgba(255,107,53,0.1)", border: "1px solid rgba(255,107,53,0.2)" }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#1A6BFF" }} />
-              <span style={{ color: "#1A6BFF", fontSize: 10, fontWeight: 600, letterSpacing: "0.8px" }}>SUPER ADMIN</span>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#0b5cd6" }} />
+              <span style={{ color: "#0b5cd6", fontSize: 10, fontWeight: 600, letterSpacing: "0.8px" }}>SUPER ADMIN</span>
             </div>
           </div>
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>

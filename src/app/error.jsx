@@ -20,7 +20,7 @@ export default function Error({ error, reset }) {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => reset()}
-            className="px-6 py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow"
+            className="px-6 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow"
           >
             Try Again
           </button>

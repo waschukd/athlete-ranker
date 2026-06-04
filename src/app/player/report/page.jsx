@@ -44,19 +44,19 @@ function RankHistoryChart({ history, sessions }) {
       {/* Area fill */}
       <defs>
         <linearGradient id="rankGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1A6BFF" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#1A6BFF" stopOpacity="0" />
+          <stop offset="0%" stopColor="#0b5cd6" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#0b5cd6" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={`${pathD} L ${points[points.length-1].x} ${height} L ${points[0].x} ${height} Z`}
         fill="url(#rankGrad)" />
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#1A6BFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#0b5cd6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       {/* Points */}
       {points.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r="5" fill="#1A6BFF" stroke="white" strokeWidth="2" />
-          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#1A6BFF" fontWeight="600">#{p.rank}</text>
+          <circle cx={p.x} cy={p.y} r="5" fill="#0b5cd6" stroke="white" strokeWidth="2" />
+          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#0b5cd6" fontWeight="600">#{p.rank}</text>
           <text x={p.x} y={height - 4} textAnchor="middle" fontSize="10" fill="#9ca3af">S{i + 1}</text>
         </g>
       ))}
@@ -64,7 +64,7 @@ function RankHistoryChart({ history, sessions }) {
   );
 }
 
-function ScoreBar({ value, max = 10, color = "#1A6BFF" }) {
+function ScoreBar({ value, max = 10, color = "#0b5cd6" }) {
   const pct = Math.min(100, (value / max) * 100);
   return (
     <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ function PlayerReportInner() {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -235,7 +235,7 @@ function PlayerReportInner() {
               </button>
               <div className="w-px h-5 bg-gray-200" />
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white font-bold text-sm">
                   {athlete.first_name[0]}{athlete.last_name[0]}
                 </div>
                 <div>
@@ -266,7 +266,7 @@ function PlayerReportInner() {
                     alert("Parent report link copied to clipboard:\n" + data.url);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md">
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md">
                 Share with Parent
               </button>
               <button
@@ -284,7 +284,7 @@ function PlayerReportInner() {
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                    activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"
+                    activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}>
                   <Icon size={13} /> {tab.label}
                 </button>
@@ -302,7 +302,7 @@ function PlayerReportInner() {
             {/* Stats row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: "Overall Rank", value: `#${ranking?.rank || "—"}`, sub: `of ${total_athletes}`, color: "text-[#1A6BFF]" },
+                { label: "Overall Rank", value: `#${ranking?.rank || "—"}`, sub: `of ${total_athletes}`, color: "text-[#0b5cd6]" },
                 { label: "Percentile", value: `${percentile}th`, sub: percentileLabel(percentile), color: "text-purple-600" },
                 { label: "Total Score", value: ranking?.weighted_total?.toFixed(1) || "—", sub: "out of 100", color: "text-blue-600" },
                 { label: "Sessions", value: `${Object.keys(ranking?.session_scores || {}).length}/${sessions.length}`, sub: "completed", color: "text-green-600" },
@@ -335,7 +335,7 @@ function PlayerReportInner() {
                     <div key={s.session_number}>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold ${sd ? "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]" : "bg-gray-200"}`}>
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold ${sd ? "bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6]" : "bg-gray-200"}`}>
                             {s.session_number}
                           </div>
                           <span className="text-sm text-gray-700">{s.name} <span className="text-xs text-gray-400 capitalize">({s.session_type})</span></span>
@@ -347,7 +347,7 @@ function PlayerReportInner() {
                       {sd && (
                         <div className="flex items-center gap-2 ml-8">
                           <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF]"
+                            <div className="h-full rounded-full bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6]"
                               style={{ width: `${sd.normalized_score}%` }} />
                           </div>
                           <span className="text-xs text-gray-400 w-16 text-right">
@@ -370,7 +370,7 @@ function PlayerReportInner() {
               <div key={session.session_number} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${sd ? "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]" : "bg-gray-300"}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${sd ? "bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6]" : "bg-gray-300"}`}>
                       {session.session_number}
                     </div>
                     <div>
@@ -379,7 +379,7 @@ function PlayerReportInner() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-[#1A6BFF]">{sd ? `${sd.normalized_score?.toFixed(1)}` : "—"}</div>
+                    <div className="text-2xl font-bold text-[#0b5cd6]">{sd ? `${sd.normalized_score?.toFixed(1)}` : "—"}</div>
                     <div className="text-xs text-gray-400">out of 100</div>
                   </div>
                 </div>
@@ -459,7 +459,7 @@ function PlayerReportInner() {
                   return (
                     <div key={s.session_number} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                       <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 border-b border-gray-100">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center text-white text-xs font-bold">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold">
                           {s.session_number}
                         </div>
                         <span className="text-sm font-semibold text-gray-700">{s.name} <span className="text-gray-400 font-normal capitalize">· {s.session_type}</span></span>
@@ -501,7 +501,7 @@ function PlayerReportInner() {
                 <button
                   onClick={generateAIReport}
                   disabled={aiLoading || notes.length === 0}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow"
                 >
                   {aiLoading ? <Loader size={14} className="animate-spin" /> : <Zap size={14} />}
                   {aiLoading ? "Generating..." : aiReport ? "Regenerate" : "Generate Report"}
@@ -524,7 +524,7 @@ function PlayerReportInner() {
               {aiReport && !aiLoading && (
                 <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6">
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center">
                       <Zap size={14} className="text-white" />
                     </div>
                     <div>
@@ -532,13 +532,13 @@ function PlayerReportInner() {
                       <div className="text-xs text-gray-400">{athlete.first_name} {athlete.last_name} · {data.category?.name}</div>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-[#1A6BFF]/30 pl-4">
+                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-[#0b5cd6]/30 pl-4">
                     {aiReport}
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                     <span className="text-xs text-gray-400">Based on {notes.length} evaluator observation{notes.length !== 1 ? "s" : ""}</span>
                     <button onClick={exportReport}
-                      className="text-xs text-[#1A6BFF] hover:underline flex items-center gap-1">
+                      className="text-xs text-[#0b5cd6] hover:underline flex items-center gap-1">
                       <Download size={11} /> Export full report
                     </button>
                   </div>
@@ -574,7 +574,7 @@ function PlayerReportInner() {
 
 export default function PlayerReportPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
       <PlayerReportInner />
     </Suspense>
   );

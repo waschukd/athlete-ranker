@@ -57,7 +57,7 @@ export default function SignUpPage() {
             <img src="/s-mark-dark.svg" style={{width:"72px",height:"72px",objectFit:"contain"}} />
           </div>
           <h1 className="text-2xl font-semibold" style={{color:"#E8F0FF"}}>Request an account</h1>
-          <p className="text-sm mt-1" style={{color:"#4D8FFF"}}>For associations new to Sideline Star</p>
+          <p className="text-sm mt-1" style={{color:"#3b82f6"}}>For associations new to Sideline Star</p>
         </div>
 
         {submitted ? (
@@ -71,7 +71,7 @@ export default function SignUpPage() {
             <a
               href="/account/signin"
               className="block w-full text-center rounded-lg px-4 py-3 text-white font-medium transition-colors"
-              style={{background:"#1A6BFF"}}
+              style={{background:"#0b5cd6"}}
             >
               Back to sign in
             </a>
@@ -88,7 +88,7 @@ export default function SignUpPage() {
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Association name</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                   <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="text"
@@ -103,7 +103,7 @@ export default function SignUpPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Your name</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                   <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="text"
@@ -117,7 +117,7 @@ export default function SignUpPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Email</label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                   <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="email"
@@ -132,7 +132,7 @@ export default function SignUpPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Phone <span style={{color:"#4a4a6a"}}>(optional)</span></label>
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                   <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="tel"
@@ -146,7 +146,7 @@ export default function SignUpPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{color:"#A0B4D0"}}>Message <span style={{color:"#4a4a6a"}}>(optional)</span></label>
-                <div className="flex items-start gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#1A6BFF] focus-within:border-transparent">
+                <div className="flex items-start gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[#0b5cd6] focus-within:border-transparent">
                   <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                   <textarea
                     value={message}
@@ -161,7 +161,7 @@ export default function SignUpPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors" style={{background:"#1A6BFF"}}
+                className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors" style={{background:"#0b5cd6"}}
               >
                 <Send className="w-4 h-4" />
                 {loading ? "Sending…" : "Request account"}
@@ -171,7 +171,7 @@ export default function SignUpPage() {
         )}
 
         <div className="mt-6 text-center">
-          <a href="/account/signin" className="text-sm hover:underline" style={{color:"#4D8FFF"}}>
+          <a href="/account/signin" className="text-sm hover:underline" style={{color:"#3b82f6"}}>
             ← Back to sign in
           </a>
         </div>

@@ -180,11 +180,11 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
           {/* Mode Toggle */}
           <div className="flex gap-2 mt-3 mb-4">
             <button onClick={() => { setMode("standard"); setTgParsed(null); setResult(null); }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${mode === "standard" ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${mode === "standard" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               <Upload size={12} /> Standard CSV
             </button>
             <button onClick={() => { setMode("teamgenius"); setResult(null); }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${mode === "teamgenius" ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${mode === "teamgenius" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               <FileText size={12} /> TeamGenius Import
             </button>
           </div>
@@ -194,17 +194,17 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
             <div className="space-y-4">
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Backup only. Use if the app was unavailable during a session. Each evaluator uploads one file. Overwrites their previous scores for the selected session.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div><label className="block text-xs font-medium text-gray-500 mb-1">Evaluator Name *</label><input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} placeholder="e.g. John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
+                <div><label className="block text-xs font-medium text-gray-500 mb-1">Evaluator Name *</label><input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} placeholder="e.g. John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
                 <div><label className="block text-xs font-medium text-gray-500 mb-1">Session *</label>
-                  <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]">
+                  <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
                     <option value="">Select session...</option>
                     {sessions.map(s => <option key={s.session_number} value={s.session_number}>Session {s.session_number} - {s.name}</option>)}
                   </select>
                 </div>
               </div>
-              <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First Name, Last Name, {scoringCategories.map(c => c.name).join(", ")}, Notes (optional))</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" /></div>
+              <div><label className="block text-xs font-medium text-gray-500 mb-1">CSV File * (columns: First Name, Last Name, {scoringCategories.map(c => c.name).join(", ")}, Notes (optional))</label><input type="file" accept=".csv" onChange={e => setFile(e.target.files[0])} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0b5cd6] file:text-white hover:file:bg-[#0F4FCC]" /></div>
               {result && <div className={`text-xs px-3 py-2 rounded-lg font-medium ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{result.success ? `Imported ${result.imported} athletes${result.skipped > 0 ? `, ${result.skipped} not matched` : ""}` : result.error}</div>}
-              <button onClick={handleStandardUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">{loading ? "Uploading..." : "Upload Scores"}</button>
+              <button onClick={handleStandardUpload} disabled={!evalName || !sessionNum || !file || loading} className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">{loading ? "Uploading..." : "Upload Scores"}</button>
             </div>
           )}
 
@@ -214,14 +214,14 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
               <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">Import aggregate scores from a TeamGenius CSV export. The system will parse the file, let you map their scoring categories to yours, and import as &ldquo;TeamGenius Import&rdquo;.</p>
 
               <div><label className="block text-xs font-medium text-gray-500 mb-1">Session *</label>
-                <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]">
+                <select value={sessionNum} onChange={e => setSessionNum(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
                   <option value="">Select session to import into...</option>
                   {sessions.map(s => <option key={s.session_number} value={s.session_number}>Session {s.session_number} - {s.name}</option>)}
                 </select>
               </div>
 
               <div><label className="block text-xs font-medium text-gray-500 mb-1">TeamGenius CSV File *</label>
-                <input type="file" accept=".csv" onChange={handleTGFileSelect} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1A6BFF] file:text-white hover:file:bg-[#0F4FCC]" />
+                <input type="file" accept=".csv" onChange={handleTGFileSelect} className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0b5cd6] file:text-white hover:file:bg-[#0F4FCC]" />
               </div>
 
               {/* Column Mapping */}
@@ -241,7 +241,7 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
                       <select
                         value={tgMapping[tgCat] || ""}
                         onChange={e => setTgMapping(prev => ({ ...prev, [tgCat]: e.target.value }))}
-                        className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] ${tgMapping[tgCat] ? "border-green-300 bg-green-50" : "border-gray-200"}`}
+                        className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] ${tgMapping[tgCat] ? "border-green-300 bg-green-50" : "border-gray-200"}`}
                       >
                         <option value="">— Skip —</option>
                         {scoringCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
@@ -281,7 +281,7 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
               {result && <div className={`text-xs px-3 py-2 rounded-lg font-medium ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{result.success ? `Imported ${result.imported} athletes${result.skipped > 0 ? `, ${result.skipped} not matched by name` : ""}` : result.error}</div>}
 
               <button onClick={handleTGUpload} disabled={!sessionNum || !tgParsed || mappedCount === 0 || loading}
-                className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">
+                className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]">
                 {loading ? "Importing..." : `Import ${tgParsed?.rows?.length || 0} Athletes`}
               </button>
             </div>

@@ -51,7 +51,7 @@ export default function PublicReportPage({ params }) {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
@@ -100,7 +100,7 @@ export default function PublicReportPage({ params }) {
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => !tab.locked && setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : tab.locked ? "border-transparent text-gray-300 cursor-not-allowed" : "border-transparent text-gray-500 hover:text-gray-700"
+                  activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : tab.locked ? "border-transparent text-gray-300 cursor-not-allowed" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 {tab.locked ? <Lock size={12} /> : <tab.icon size={14} />} {tab.label}
               </button>
@@ -133,7 +133,7 @@ export default function PublicReportPage({ params }) {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-[#1A6BFF]">#{rank || "—"}</div>
+                <div className="text-3xl font-bold text-[#0b5cd6]">#{rank || "—"}</div>
                 <div className="text-xs text-gray-500 mt-1">Overall Rank</div>
               </div>
               <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
@@ -158,7 +158,7 @@ export default function PublicReportPage({ params }) {
                   <div key={s.session_number} className="flex items-center gap-4">
                     <div className="w-20 text-xs text-gray-500 flex-shrink-0">S{s.session_number} · {s.session_type}</div>
                     <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] rounded-full" style={{ width: s.avg_score ? `${(s.avg_score / scale) * 100}%` : "0%" }} />
+                      <div className="h-full bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] rounded-full" style={{ width: s.avg_score ? `${(s.avg_score / scale) * 100}%` : "0%" }} />
                     </div>
                     <div className="w-12 text-right text-sm font-semibold text-gray-900">{s.avg_score || "—"}</div>
                   </div>
@@ -240,7 +240,7 @@ export default function PublicReportPage({ params }) {
             {data.scouting_report ? (
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center">
                     <Star size={14} className="text-white" />
                   </div>
                   <div>
@@ -248,7 +248,7 @@ export default function PublicReportPage({ params }) {
                     <div className="text-xs text-gray-400">{athlete.first_name} {athlete.last_name} · {category_name}</div>
                   </div>
                 </div>
-                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-[#1A6BFF]/30 pl-4">
+                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-[#0b5cd6]/30 pl-4">
                   {data.scouting_report}
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
@@ -266,8 +266,8 @@ export default function PublicReportPage({ params }) {
         {/* ─── Paywall (shown on locked tabs or below overview) ── */}
         {!purchased && (
           <div className="mt-8">
-            <div className="bg-white border-2 border-[#1A6BFF]/20 rounded-2xl p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center mx-auto mb-4">
+            <div className="bg-white border-2 border-[#0b5cd6]/20 rounded-2xl p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center mx-auto mb-4">
                 <Lock size={24} className="text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Unlock Full Report</h3>
@@ -294,7 +294,7 @@ export default function PublicReportPage({ params }) {
               <button
                 onClick={handleUnlock}
                 disabled={unlocking}
-                className="px-8 py-3.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-base hover:shadow-xl hover:shadow-blue-500/25 transition-all disabled:opacity-50"
+                className="px-8 py-3.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-base hover:shadow-xl hover:shadow-blue-500/25 transition-all disabled:opacity-50"
               >
                 {unlocking ? "Redirecting to checkout..." : `Unlock Report — ${priceStr}`}
               </button>

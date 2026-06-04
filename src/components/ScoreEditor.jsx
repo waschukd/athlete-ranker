@@ -148,7 +148,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
         <button
           onClick={() => setSubTab("edit")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            subTab === "edit" ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            subTab === "edit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           <Edit3 size={14} /> Edit Scores
@@ -156,7 +156,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
         <button
           onClick={() => setSubTab("audit")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            subTab === "audit" ? "bg-[#1A6BFF] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            subTab === "audit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
           <History size={14} /> Audit Trail
@@ -175,13 +175,13 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
                 value={search}
                 onChange={e => handleSearch(e.target.value)}
                 placeholder="Search athlete by name or jersey number..."
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent"
               />
             </div>
             <select
               value={evaluatorFilter}
               onChange={e => setEvaluatorFilter(e.target.value)}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent"
             >
               <option value="">All evaluators</option>
               {evaluatorOptions.map(ev => (
@@ -191,7 +191,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
             <select
               value={sessionFilter}
               onChange={e => setSessionFilter(e.target.value)}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent"
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent"
             >
               <option value="">All sessions</option>
               {sessionOptions.map(s => (
@@ -285,7 +285,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
                                                 step="0.5"
                                                 min="0"
                                                 max="10"
-                                                className="w-16 px-2 py-1 text-center text-sm border border-[#1A6BFF] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1A6BFF]"
+                                                className="w-16 px-2 py-1 text-center text-sm border border-[#0b5cd6] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0b5cd6]"
                                                 autoFocus
                                                 onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
                                               />
@@ -294,7 +294,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
                                                 value={editReason}
                                                 onChange={e => setEditReason(e.target.value)}
                                                 placeholder="Reason..."
-                                                className="w-24 px-2 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#1A6BFF]"
+                                                className="w-24 px-2 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0b5cd6]"
                                               />
                                               <div className="flex gap-1">
                                                 <button onClick={saveEdit} disabled={editMutation.isPending} className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100">
@@ -309,7 +309,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
                                             <button
                                               onClick={() => canEdit && startEdit(athlete.id, ev.evaluator_id, cat.id, parseInt(sessionNum), scoreData.score)}
                                               className={`px-2.5 py-1 rounded-lg text-sm font-mono font-semibold transition-colors ${
-                                                canEdit ? "hover:bg-blue-50 hover:text-[#1A6BFF] cursor-pointer" : "cursor-default"
+                                                canEdit ? "hover:bg-blue-50 hover:text-[#0b5cd6] cursor-pointer" : "cursor-default"
                                               } text-gray-900 bg-gray-50`}
                                               title={canEdit ? "Click to edit" : ""}
                                             >
@@ -524,7 +524,7 @@ function ScoreGridCell({ value, canEdit, onSave }) {
         if (e.key === "Enter") e.currentTarget.blur();
         if (e.key === "Escape") { setVal(String(value)); e.currentTarget.blur(); }
       }}
-      className={`w-14 px-1.5 py-1 text-center text-sm font-mono rounded border ${ring} focus:outline-none focus:ring-1 focus:ring-[#1A6BFF] focus:border-[#1A6BFF]`}
+      className={`w-14 px-1.5 py-1 text-center text-sm font-mono rounded border ${ring} focus:outline-none focus:ring-1 focus:ring-[#0b5cd6] focus:border-[#0b5cd6]`}
     />
   );
 }

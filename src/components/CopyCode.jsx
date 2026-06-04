@@ -11,7 +11,7 @@ export default function CopyCode({ code, scheduleId }) {
         className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
         {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
       </button>
-      {scheduleId && <a href={`/checkin/${scheduleId}`} target="_blank" className="text-xs text-[#1A6BFF] hover:underline">Open</a>}
+      {scheduleId && <a href={`/checkin/${scheduleId}`} target="_blank" className="text-xs text-[#0b5cd6] hover:underline">Open</a>}
     </div>
   );
 }

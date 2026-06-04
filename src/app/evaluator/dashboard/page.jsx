@@ -117,7 +117,7 @@ function InviteModal({ session, onClose }) {
                 <Check className="w-12 h-12 text-green-500 mx-auto mb-3" />
                 <p className="font-semibold text-gray-900 mb-1">Invite sent!</p>
                 <p className="text-sm text-gray-500">{email} will receive a link to sign up for this session.</p>
-                <button onClick={onClose} className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium">Done</button>
+                <button onClick={onClose} className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium">Done</button>
               </>
             ) : (
               <>
@@ -139,7 +139,7 @@ function InviteModal({ session, onClose }) {
                 onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="colleague@email.com"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
               />
             </div>
             <div className="flex gap-3">
@@ -148,7 +148,7 @@ function InviteModal({ session, onClose }) {
                 Cancel
               </button>
               <button type="submit" disabled={sending}
-                className="flex-1 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
                 <Mail size={14} />
                 {sending ? "Sending..." : "Send Invite"}
               </button>
@@ -179,7 +179,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
   return (
     <>
       <div className={`bg-white border rounded-xl p-5 hover:shadow-md transition-all ${
-        mode === "mine" ? "border-[#1A6BFF]/30 bg-orange-50/20" : "border-gray-200"
+        mode === "mine" ? "border-[#0b5cd6]/30 bg-orange-50/20" : "border-gray-200"
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -220,7 +220,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
             {mode === "mine" ? (
               <>
                 <a href={`/evaluator/score/${session.schedule_id}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <ClipboardList size={14} /> Score
                 </a>
                 {spotsAfterMe > 0 && (
@@ -244,7 +244,7 @@ function SessionCard({ session, onSignup, onCancel, mode }) {
               </>
             ) : (
               <button onClick={() => onSignup(session.schedule_id)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                 <Plus size={14} /> Sign Up
               </button>
             )}
@@ -377,7 +377,7 @@ function FilterChip({ value, options, onChange }) {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-full bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] cursor-pointer"
+      className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-full bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] cursor-pointer"
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -434,7 +434,7 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
       ) : (
         <button
           onClick={() => onSignup(session.schedule_id)}
-          className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
+          className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
           aria-label="Sign up for this session"
         >
           <Plus size={13} />
@@ -886,7 +886,7 @@ function EvaluatorDashboard() {
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"
+                  activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
                 {tab.label}
               </button>
@@ -926,7 +926,7 @@ function EvaluatorDashboard() {
                 <h3 className="font-semibold text-gray-700 mb-2">No sessions yet</h3>
                 <p className="text-sm text-gray-400 mb-4">Sign up for available sessions or join an organization first.</p>
                 <button onClick={() => setActiveTab("available")}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold">
                   Browse Available Sessions
                 </button>
               </div>
@@ -993,7 +993,7 @@ function EvaluatorDashboard() {
           <div className="max-w-md mx-auto">
             <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
               <div className="text-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center mx-auto mb-3">
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900">Join an Organization</h2>
@@ -1002,7 +1002,7 @@ function EvaluatorDashboard() {
               <form onSubmit={handleJoinCode} className="space-y-4">
                 <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="e.g. ABC123" required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] uppercase"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] uppercase"
                   maxLength={10} />
                 {joinMsg && (
                   <p className={`text-sm text-center font-medium ${joinMsg.includes("Joined") ? "text-green-600" : "text-red-600"}`}>
@@ -1010,7 +1010,7 @@ function EvaluatorDashboard() {
                   </p>
                 )}
                 <button type="submit" disabled={joiningOrg || !joinCode}
-                  className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold disabled:opacity-50">
+                  className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold disabled:opacity-50">
                   {joiningOrg ? "Joining..." : "Join Organization"}
                 </button>
               </form>
@@ -1025,7 +1025,7 @@ function EvaluatorDashboard() {
 export default function EvaluatorDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
         <EvaluatorDashboard />
       </Suspense>
     </QueryClientProvider>

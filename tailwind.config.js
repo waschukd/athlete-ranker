@@ -5,6 +5,17 @@ module.exports = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Hanken Grotesk', 'system-ui', 'sans-serif'],
+        display: ['Archivo', 'system-ui', 'sans-serif'],
+      },
+      colors: {
+        accent: { DEFAULT: '#0b5cd6', soft: '#eaf1fe' },
+        ink: '#101113',
+      },
+    },
+  },
   plugins: [],
 }

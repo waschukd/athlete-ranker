@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Broadcast (light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --ink:#0a0c10; --ink-2:#3a3f4a; --dim:#8b909c; --line:#e6e8ee;
+    --accent:#1a4bff; --accent-ink:#0a2a9e; --hot:#ff3b30; --lime:#0a0c10;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+
+  /* ── Black lower-third header band ── */
+  .band{background:var(--ink);color:#fff;margin:0 -24px 0;padding:30px 24px 26px;position:relative;overflow:hidden}
+  .band::before{content:"";position:absolute;top:0;right:-60px;bottom:0;width:240px;background:var(--accent);transform:skewX(-14deg);opacity:.9}
+  .band::after{content:"";position:absolute;top:0;right:140px;bottom:0;width:30px;background:var(--hot);transform:skewX(-14deg)}
+  .band .inner{position:relative;display:flex;align-items:center;gap:18px}
+  .crest{width:58px;height:58px;border-radius:12px;background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:center;font-family:'Oswald';font-weight:700;font-size:30px}
+  .kicker{font-family:'Oswald';font-weight:600;letter-spacing:.3em;text-transform:uppercase;font-size:12px;color:#9fb4ff}
+  .title{font-family:'Oswald';font-weight:700;text-transform:uppercase;font-size:48px;line-height:.95;letter-spacing:.5px}
+  .sub{color:#aeb4c2;font-size:13px;margin-top:6px;font-weight:500}
+  .sub b{color:#fff}
+  .live{margin-left:auto;position:relative;z-index:2;display:inline-flex;align-items:center;gap:8px;font-family:'Oswald';font-weight:600;letter-spacing:.2em;text-transform:uppercase;font-size:12px;color:#fff}
+  .live .dot{width:9px;height:9px;border-radius:50%;background:#fff;animation:blink 1.6s infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* ── stat row ── */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:var(--card);border:1px solid var(--line);border-top:none;border-radius:0 0 14px 14px;overflow:hidden;box-shadow:0 14px 40px -24px rgba(10,12,16,.3)}
+  .stat{padding:18px 22px;border-right:1px solid var(--line)}
+  .stat:last-child{border-right:none}
+  .stat .n{font-family:'Oswald';font-weight:700;font-size:34px;line-height:1}
+  .stat:nth-child(4) .n{color:var(--accent)}
+  .stat .l{font-family:'Oswald';font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--dim);margin-top:4px}
+
+  /* ── board ── */
+  .board{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 24px 60px -34px rgba(10,12,16,.35)}
+  .boardhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:2px solid var(--ink)}
+  .boardhead h2{font-family:'Oswald';font-weight:700;text-transform:uppercase;letter-spacing:.5px;font-size:22px}
+  .boardhead .meta{font-family:'Oswald';font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:var(--dim)}
+  .row{display:grid;grid-template-columns:60px 1fr 130px 84px;align-items:center;gap:14px;padding:13px 22px;border-bottom:1px solid var(--line);
+    opacity:0;transform:translateX(-8px);animation:slide .45s forwards}
+  @keyframes slide{to{opacity:1;transform:none}}
+  .row:hover{background:#f7f9ff}
+  .rank{font-family:'Oswald';font-weight:700;font-size:30px;color:#c7ccd6;text-align:center;line-height:1}
+  .row.lead{background:var(--accent);color:#fff}
+  .row.lead .rank{color:#fff}
+  .row.lead .meta,.row.lead .pos{color:#cdd8ff !important}
+  .row.lead .bar{background:rgba(255,255,255,.25)}
+  .row.lead .bar>i{background:#fff}
+  .who .name{font-weight:800;font-size:16px}
+  .who .pos{font-family:'Oswald';font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:var(--dim);margin-top:2px}
+  .who .pos .pill{margin-left:6px;padding:1px 7px;border-radius:5px;background:var(--ink);color:#fff;font-size:10px}
+  .row.lead .who .pos .pill{background:#fff;color:var(--accent)}
+  .bar{height:8px;border-radius:5px;background:#eef0f5;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--accent);border-radius:5px}
+  .score{font-family:'Oswald';font-weight:700;font-size:30px;text-align:right}
+  .foot{padding:16px 22px;display:flex;justify-content:space-between;align-items:center}
+  .foot .x{font-family:'Oswald';font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:12px;color:var(--dim)}
+  .cta{font-family:'Oswald';font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:13px;color:#fff;background:var(--ink);padding:11px 18px;border-radius:9px;border:none;cursor:pointer}
+  .cta:hover{background:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="band">
+      <div class="inner">
+        <div class="crest">B</div>
+        <div>
+          <div class="kicker">Burnaby Minor · Evaluation</div>
+          <div class="title">U15 Rankings</div>
+          <div class="sub"><b>100</b> athletes · <b>4</b> sessions · testing 10% · scrimmage 30%×3</div>
+        </div>
+        <div class="live"><span class="dot"></span> Live</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">100</div><div class="l">Athletes</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Sessions</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Completed</div></div>
+      <div class="stat"><div class="n">9</div><div class="l">On the bubble</div></div>
+    </div>
+
+    <div class="board">
+      <div class="boardhead"><h2>Live Standings</h2><div class="meta">refreshes every 30s · weighted total</div></div>
+
+      <div class="row lead" style="animation-delay:.05s">
+        <div class="rank">1</div>
+        <div class="who"><div class="name">Sawyer Celebrini</div><div class="pos">Forward <span class="pill">#9</span></div></div>
+        <div class="bar"><i style="width:96%"></i></div>
+        <div class="score">80.3</div>
+      </div>
+      <div class="row" style="animation-delay:.12s">
+        <div class="rank">2</div>
+        <div class="who"><div class="name">Jack Hughes</div><div class="pos">Forward <span class="pill">#86</span></div></div>
+        <div class="bar"><i style="width:95.7%"></i></div>
+        <div class="score">80.1</div>
+      </div>
+      <div class="row" style="animation-delay:.19s">
+        <div class="rank">3</div>
+        <div class="who"><div class="name">Shane Gostisbehere</div><div class="pos">Defense <span class="pill">#53</span></div></div>
+        <div class="bar"><i style="width:93%"></i></div>
+        <div class="score">79.5</div>
+      </div>
+      <div class="row" style="animation-delay:.26s">
+        <div class="rank">4</div>
+        <div class="who"><div class="name">Mitch Marner</div><div class="pos">Forward <span class="pill">#16</span></div></div>
+        <div class="bar"><i style="width:92.6%"></i></div>
+        <div class="score">79.4</div>
+      </div>
+      <div class="row" style="animation-delay:.33s">
+        <div class="rank">5</div>
+        <div class="who"><div class="name">Tyler Seguin</div><div class="pos">Forward <span class="pill">#91</span></div></div>
+        <div class="bar"><i style="width:90%"></i></div>
+        <div class="score">78.7</div>
+      </div>
+
+      <div class="foot"><span class="x">Showing 1–5 of 100</span><button class="cta">Build teams from these cuts →</button></div>
+    </div>
+  </div>
+</body>
+</html>

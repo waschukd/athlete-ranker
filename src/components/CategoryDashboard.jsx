@@ -148,7 +148,7 @@ export default function CategoryDashboard({
     return dir * (aScore - bScore);
   }) : filteredAthletes;
   const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
-  const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#1A6BFF]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
+  const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#0b5cd6]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
 
   const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]);
 
@@ -239,7 +239,7 @@ export default function CategoryDashboard({
     { id: "athletes", label: "Athletes", icon: Users },
   ];
 
-  if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A6BFF]" /></div>;
+  if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
 
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
@@ -251,10 +251,10 @@ export default function CategoryDashboard({
           {canManage ? (
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <a href={`/association/dashboard?org=${orgId}`} className="text-gray-400 hover:text-[#1A6BFF] transition-colors"><ArrowLeft size={18} /></a>
+                <a href={`/association/dashboard?org=${orgId}`} className="text-gray-400 hover:text-[#0b5cd6] transition-colors"><ArrowLeft size={18} /></a>
                 <OrgBrandIcon orgId={orgId} size={44} />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
+                  <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">{displayName}</h1>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${displayStatus === "active" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{displayStatus === "active" ? "Active" : "Setup"}</span>
                     <span className="text-xs text-gray-400">{athletes.length} athletes - {sessions.length} sessions</span>
@@ -269,7 +269,7 @@ export default function CategoryDashboard({
                     <button onClick={() => setActiveTab('settings')} className="text-xs text-green-600 hover:text-green-800 underline ml-1">change</button>
                   </div>
                 ) : (
-                  <button onClick={() => setActiveTab('settings')} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                  <button onClick={() => setActiveTab('settings')} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                     <Users size={14} /> Assign Director
                   </button>
                 )}
@@ -283,7 +283,7 @@ export default function CategoryDashboard({
               <div className="flex items-center gap-3">
                 <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
+                  <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">{displayName}</h1>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-xs text-gray-400">{orgName}</span>
                     <span className="text-gray-200">·</span>
@@ -304,21 +304,21 @@ export default function CategoryDashboard({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
             {[
               { label: "Athletes", value: athletes.length, icon: Users, color: "text-blue-600" },
-              { label: "Sessions", value: sessions.length, icon: Trophy, color: "text-[#1A6BFF]" },
+              { label: "Sessions", value: sessions.length, icon: Trophy, color: "text-[#0b5cd6]" },
               { label: "Completed", value: completedSessions.length, icon: CheckCircle, color: "text-green-600" },
               { label: "Upcoming", value: upcomingSchedule.length, icon: Calendar, color: "text-purple-600" },
             ].map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
                 <Icon size={18} className={color} />
-                <div><div className={`text-2xl font-bold ${color}`}>{value}</div><div className="text-xs text-gray-500">{label}</div></div>
+                <div><div className={`font-display text-3xl font-extrabold tabular-nums ${color}`}>{value}</div><div className="text-xs text-gray-500">{label}</div></div>
               </div>
             ))}
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex gap-7 overflow-x-auto border-b border-[#ededeb]">
             {tabs.map(tab => { const Icon = tab.icon; return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#1A6BFF] text-[#1A6BFF]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`font-display flex items-center gap-2 pb-3.5 pt-1 text-sm font-bold tracking-wide whitespace-nowrap transition-colors border-b-[3px] -mb-px ${activeTab === tab.id ? "border-accent text-ink" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
                 <Icon size={14} /> {tab.label}
               </button>
             ); })}
@@ -338,10 +338,10 @@ export default function CategoryDashboard({
                 ))}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#1A6BFF] text-white hover:bg-[#0F4FCC]"}`}>
+                <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#0b5cd6] text-white hover:bg-[#0F4FCC]"}`}>
                   {scoresOpen ? "← Back to Rankings" : "Edit Scores"}
                 </button>
-                <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
+                <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
               </div>
             </div>
 
@@ -351,7 +351,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">Goalie Rankings</h3>
+                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Goalie Rankings</h3>
                     <p className="text-xs text-gray-400 mt-0.5">Ranked independently — goalie categories only</p>
                   </div>
                 </div>
@@ -375,8 +375,8 @@ export default function CategoryDashboard({
                             <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                             <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
                             <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
-                            {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
-                            <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                            {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                            <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -389,7 +389,7 @@ export default function CategoryDashboard({
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">{phase === "pre_session" ? "Roster - Alphabetical" : "Live Rankings"}</h3>
+                  <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">{phase === "pre_session" ? "Roster - Alphabetical" : "Live Rankings"}</h3>
                   <p className="text-xs text-gray-400 mt-0.5">{phase === "pre_session" ? "Rankings update after Session 1 scores are entered" : `${completedSessions.length} of ${sessions.length} sessions - refreshes every 30s`}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -400,7 +400,7 @@ export default function CategoryDashboard({
                       value={tableSearch}
                       onChange={e => setTableSearch(e.target.value)}
                       placeholder="Search name or HC#"
-                      className="pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30 w-44"
+                      className="pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 w-44"
                     />
                     {tableSearch && (
                       <button onClick={() => setTableSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
@@ -417,7 +417,7 @@ export default function CategoryDashboard({
                   )}
                   {hasScores && <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"><Download size={12} /> Export CSV</button>}
                   {compareIds.length >= 2 && (
-                    <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
+                    <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
                       Compare ({compareIds.length})
                     </button>
                   )}
@@ -445,19 +445,19 @@ export default function CategoryDashboard({
                       <tr><td colSpan={hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
-                      <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : ""}`}>
+                      <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : a.rank === 1 ? "bg-accent-soft" : ""}`}>
                         <td className="px-2 py-3">
-                          <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#1A6BFF] focus:ring-[#1A6BFF]" />
+                          <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#0b5cd6] focus:ring-[#0b5cd6]" />
                         </td>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
-                        <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#1A6BFF]">{a.first_name}</a></td>
+                        <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#0b5cd6]">{a.first_name}</a></td>
                         <td className="px-4 py-3">
-                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#1A6BFF]">{a.last_name}</a>
+                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#0b5cd6]">{a.last_name}</a>
                           {a.incomplete && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>}
                         </td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
-                        {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
-                        {hasScores && <td className="px-4 py-3 text-center font-bold text-gray-900">{a.weighted_total?.toFixed(1) || "-"}</td>}
+                        {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
+                        {hasScores && <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total?.toFixed(1) || "-"}</td>}
                         {hasScores && <td className="px-4 py-3 text-center">
                           {a.rank_history?.length > 0 ? (
                             <div className="flex items-center justify-center gap-0.5 flex-wrap">
@@ -478,7 +478,7 @@ export default function CategoryDashboard({
                                 return (
                                   <span className="inline-flex items-center gap-0.5">
                                     <span className={`text-xs font-bold leading-none ${upF ? 'text-green-500' : dnF ? 'text-red-400' : 'text-gray-300'}`}>{upF ? '↑' : dnF ? '↓' : '–'}</span>
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#1A6BFF] text-white">{a.rank}</span>
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#0b5cd6] text-white">{a.rank}</span>
                                   </span>
                                 );
                               })()}
@@ -492,7 +492,7 @@ export default function CategoryDashboard({
               </div>
             </div>
             <div className="flex justify-end">
-              <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
+              <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
             </div>
             </>
             )}
@@ -502,7 +502,7 @@ export default function CategoryDashboard({
         {activeTab === "schedule" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Schedule</h2>
               <div className="flex items-center gap-2">
                 {schedule.length > 0 && (
                   <button onClick={() => {
@@ -513,7 +513,7 @@ export default function CategoryDashboard({
                   </button>
                 )}
                 <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
-                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold cursor-pointer ${importing ? "opacity-50" : ""}`}>
+                <label className={`inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer ${importing ? "opacity-50" : ""}`}>
                   Upload / Update CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
                     const file = e.target.files[0]; if (!file) return;
@@ -543,12 +543,12 @@ export default function CategoryDashboard({
                   <div key={sessionNum} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${sStatus === "complete" ? "bg-green-500" : sStatus === "in_progress" ? "bg-blue-500" : "bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF]"}`}>{sessionNum}</div>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${sStatus === "complete" ? "bg-green-500" : sStatus === "in_progress" ? "bg-blue-500" : "bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6]"}`}>{sessionNum}</div>
                         <span className="text-sm font-semibold text-gray-700">Session {sessionNum}{sess ? ` - ${sess.session_type} - ${sess.weight_percentage}%` : ""}</span>
                       </div>
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
-                        <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#1A6BFF]/10 text-[#1A6BFF] rounded-lg font-medium hover:bg-[#1A6BFF]/20">Manage Groups</a>
+                        <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">Manage Groups</a>
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         {sess?.session_type === "testing" && (
                           <label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">
@@ -625,7 +625,7 @@ export default function CategoryDashboard({
             {volunteerMsg && <div style={{marginTop:"8px",fontSize:"13px",color: volunteerMsg.startsWith("Error") ? "#dc2626" : "#16a34a",fontWeight:"500"}}>{volunteerMsg}</div>}
             <div style={{display:"flex",gap:"8px",marginTop:"16px",justifyContent:"flex-end"}}>
               <button onClick={() => { setVolunteerModal(null); setVolunteerEmails(""); setVolunteerMsg(""); }} style={{padding:"8px 16px",border:"1px solid #e5e7eb",borderRadius:"8px",fontSize:"13px",cursor:"pointer",background:"#fff"}}>Cancel</button>
-              <button onClick={sendVolunteers} disabled={volunteerSending || !volunteerEmails.trim()} style={{padding:"8px 16px",background:"#1A6BFF",color:"#fff",border:"none",borderRadius:"8px",fontSize:"13px",fontWeight:"500",cursor:"pointer",opacity: volunteerSending ? 0.6 : 1}}>{volunteerSending ? "Sending..." : "Send Invites"}</button>
+              <button onClick={sendVolunteers} disabled={volunteerSending || !volunteerEmails.trim()} style={{padding:"8px 16px",background:"#0b5cd6",color:"#fff",border:"none",borderRadius:"8px",fontSize:"13px",fontWeight:"500",cursor:"pointer",opacity: volunteerSending ? 0.6 : 1}}>{volunteerSending ? "Sending..." : "Send Invites"}</button>
             </div>
           </div>
         </div>
@@ -639,7 +639,7 @@ export default function CategoryDashboard({
         {activeTab === "athletes" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">Athletes ({athletes.length})</h2>
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Athletes ({athletes.length})</h2>
               <div className="flex items-center gap-2 flex-wrap">
                 <a href="/api/templates?type=athletes" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 ${importing ? "opacity-50" : ""}`}>
@@ -655,7 +655,7 @@ export default function CategoryDashboard({
                     e.target.value='';
                   }} />
                 </label>
-                <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
+                <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
               </div>
             </div>
             {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}
@@ -682,7 +682,7 @@ export default function CategoryDashboard({
                         setTimeout(() => setAthleteMsg(""), 5000);
                       }}
                       disabled={!withEmail.length}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#1A6BFF] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
                     >
                       Send Welcome Email
                     </button>
@@ -698,7 +698,7 @@ export default function CategoryDashboard({
                         setTimeout(() => setAthleteMsg(""), 5000);
                       }}
                       disabled={!withEmail.length}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#1A6BFF] text-[#1A6BFF] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
                     >
                       Push Schedule
                     </button>
@@ -712,10 +712,10 @@ export default function CategoryDashboard({
                 <h3 className="text-sm font-semibold text-gray-900 mb-4">Add Player</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                   {[{ key: "first_name", label: "First Name *" }, { key: "last_name", label: "Last Name *" }, { key: "external_id", label: "HC#" }, { key: "birth_year", label: "Birth Year" }].map(({ key, label }) => (
-                    <div key={key}><label className="block text-xs font-medium text-gray-500 mb-1">{label}</label><input type="text" value={athleteForm[key]} onChange={e => setAthleteForm(f => ({ ...f, [key]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
+                    <div key={key}><label className="block text-xs font-medium text-gray-500 mb-1">{label}</label><input type="text" value={athleteForm[key]} onChange={e => setAthleteForm(f => ({ ...f, [key]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
                   ))}
                   <div><label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
-                    <select value={athleteForm.position} onChange={e => setAthleteForm(f => ({ ...f, position: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]">
+                    <select value={athleteForm.position} onChange={e => setAthleteForm(f => ({ ...f, position: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
                       <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
                     </select>
                   </div>
@@ -729,7 +729,7 @@ export default function CategoryDashboard({
                     setAthleteMsg(`${athleteForm.first_name} ${athleteForm.last_name} added`);
                     setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
                     setShowAdd(false); refetchAthletes(); refetchRankings(); setAthleteSaving(false); setTimeout(() => setAthleteMsg(""), 3000);
-                  }} disabled={!athleteForm.first_name || !athleteForm.last_name || athleteSaving} className="px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{athleteSaving ? "Saving..." : "Add Player"}</button>
+                  }} disabled={!athleteForm.first_name || !athleteForm.last_name || athleteSaving} className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{athleteSaving ? "Saving..." : "Add Player"}</button>
                 </div>
               </div>
             )}
@@ -743,7 +743,7 @@ export default function CategoryDashboard({
                       value={tableSearch}
                       onChange={e => setTableSearch(e.target.value)}
                       placeholder="Search name or HC#"
-                      className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]/30"
+                      className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30"
                     />
                     {tableSearch && (
                       <button onClick={() => setTableSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
@@ -778,7 +778,7 @@ export default function CategoryDashboard({
                 <button key={v.id} onClick={() => setAnalysisView(v.id)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${analysisView === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>{v.label}</button>
               ))}
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Reports</h2>
+            <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Reports</h2>
 
             {/* Player Comparison Tool */}
             <PlayerComparison catId={catId} initialPlayerIds={[]} />
@@ -814,7 +814,7 @@ export default function CategoryDashboard({
                           <tr key={a.id} className={`${a.agreement_pct < 60 ? "bg-red-50/30" : "bg-amber-50/20"}`}>
                             <td className="px-4 py-2.5 font-semibold text-gray-900">#{a.rank}</td>
                             <td className="px-4 py-2.5">
-                              <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="font-medium text-gray-900 hover:text-[#1A6BFF]">{a.first_name} {a.last_name}</a>
+                              <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="font-medium text-gray-900 hover:text-[#0b5cd6]">{a.first_name} {a.last_name}</a>
                             </td>
                             {category?.position_tagging && <td className="px-4 py-2.5">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position]}</span> : "—"}</td>}
                             <td className="px-4 py-2.5 text-center">
@@ -824,7 +824,7 @@ export default function CategoryDashboard({
                             </td>
                             <td className="px-4 py-2.5 text-center font-semibold text-gray-900">{a.weighted_total?.toFixed(1)}</td>
                             <td className="px-4 py-2.5">
-                              <button onClick={() => { setCompareIds(prev => prev.includes(a.id) ? prev : [...prev, a.id]); }} className="text-xs text-[#1A6BFF] hover:underline">+ Compare</button>
+                              <button onClick={() => { setCompareIds(prev => prev.includes(a.id) ? prev : [...prev, a.id]); }} className="text-xs text-[#0b5cd6] hover:underline">+ Compare</button>
                             </td>
                           </tr>
                         ))}
@@ -878,7 +878,7 @@ export default function CategoryDashboard({
                                     {a._posRank}
                                   </span>
                                   <div className="flex-1 min-w-0">
-                                    <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-sm font-medium text-gray-900 hover:text-[#1A6BFF] truncate block">{a.first_name} {a.last_name}</a>
+                                    <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-sm font-medium text-gray-900 hover:text-[#0b5cd6] truncate block">{a.first_name} {a.last_name}</a>
                                   </div>
                                   <div className="text-right">
                                     <div className={`text-sm font-bold ${posTextColors[pos]}`}>{a.weighted_total?.toFixed(1) || "—"}</div>
@@ -899,8 +899,8 @@ export default function CategoryDashboard({
             <h3 className="text-base font-semibold text-gray-900 pt-2">Export Data</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white border border-gray-200 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A6BFF] to-[#4D8FFF] flex items-center justify-center"><BarChart3 size={18} className="text-white" /></div><div><div className="font-semibold text-gray-900">Overall Rankings</div><div className="text-xs text-gray-400">All athletes, all sessions, final rank</div></div></div>
-                <button onClick={exportRankingsCSV} disabled={!hasScores} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:shadow-md"><Download size={14} /> Download CSV</button>
+                <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center"><BarChart3 size={18} className="text-white" /></div><div><div className="font-semibold text-gray-900">Overall Rankings</div><div className="text-xs text-gray-400">All athletes, all sessions, final rank</div></div></div>
+                <button onClick={exportRankingsCSV} disabled={!hasScores} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:shadow-md"><Download size={14} /> Download CSV</button>
                 {!hasScores && <p className="text-xs text-gray-400 mt-2 text-center">No scores entered yet</p>}
               </div>
               <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -945,7 +945,7 @@ export default function CategoryDashboard({
             <div className="space-y-6">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Team Insights</h2>
+                  <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Team Insights</h2>
                   <p className="text-sm text-gray-400 mt-0.5">Natural break lines and the players on the bubble around each cut</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -954,7 +954,7 @@ export default function CategoryDashboard({
                     <button
                       onClick={() => setTeamCount(c => Math.max(2, c - 1))}
                       disabled={teamCount <= 2}
-                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#1A6BFF]"
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#0b5cd6]"
                       aria-label="Fewer teams"
                     >−</button>
                     <input
@@ -968,7 +968,7 @@ export default function CategoryDashboard({
                     <button
                       onClick={() => setTeamCount(c => Math.min(8, c + 1))}
                       disabled={teamCount >= 8}
-                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#1A6BFF]"
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-gray-600 bg-white shadow-sm font-bold disabled:opacity-40 hover:text-[#0b5cd6]"
                       aria-label="More teams"
                     >+</button>
                   </div>
@@ -979,7 +979,7 @@ export default function CategoryDashboard({
                         const sizes = cutsToSizes(cuts, rankedForInsights.length);
                         window.location.href = `/association/dashboard/category/${catId}/teams?org=${orgId}&sizes=${sizes.join(",")}`;
                       }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium hover:bg-blue-700"
                     >
                       Build teams from these cuts →
                     </button>
@@ -1086,7 +1086,7 @@ export default function CategoryDashboard({
         {activeTab === "settings" && (
           canManage ? (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Category Settings</h2>
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Category Settings</h2>
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 {[
                   { label: "Score Scale", desc: "Maximum score per category", value: `Out of ${category?.scoring_scale || 10}` },
@@ -1103,7 +1103,7 @@ export default function CategoryDashboard({
                 <div className="flex items-center justify-between">
                   <div><div className="text-sm font-medium text-gray-700">Keep players anonymous to evaluators</div><div className="text-xs text-gray-400 mt-0.5">Hide athlete names — evaluators see jersey color + number only (recommended)</div></div>
                   <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: !(category?.evaluators_anonymous ?? true), categories: scoringCategories } }) }); queryClient.invalidateQueries(["category-setup", catId]); }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(category?.evaluators_anonymous ?? true) ? "bg-[#1A6BFF]" : "bg-gray-200"}`}>
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(category?.evaluators_anonymous ?? true) ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${(category?.evaluators_anonymous ?? true) ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
@@ -1111,7 +1111,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div><h3 className="text-sm font-semibold text-gray-900">Directors</h3><p className="text-xs text-gray-400 mt-0.5">Assign directors to this age category</p></div>
-                  <button onClick={() => { setShowDirectorModal(true); setDirectorMsg(""); }} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-lg text-xs font-semibold">+ Invite Director</button>
+                  <button onClick={() => { setShowDirectorModal(true); setDirectorMsg(""); }} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-xs font-semibold">+ Invite Director</button>
                 </div>
                 {!(directorsData?.directors?.length) ? <p className="text-xs text-gray-400">No directors assigned yet</p> : directorsData.directors.map(d => (
                   <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-2">
@@ -1126,11 +1126,11 @@ export default function CategoryDashboard({
                     <h3 className="font-bold text-gray-900 mb-1">Invite Director</h3>
                     <p className="text-sm text-gray-500 mb-5">They will receive login credentials and access to this age category only.</p>
                     {directorMsg ? (
-                      <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorForm({ name: "", email: "" }); }} className="mt-4 px-5 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium">Done</button></div>
+                      <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorForm({ name: "", email: "" }); }} className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium">Done</button></div>
                     ) : (
                       <div className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label><input type="text" value={directorForm.name} onChange={e => setDirectorForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" value={directorForm.email} onChange={e => setDirectorForm(f => ({ ...f, email: e.target.value }))} placeholder="john@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label><input type="text" value={directorForm.name} onChange={e => setDirectorForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" value={directorForm.email} onChange={e => setDirectorForm(f => ({ ...f, email: e.target.value }))} placeholder="john@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
                         <div className="flex gap-3 pt-2">
                           <button onClick={() => setShowDirectorModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button>
                           <button onClick={async () => {
@@ -1138,18 +1138,18 @@ export default function CategoryDashboard({
                             const res = await fetch(`/api/categories/${catId}/invite-director`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(directorForm) });
                             const data = await res.json();
                             if (data.success) { setDirectorMsg(data.message); refetchDirectors(); }
-                          }} disabled={!directorForm.name || !directorForm.email} className="flex-1 py-2.5 bg-[#1A6BFF] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Send Invite</button>
+                          }} disabled={!directorForm.name || !directorForm.email} className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Send Invite</button>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
               )}
-              <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1A6BFF] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
+              <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
             </div>
           ) : (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Category Settings</h2>
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Category Settings</h2>
               <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
                 {[
                   { label: "Score Scale", desc: "Maximum score per category", value: `Out of ${category?.scoring_scale || 10}` },

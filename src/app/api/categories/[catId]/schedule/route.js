@@ -157,12 +157,12 @@ export async function POST(request, { params }) {
         const html = emailWrapper(`
           <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
           <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong>${orgName ? ` at ${orgName}` : ""} has been updated. Please check your dashboard for the latest times and locations.</p>
-          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
+          <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
         `);
         const dirHtml = emailWrapper(`
           <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Schedule Updated</h2>
           <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">The evaluation schedule for <strong style="color:#111827;">${catName}</strong> has been updated.</p>
-          <a href="${BASE_URL}/director/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
+          <a href="${BASE_URL}/director/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Updated Schedule</a>
         `);
         for (const e of evaluators) await sendEmail(e.email, `Schedule Updated — ${catName}`, html);
         for (const d of directors) await sendEmail(d.email, `Schedule Updated — ${catName}`, dirHtml);
@@ -254,7 +254,7 @@ export async function DELETE(request, { params }) {
         </table>
       </div>
       <p style="font-size:13px;color:#6b7280;">Check your dashboard for other available sessions.</p>
-      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#1A6BFF,#4D8FFF);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Available Sessions →</a>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Available Sessions →</a>
     </div>`;
     for (const eval_ of signedUp) {
       await sendEmail(eval_.email, `Session Cancelled — ${e.category_name} G${e.group_number} (${dateStr})`, evalHtml);

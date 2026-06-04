@@ -74,7 +74,7 @@ export default function CheckinEntryPage() {
                 placeholder="e.g. S1G2-XKJ"
                 required
                 autoFocus
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1A6BFF] focus:border-transparent uppercase"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent uppercase"
                 maxLength={10}
               />
               <p className="text-xs text-gray-400 mt-1.5 text-center">
@@ -93,7 +93,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setName(e.target.value)}
                     placeholder="First and last name"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
                   />
                 </div>
                 <div>
@@ -104,7 +104,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="your@email.com"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6BFF]"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
                   />
                 </div>
               </div>
@@ -113,7 +113,7 @@ export default function CheckinEntryPage() {
             <button
               type="submit"
               disabled={loading || !code || !name || !email}
-              className="w-full py-3 bg-gradient-to-r from-[#1A6BFF] to-[#4D8FFF] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
+              className="w-full py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow"
             >
               {loading ? "Verifying..." : "Enter Check-in"}
             </button>

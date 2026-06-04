@@ -1,12 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-
+:root {
+  --accent: #0b5cd6;
+  --accent-soft: #eaf1fe;
+  --ink: #101113;
+}
 
 * { box-sizing: border-box; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
 }
+
+.font-display { font-family: 'Archivo', system-ui, sans-serif; }

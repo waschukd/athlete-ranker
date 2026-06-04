@@ -6,7 +6,7 @@ export function GridGlowBackground({
   backgroundColor = "#0a0a0a",
   gridColor = "rgba(255, 255, 255, 0.05)",
   gridSize = 50,
-  glowColors = ["#1A6BFF", "#4D8FFF", "#1A6BFF"],
+  glowColors = ["#0b5cd6", "#3b82f6", "#0b5cd6"],
   glowCount = 10,
 }) {
   const canvasRef = useRef(null);
