@@ -2,7 +2,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { notifySessionChange } from "@/lib/scheduleNotify";
+import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
 
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -98,7 +98,9 @@ export async function POST(request, { params }) {
         catId, scheduleRow: row, scheduleId: row.id, changeType: "added",
         summary: "A new session was added to the schedule.", initiator: initiatorOf(session),
       });
-      return NextResponse.json({ success: true, session: row, notified });
+      // Recruit evaluators for the new session automatically
+      const offer = await offerOpenSession({ catId, scheduleRow: row });
+      return NextResponse.json({ success: true, session: row, notified, offered: offer.offered });
     }
 
     // ── Bulk upload / replace (CSV) ───────────────────────────────────────────
@@ -215,7 +217,18 @@ export async function PATCH(request, { params }) {
       catId, scheduleRow: row, scheduleId: row.id,
       changeType: reinstating ? "reinstated" : "edited", summary, initiator: initiatorOf(session),
     });
-    return NextResponse.json({ success: true, session: row, notified });
+
+    // If the session needs more evaluators (e.g. moved date freed people up), recruit.
+    const offer = await offerOpenSession({ catId, scheduleRow: row });
+
+    // Last-minute date/time change → tell the affected parents.
+    const timeChanged = fmt(prev.scheduled_date) !== fmt(row.scheduled_date)
+      || (prev.start_time || "") !== (row.start_time || "");
+    if (timeChanged || reinstating) {
+      await notifyParentsIfImminent({ catId, scheduleRow: row, changeType: "edited" });
+    }
+
+    return NextResponse.json({ success: true, session: row, notified, offered: offer.offered });
   } catch (error) {
     console.error("Schedule PATCH error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -259,7 +272,10 @@ export async function DELETE(request, { params }) {
       summary: "This session has been cancelled.", initiator: initiatorOf(session),
     });
 
-    return NextResponse.json({ success: true, notified });
+    // Parents only get pinged if the cancellation is last-minute (session within ~48h).
+    const parents = await notifyParentsIfImminent({ catId, scheduleRow: row, changeType: "cancelled" });
+
+    return NextResponse.json({ success: true, notified, parentsNotified: parents.notified });
   } catch (error) {
     console.error("Schedule DELETE error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

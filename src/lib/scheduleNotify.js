@@ -123,3 +123,127 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
     return { notified: 0, error: err?.message };
   }
 }
+
+// When a future session is understaffed (e.g. just added, or edited so it needs
+// coverage), automatically invite the eligible evaluator pool to sign up — the
+// association's evaluators plus any linked service provider's evaluators — so
+// staffing self-heals instead of waiting on a manual blast. Skips testing
+// sessions, past dates, full sessions, and evaluators already signed up.
+export async function offerOpenSession({ catId, scheduleRow }) {
+  try {
+    const r = scheduleRow;
+    if (!r || r.status !== "scheduled") return { offered: 0 };
+    if (!r.evaluators_required || r.evaluators_required <= 0) return { offered: 0 };
+
+    if (r.scheduled_date) {
+      const when = new Date(r.scheduled_date);
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      if (isFinite(when.getTime()) && when < todayStart) return { offered: 0 };
+    }
+
+    const cnt = await sql`
+      SELECT COUNT(*)::int AS n FROM evaluator_session_signups
+      WHERE schedule_id = ${r.id} AND status = 'signed_up'
+    `;
+    const open = r.evaluators_required - (cnt[0]?.n || 0);
+    if (open <= 0) return { offered: 0 };
+
+    const catInfo = await sql`
+      SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name
+      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
+    `;
+    if (!catInfo.length) return { offered: 0 };
+    const { category_name, org_id, org_name } = catInfo[0];
+
+    const orgIds = [org_id];
+    const sps = await sql`SELECT service_provider_id FROM sp_association_links WHERE association_id = ${org_id} AND status = 'active'`;
+    sps.forEach(s => orgIds.push(s.service_provider_id));
+
+    const pool = await sql`
+      SELECT DISTINCT u.email, u.name FROM evaluator_memberships em
+      JOIN users u ON u.id = em.user_id
+      WHERE em.organization_id = ANY(${orgIds}) AND em.status = 'active'
+        AND u.role IN ('association_evaluator', 'service_provider_evaluator')
+        AND u.id NOT IN (
+          SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status != 'cancelled'
+        )
+    `;
+    if (!pool.length) return { offered: 0 };
+
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
+    const html = emailWrapper(`
+      <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">Open evaluator spot${open > 1 ? "s" : ""}</h2>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${org_name}</strong> has <strong style="color:#101113;">${open}</strong> open evaluator spot${open > 1 ? "s" : ""} for ${category_name}. First come, first served.</p>
+      <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${r.start_time}${r.end_time ? `–${r.end_time}` : ""}` : "TBD"}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location || "TBD"}</td></tr>
+        </table>
+      </div>
+      <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Sign up →</a></div>
+    `);
+    const subject = `Open evaluator spot — ${category_name} (${fmtDate(r.scheduled_date)})`;
+    for (const p of pool) await sendEmail(p.email, subject, html);
+    return { offered: pool.length, open };
+  } catch (err) {
+    console.error("offerOpenSession error:", err);
+    return { offered: 0, error: err?.message };
+  }
+}
+
+// Notify parents ONLY when a change is last-minute (the session is within ~48h).
+// Earlier changes don't need a parent notice — groups for a soon-to-be-cancelled
+// session wouldn't be set up yet. Targets only parents of athletes assigned to the
+// affected session's group.
+export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }) {
+  try {
+    const r = scheduleRow;
+    if (!r?.scheduled_date) return { notified: 0, skipped: "no_date" };
+    const when = new Date(r.scheduled_date);
+    const hoursUntil = (when.getTime() - Date.now()) / 3_600_000;
+    if (!(hoursUntil <= 48) || hoursUntil < -24) return { notified: 0, skipped: "not_imminent" };
+
+    const parents = await sql`
+      SELECT DISTINCT a.parent_email, a.first_name, a.last_name
+      FROM player_group_assignments pga
+      JOIN session_groups sg ON sg.id = pga.session_group_id
+      JOIN athletes a ON a.id = pga.athlete_id
+      WHERE sg.age_category_id = ${catId}
+        AND sg.session_number = ${r.session_number}
+        AND sg.group_number = ${r.group_number}
+        AND a.parent_email IS NOT NULL AND a.parent_email <> ''
+    `;
+    if (!parents.length) return { notified: 0 };
+
+    const catInfo = await sql`
+      SELECT ac.name AS category_name, o.name AS org_name
+      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
+    `;
+    const category_name = catInfo[0]?.category_name || "Evaluation";
+    const org_name = catInfo[0]?.org_name || "";
+    const cancelled = changeType === "cancelled";
+    const accent = cancelled ? "#d23b3b" : "#0b5cd6";
+    const headline = cancelled ? "Session cancelled" : "Session time changed";
+
+    for (const p of parents) {
+      const html = emailWrapper(`
+        <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:${accent};">${headline}</h2>
+        <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Hi, an upcoming ${category_name} session${org_name ? ` with ${org_name}` : ""} for <strong style="color:#101113;">${p.first_name} ${p.last_name}</strong> has been ${cancelled ? "cancelled" : "rescheduled"}.</p>
+        <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Group</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">Group ${r.group_number}</td></tr>
+            <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">${cancelled ? "Was" : "New time"}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}${r.start_time ? ` · ${r.start_time}` : ""}</td></tr>
+            ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location || "TBD"}</td></tr>`}
+          </table>
+        </div>
+        <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive 15 minutes early for check-in."}</p>
+      `);
+      await sendEmail(p.parent_email, `${headline} — ${category_name}`, html);
+    }
+    return { notified: parents.length };
+  } catch (err) {
+    console.error("notifyParentsIfImminent error:", err);
+    return { notified: 0, error: err?.message };
+  }
+}
