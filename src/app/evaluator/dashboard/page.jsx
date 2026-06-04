@@ -864,20 +864,27 @@ function EvaluatorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} />
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Evaluator Dashboard</h1>
-              <p className="text-xs text-gray-400">Sideline Star</p>
-            </div>
-          </div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex justify-end">
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-            <LogOut size={15} /> Sign out
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
+            <LogOut size={14} /> Sign out
           </button>
         </div>
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-0 pt-1">
+          <div className="pb-5">
+            <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Evaluator</div>
+            <div className="flex items-end gap-4 flex-wrap">
+              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Dashboard</h1>
+              <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} />
+            </div>
+            <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+              <span><b className="text-ink">{upcoming.length}</b> upcoming session{upcoming.length !== 1 ? "s" : ""}</span>
+              <span className="text-gray-300">·</span>
+              <span><b className="text-ink">{past.length}</b> past</span>
+              <span className="text-gray-300">·</span>
+              <span><b className="text-ink">{availSessions.length}</b> open to sign up</span>
+            </div>
+          </div>
           <div className="flex gap-1">
             {[
               { id: "mine", label: `My Sessions (${upcoming.length})` },
