@@ -496,31 +496,29 @@ function SPDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">{sp?.name || "Service Provider"}</h1>
-              <p className="text-xs text-gray-400">{orgParam ? "Viewing as Super Admin" : "Service Provider Dashboard"}</p>
-            </div>
-          </div>
-          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-            <LogOut size={15} /> Sign out
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
+          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
+            <LogOut size={14} /> Sign out
           </button>
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { label: "Client Associations", value: associations.length, icon: Building2, color: "text-blue-600" },
-              { label: "Upcoming Sessions", value: totalUpcoming, icon: Calendar, color: "text-[#0b5cd6]" },
-              { label: "Needs Evaluators", value: needsEvaluators, icon: AlertCircle, color: "text-amber-500" },
-              { label: "Evaluator Pool", value: evaluatorStats.total_evaluators || 0, icon: Users, color: "text-green-600" },
-            ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                <Icon size={18} className={color} />
-                <div><div className="text-xl font-bold text-gray-900">{value}</div><div className="text-xs text-gray-500">{label}</div></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-1">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="min-w-0">
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Service Provider</div>
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{sp?.name || "Service Provider"}</h1>
+                <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
               </div>
-            ))}
+              <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                <span><b className="text-ink">{associations.length}</b> client association{associations.length === 1 ? "" : "s"}</span>
+                <span className="text-gray-300">·</span>
+                <span><b className="text-ink">{totalUpcoming}</b> upcoming session{totalUpcoming === 1 ? "" : "s"}</span>
+                <span className="text-gray-300">·</span>
+                <span><b className="text-ink">{needsEvaluators}</b> need{needsEvaluators === 1 ? "s" : ""} evaluators</span>
+                <span className="text-gray-300">·</span>
+                <span><b className="text-ink">{evaluatorStats.total_evaluators || 0}</b> evaluators in pool</span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
