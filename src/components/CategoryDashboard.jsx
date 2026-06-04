@@ -986,47 +986,36 @@ export default function CategoryDashboard({
                       aria-label="More teams"
                     >+</button>
                   </div>
+                  {insights.breaks.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const cuts = insights.breaks.map(b => b.suggestedCut);
+                        const sizes = cutsToSizes(cuts, rankedForInsights.length);
+                        window.location.href = `/association/dashboard/category/${catId}/teams?org=${orgId}&sizes=${sizes.join(",")}`;
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                    >
+                      Build teams from these cuts →
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {insights.breaks.length > 0 && (
-                <button
-                  onClick={() => {
-                    const cuts = insights.breaks.map(b => b.suggestedCut);
-                    const sizes = cutsToSizes(cuts, rankedForInsights.length);
-                    window.location.href = `/association/dashboard/category/${catId}/teams?org=${orgId}&sizes=${sizes.join(",")}`;
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A6BFF] text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                >
-                  Build teams from these cuts →
-                </button>
-              )}
-
-              {naturalTiers.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Natural skill bands ({naturalTiers.length})</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Distinct skill bands detected from score gaps, independent of team count</p>
+              {(() => {
+                const total = rankedForInsights.length;
+                const cleanCount = insights.breaks.filter(b => b.isClean).length;
+                const judgmentCount = insights.breaks.length - cleanCount;
+                const bubbleCount = insights.bubbles.length;
+                return (
+                  <div className="flex items-center flex-wrap gap-2 text-sm bg-white border border-gray-200 rounded-xl px-4 py-3">
+                    <span className="text-gray-700 font-medium">{total} players → {teamCount} teams</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">{cleanCount} clean break{cleanCount === 1 ? "" : "s"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">{judgmentCount} judgment call{judgmentCount === 1 ? "" : "s"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">{bubbleCount} on the bubble</span>
                   </div>
-                  <div className="space-y-2">
-                    {naturalTiers.map((t, ti) => {
-                      const names = rankedForInsights
-                        .slice(t.startRank - 1, t.endRank)
-                        .map(a => `${a.last_name}, ${a.first_name}`);
-                      return (
-                        <div key={ti} className="rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
-                          <div className="text-sm font-medium text-gray-800">
-                            Tier {ti + 1} — ranks #{t.startRank}–#{t.endRank} ({t.size} player{t.size === 1 ? "" : "s"})
-                          </div>
-                          {names.length > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">{names.join(" · ")}</div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {insights.breaks.map((b, bi) => {
                 const bubbles = insights.bubbles.filter(x => x.boundary === bi);
@@ -1084,6 +1073,25 @@ export default function CategoryDashboard({
                   </div>
                 );
               })}
+
+              {naturalTiers.length > 0 && (
+                <details className="bg-white border border-gray-200 rounded-xl px-5 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-gray-700">Natural skill bands ({naturalTiers.length}) — how many distinct bands the data shows</summary>
+                  <div className="space-y-2 mt-3">
+                    {naturalTiers.map((t, ti) => {
+                      const names = rankedForInsights.slice(t.startRank - 1, t.endRank).map(a => `${a.last_name}, ${a.first_name}`);
+                      const shown = names.slice(0, 5).join(" · ");
+                      const more = names.length > 5 ? ` · +${names.length - 5} more` : "";
+                      return (
+                        <div key={ti} className="rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
+                          <div className="text-sm font-medium text-gray-800">Tier {ti + 1} — ranks #{t.startRank}–#{t.endRank} ({t.size} player{t.size === 1 ? "" : "s"})</div>
+                          {names.length > 0 && <div className="text-xs text-gray-500 mt-1">{shown}{more}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
             </div>
           )}
           </div>
