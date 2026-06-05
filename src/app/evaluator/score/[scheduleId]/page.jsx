@@ -1257,12 +1257,13 @@ function ScoringInterface() {
             const status = getStatus(athlete.id, scores, totalCats);
             const isActive = selected?.id === athlete.id;
             const isDark = athlete.team_color === "Dark";
+            const onColor = isActive || status === "complete" || status === "partial";
 
             return (
               <button
                 key={athlete.id}
                 onClick={() => setSelected(isActive ? null : athlete)}
-                className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none
+                className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none overflow-hidden pl-2.5
                   ${isActive
                     ? "bg-accent text-white border-2 border-accent ring-4 ring-accent/30 scale-105 shadow-md"
                     : status === "complete"
@@ -1273,9 +1274,11 @@ function ScoringInterface() {
                   }`}
                 style={{ aspectRatio: "1", minHeight: "64px" }}
               >
-                {/* Team color dot */}
-                <div className={`w-2 h-2 rounded-full mb-0.5 ${isDark ? "bg-gray-800 border border-gray-400" : "bg-white border border-gray-400"}`} />
-                <span className="text-sm md:text-base font-bold leading-none">
+                {/* Team-color spine — instant White vs Dark at a glance */}
+                <span className={`absolute left-0 top-0 bottom-0 w-3 ${isDark ? "bg-gray-900" : "bg-white border-r-2 border-gray-300"}`} />
+                {/* Team letter (colour-blind safe) */}
+                <span className={`absolute top-1 right-1.5 text-[10px] font-extrabold leading-none ${onColor ? "text-white/85" : "text-gray-400"}`}>{isDark ? "D" : "W"}</span>
+                <span className="text-base md:text-lg font-bold leading-none">
                   {athlete.jersey_number ?? "?"}
                 </span>
                 {athlete.position && (
