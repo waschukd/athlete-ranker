@@ -1257,32 +1257,30 @@ function ScoringInterface() {
             const status = getStatus(athlete.id, scores, totalCats);
             const isActive = selected?.id === athlete.id;
             const isDark = athlete.team_color === "Dark";
-            const onColor = isActive || status === "complete" || status === "partial";
 
             return (
               <button
                 key={athlete.id}
                 onClick={() => setSelected(isActive ? null : athlete)}
-                className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none overflow-hidden pl-2.5
-                  ${isActive
-                    ? "bg-accent text-white border-2 border-accent ring-4 ring-accent/30 scale-105 shadow-md"
-                    : status === "complete"
-                    ? "bg-green-600 text-white border-2 border-green-500"
-                    : status === "partial"
-                    ? "bg-amber-500 text-white border-2 border-amber-400"
-                    : "bg-white text-gray-700 border-2 border-gray-300 hover:border-gray-400"
-                  }`}
+                className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 bg-white transition-all select-none
+                  ${isActive ? "border-accent ring-4 ring-accent/30 scale-105 shadow-md" : "border-gray-200 hover:border-gray-300"}`}
                 style={{ aspectRatio: "1", minHeight: "64px" }}
               >
-                {/* Team-color spine — instant White vs Dark at a glance */}
-                <span className={`absolute left-0 top-0 bottom-0 w-3 ${isDark ? "bg-gray-900" : "bg-white border-r-2 border-gray-300"}`} />
-                {/* Team letter (colour-blind safe) */}
-                <span className={`absolute top-1 right-1.5 text-[10px] font-extrabold leading-none ${onColor ? "text-white/85" : "text-gray-400"}`}>{isDark ? "D" : "W"}</span>
-                <span className="text-base md:text-lg font-bold leading-none">
-                  {athlete.jersey_number ?? "?"}
-                </span>
+                <div className="relative">
+                  {/* Jersey number in a team-colored circle — White vs Dark at a glance */}
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold text-lg leading-none ${isDark ? "bg-gray-900 text-white" : "bg-white border-2 border-gray-300 text-gray-900"}`}>
+                    {athlete.jersey_number ?? "?"}
+                  </div>
+                  {/* Done = small green check; partial = amber dot */}
+                  {status === "complete" && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white text-white text-[9px] font-black flex items-center justify-center leading-none">✓</span>
+                  )}
+                  {status === "partial" && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white" />
+                  )}
+                </div>
                 {athlete.position && (
-                  <span className="text-[9px] md:text-[11px] font-semibold opacity-70 leading-none mt-0.5">
+                  <span className="text-[10px] font-semibold text-gray-500 leading-none">
                     {String(athlete.position).charAt(0).toUpperCase()}
                   </span>
                 )}
