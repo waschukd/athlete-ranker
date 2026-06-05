@@ -32,6 +32,10 @@ function Dashboard() {
   const [inviteName, setInviteName] = useState("");
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [approvalSearch, setApprovalSearch] = useState("");
+  const [showAllApprovals, setShowAllApprovals] = useState(false);
+  const APPROVALS_CAP = 10;
 
   const { data: myOrgsData } = useQuery({
     queryKey: ["my-organizations"],
@@ -90,6 +94,20 @@ function Dashboard() {
   const categories = categoriesData?.categories || [];
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
+
+  const filteredCategories = categorySearch.trim()
+    ? categories.filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
+    : categories;
+
+  const allPending = joinCodeData?.pending || [];
+  const filteredPending = approvalSearch.trim()
+    ? allPending.filter(p =>
+        (p.name || "").toLowerCase().includes(approvalSearch.trim().toLowerCase()) ||
+        (p.email || "").toLowerCase().includes(approvalSearch.trim().toLowerCase())
+      )
+    : allPending;
+  const visiblePending = showAllApprovals ? filteredPending : filteredPending.slice(0, APPROVALS_CAP);
+  const hasMorePending = filteredPending.length > APPROVALS_CAP && !showAllApprovals;
 
   if (orgLoading || catLoading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -253,49 +271,92 @@ function Dashboard() {
                   <h3 className="text-sm font-semibold text-gray-900">Pending Approvals</h3>
                   <p className="text-xs text-gray-400 mt-0.5">Evaluators waiting for access</p>
                 </div>
-                {(joinCodeData.pending || []).length > 0 && (
+                {allPending.length > 0 && (
                   <span className="text-xs px-2 py-0.5 bg-accent-soft text-accent rounded-full font-medium">
-                    {joinCodeData.pending.length} pending
+                    {allPending.length} pending
                   </span>
                 )}
               </div>
-              {(joinCodeData.pending || []).length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-400">No pending applications</div>
-              ) : (joinCodeData.pending || []).map(p => (
-                <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{p.name}</div>
-                    <div className="text-xs text-gray-400">{p.email}</div>
-                    {p.evaluator_id && <div className="text-xs font-mono text-accent">{p.evaluator_id}</div>}
-                  </div>
-                  <div className="flex gap-2">
+              {allPending.length > APPROVALS_CAP && (
+                <div className="px-5 pt-3 pb-1 relative">
+                  <input
+                    type="text"
+                    value={approvalSearch}
+                    onChange={e => { setApprovalSearch(e.target.value); setShowAllApprovals(false); }}
+                    placeholder="Search by name or email…"
+                    className="w-full pl-8 pr-7 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white text-ink placeholder:text-gray-400"
+                  />
+                  <svg className="absolute left-7.5 top-1/2 mt-0.5 -translate-y-1/2 text-gray-400 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  {approvalSearch && (
                     <button
-                      onClick={async () => {
-                        await fetch(`/api/organizations/${orgId}/join-codes`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "approve", membership_id: p.membership_id, user_id: p.id }),
-                        });
-                        refetchCodes();
-                      }}
-                      className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium"
-                    >Approve</button>
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Deny ${p.name}?`)) {
-                          await fetch(`/api/organizations/${orgId}/join-codes`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "deny", membership_id: p.membership_id }),
-                          });
-                          refetchCodes();
-                        }
-                      }}
-                      className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
-                    >Deny</button>
-                  </div>
+                      onClick={() => setApprovalSearch("")}
+                      className="absolute right-7 top-1/2 mt-0.5 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      aria-label="Clear search"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
-              ))}
+              )}
+              {allPending.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-400">No pending applications</div>
+              ) : filteredPending.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-400">No results for "{approvalSearch}"</div>
+              ) : (
+                <>
+                  {visiblePending.map(p => (
+                    <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                        <div className="text-xs text-gray-400">{p.email}</div>
+                        {p.evaluator_id && <div className="text-xs font-mono text-accent">{p.evaluator_id}</div>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/organizations/${orgId}/join-codes`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "approve", membership_id: p.membership_id, user_id: p.id }),
+                            });
+                            refetchCodes();
+                          }}
+                          className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium"
+                        >Approve</button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Deny ${p.name}?`)) {
+                              await fetch(`/api/organizations/${orgId}/join-codes`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "deny", membership_id: p.membership_id }),
+                              });
+                              refetchCodes();
+                            }
+                          }}
+                          className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
+                        >Deny</button>
+                      </div>
+                    </div>
+                  ))}
+                  {hasMorePending && (
+                    <button
+                      onClick={() => setShowAllApprovals(true)}
+                      className="w-full py-2.5 text-xs font-semibold text-accent hover:bg-accent-soft transition-colors border-t border-gray-100"
+                    >
+                      Show all {filteredPending.length} pending
+                    </button>
+                  )}
+                  {showAllApprovals && filteredPending.length > APPROVALS_CAP && (
+                    <button
+                      onClick={() => setShowAllApprovals(false)}
+                      className="w-full py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                    >
+                      Show less
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -315,8 +376,34 @@ function Dashboard() {
             </a>
           </div>
         ) : (
+          <>
+            {categories.length > 6 && (
+              <div className="mb-5 relative max-w-sm">
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onChange={e => setCategorySearch(e.target.value)}
+                  placeholder="Search categories…"
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white text-ink placeholder:text-gray-400"
+                />
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                {categorySearch && (
+                  <button
+                    onClick={() => setCategorySearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.map((cat) => {
+            {filteredCategories.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-gray-400 text-sm">
+                No categories match <span className="font-medium text-ink">"{categorySearch}"</span>
+              </div>
+            ) : filteredCategories.map((cat) => {
               const ready = cat.setup_complete;
               return (
               <div key={cat.id} className="group relative bg-white rounded-2xl border border-[#ededeb] p-5 transition-all hover:border-accent/40 hover:shadow-[0_20px_50px_-34px_rgba(10,12,16,0.35)]">
@@ -351,6 +438,7 @@ function Dashboard() {
               );
             })}
           </div>
+          </>
         )}
       </div>
 
