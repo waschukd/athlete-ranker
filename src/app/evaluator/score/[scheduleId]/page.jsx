@@ -99,6 +99,7 @@ function ScoringInterface() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
   const [jerseySearch, setJerseySearch] = useState("");
+  const [backupOpen, setBackupOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -513,6 +514,57 @@ function ScoringInterface() {
     setSyncStatus("Downloaded a copy to this device ✓");
     setTimeout(() => setSyncStatus(""), 3000);
   }, [isAnon, scheduleId]);
+
+  // Restorable JSON backup — can be loaded back into this session on ANY device
+  // (see restoreFromFile). The escape hatch for the rare "scored offline, device
+  // died before syncing" case; on a new device, Restore → it then syncs normally.
+  const downloadBackupJson = useCallback(() => {
+    const payload = { version: 1, scheduleId, exported_at: new Date().toISOString(), scores: scoresRef.current };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = `scores_backup_session_${scheduleId}.json`;
+    el.click();
+    URL.revokeObjectURL(url);
+    setSyncStatus("Backup file saved ✓");
+    setTimeout(() => setSyncStatus(""), 3000);
+  }, [scheduleId]);
+
+  const restoreFromFile = useCallback(async (file) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const incoming = parsed?.scores && typeof parsed.scores === "object" ? parsed.scores : parsed;
+      if (parsed?.scheduleId && String(parsed.scheduleId) !== String(scheduleId)) {
+        if (!confirm("This backup is from a different session. Restore into this one anyway?")) return;
+      }
+      let count = 0;
+      const restoredIds = [];
+      setScores(prev => {
+        const merged = { ...prev };
+        for (const [aid, val] of Object.entries(incoming)) {
+          if (aid.startsWith("_") || !val || typeof val !== "object" || !("cats" in val)) continue;
+          const local = merged[aid] || { cats: {}, notes: "" };
+          merged[aid] = {
+            cats: { ...local.cats, ...(val.cats || {}) },
+            notes: (val.notes || "").length > (local.notes || "").length ? (val.notes || "") : (local.notes || ""),
+          };
+          restoredIds.push(aid);
+          count++;
+        }
+        saveLocal(scheduleId, currentUserId, merged);
+        return merged;
+      });
+      // Mark restored athletes pending so they sync to the server next chance
+      setPending(p => { const n = { ...p }; restoredIds.forEach(id => { n[id] = true; }); return n; });
+      setSyncStatus(count ? `Restored ${count} athlete${count === 1 ? "" : "s"} from backup ✓` : "No scores found in that file.");
+      setTimeout(() => setSyncStatus(""), 4000);
+    } catch {
+      setSyncStatus("Couldn't read that backup file.");
+      setTimeout(() => setSyncStatus(""), 3000);
+    }
+  }, [scheduleId, currentUserId]);
 
   // ── Core score setter ─────────────────────────────────────────────────────
   // allowToggle=true (default, used by tap UI): tapping a button that's
@@ -1080,9 +1132,22 @@ function ScoringInterface() {
                   Resync now
                 </button>
               )}
-              <button onClick={downloadBackup} title="Download a copy of these scores to this device — a safety net if sync ever fails." className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-gray-300 text-gray-500 hover:text-ink hover:border-gray-400">
-                Download
-              </button>
+              <div className="relative">
+                <button onClick={() => setBackupOpen(o => !o)} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-gray-300 text-gray-500 hover:text-ink hover:border-gray-400">
+                  Backup ▾
+                </button>
+                {backupOpen && (
+                  <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-1">
+                    <button onClick={() => { downloadBackup(); setBackupOpen(false); }} className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded">Download CSV (readable)</button>
+                    <button onClick={() => { downloadBackupJson(); setBackupOpen(false); }} className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded">Download backup file</button>
+                    <label className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded cursor-pointer">
+                      Restore from file…
+                      <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setBackupOpen(false); restoreFromFile(f); }} />
+                    </label>
+                    <p className="px-3 py-1.5 text-[10px] text-gray-400 leading-snug border-t border-gray-100 mt-1">Emergency use — your scores already save to this device and sync automatically.</p>
+                  </div>
+                )}
+              </div>
               {(() => {
                 const n = Object.keys(pending).length;
                 const s = !online
