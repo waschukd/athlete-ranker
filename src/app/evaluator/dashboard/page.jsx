@@ -1396,15 +1396,6 @@ function EvaluatorDashboard() {
               </div>
             ) : (
               <>
-                {/* Legend / key */}
-                <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap text-xs text-gray-500 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-                  <span className="font-semibold text-gray-400 uppercase tracking-wide text-[11px]">Key</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="px-1.5 py-0.5 rounded-full bg-accent-soft text-accent font-semibold text-[11px]">Today</span> happening today</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold text-[11px]">Needs scoring</span> not scored yet</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-semibold text-[11px]">Scored ✓</span> done</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold text-[11px]">Upcoming</span> later</span>
-                </div>
-
                 {[
                   { key: "today", label: "Today", list: grp.today, cls: "text-accent" },
                   { key: "needs", label: "Needs scoring", list: grp.needs, cls: "text-amber-600" },
