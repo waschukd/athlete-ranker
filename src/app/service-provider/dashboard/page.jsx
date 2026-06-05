@@ -778,6 +778,10 @@ function SPDashboard() {
   const [selFlags, setSelFlags] = useState([]);
   const [selEvals, setSelEvals] = useState([]);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [evalSearch, setEvalSearch] = useState("");
+  const [evalStatusFilter, setEvalStatusFilter] = useState("all");
+  const [evalPage, setEvalPage] = useState(1);
+  const EVAL_PAGE_SIZE = 25;
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [bulkDeleteMsg, setBulkDeleteMsg] = useState(null);
   const [composeRecipient, setComposeRecipient] = useState(null); // { to_all_pool } | { to_user_ids, label }
@@ -844,6 +848,24 @@ function SPDashboard() {
   const evaluators = evalData?.evaluators || [];
   const flags = evalData?.flags || [];
   const pendingHours = evalData?.pendingHours || [];
+
+  const filteredEvaluators = useMemo(() => {
+    const q = evalSearch.trim().toLowerCase();
+    return evaluators.filter(ev => {
+      if (q && !(ev.name?.toLowerCase().includes(q) || ev.email?.toLowerCase().includes(q))) return false;
+      if (evalStatusFilter === "pending" && ev.membership_status !== "pending") return false;
+      if (evalStatusFilter === "active" && (ev.membership_status === "pending" || ev.membership_status === "suspended")) return false;
+      if (evalStatusFilter === "suspended" && ev.membership_status !== "suspended") return false;
+      return true;
+    });
+  }, [evaluators, evalSearch, evalStatusFilter]);
+
+  const evalTotalPages = Math.max(1, Math.ceil(filteredEvaluators.length / EVAL_PAGE_SIZE));
+  const evalPageSafe = Math.min(evalPage, evalTotalPages);
+  const pagedEvaluators = useMemo(() => {
+    const start = (evalPageSafe - 1) * EVAL_PAGE_SIZE;
+    return filteredEvaluators.slice(start, start + EVAL_PAGE_SIZE);
+  }, [filteredEvaluators, evalPageSafe, EVAL_PAGE_SIZE]);
   const rawSchedule = schedData?.schedule || [];
   const byDate = rawSchedule.reduce((acc, entry) => {
     const date = entry.scheduled_date?.toString().split("T")[0];
@@ -1366,11 +1388,43 @@ function SPDashboard() {
               </div>
             )}
 
+            {/* Search + status filter toolbar */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="relative flex-1 max-w-sm">
+                <input
+                  type="text"
+                  placeholder="Search by name or email…"
+                  value={evalSearch}
+                  onChange={e => { setEvalSearch(e.target.value); setEvalPage(1); }}
+                  className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                {evalSearch && (
+                  <button onClick={() => { setEvalSearch(""); setEvalPage(1); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 gap-0.5">
+                {[{ id: "all", label: "All" }, { id: "pending", label: "Pending" }, { id: "active", label: "Active" }, { id: "suspended", label: "Suspended" }].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setEvalStatusFilter(s.id); setEvalPage(1); }}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${evalStatusFilter === s.id ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {(evalSearch || evalStatusFilter !== "all") && (
+                <span className="text-xs text-gray-400 whitespace-nowrap">{filteredEvaluators.length} of {evaluators.length}</span>
+              )}
+            </div>
+
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-center w-10"><input type="checkbox" checked={evaluators.length > 0 && selEvals.length === evaluators.length} onChange={e => setSelEvals(e.target.checked ? evaluators.map(ev => ev.id) : [])} className="rounded border-gray-300" /></th>
+                    <th className="px-4 py-3 text-center w-10"><input type="checkbox" checked={filteredEvaluators.length > 0 && filteredEvaluators.every(ev => selEvals.includes(ev.id))} onChange={e => setSelEvals(e.target.checked ? filteredEvaluators.map(ev => ev.id) : selEvals.filter(id => !filteredEvaluators.find(ev => ev.id === id)))} className="rounded border-gray-300" /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sessions</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hours</th>
@@ -1380,7 +1434,9 @@ function SPDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {evaluators.length === 0 ? <tr><td colSpan={7} className="py-10 text-center text-gray-400 text-sm">No evaluators in pool yet</td></tr> : evaluators.map(ev => (
+                  {filteredEvaluators.length === 0 ? (
+                    <tr><td colSpan={7} className="py-10 text-center text-gray-400 text-sm">{evaluators.length === 0 ? "No evaluators in pool yet" : "No evaluators match your search"}</td></tr>
+                  ) : pagedEvaluators.map(ev => (
                     <tr key={ev.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-center"><input type="checkbox" checked={selEvals.includes(ev.id)} onClick={e => e.stopPropagation()} onChange={e => setSelEvals(e.target.checked ? [...selEvals, ev.id] : selEvals.filter(id => id !== ev.id))} className="rounded border-gray-300" /></td>
                       <td className="px-4 py-3 cursor-pointer" onClick={() => window.location.href = `/service-provider/evaluator/${ev.id}`}>
@@ -1406,6 +1462,32 @@ function SPDashboard() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination */}
+              {filteredEvaluators.length > EVAL_PAGE_SIZE && (
+                <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-4">
+                  <span className="text-xs text-gray-500">
+                    {(evalPageSafe - 1) * EVAL_PAGE_SIZE + 1}–{Math.min(evalPageSafe * EVAL_PAGE_SIZE, filteredEvaluators.length)} of {filteredEvaluators.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={evalPageSafe <= 1}
+                      onClick={() => setEvalPage(p => Math.max(1, p - 1))}
+                      className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs text-gray-500 font-medium">{evalPageSafe} / {evalTotalPages}</span>
+                    <button
+                      disabled={evalPageSafe >= evalTotalPages}
+                      onClick={() => setEvalPage(p => Math.min(evalTotalPages, p + 1))}
+                      className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {showBulkDelete && (
