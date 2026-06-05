@@ -38,7 +38,11 @@ export async function GET(request) {
           cs.session_type,
           cs.name as session_name,
           cs.evaluators_required,
-          COUNT(DISTINCT ess2.id) as evaluators_signed_up
+          COUNT(DISTINCT ess2.id) as evaluators_signed_up,
+          (SELECT COUNT(DISTINCT csc.athlete_id) FROM category_scores csc
+             WHERE csc.evaluator_id = ${appUserId}
+               AND csc.age_category_id = ac.id
+               AND csc.session_number = sch.session_number) as my_scored_athletes
         FROM evaluator_session_signups es
         JOIN evaluation_schedule sch ON sch.id = es.schedule_id
         JOIN age_categories ac ON ac.id = sch.age_category_id
