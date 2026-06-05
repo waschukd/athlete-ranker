@@ -1,4 +1,4 @@
-﻿const CACHE = 'ss-eval-v1';
+﻿const CACHE = 'ss-eval-v2';
 const STATIC = [
   '/evaluator/score',
   '/_next/static',
@@ -77,7 +77,7 @@ self.addEventListener('message', e => {
   if (e.data?.type !== 'PRECACHE') return;
   const urls = e.data.urls || [];
   e.waitUntil(
-    caches.open('ss-eval-v1').then(cache =>
+    caches.open(CACHE).then(cache =>
       Promise.all(
         urls.map(url =>
           fetch(url, { credentials: 'include' })
