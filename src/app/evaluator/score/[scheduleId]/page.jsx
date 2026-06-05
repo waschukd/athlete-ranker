@@ -913,13 +913,13 @@ function ScoringInterface() {
   const selectedIdx = selected ? filtered.findIndex(a => a.id === selected.id) : -1;
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col" style={{ paddingBottom: "80px" }}>
+    <div className="min-h-screen bg-gray-50 text-ink flex flex-col" style={{ paddingBottom: "80px" }}>
 
       {/* ── Top bar ────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -1103,11 +1103,11 @@ function ScoringInterface() {
       {/* ── Jersey grid ────────────────────────────────────── */}
       {/* Pending sync banner */}
       {!online && Object.keys(pending).length > 0 && (
-        <div className="mx-3 mt-3 flex items-center gap-2 bg-amber-950 border border-amber-700/50 rounded-xl px-3 py-2.5">
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+        <div className="mx-3 mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-amber-300">{Object.keys(pending).length} score{Object.keys(pending).length !== 1 ? 's' : ''} saved locally</p>
-            <p className="text-xs text-amber-500 mt-0.5">Will sync automatically when wifi returns. Keep this tab open.</p>
+            <p className="text-xs font-semibold text-amber-700">{Object.keys(pending).length} score{Object.keys(pending).length !== 1 ? 's' : ''} saved locally</p>
+            <p className="text-xs text-amber-600 mt-0.5">Will sync automatically when wifi returns. Keep this tab open.</p>
           </div>
         </div>
       )}
@@ -1116,12 +1116,12 @@ function ScoringInterface() {
         <div className="flex-1 overflow-auto px-2 pt-2 pb-20">
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-800">
-                <th className="text-left py-2 px-2 text-xs text-gray-400 font-medium sticky left-0 bg-gray-800 min-w-[140px]">Name</th>
+              <tr className="bg-gray-50">
+                <th className="text-left py-2 px-2 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 min-w-[140px]">Name</th>
                 {scoringCats.map(cat => (
-                  <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-400 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
+                  <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
                 ))}
-                <th className="text-center py-2 px-1 text-xs text-gray-400 font-medium min-w-[40px]">✓</th>
+                <th className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[40px]">✓</th>
               </tr>
             </thead>
             <tbody>
@@ -1129,9 +1129,9 @@ function ScoringInterface() {
                 const status = getStatus(athlete.id, scores, totalCats);
                 const athleteScores = scores[athlete.id]?.cats || {};
                 return (
-                  <tr key={athlete.id} className={`border-b border-gray-800 ${status === "complete" ? "bg-green-900/10" : status === "partial" ? "bg-amber-900/10" : ""}`}>
-                    <td className="py-1.5 px-2 text-xs text-white font-medium sticky left-0 bg-gray-900 whitespace-nowrap">
-                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-400" : "bg-white border border-gray-500"}`} />
+                  <tr key={athlete.id} className={`border-b border-gray-200 ${status === "complete" ? "bg-green-50" : status === "partial" ? "bg-amber-50" : ""}`}>
+                    <td className="py-1.5 px-2 text-xs text-ink font-medium sticky left-0 bg-white whitespace-nowrap">
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-800" : "bg-white border border-gray-400"}`} />
                       {isAnon
                         ? anonLabel(athlete)
                         : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
@@ -1152,17 +1152,17 @@ function ScoringInterface() {
                               updateScore(athlete.id, cat.id, v);
                             }}
                             className={`w-full bg-transparent text-center text-sm font-mono outline-none rounded py-1 ${
-                              val !== null && val !== undefined ? "text-white" : "text-gray-600"
-                            } focus:bg-gray-700 focus:ring-1 focus:ring-accent`}
+                              val !== null && val !== undefined ? "text-ink" : "text-gray-400"
+                            } focus:bg-gray-50 focus:ring-1 focus:ring-accent`}
                             placeholder="–"
                           />
                         </td>
                       );
                     })}
                     <td className="text-center py-1 px-1">
-                      {status === "complete" ? <span className="text-green-400 text-xs">✓</span>
-                        : status === "partial" ? <span className="text-amber-400 text-xs">◐</span>
-                        : <span className="text-gray-600 text-xs">○</span>}
+                      {status === "complete" ? <span className="text-green-600 text-xs">✓</span>
+                        : status === "partial" ? <span className="text-amber-600 text-xs">◐</span>
+                        : <span className="text-gray-400 text-xs">○</span>}
                     </td>
                   </tr>
                 );
@@ -1176,13 +1176,13 @@ function ScoringInterface() {
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 px-1">
           {[
-            { color: "bg-gray-600", label: "Not started" },
+            { color: "bg-gray-300", label: "Not started" },
             { color: "bg-amber-400", label: "Partial" },
             { color: "bg-green-500", label: "Complete" },
           ].map(l => (
             <div key={l.label} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-full ${l.color}`} />
-              <span className="text-xs text-gray-400">{l.label}</span>
+              <span className="text-xs text-gray-600">{l.label}</span>
             </div>
           ))}
         </div>
@@ -1199,17 +1199,17 @@ function ScoringInterface() {
                 onClick={() => setSelected(isActive ? null : athlete)}
                 className={`relative flex flex-col items-center justify-center rounded-2xl transition-all select-none
                   ${isActive
-                    ? "bg-accent border-2 border-orange-300 ring-4 ring-accent/40 scale-105 shadow-xl shadow-orange-900/40"
+                    ? "bg-accent text-white border-2 border-accent ring-4 ring-accent/30 scale-105 shadow-md"
                     : status === "complete"
-                    ? "bg-green-600 border-2 border-green-400"
+                    ? "bg-green-600 text-white border-2 border-green-500"
                     : status === "partial"
-                    ? "bg-amber-500 border-2 border-amber-300"
-                    : "bg-gray-700 border-2 border-gray-600 hover:border-gray-400"
+                    ? "bg-amber-500 text-white border-2 border-amber-400"
+                    : "bg-white text-gray-700 border-2 border-gray-300 hover:border-gray-400"
                   }`}
                 style={{ aspectRatio: "1", minHeight: "64px" }}
               >
                 {/* Team color dot */}
-                <div className={`w-2 h-2 rounded-full mb-0.5 ${isDark ? "bg-gray-900 border border-gray-400" : "bg-white border border-gray-400"}`} />
+                <div className={`w-2 h-2 rounded-full mb-0.5 ${isDark ? "bg-gray-800 border border-gray-400" : "bg-white border border-gray-400"}`} />
                 <span className="text-sm md:text-base font-bold leading-none">
                   {athlete.jersey_number ?? "?"}
                 </span>
@@ -1226,23 +1226,23 @@ function ScoringInterface() {
 
       {/* ── Score panel (card view only) ──────────────────── */}
       {selected && (viewMode === "card" || viewMode === "numpad") && (
-        <div className="mx-3 mb-3 bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
+        <div className="mx-3 mb-3 bg-white rounded-2xl border border-gray-200 overflow-hidden">
           {/* Player header */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700">
+          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
             <button onClick={() => navigate(-1)} disabled={selectedIdx <= 0}
-              className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 rounded-lg">
+              className="p-1.5 text-gray-400 hover:text-ink disabled:opacity-30 rounded-lg">
               <ChevronLeft size={18} />
             </button>
             <div className="flex-1 text-center">
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
-                <span className="font-bold font-display text-white">#{selected.jersey_number ?? "?"}</span>
-                {!isAnon && <span className="text-white font-semibold font-display">{selected.last_name}, {selected.first_name}</span>}
+                <span className="font-bold font-display text-ink">#{selected.jersey_number ?? "?"}</span>
+                {!isAnon && <span className="text-ink font-semibold font-display">{selected.last_name}, {selected.first_name}</span>}
               </div>
               {selected.position && (
-                <div className="text-xs text-gray-300 mt-0.5 font-medium">{selected.position}</div>
+                <div className="text-xs text-gray-600 mt-0.5 font-medium">{selected.position}</div>
               )}
-              {!isAnon && selected.external_id && <div className="text-xs text-gray-400 mt-0.5">{selected.external_id}</div>}
+              {!isAnon && selected.external_id && <div className="text-xs text-gray-500 mt-0.5">{selected.external_id}</div>}
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => {
@@ -1259,15 +1259,15 @@ function ScoringInterface() {
                     }
                   }
                 }}
-                className={`px-2 py-1 text-xs font-semibold rounded-lg transition-colors ${showCompare ? "bg-purple-700 text-white" : "bg-gray-700 text-gray-400 hover:text-white"}`}>
+                className={`px-2 py-1 text-xs font-semibold rounded-lg transition-colors ${showCompare ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-500 hover:text-ink"}`}>
                 ⚖
               </button>
               <button onClick={() => navigate(1)} disabled={selectedIdx >= filtered.length - 1}
-                className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 rounded-lg">
+                className="p-1.5 text-gray-400 hover:text-ink disabled:opacity-30 rounded-lg">
                 <ChevronRight size={18} />
               </button>
               <button onClick={() => { setSelected(null); setShowCompare(false); }}
-                className="p-1.5 text-gray-500 hover:text-white rounded-lg">
+                className="p-1.5 text-gray-400 hover:text-ink rounded-lg">
                 <X size={16} />
               </button>
             </div>
@@ -1281,7 +1281,7 @@ function ScoringInterface() {
                 const current = scores[selected.id]?.cats?.[cat.id];
                 return (
                   <div key={cat.id} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-300 flex-1">{cat.name}</span>
+                    <span className="text-sm text-gray-600 flex-1">{cat.name}</span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -1297,8 +1297,8 @@ function ScoringInterface() {
                       placeholder="—"
                       className={`w-20 py-3 text-center text-lg font-bold rounded-xl border-2 outline-none transition-colors ${
                         current !== null && current !== undefined
-                          ? "bg-accent/10 border-accent text-white"
-                          : "bg-gray-800 border-gray-600 text-gray-400"
+                          ? "bg-accent-soft border-accent text-ink"
+                          : "bg-white border-gray-300 text-gray-600"
                       }`}
                     />
                   </div>
@@ -1311,10 +1311,10 @@ function ScoringInterface() {
                 return (
                   <div key={cat.id}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-semibold text-gray-200">{cat.name}</span>
+                      <span className="text-sm font-semibold text-gray-700">{cat.name}</span>
                       {current !== null && current !== undefined && (
                         <button onClick={() => updateScore(selected.id, cat.id, null)}
-                          className="text-xs text-gray-600 hover:text-gray-400 flex items-center gap-1">
+                          className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
                           <RotateCcw size={11} /> Clear
                         </button>
                       )}
@@ -1324,8 +1324,8 @@ function ScoringInterface() {
                         <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
                           className={`py-2 md:py-3.5 rounded text-xs md:text-base font-bold transition-all ${
                             current === v
-                              ? "bg-accent text-white shadow-lg shadow-blue-900/50"
-                              : "bg-gray-700 text-gray-300 active:bg-accent active:text-white"
+                              ? "bg-accent text-white shadow-md"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-accent active:text-white"
                           }`}>
                           {v}
                         </button>
@@ -1339,21 +1339,21 @@ function ScoringInterface() {
             {/* Notes */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-gray-200">Notes</span>
-                {notesMode && <span className="text-xs text-green-400 font-medium animate-pulse">● Recording</span>}
+                <span className="text-sm font-semibold text-gray-700">Notes</span>
+                {notesMode && <span className="text-xs text-green-600 font-medium animate-pulse">● Recording</span>}
               </div>
               <textarea
                 value={scores[selected.id]?.notes || ""}
                 onChange={e => updateNotes(selected.id, e.target.value)}
                 placeholder={voiceOn ? `Voice active — say "Notes" to dictate, or type here` : "Type notes here, or use voice..."}
                 rows={3}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent resize-none"
+                className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
               />
             </div>
 
             {/* Sync status for this player */}
             {pending[selected.id] && (
-              <div className="flex items-center gap-2 text-xs text-amber-400">
+              <div className="flex items-center gap-2 text-xs text-amber-600">
                 <WifiOff size={12} />
                 {online ? "Syncing..." : "Saved locally — will sync when online"}
               </div>
@@ -1368,7 +1368,7 @@ function ScoringInterface() {
               const myFilled = Object.values(myScores).filter(v => v !== null && v !== undefined);
               const totalCats = scoringCats.length;
               if (myFilled.length < totalCats) {
-                return <div className="text-xs text-gray-500 mt-3">Score every category for this player to compare overall.</div>;
+                return <div className="text-xs text-gray-400 mt-3">Score every category for this player to compare overall.</div>;
               }
               const myOverall = Math.round((myFilled.reduce((a, b) => a + b, 0) / myFilled.length) * 10) / 10;
 
@@ -1382,19 +1382,19 @@ function ScoringInterface() {
               }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
 
               return (
-                <div className="mt-3 bg-purple-900/20 border border-purple-800/30 rounded-xl p-3">
-                  <div className="text-xs font-semibold text-purple-300 mb-2">⚖ Same Overall Score — Are these players equal?</div>
+                <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl p-3">
+                  <div className="text-xs font-semibold text-purple-700 mb-2">⚖ Same Overall Score — Are these players equal?</div>
                   {same.length === 0 ? (
-                    <div className="text-xs text-gray-500">No other player you've rated has an overall of {myOverall}.</div>
+                    <div className="text-xs text-gray-400">No other player you've rated has an overall of {myOverall}.</div>
                   ) : (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] text-gray-400 w-16 flex-shrink-0">Overall: {myOverall}</span>
+                        <span className="text-[10px] text-gray-500 w-16 flex-shrink-0">Overall: {myOverall}</span>
                         {same.map((label, i) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-800/50 text-purple-300">{label}</span>
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{label}</span>
                         ))}
                       </div>
-                      <div className="text-[10px] text-gray-600 mt-1">If not equal, adjust to differentiate.</div>
+                      <div className="text-[10px] text-gray-400 mt-1">If not equal, adjust to differentiate.</div>
                     </div>
                   )}
                 </div>
@@ -1418,14 +1418,15 @@ function ScoringInterface() {
 
       {/* ── Consensus overlay ─────────────────────────────────── */}
       {showConsensus && (
-        <div className="fixed inset-0 z-30 bg-gray-950/95 overflow-y-auto">
+        <div className="fixed inset-0 z-30 bg-black/40 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-4 py-6">
+            <div className="bg-white rounded-2xl border border-gray-200 px-4 py-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-bold text-white">Consensus Review</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Do evaluators rank athletes in the same tier?</p>
+                <h2 className="text-lg font-bold text-ink">Consensus Review</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Do evaluators rank athletes in the same tier?</p>
               </div>
-              <button onClick={() => setShowConsensus(false)} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800">
+              <button onClick={() => setShowConsensus(false)} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
                 <X size={20} />
               </button>
             </div>
@@ -1438,16 +1439,16 @@ function ScoringInterface() {
               <>
                 {/* Summary */}
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
-                    <div className="text-xl font-bold text-white">{consensusData.athletes.length}</div>
+                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
+                    <div className="text-xl font-bold text-ink">{consensusData.athletes.length}</div>
                     <div className="text-[10px] text-gray-500">Athletes</div>
                   </div>
-                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
-                    <div className={`text-xl font-bold ${consensusData.flagged_count > 0 ? "text-amber-400" : "text-green-400"}`}>{consensusData.flagged_count}</div>
+                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
+                    <div className={`text-xl font-bold ${consensusData.flagged_count > 0 ? "text-amber-600" : "text-green-600"}`}>{consensusData.flagged_count}</div>
                     <div className="text-[10px] text-gray-500">Need Discussion</div>
                   </div>
-                  <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-center">
-                    <div className="text-xl font-bold text-green-400">{consensusData.athletes.length - consensusData.flagged_count}</div>
+                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
+                    <div className="text-xl font-bold text-green-600">{consensusData.athletes.length - consensusData.flagged_count}</div>
                     <div className="text-[10px] text-gray-500">Agreed</div>
                   </div>
                 </div>
@@ -1455,32 +1456,32 @@ function ScoringInterface() {
                 {/* Tier info */}
                 {consensusData.tier_info && (
                   <div className="flex items-center gap-2 mb-4 text-[10px] text-gray-500">
-                    <span className="px-2 py-0.5 bg-green-900/30 text-green-400 rounded">Top {consensusData.tier_info.top}</span>
-                    <span className="px-2 py-0.5 bg-gray-800 text-gray-400 rounded">Middle</span>
-                    <span className="px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded">Bottom {consensusData.tier_info.total - consensusData.tier_info.bottom + 1}</span>
-                    <span className="text-gray-600">of {consensusData.tier_info.total} athletes</span>
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">Top {consensusData.tier_info.top}</span>
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Middle</span>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded">Bottom {consensusData.tier_info.total - consensusData.tier_info.bottom + 1}</span>
+                    <span className="text-gray-400">of {consensusData.tier_info.total} athletes</span>
                   </div>
                 )}
 
                 {/* Flagged athletes — tier splits */}
                 {consensusData.flagged_count > 0 && (
                   <div className="mb-5">
-                    <div className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
+                    <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
                     <div className="space-y-2">
                       {consensusData.athletes.filter(a => a.flagged).map(a => (
-                        <div key={a.athlete_id} className={`bg-gray-900 border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-700/50" : a.severity === "critical" ? "border-red-700/50" : "border-amber-700/50"}`}>
+                        <div key={a.athlete_id} className={`bg-white border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-200" : a.severity === "critical" ? "border-red-200" : "border-amber-200"}`}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${a.severity === "critical" ? "bg-red-900 text-red-300" : "bg-amber-900 text-amber-300"}`}>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${a.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                                 {a.severity === "critical" ? "TOP↔BOTTOM" : "TIER SPLIT"}
                               </span>
-                              <span className="text-sm font-semibold text-white">{a.first_name} {a.last_name}</span>
+                              <span className="text-sm font-semibold text-ink">{a.first_name} {a.last_name}</span>
                               {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
                             </div>
                             {!reviewedFlags.has(a.athlete_id) ? (
-                              <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-900/50 text-green-400 rounded-lg hover:bg-green-800/50">Discussed ✓</button>
+                              <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Discussed ✓</button>
                             ) : (
-                              <span className="text-xs text-green-500">✓ Done</span>
+                              <span className="text-xs text-green-600">✓ Done</span>
                             )}
                           </div>
 
@@ -1488,22 +1489,22 @@ function ScoringInterface() {
                           <div className="space-y-1.5">
                             {a.per_evaluator?.map(ev => (
                               <div key={ev.evaluator_id} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 w-28 truncate">{ev.evaluator_name}</span>
-                                <span className={`text-xs font-bold w-8 text-center ${ev.tier === "top" ? "text-green-400" : ev.tier === "bottom" ? "text-amber-400" : "text-gray-300"}`}>#{ev.rank}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.tier === "top" ? "bg-green-900/40 text-green-400" : ev.tier === "bottom" ? "bg-amber-900/40 text-amber-400" : "bg-gray-800 text-gray-400"}`}>{ev.tier}</span>
-                                <span className="text-xs text-gray-600 ml-auto">avg {ev.avg_score}</span>
+                                <span className="text-xs text-gray-600 w-28 truncate">{ev.evaluator_name}</span>
+                                <span className={`text-xs font-bold w-8 text-center ${ev.tier === "top" ? "text-green-600" : ev.tier === "bottom" ? "text-amber-600" : "text-gray-700"}`}>#{ev.rank}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.tier === "top" ? "bg-green-100 text-green-700" : ev.tier === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{ev.tier}</span>
+                                <span className="text-xs text-gray-400 ml-auto">avg {ev.avg_score}</span>
                               </div>
                             ))}
                           </div>
 
                           {/* Category detail */}
-                          <div className="mt-3 pt-2 border-t border-gray-800">
+                          <div className="mt-3 pt-2 border-t border-gray-200">
                             <div className="flex flex-wrap gap-3">
                               {a.categories?.map(cat => (
                                 <div key={cat.name} className="text-xs">
                                   <span className="text-gray-500">{cat.name}: </span>
-                                  <span className="text-white font-mono">{cat.avg}</span>
-                                  {cat.spread > 0 && <span className={`ml-1 ${cat.spread > 2 ? "text-red-400" : cat.spread > 1 ? "text-amber-400" : "text-gray-500"}`}>(±{cat.spread})</span>}
+                                  <span className="text-ink font-mono">{cat.avg}</span>
+                                  {cat.spread > 0 && <span className={`ml-1 ${cat.spread > 2 ? "text-red-600" : cat.spread > 1 ? "text-amber-600" : "text-gray-500"}`}>(±{cat.spread})</span>}
                                 </div>
                               ))}
                             </div>
@@ -1517,13 +1518,13 @@ function ScoringInterface() {
                 {/* Agreed athletes */}
                 {consensusData.athletes.filter(a => !a.flagged).length > 0 && (
                   <div className="mb-5">
-                    <div className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                    <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                       <div className="grid grid-cols-2 gap-1">
                         {consensusData.athletes.filter(a => !a.flagged).map(a => (
-                          <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-800/50">
-                            <span className="text-xs text-gray-300">{a.first_name} {a.last_name}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-900/30 text-green-400" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-900/30 text-amber-400" : "bg-gray-800 text-gray-400"}`}>{a.unique_tiers?.[0]}</span>
+                          <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100">
+                            <span className="text-xs text-gray-700">{a.first_name} {a.last_name}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-100 text-green-700" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{a.unique_tiers?.[0]}</span>
                           </div>
                         ))}
                       </div>
@@ -1532,7 +1533,7 @@ function ScoringInterface() {
                 )}
 
                 {/* Close Session */}
-                <div className="border-t border-gray-800 pt-4">
+                <div className="border-t border-gray-200 pt-4">
                   <p className="text-xs text-gray-500 mb-3">
                     {consensusData.flagged_count > 0 && [...reviewedFlags].length < consensusData.flagged_count
                       ? `Discuss ${consensusData.flagged_count - [...reviewedFlags].length} remaining athlete(s) before closing, or they'll be reported as unreviewed.`
@@ -1545,6 +1546,7 @@ function ScoringInterface() {
                 </div>
               </>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -1552,18 +1554,18 @@ function ScoringInterface() {
       {/* ── Voice bar — fixed at bottom ─────────────────────── */}
       {!online && voiceMode === 'unavailable' && (
         <div className="fixed bottom-16 left-0 right-0 z-20 px-4 pb-1">
-          <div className="max-w-2xl mx-auto bg-amber-950 border border-amber-700 rounded-xl px-3 py-2 flex items-center gap-2">
-            <span className="text-amber-400 text-xs">⚠️</span>
-            <span className="text-xs text-amber-300">Voice unavailable offline — tap to score. Audio feedback still works.</span>
+          <div className="max-w-2xl mx-auto bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="text-amber-600 text-xs">⚠️</span>
+            <span className="text-xs text-amber-700">Voice unavailable offline — tap to score. Audio feedback still works.</span>
           </div>
         </div>
       )}
       <div className={`fixed bottom-0 left-0 right-0 z-20 border-t transition-colors duration-200 ${
         voiceOn
           ? notesMode
-            ? "bg-green-950 border-green-700"
-            : "bg-blue-950 border-blue-700"
-          : "bg-gray-900 border-gray-800"
+            ? "bg-green-50 border-green-200"
+            : "bg-blue-50 border-blue-200"
+          : "bg-white border-gray-200"
       }`}>
         <div className="flex items-center gap-3 px-4 py-3 max-w-2xl mx-auto">
           {/* Mic button */}
@@ -1572,9 +1574,9 @@ function ScoringInterface() {
             className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
               voiceOn
                 ? notesMode
-                  ? "bg-green-500 text-white shadow-lg shadow-green-900/50"
-                  : "bg-blue-500 text-white shadow-lg shadow-blue-900/50 animate-pulse"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-blue-500 text-white shadow-md animate-pulse"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             {voiceOn ? <Mic size={20} /> : <MicOff size={20} />}
@@ -1584,12 +1586,12 @@ function ScoringInterface() {
           <div className="flex-1 min-w-0">
             {voiceOn ? (
               <>
-                <div className="text-xs font-medium mb-0.5 truncate" style={{ color: notesMode ? "#86efac" : "#93c5fd" }}>
+                <div className="text-xs font-medium mb-0.5 truncate" style={{ color: notesMode ? "#15803d" : "#1d4ed8" }}>
                   {notesMode ? "📝 Notes mode — say 'done' to stop" : "🎤 Listening — say 'White 21' · 'Skating 8' · 'Notes'"}
                 </div>
-                <div className="text-sm text-white truncate">{voiceStatus}</div>
+                <div className="text-sm text-ink truncate">{voiceStatus}</div>
                 {!notesMode && isAppleSpeechFlaky() && (
-                  <div className="text-[11px] text-amber-300/90 leading-snug mt-0.5">
+                  <div className="text-[11px] text-amber-700 leading-snug mt-0.5">
                     Voice on Safari can drop out — tap the mic again if it stops, or use tap scoring.
                   </div>
                 )}
@@ -1606,7 +1608,7 @@ function ScoringInterface() {
             <button
               onClick={restartVoice}
               title="Restart mic (use if Bluetooth changed)"
-              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-blue-800/50 text-blue-300 hover:bg-blue-700/50 transition-colors"
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
             >
               <RefreshCw size={14} />
             </button>
@@ -1616,7 +1618,7 @@ function ScoringInterface() {
           {voiceOn && notesMode && (
             <button
               onClick={() => { setNotesMode(false); setVoiceStatus("Listening..."); }}
-              className="flex-shrink-0 px-3 py-1.5 bg-green-700 text-green-100 rounded-lg text-xs font-semibold"
+              className="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold"
             >
               Done Notes
             </button>
@@ -1631,7 +1633,7 @@ export default function ScorePage() {
   return (
     <QueryClientProvider client={qc}>
       <Suspense fallback={
-        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
         </div>
       }>
