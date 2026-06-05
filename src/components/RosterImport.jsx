@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Upload, Check, AlertCircle } from "lucide-react";
 import {
-  parseCsv, detectMapping, summarizeDivisions, buildAthletes,
+  parseCsv, detectMapping, summarizeDivisions, buildAthletes, suggestDivisions,
 } from "@/lib/rosterImport";
 
 // Universal roster import: drop in a raw RAMP / TeamSnap / TeamLinkt (or our own
 // template) CSV, auto-maps the columns, lets you correct them, pick which
 // division(s) belong to this category, preview, then import.
-export default function RosterImport({ catId, onImported }) {
+export default function RosterImport({ catId, categoryName, onImported }) {
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState([]);
   const [rows, setRows] = useState([]);
@@ -44,6 +44,16 @@ export default function RosterImport({ catId, onImported }) {
     () => (mapping?.division ? summarizeDivisions(rows, mapping.division) : []),
     [rows, mapping]
   );
+
+  // Pre-tick the division that matches this category (fallback for whole-association
+  // uploads). Only fires on file load / division-column change — toggling chips won't
+  // re-trigger it, so a manual choice stands.
+  useEffect(() => {
+    if (mapping?.division && divisions.length > 1 && categoryName) {
+      const sug = suggestDivisions(categoryName, divisions.map(d => d.value));
+      if (sug.length) setSelectedDivisions(sug);
+    }
+  }, [divisions, categoryName, mapping?.division]);
 
   const { athletes, skipped } = useMemo(() => {
     if (!mapping) return { athletes: [], skipped: 0 };

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseCsv, detectMapping, splitName, parseBirthYear, normalizePosition,
-  toAthlete, summarizeDivisions, buildAthletes,
+  toAthlete, summarizeDivisions, buildAthletes, suggestDivisions,
 } from "@/lib/rosterImport";
 
 describe("parseCsv", () => {
@@ -121,6 +121,23 @@ describe("toAthlete + buildAthletes (RAMP rows)", () => {
     const { athletes } = buildAthletes(rows, mapping, ["U13 "]);
     expect(athletes).toHaveLength(1);
     expect(athletes[0].first_name).toBe("Chance");
+  });
+});
+
+describe("suggestDivisions", () => {
+  const divs = ["U9", "U11", "U13 ", "Sr Timbits", "Discovery"];
+  it("matches by age number despite trailing space + extra category text", () => {
+    expect(suggestDivisions("U13 AA", divs)).toEqual(["U13 "]);
+  });
+  it("matches U-number to 'Under N' style values", () => {
+    expect(suggestDivisions("U12", ["Under 12", "Under 10"])).toEqual(["Under 12"]);
+  });
+  it("matches non-age names by normalized text", () => {
+    expect(suggestDivisions("Sr Timbits", divs)).toEqual(["Sr Timbits"]);
+  });
+  it("returns [] when nothing matches", () => {
+    expect(suggestDivisions("U18 AAA", divs)).toEqual([]);
+    expect(suggestDivisions("", divs)).toEqual([]);
   });
 });
 

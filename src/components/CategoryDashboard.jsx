@@ -858,7 +858,7 @@ export default function CategoryDashboard({
             </div>
             {showImport && (
               <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <RosterImport catId={catId} onImported={() => { refetchAthletes(); refetchRankings(); }} />
+                <RosterImport catId={catId} categoryName={displayName} onImported={() => { refetchAthletes(); refetchRankings(); }} />
               </div>
             )}
             {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}

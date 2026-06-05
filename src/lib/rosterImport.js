@@ -163,6 +163,33 @@ export function summarizeDivisions(rows, divisionHeader) {
     .sort((a, b) => b.count - a.count);
 }
 
+function ageNum(str) {
+  const s = String(str || "").toLowerCase();
+  const m = s.match(/\bu\s*(\d{1,2})\b/) || s.match(/\bunder\s*(\d{1,2})\b/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// Given the category being set up (e.g. "U13 AA") and the division values found in
+// the file, return the division value(s) that best match — used to pre-tick the
+// right group as a fallback when someone uploads a whole-association export.
+export function suggestDivisions(categoryName, divisionValues) {
+  if (!categoryName || !divisionValues?.length) return [];
+  const catAge = ageNum(categoryName);
+  const catNorm = norm(categoryName).replace(/\s+/g, "");
+  const out = [];
+  for (const d of divisionValues) {
+    const dv = typeof d === "string" ? d : d?.value;
+    if (!dv) continue;
+    const dAge = ageNum(dv);
+    const dNorm = norm(dv).replace(/\s+/g, "");
+    let hit = false;
+    if (catAge != null && dAge != null) hit = catAge === dAge;
+    else if (dNorm && catNorm) hit = catNorm.includes(dNorm) || dNorm.includes(catNorm);
+    if (hit) out.push(dv);
+  }
+  return out;
+}
+
 // Full pipeline: parsed rows + mapping (+ optional division filter) → valid athletes.
 // Returns { athletes, skipped } where skipped lacked a usable name.
 export function buildAthletes(rows, mapping, selectedDivisions = null) {
