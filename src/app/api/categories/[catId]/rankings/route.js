@@ -13,7 +13,8 @@ export async function GET(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    return NextResponse.json(await computeCategoryRankings(catId));
+    const scope = new URL(request.url).searchParams.get("scope") === "coach" ? "coach" : "official";
+    return NextResponse.json(await computeCategoryRankings(catId, { scope }));
   } catch (error) {
     console.error("Rankings error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
