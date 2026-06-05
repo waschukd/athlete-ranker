@@ -330,7 +330,7 @@ function ScoringStep({ scoring, setScoring }) {
 }
 
 // ─── Step 3: Athletes ───────────────────────────────────────────────────────
-function AthletesStep({ catId }) {
+function AthletesStep({ catId, categoryName }) {
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -404,7 +404,7 @@ function AthletesStep({ catId }) {
         <a href="/api/templates?type=athletes" download className="text-xs text-accent hover:underline font-medium whitespace-nowrap">↓ Download blank template</a>
       </div>
 
-      <RosterImport catId={catId} onImported={() => loadAthletes()} />
+      <RosterImport catId={catId} categoryName={categoryName} onImported={() => loadAthletes()} />
 
       <div className="flex items-center gap-3 my-6 flex-wrap">
         <button
@@ -792,7 +792,7 @@ function SetupWizard() {
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
           {step === 1 && <SessionsStep sessions={sessions} setSessions={setSessions} />}
           {step === 2 && <ScoringStep scoring={scoring} setScoring={setScoring} />}
-          {step === 3 && <AthletesStep catId={catId} />}
+          {step === 3 && <AthletesStep catId={catId} categoryName={catName} />}
           {step === 4 && <ScheduleStep catId={catId} />}
           {step === 5 && <ReviewStep catName={catName} sessions={sessions} scoring={scoring} />}
         </div>
