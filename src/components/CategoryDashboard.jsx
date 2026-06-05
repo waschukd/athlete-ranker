@@ -64,6 +64,16 @@ export default function CategoryDashboard({
   const [compareIds, setCompareIds] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
   const [sortBy, setSortBy] = useState(null); // { key, dir }
+  // Coach & goalie evaluator manager + "compare coaches" rankings overlay
+  const [evaluatorsOpen, setEvaluatorsOpen] = useState(false);
+  const [evalAddUserId, setEvalAddUserId] = useState("");
+  const [evalAddEmail, setEvalAddEmail] = useState("");
+  const [evalAddKind, setEvalAddKind] = useState("coach");
+  const [evalAdding, setEvalAdding] = useState(false);
+  const [evalMsg, setEvalMsg] = useState("");
+  const [evalRemoveTarget, setEvalRemoveTarget] = useState(null); // designation pending removal
+  const [evalRemoving, setEvalRemoving] = useState(false);
+  const [compareCoaches, setCompareCoaches] = useState(false);
   const [importing, setImporting] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [showDirectorModal, setShowDirectorModal] = useState(false);
@@ -103,6 +113,20 @@ export default function CategoryDashboard({
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings`); return res.json(); },
     enabled: !!catId,
     refetchInterval: 120000,
+  });
+
+  const canManageEvaluators = role === "association" || role === "director";
+
+  const { data: evaluatorsData, refetch: refetchEvaluators } = useQuery({
+    queryKey: ["cat-evaluators", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/evaluators`); return res.json(); },
+    enabled: !!catId && canManageEvaluators,
+  });
+
+  const { data: coachRankingsData } = useQuery({
+    queryKey: ["rankings-coach", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings?scope=coach`); return res.json(); },
+    enabled: !!catId && compareCoaches,
   });
 
   const { data: scheduleData, refetch: refetchSchedule } = useQuery({
@@ -146,6 +170,17 @@ export default function CategoryDashboard({
   const completedSessions = rankingsData?.completed_sessions || [];
   const inProgressSessions = rankingsData?.in_progress_sessions || [];
   const sessionStatus = rankingsData?.session_status || {};
+  const hasCoaches = rankingsData?.has_coaches || false;
+  const evalDesignations = evaluatorsData?.designations || [];
+  const evalCandidates = evaluatorsData?.candidates || [];
+  const evalCoaches = evalDesignations.filter(d => d.kind === "coach");
+  const evalGoalies = evalDesignations.filter(d => d.kind === "goalie");
+  // athlete_id → coach rank (only fetched when "Compare coaches" is on)
+  const coachRankMap = useMemo(() => {
+    const map = {};
+    (coachRankingsData?.athletes || []).forEach(a => { if (a.id != null) map[a.id] = a.rank; });
+    return map;
+  }, [coachRankingsData]);
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
   const sortedAthletes = sortBy ? [...filteredAthletes].sort((a, b) => {
@@ -193,6 +228,29 @@ export default function CategoryDashboard({
     setVolunteerMsg(data.success ? "Sent to " + data.sent + " volunteer(s)" : "Error: " + data.error);
     setVolunteerSending(false);
     setTimeout(() => { setVolunteerMsg(""); setVolunteerModal(null); setVolunteerEmails(""); }, 3000);
+  };
+
+  const addEvaluator = async () => {
+    if (!evalAddUserId && !evalAddEmail.trim()) return;
+    setEvalAdding(true);
+    const body = evalAddUserId
+      ? { user_id: evalAddUserId, kind: evalAddKind }
+      : { email: evalAddEmail.trim(), kind: evalAddKind };
+    const res = await fetch(`/api/categories/${catId}/evaluators`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setEvalAdding(false);
+    if (res.ok) {
+      setEvalAddUserId(""); setEvalAddEmail("");
+      setEvalMsg("Added — they've been emailed.");
+      refetchEvaluators();
+      setTimeout(() => setEvalMsg(""), 4000);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setEvalMsg("Error: " + (data.error || "could not add"));
+    }
   };
 
   const exportRankingsCSV = () => {
@@ -366,6 +424,106 @@ export default function CategoryDashboard({
               </div>
             ) : (
             <>
+            {/* ── Coach & Goalie evaluators (collapsible) ── */}
+            {canManageEvaluators && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setEvaluatorsOpen(v => !v)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50/60 transition-colors"
+                >
+                  <div>
+                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Coach &amp; Goalie evaluators</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Coaches&apos; scores don&apos;t count toward results; goalie evaluators only see goalies.</p>
+                  </div>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-accent">
+                    {(evalCoaches.length + evalGoalies.length) > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent-soft text-accent text-[11px] font-bold">{evalCoaches.length + evalGoalies.length}</span>
+                    )}
+                    {evaluatorsOpen ? "Hide" : "Manage"}
+                    <span className={`text-gray-400 transition-transform ${evaluatorsOpen ? "rotate-180" : ""}`}>▾</span>
+                  </span>
+                </button>
+                {evaluatorsOpen && (
+                  <div className="border-t border-gray-100 px-5 py-5 space-y-5">
+                    {/* Current designations grouped by kind */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {[{ key: "coach", label: "Coaches", list: evalCoaches }, { key: "goalie", label: "Goalie evaluators", list: evalGoalies }].map(group => (
+                        <div key={group.key}>
+                          <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">{group.label} ({group.list.length})</div>
+                          {group.list.length === 0 ? (
+                            <p className="text-xs text-gray-400">None yet.</p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {group.list.map(d => (
+                                <li key={d.id} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-ink truncate">{d.name || d.user_email || d.email || "—"}</div>
+                                    {(d.user_email || d.email) && <div className="text-xs text-gray-400 truncate">{d.user_email || d.email}</div>}
+                                  </div>
+                                  <button
+                                    onClick={() => setEvalRemoveTarget(d)}
+                                    className="flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg w-7 h-7 inline-flex items-center justify-center transition-colors"
+                                    aria-label={`Remove ${d.name || d.email}`}
+                                  ><X size={15} /></button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add row */}
+                    <div className="border-t border-gray-100 pt-4">
+                      <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">Add evaluator</div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="flex-1 min-w-[160px]">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Existing person</label>
+                          <select
+                            value={evalAddUserId}
+                            onChange={e => { setEvalAddUserId(e.target.value); if (e.target.value) setEvalAddEmail(""); }}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          >
+                            <option value="">Select a candidate…</option>
+                            {evalCandidates.map(c => (
+                              <option key={c.user_id} value={c.user_id}>{c.name || c.email}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <span className="pb-2 text-xs text-gray-400">or</span>
+                        <div className="flex-1 min-w-[160px]">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Invite by email</label>
+                          <input
+                            type="email"
+                            value={evalAddEmail}
+                            onChange={e => { setEvalAddEmail(e.target.value); if (e.target.value) setEvalAddUserId(""); }}
+                            placeholder="coach@email.com"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          />
+                        </div>
+                        <div className="min-w-[120px]">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Role</label>
+                          <select
+                            value={evalAddKind}
+                            onChange={e => setEvalAddKind(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          >
+                            <option value="coach">Coach</option>
+                            <option value="goalie">Goalie</option>
+                          </select>
+                        </div>
+                        <button
+                          onClick={addEvaluator}
+                          disabled={evalAdding || (!evalAddUserId && !evalAddEmail.trim())}
+                          className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                        >{evalAdding ? "Adding…" : "Add"}</button>
+                      </div>
+                      {evalMsg && <div className={`mt-2 text-xs font-medium ${evalMsg.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>{evalMsg}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
                 <div>
@@ -395,6 +553,12 @@ export default function CategoryDashboard({
                       ))}
                     </div>
                   )}
+                  {hasCoaches && (
+                    <button
+                      onClick={() => setCompareCoaches(v => !v)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${compareCoaches ? "bg-accent text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                    >Compare coaches</button>
+                  )}
                   {hasScores && <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"><Download size={12} /> Export CSV</button>}
                   {compareIds.length >= 2 && (
                     <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
@@ -417,13 +581,14 @@ export default function CategoryDashboard({
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
                       {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
+                      {compareCoaches && hasCoaches && <th className="px-4 py-3 text-center text-xs font-medium text-accent uppercase">Coach rk</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Track</th>}
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.filter(matchesSearch).length === 0 && tableSearch && (
-                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
+                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1 + (compareCoaches && hasCoaches ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : a.rank === 1 ? "bg-accent-soft" : ""}`}>
@@ -439,6 +604,20 @@ export default function CategoryDashboard({
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total?.toFixed(1) || "-"}</td>}
+                        {compareCoaches && hasCoaches && (() => {
+                          const cr = coachRankMap[a.id];
+                          if (cr == null) return <td className="px-4 py-3 text-center text-gray-300">—</td>;
+                          const delta = a.rank - cr; // positive → coaches rank them higher (better) than official
+                          const up = delta > 0, dn = delta < 0;
+                          return (
+                            <td className="px-4 py-3 text-center tabular-nums">
+                              <span className="font-semibold text-ink">{cr}</span>
+                              <span className={`ml-1.5 text-xs font-bold ${up ? "text-green-600" : dn ? "text-red-500" : "text-gray-400"}`}>
+                                {up ? `▲${delta}` : dn ? `▼${Math.abs(delta)}` : "–"}
+                              </span>
+                            </td>
+                          );
+                        })()}
                         {hasScores && <td className="px-4 py-3 text-center">
                           {a.rank_history?.length > 0 ? (
                             <div className="flex items-center justify-center gap-0.5 flex-wrap">
@@ -806,6 +985,24 @@ export default function CategoryDashboard({
             setScheduleMsg("Saved — everyone tied to this session was notified.");
             refetchSchedule(); refetchRankings();
             setTimeout(() => setScheduleMsg(""), 5000);
+          }}
+        />
+
+        {/* ── Remove coach/goalie evaluator confirmation ── */}
+        <ConfirmDialog
+          open={!!evalRemoveTarget}
+          title="Remove this evaluator?"
+          message={evalRemoveTarget ? `${evalRemoveTarget.name || evalRemoveTarget.user_email || evalRemoveTarget.email || "This person"} will no longer be a ${evalRemoveTarget.kind === "goalie" ? "goalie" : "coach"} evaluator for this category.` : ""}
+          confirmLabel="Remove"
+          danger={true}
+          busy={evalRemoving}
+          onCancel={() => setEvalRemoveTarget(null)}
+          onConfirm={async () => {
+            setEvalRemoving(true);
+            await fetch(`/api/categories/${catId}/evaluators?id=${evalRemoveTarget.id}`, { method: "DELETE" });
+            setEvalRemoveTarget(null);
+            setEvalRemoving(false);
+            refetchEvaluators();
           }}
         />
 

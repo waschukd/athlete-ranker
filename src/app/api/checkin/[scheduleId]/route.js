@@ -20,6 +20,7 @@ import { cookies } from "next/headers";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
 
 if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
@@ -150,6 +151,17 @@ export async function GET(request, { params }) {
         WHERE a.age_category_id = ${sched.category_id} AND a.is_active = true
         ORDER BY a.last_name, a.first_name
       `;
+    }
+
+    // Goalie-only evaluators: hard server-side isolation — they only ever receive
+    // goalies for their session, never skater data.
+    const sess = await getSession();
+    if (sess?.email) {
+      const u = await sql`SELECT id FROM users WHERE email = ${sess.email}`;
+      if (u[0]?.id) {
+        const kind = await resolveEvaluatorKind(sched.category_id, u[0].id, sess.email);
+        if (kind === "goalie") athletes = athletes.filter(a => (a.position || "").toLowerCase() === "goalie");
+      }
     }
 
     const teamColors = typeof checkinSession[0]?.team_colors === "string"

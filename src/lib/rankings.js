@@ -1,12 +1,23 @@
 import sql from "@/lib/db";
 import { agreementPct, normalizeScore, testingPercentile, round1 } from "@/lib/scoring";
+import { getCoachUserIds } from "@/lib/categoryEvaluators";
 
 // Single source of truth for category rankings. Pure DB computation — no request
 // or auth context — so it can be called directly from any already-authorized route
 // instead of self-fetching the /rankings HTTP endpoint (which broke in production
 // when NEXT_PUBLIC_BASE_URL was unset and the fetch fell back to localhost).
 // Returns the same object shape the /api/categories/[catId]/rankings route serves.
-export async function computeCategoryRankings(catId) {
+// opts.scope: "official" (default) excludes COACH evaluators' scores; "coach"
+// ranks using ONLY coach scores (the parallel coaches' ranking for compare).
+export async function computeCategoryRankings(catId, opts = {}) {
+  const coachIds = await getCoachUserIds(catId);
+  const coachScope = opts.scope === "coach";
+  // onlyIds: when coach-scope, restrict to coaches. exclIds: official excludes coaches.
+  const onlyIds = coachScope ? coachIds : null;   // null = no include-restriction
+  const onlyGuard = onlyIds ? 0 : 1;              // 1 → include everyone; 0 → only onlyArr
+  const onlyArr = onlyIds ?? [];
+  const exclIds = coachScope ? [] : coachIds;     // official excludes coaches
+
   const sessions = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
   const categoryRes = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
   const category = categoryRes[0];
@@ -36,6 +47,8 @@ export async function computeCategoryRankings(catId) {
     SELECT athlete_id, scoring_category_id, score
     FROM category_scores
     WHERE age_category_id = ${catId}
+      AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
+      AND evaluator_id <> ALL(${exclIds})
   `;
 
   // Build agreement map per athlete
@@ -66,6 +79,8 @@ export async function computeCategoryRankings(catId) {
       COUNT(DISTINCT evaluator_id) as evaluator_count
     FROM category_scores
     WHERE age_category_id = ${catId}
+      AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
+      AND evaluator_id <> ALL(${exclIds})
     GROUP BY athlete_id, session_number
   `;
 
@@ -212,6 +227,7 @@ export async function computeCategoryRankings(catId) {
     completed_sessions: trueCompletedSessions,
     in_progress_sessions: inProgressSessions,
     session_status: sessionStatus, category,
+    has_coaches: coachIds.length > 0,
     scoring_info: { scale, method: "percentile_and_normalized_0_100" },
   };
 }
