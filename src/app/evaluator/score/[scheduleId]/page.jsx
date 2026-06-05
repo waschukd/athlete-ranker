@@ -471,6 +471,49 @@ function ScoringInterface() {
     }
   }, [online]);
 
+  // Manual "push everything now" — for the rare case auto-sync didn't fire.
+  const resyncNow = useCallback(async () => {
+    const ids = Object.keys(pending);
+    if (!ids.length) { setSyncStatus("Nothing to sync — all saved ✓"); setTimeout(() => setSyncStatus(""), 2500); return; }
+    if (!online) { setSyncStatus("You're offline — scores are safe on this device and will sync when you reconnect."); setTimeout(() => setSyncStatus(""), 4000); return; }
+    setSyncStatus(`Syncing ${ids.length}…`);
+    let ok = 0;
+    for (const id of ids) { if (await syncToServer(parseInt(id), scoresRef.current)) ok++; }
+    setSyncStatus(ok === ids.length ? "All synced ✓" : `${ok}/${ids.length} synced — the rest are still saved on this device.`);
+    setTimeout(() => setSyncStatus(""), 4000);
+  }, [pending, online, syncToServer]);
+
+  // Last-resort recovery: export this device's saved scores to a CSV the evaluator
+  // can hand to the director/SP if sync never lands. Pure client-side — works offline.
+  const downloadBackup = useCallback(() => {
+    const cats = scoringCatsRef.current || [];
+    const aths = athletesRef.current || [];
+    const showName = !isAnon;
+    const header = ["Jersey", ...(showName ? ["Name"] : []), "Team", ...cats.map(c => c.name), "Notes"];
+    const rows = [header];
+    for (const a of aths) {
+      const s = scoresRef.current[a.id];
+      if (!s || (!Object.keys(s.cats || {}).length && !(s.notes || "").trim())) continue;
+      rows.push([
+        a.jersey_number ?? "",
+        ...(showName ? [`${a.first_name || ""} ${a.last_name || ""}`.trim()] : []),
+        a.team_color || "",
+        ...cats.map(c => (s.cats?.[c.id] ?? "")),
+        (s.notes || "").replace(/[\r\n]+/g, " "),
+      ]);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = `scores_session_${scheduleId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    el.click();
+    URL.revokeObjectURL(url);
+    setSyncStatus("Downloaded a copy to this device ✓");
+    setTimeout(() => setSyncStatus(""), 3000);
+  }, [isAnon, scheduleId]);
+
   // ── Core score setter ─────────────────────────────────────────────────────
   // allowToggle=true (default, used by tap UI): tapping a button that's
   //   already at this value clears it — convenient for "I clicked the wrong
@@ -1030,20 +1073,30 @@ function ScoringInterface() {
                 </button>
               ))}
             </div>
-            {/* Persistent save state — always visible so offline/pending is never a surprise */}
-            {(() => {
-              const n = Object.keys(pending).length;
-              const s = !online
-                ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
-                : n > 0
-                  ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
-                  : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
-              return (
-                <span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
-                </span>
-              );
-            })()}
+            {/* Save state + manual recovery — always visible so offline/pending is never a surprise */}
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
+              {Object.keys(pending).length > 0 && (
+                <button onClick={resyncNow} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
+                  Resync now
+                </button>
+              )}
+              <button onClick={downloadBackup} title="Download a copy of these scores to this device — a safety net if sync ever fails." className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-gray-300 text-gray-500 hover:text-ink hover:border-gray-400">
+                Download
+              </button>
+              {(() => {
+                const n = Object.keys(pending).length;
+                const s = !online
+                  ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
+                  : n > 0
+                    ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
+                    : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
+                return (
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
+                  </span>
+                );
+              })()}
+            </div>
           </div>
       </div>
 
