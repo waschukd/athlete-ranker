@@ -181,6 +181,21 @@ function ScoringInterface() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
+  // When a new build's service worker takes control, reload ONCE to a clean,
+  // consistent build — prevents stale page / mismatched-chunk states after a
+  // deploy (scores are safe in localStorage and re-hydrate on reload).
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let refreshing = false;
+    const onChange = () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+  }, []);
+
   const { data: sessionData, isLoading } = useQuery({
     queryKey: ["score-session", scheduleId],
     queryFn: async () => {
