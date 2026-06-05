@@ -284,7 +284,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
               </>
             ) : (
               <button onClick={() => onSignup(session.schedule_id)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-3 sm:py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                 <Plus size={14} /> Sign Up
               </button>
             )}
@@ -485,7 +485,7 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
       ) : (
         <button
           onClick={() => onSignup(session.schedule_id)}
-          className="row-span-2 self-center px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow"
+          className="row-span-2 self-center px-3 py-3 sm:py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 hover:shadow-md transition-shadow min-w-[72px] justify-center"
           aria-label="Sign up for this session"
         >
           <Plus size={13} />
@@ -896,7 +896,33 @@ function AvailabilitySection() {
       )}
 
       <form onSubmit={handleAdd} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        {/* Quick presets */}
+        <div className="flex gap-2 flex-wrap">
+          <span className="text-xs font-medium text-gray-500 self-center">Quick:</span>
+          {[
+            { label: "1 day", days: 0 },
+            { label: "1 week", days: 6 },
+            { label: "2 weeks", days: 13 },
+          ].map(({ label, days }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                const pad = (n) => String(n).padStart(2, "0");
+                const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                const end = new Date(today);
+                end.setDate(today.getDate() + days);
+                setStartDate(fmt(today));
+                setEndDate(fmt(end));
+              }}
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-[#0b5cd6]/30 bg-[#e8f0fd] text-[#0b5cd6] hover:bg-[#0b5cd6] hover:text-white transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Start date</label>
             <input type="date" required value={startDate} onChange={e => setStartDate(e.target.value)}
@@ -1225,6 +1251,58 @@ function EvaluatorDashboard() {
               <span className="text-gray-300">·</span>
               <span><b className="text-ink">{availSessions.length}</b> open to sign up</span>
             </div>
+
+            {/* ── Score Now widget ── */}
+            {(() => {
+              if (upcoming.length === 0) return null;
+              const todayStr = new Date().toISOString().split("T")[0];
+              const todaySessions = upcoming.filter(s => s.scheduled_date?.toString().split("T")[0] === todayStr);
+              // If no sessions today, find the soonest upcoming date
+              let featured = todaySessions;
+              let isToday = true;
+              if (featured.length === 0) {
+                const soonestDate = upcoming.map(s => s.scheduled_date?.toString().split("T")[0]).filter(Boolean).sort()[0];
+                featured = upcoming.filter(s => s.scheduled_date?.toString().split("T")[0] === soonestDate);
+                isToday = false;
+              }
+              const shown = featured.slice(0, 2);
+              return (
+                <div className="mt-4 bg-white border border-[#0b5cd6]/25 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ClipboardList size={15} className="text-[#0b5cd6]" />
+                    <span className="font-display font-bold text-ink text-sm tracking-tight">Score Now</span>
+                    {isToday && (
+                      <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f0fd] text-[#0b5cd6] uppercase tracking-wide">Today</span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {shown.map(s => (
+                      <a
+                        key={s.signup_id}
+                        href={`/evaluator/score/${s.schedule_id}`}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-[#e8f0fd] border border-gray-100 hover:border-[#0b5cd6]/30 transition-colors group"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-sm text-ink truncate">{s.org_name}</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="text-sm text-gray-600 truncate">{s.category_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                            {!isToday && <span>{formatDate(s.scheduled_date)}</span>}
+                            {s.start_time && <span>{formatTime(s.start_time)}{s.end_time ? ` — ${formatTime(s.end_time)}` : ""}</span>}
+                            {s.location && <span className="truncate">{s.location}</span>}
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0b5cd6] text-white rounded-lg text-xs font-bold flex-shrink-0 group-hover:bg-[#0a4fc0] transition-colors">
+                          Score <span aria-hidden>→</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <div className="flex gap-1 overflow-x-auto">
             {[

@@ -98,6 +98,7 @@ function ScoringInterface() {
   const [notesMode, setNotesMode] = useState(false);
   const [teamFilter, setTeamFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
+  const [jerseySearch, setJerseySearch] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -388,7 +389,17 @@ function ScoringInterface() {
   useEffect(() => { scaleRef.current = scale; }, [scale]);
   useEffect(() => { incrementRef.current = increment; }, [increment]);
 
-  const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter)).filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete").sort((a,b) => (a.jersey_number||999) - (b.jersey_number||999));
+  const jq = jerseySearch.trim().toLowerCase();
+  const matchesSearch = (a) => {
+    if (!jq) return true;
+    if (String(a.jersey_number ?? "").includes(jq)) return true;
+    if (!isAnon) return `${a.first_name || ""} ${a.last_name || ""}`.toLowerCase().includes(jq);
+    return false;
+  };
+  const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter))
+    .filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete")
+    .filter(matchesSearch)
+    .sort((a,b) => (a.jersey_number||999) - (b.jersey_number||999));
 
   // Score values array
   const scoreValues = React.useMemo(() => {
@@ -992,6 +1003,18 @@ function ScoringInterface() {
           </button>
         </div>
           <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
+            <div className="relative">
+              <input
+                value={jerseySearch}
+                onChange={e => setJerseySearch(e.target.value)}
+                inputMode="numeric"
+                placeholder={isAnon ? "Find #" : "Find # or name"}
+                className="w-28 pl-2.5 pr-6 py-1 text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+              {jerseySearch && (
+                <button onClick={() => setJerseySearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm leading-none">×</button>
+              )}
+            </div>
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
@@ -1007,6 +1030,20 @@ function ScoringInterface() {
                 </button>
               ))}
             </div>
+            {/* Persistent save state — always visible so offline/pending is never a surprise */}
+            {(() => {
+              const n = Object.keys(pending).length;
+              const s = !online
+                ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
+                : n > 0
+                  ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
+                  : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
+              return (
+                <span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
+                </span>
+              );
+            })()}
           </div>
       </div>
 
