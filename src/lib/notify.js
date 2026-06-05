@@ -15,11 +15,6 @@ export async function createNotification(userId, { type, title, body, link } = {
   }
 }
 
-export async function createNotifications(userIds, payload) {
-  const unique = [...new Set((userIds || []).filter(Boolean))];
-  for (const id of unique) await createNotification(id, payload);
-}
-
 // Resolve the app `users.id` for the current session (by email).
 export async function appUserId(session) {
   if (!session?.email) return null;

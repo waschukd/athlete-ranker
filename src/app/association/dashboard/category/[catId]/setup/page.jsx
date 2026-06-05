@@ -333,8 +333,6 @@ function ScoringStep({ scoring, setScoring }) {
 function AthletesStep({ catId, categoryName }) {
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAdd, setQuickAdd] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
   const [addingPlayer, setAddingPlayer] = useState(false);
@@ -347,36 +345,6 @@ function AthletesStep({ catId, categoryName }) {
   }, [catId]);
 
   useEffect(() => { loadAthletes(); }, [loadAthletes]);
-
-  const handleCSVUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImporting(true);
-    setImportResult(null);
-
-    const text = await file.text();
-    const rows = parseCSV(text);
-
-    // Map CSV columns flexibly
-    const athletes = rows.map(row => ({
-      first_name: row["First Name"] || row["first_name"] || row["FirstName"] || "",
-      last_name: row["Last Name"] || row["last_name"] || row["LastName"] || "",
-      external_id: row["HC#"] || row["Hockey Canada #"] || row["external_id"] || row["ID"] || "",
-      position: row["Position"] || row["position"] || "",
-      birth_year: row["Birth Year"] || row["birth_year"] || row["DOB"] || "",
-      parent_email: row["Parent Email"] || row["parent_email"] || row["Email"] || "",
-    })).filter(a => a.first_name && a.last_name);
-
-    const res = await fetch(`/api/categories/${catId}/athletes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ athletes }),
-    });
-    const data = await res.json();
-    setImportResult(data);
-    setImporting(false);
-    loadAthletes();
-  };
 
   const handleQuickAdd = async (e) => {
     e.preventDefault();
@@ -414,19 +382,6 @@ function AthletesStep({ catId, categoryName }) {
           <Plus size={15} /> Quick Add Player
         </button>
       </div>
-
-      {importResult && (
-        <div className={`p-4 rounded-xl border mb-4 ${importResult.imported > 0 ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-          <p className={`text-sm font-semibold ${importResult.imported > 0 ? "text-green-700" : "text-amber-700"}`}>
-            ✓ Imported {importResult.imported} athletes{importResult.skipped > 0 ? `, ${importResult.skipped} skipped` : ""}
-          </p>
-          {importResult.errors?.length > 0 && (
-            <ul className="mt-2 text-xs text-red-600 space-y-0.5">
-              {importResult.errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
 
       {showQuickAdd && (
         <form onSubmit={handleQuickAdd} className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">

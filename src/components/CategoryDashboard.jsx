@@ -5,15 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsights";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
-  Upload, Plus, ChevronRight, CheckCircle, Clock, Zap,
+  Upload, Plus,
   Download, FileText, LogOut, Search, X
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
 import CopyCode from "@/components/CopyCode";
-import ScoreManager from "@/components/ScoreManager";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
-import CSVMappingModal from "@/components/CSVMappingModal";
 import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
@@ -71,17 +69,14 @@ export default function CategoryDashboard({
   const [showDirectorModal, setShowDirectorModal] = useState(false);
   const [directorForm, setDirectorForm] = useState({ name: "", email: "" });
   const [directorMsg, setDirectorMsg] = useState("");
-  const [scoreManagerOpen, setScoreManagerOpen] = useState(null);
   const [volunteerModal, setVolunteerModal] = useState(null); // { sessionNum, entries }
   const [volunteerEmails, setVolunteerEmails] = useState("");
   const [volunteerSending, setVolunteerSending] = useState(false);
   const [volunteerMsg, setVolunteerMsg] = useState("");
-  const [scoreManagerData, setScoreManagerData] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
-  const [csvPending, setCsvPending] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [teamCount, setTeamCount] = useState(2);
 
@@ -200,21 +195,6 @@ export default function CategoryDashboard({
     setTimeout(() => { setVolunteerMsg(""); setVolunteerModal(null); setVolunteerEmails(""); }, 3000);
   };
 
-  const loadScoreManager = async (sessionNum) => {
-    if (scoreManagerOpen === sessionNum) { setScoreManagerOpen(null); return; }
-    const res = await fetch(`/api/categories/${catId}/scores?session=${sessionNum}`);
-    const data = await res.json();
-    setScoreManagerData(data.scores || []);
-    setScoreManagerOpen(sessionNum);
-  };
-
-  const clearEvaluatorScores = async (sessionNum, evaluatorId, name) => {
-    if (!confirm(`Delete all scores by ${name} for Session ${sessionNum}?`)) return;
-    await fetch(`/api/categories/${catId}/scores?session=${sessionNum}&evaluator=${evaluatorId}`, { method: "DELETE" });
-    loadScoreManager(sessionNum);
-    refetchRankings();
-  };
-
   const exportRankingsCSV = () => {
     const headers = ["Rank", "First", "Last", "Position", "HC#", ...sessions.map(s => `S${s.session_number} (${s.weight_percentage}%)`), "Total"];
     const rows = rankedAthletes.map(a => [a.rank, a.first_name, a.last_name, a.position || "", a.external_id || "", ...sessions.map(s => a.session_scores?.[s.session_number]?.normalized_score?.toFixed(1) || ""), a.weighted_total?.toFixed(1) || ""]);
@@ -232,20 +212,6 @@ export default function CategoryDashboard({
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const el = document.createElement("a"); el.href = url; el.download = `session_${sessionNum}_summary.csv`; el.click();
-  };
-
-  const handleCSVConfirm = async (mapping) => {
-    setCsvPending(null);
-    setImporting(true);
-    const rows = csvPending.rawRows.map(line => {
-      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-      const get = col => { if (!col) return ''; const idx = csvPending.headers.indexOf(col); return idx >= 0 ? cols[idx] : ''; };
-      return { first_name: get(mapping.first_name), last_name: get(mapping.last_name), external_id: get(mapping.external_id), position: get(mapping.position), birth_year: get(mapping.birth_year), parent_email: get(mapping.parent_email) };
-    }).filter(r => r.first_name && r.last_name);
-    const res = await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: rows }) });
-    const data = await res.json();
-    setAthleteMsg(`${data.imported ?? data.inserted ?? 0} imported, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped`);
-    refetchAthletes(); refetchRankings(); setImporting(false); setTimeout(() => setAthleteMsg(''), 4000);
   };
 
   const tabs = [
@@ -842,8 +808,6 @@ export default function CategoryDashboard({
             setTimeout(() => setScheduleMsg(""), 5000);
           }}
         />
-
-        {csvPending && <CSVMappingModal headers={csvPending.headers} onCancel={() => setCsvPending(null)} onConfirm={handleCSVConfirm} />}
 
         {activeTab === "schedule" && <ManualScoreUpload catId={catId} sessions={sessions} scoringCategories={scoringCategories} />}
 
