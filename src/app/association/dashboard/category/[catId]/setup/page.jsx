@@ -9,6 +9,7 @@ import {
   Settings, Trophy, Zap, GripVertical
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
+import RosterImport from "@/components/RosterImport";
 
 const qc = new QueryClient();
 
@@ -398,24 +399,14 @@ function AthletesStep({ catId }) {
       <h2 className="text-xl font-bold text-gray-900 mb-1">Add Athletes</h2>
       <p className="text-sm text-gray-500 mb-6">Upload your roster via CSV or add players individually.</p>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold text-blue-700 mb-1">CSV Format</p>
-          <p className="text-xs text-blue-600 font-mono">First Name, Last Name, HC#, Position, Birth Year, Parent Email</p>
-          <p className="text-xs text-blue-500 mt-1">HC# = Hockey Canada number or any unique player ID. Position: forward / defense / goalie</p>
-        </div>
-        <a href="/api/templates?type=athletes" download
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 whitespace-nowrap flex-shrink-0">
-          ↓ Download Template
-        </a>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <p className="text-xs text-gray-400">Works with RAMP, TeamSnap, TeamLinkt, or our template — combined names and birth dates are handled automatically.</p>
+        <a href="/api/templates?type=athletes" download className="text-xs text-accent hover:underline font-medium whitespace-nowrap">↓ Download blank template</a>
       </div>
 
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg transition-shadow">
-          <Upload size={15} />
-          {importing ? "Importing..." : "Upload CSV"}
-          <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={importing} />
-        </label>
+      <RosterImport catId={catId} onImported={() => loadAthletes()} />
+
+      <div className="flex items-center gap-3 my-6 flex-wrap">
         <button
           onClick={() => setShowQuickAdd(!showQuickAdd)}
           className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"

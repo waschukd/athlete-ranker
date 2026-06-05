@@ -14,6 +14,7 @@ import CopyCode from "@/components/CopyCode";
 import ScoreManager from "@/components/ScoreManager";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import CSVMappingModal from "@/components/CSVMappingModal";
+import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
 import { generateICS, downloadICS } from "@/lib/calendar";
@@ -80,6 +81,7 @@ export default function CategoryDashboard({
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
   const [csvPending, setCsvPending] = useState(null);
+  const [showImport, setShowImport] = useState(false);
   const [teamCount, setTeamCount] = useState(2);
 
   // Schedule editing state
@@ -848,22 +850,17 @@ export default function CategoryDashboard({
               <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Athletes ({athletes.length})</h2>
               <div className="flex items-center gap-2 flex-wrap">
                 <a href="/api/templates?type=athletes" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
-                <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 ${importing ? "opacity-50" : ""}`}>
-                  <Upload size={14} /> {importing ? "Importing..." : "Upload CSV"}
-                  <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
-                    const file = e.target.files[0]; if (!file) return;
-                    const text = await file.text();
-                    const csvLines = text.replace(/\r\n/g,'\n').trim().split('\n').filter(l=>l.trim());
-                    if (csvLines.length < 2) return;
-                    const rawHeaders = csvLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
-                    const rawRows = csvLines.slice(1).filter(l=>l.trim());
-                    setCsvPending({ headers: rawHeaders, rawRows });
-                    e.target.value='';
-                  }} />
-                </label>
-                <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
+                <button onClick={() => setShowImport(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  <Upload size={14} /> Import CSV
+                </button>
+                <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
               </div>
             </div>
+            {showImport && (
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <RosterImport catId={catId} onImported={() => { refetchAthletes(); refetchRankings(); }} />
+              </div>
+            )}
             {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}
 
             {/* Parent Notifications */}
