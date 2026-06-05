@@ -42,6 +42,7 @@ export default function CategoryDashboard({
   orgName,
   status,
   onSignOut,
+  categorySwitcher,
 }) {
   const canManage = role === "association";
 
@@ -318,10 +319,13 @@ export default function CategoryDashboard({
                   <span className="text-gray-300">· Director</span>
                 </div>
               </div>
-              <button onClick={onSignOut}
-                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                <LogOut size={15} /> Sign out
-              </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                {categorySwitcher}
+                <button onClick={onSignOut}
+                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                  <LogOut size={15} /> Sign out
+                </button>
+              </div>
             </div>
           )}
         </div>
