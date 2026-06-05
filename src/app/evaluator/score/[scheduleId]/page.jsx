@@ -1190,27 +1190,50 @@ function ScoringInterface() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(athlete => {
+              {filtered.map((athlete, r) => {
                 const status = getStatus(athlete.id, scores, totalCats);
                 const athleteScores = scores[athlete.id]?.cats || {};
+                const isSel = selected?.id === athlete.id;
                 return (
-                  <tr key={athlete.id} className={`border-b border-gray-200 ${status === "complete" ? "bg-green-50" : status === "partial" ? "bg-amber-50" : ""}`}>
+                  <tr key={athlete.id} className={`border-b border-gray-200 ${isSel ? "ring-2 ring-inset ring-accent" : ""} ${status === "complete" ? "bg-green-50" : status === "partial" ? "bg-amber-50" : ""}`}>
                     <td className="py-1.5 px-2 text-xs text-ink font-medium sticky left-0 bg-white whitespace-nowrap">
                       <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-800" : "bg-white border border-gray-400"}`} />
                       {isAnon
                         ? anonLabel(athlete)
                         : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
                     </td>
-                    {scoringCats.map(cat => {
+                    {scoringCats.map((cat, c) => {
                       const val = athleteScores[cat.id];
                       return (
                         <td key={cat.id} className="text-center py-1 px-1">
                           <input
                             type="number"
+                            inputMode="decimal"
                             step={increment}
                             min={0}
                             max={scale}
                             value={val ?? ""}
+                            data-cell={`${r}-${c}`}
+                            onFocus={e => e.target.select()}
+                            onKeyDown={e => {
+                              // Enter / arrows jump to the next cell so you can score
+                              // down a row without looking for the next box.
+                              const go = (rr, cc) => {
+                                const el = document.querySelector(`[data-cell="${rr}-${cc}"]`);
+                                if (el) { e.preventDefault(); el.focus(); }
+                              };
+                              const lastC = scoringCats.length - 1;
+                              const lastR = filtered.length - 1;
+                              if (e.key === "Enter" || e.key === "ArrowRight") {
+                                if (c < lastC) go(r, c + 1); else if (r < lastR) go(r + 1, 0);
+                              } else if (e.key === "ArrowLeft") {
+                                if (c > 0) go(r, c - 1); else if (r > 0) go(r - 1, lastC);
+                              } else if (e.key === "ArrowDown") {
+                                if (r < lastR) go(r + 1, c);
+                              } else if (e.key === "ArrowUp") {
+                                if (r > 0) go(r - 1, c);
+                              }
+                            }}
                             onChange={e => {
                               const v = e.target.value === "" ? null : parseFloat(e.target.value);
                               if (v !== null && (v < 0 || v > scale)) return;
