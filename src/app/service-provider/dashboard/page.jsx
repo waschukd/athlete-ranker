@@ -3,7 +3,7 @@
 import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, Users, Zap, LogOut, Clock, MapPin, CheckCircle, AlertCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox } from "lucide-react";
+import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send, Bell } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";

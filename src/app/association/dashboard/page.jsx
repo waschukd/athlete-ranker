@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Users, Calendar, Trophy, Plus, ChevronRight, Zap, Copy, Check, ArrowLeft, Trash2, Mail, X, ExternalLink, LogOut } from "lucide-react";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";

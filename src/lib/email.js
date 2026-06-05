@@ -83,17 +83,6 @@ function credBox(rows) {
 
 // ── Welcome emails ────────────────────────────────────────────────────────────
 
-export async function emailWelcomeServiceProvider({ name, email, tempPassword, orgName }) {
-  const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your service provider account for <strong style="color:#111827;">${orgName}</strong> has been created.</p>
-    ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
-    <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
-    ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
-  `);
-  await sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
-}
-
 export async function emailWelcomeAssociation({ name, email, tempPassword, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
