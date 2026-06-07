@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -100,6 +100,8 @@ function ScoringInterface() {
   const [hideCompleted, setHideCompleted] = useState(false);
   const [jerseySearch, setJerseySearch] = useState("");
   const [backupOpen, setBackupOpen] = useState(false);
+  const [collapseList, setCollapseList] = useState(false); // hide player grid while scoring a selected player
+  const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -1128,6 +1130,15 @@ function ScoringInterface() {
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
+            {viewMode !== "grid" && (
+              <button
+                onClick={() => { setCollapseList(v => !v); setListExpanded(false); }}
+                title="When on, the player grid collapses after you pick someone so the score inputs are right at the top — no scrolling."
+                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${collapseList ? "bg-accent border-accent text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}
+              >
+                {collapseList ? "✓ Compact" : "Compact"}
+              </button>
+            )}
             <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
               {[
                 { id: "card", label: "Buttons" },
@@ -1275,7 +1286,15 @@ function ScoringInterface() {
         </div>
       )}
 
-      {(viewMode === "card" || viewMode === "numpad") && (<div className="px-3 pt-3 pb-2">
+      {/* Compact mode: grid collapsed to a slim bar while a player is selected */}
+      {(viewMode === "card" || viewMode === "numpad") && collapseList && selected && !listExpanded && (
+        <div className="px-3 pt-3 pb-1">
+          <button onClick={() => setListExpanded(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:border-gray-300">
+            <ChevronDown size={15} /> Show all players ({filtered.length})
+          </button>
+        </div>
+      )}
+      {(viewMode === "card" || viewMode === "numpad") && !(collapseList && selected && !listExpanded) && (<div className="px-3 pt-3 pb-2">
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 px-1">
           {[
@@ -1299,7 +1318,7 @@ function ScoringInterface() {
             return (
               <button
                 key={athlete.id}
-                onClick={() => setSelected(isActive ? null : athlete)}
+                onClick={() => { setSelected(isActive ? null : athlete); if (collapseList) setListExpanded(false); }}
                 className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 bg-white transition-all select-none
                   ${isActive ? "border-accent ring-4 ring-accent/30 scale-105 shadow-md" : "border-gray-200 hover:border-gray-300"}`}
                 style={{ aspectRatio: "1", minHeight: "64px" }}
