@@ -73,6 +73,26 @@ export async function POST(request) {
       await sql`UPDATE evaluator_hours SET status = 'approved', approved_by = ${admin_id}, approved_at = NOW() WHERE id = ANY(${ids}) AND organization_id = ${sp_id}`;
       return NextResponse.json({ success: true, count: ids.length });
     }
+    if (action === "set_rate") {
+      // Per-evaluator hourly rate for THIS service provider (IDOR-guarded).
+      const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
+      if (!mem.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const rate = body.hourly_rate === null || body.hourly_rate === "" ? null : parseFloat(body.hourly_rate);
+      if (rate !== null && (isNaN(rate) || rate < 0)) return NextResponse.json({ error: "Invalid rate" }, { status: 400 });
+      try {
+        await sql`UPDATE evaluator_memberships SET hourly_rate = ${rate} WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;
+      } catch {
+        return NextResponse.json({ error: "Wages aren't available yet (pending migration)." }, { status: 503 });
+      }
+      return NextResponse.json({ success: true });
+    }
+    if (action === "mark_paid") {
+      const ids = asArray(body.hours_ids, hours_id);
+      if (!ids.length) return NextResponse.json({ error: "No hours ids" }, { status: 400 });
+      // Only approved hours can be marked paid
+      await sql`UPDATE evaluator_hours SET status = 'paid' WHERE id = ANY(${ids}) AND organization_id = ${sp_id} AND status = 'approved'`;
+      return NextResponse.json({ success: true, count: ids.length });
+    }
     if (action === "rate_evaluator") {
       // Verify the evaluator belongs to this SP org before rating (IDOR guard)
       const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${evaluator_id} AND organization_id = ${sp_id}`;

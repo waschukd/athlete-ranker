@@ -63,6 +63,8 @@ function EvaluatorDetailInner() {
   const [ratingModal, setRatingModal] = useState(null);
   const [rating, setRating] = useState(0);
   const [ratingNotes, setRatingNotes] = useState("");
+  const [rateInput, setRateInput] = useState("");
+  const [rateEditing, setRateEditing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["evaluator-detail", evalId],
@@ -108,6 +110,33 @@ function EvaluatorDetailInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "dismiss_flag", flag_id }),
+      });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries(["evaluator-detail", evalId]),
+  });
+
+  const setRateMutation = useMutation({
+    mutationFn: async (hourly_rate) => {
+      const res = await fetch("/api/service-provider/evaluators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_rate", evaluator_id: parseInt(evalId), hourly_rate }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["evaluator-detail", evalId]);
+      setRateEditing(false);
+    },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: async (hours_ids) => {
+      const res = await fetch("/api/service-provider/evaluators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_paid", hours_ids }),
       });
       return res.json();
     },
@@ -527,71 +556,161 @@ function EvaluatorDetailInner() {
         )}
 
         {/* HOURS & PAY TAB */}
-        {activeTab === "hours" && (
-          <div className="space-y-4">
-            {/* Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { label: "Total Hours Worked", value: `${parseFloat(stats.total_hours || 0).toFixed(1)}h`, color: "text-gray-900" },
-                { label: "Pending Approval", value: `${parseFloat(stats.pending_hours || 0).toFixed(1)}h`, color: "text-amber-600" },
-                { label: "Approved Hours", value: `${parseFloat(stats.approved_hours || 0).toFixed(1)}h`, color: "text-green-600" },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="bg-white border border-gray-200 rounded-xl p-5">
-                  <div className="text-sm text-gray-500 mb-1">{label}</div>
-                  <div className={`text-3xl font-bold ${color}`}>{value}</div>
-                </div>
-              ))}
-            </div>
+        {activeTab === "hours" && (() => {
+          const hourlyRate = data?.hourly_rate ?? null;
+          const approvedHours = parseFloat(stats.approved_hours || 0);
+          const paidHours = parseFloat(stats.paid_hours || 0);
+          const owed = hourlyRate != null ? approvedHours * hourlyRate : null;
+          const paid = hourlyRate != null ? paidHours * hourlyRate : null;
 
-            {/* Session hours breakdown */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <h3 className="font-display text-sm font-semibold text-ink">Hours Breakdown</h3>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
-                    <th className="px-4 py-2.5 text-left">Session</th>
-                    <th className="px-4 py-2.5 text-left">Date</th>
-                    <th className="px-4 py-2.5 text-center">Hours</th>
-                    <th className="px-4 py-2.5 text-center">Status</th>
-                    <th className="px-4 py-2.5 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sessions.filter(s => s.hours_worked).map(s => (
-                    <tr key={s.schedule_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5">
-                        <div className="font-medium text-gray-900">{s.org_name}</div>
-                        <div className="text-xs text-gray-400">{s.category_name} · S{s.session_number} G{s.group_number}</div>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500">{s.scheduled_date?.toString().split("T")[0]}</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-gray-900">{parseFloat(s.hours_worked).toFixed(1)}h</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          s.hours_status === "approved" ? "bg-green-100 text-green-700" :
-                          s.hours_status === "paid" ? "bg-blue-100 text-blue-700" :
-                          "bg-amber-100 text-amber-700"
-                        }`}>{s.hours_status}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        {s.hours_status === "pending" && (
-                          <button onClick={() => approveMutation.mutate(s.hours_id)}
-                            className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 font-medium">
-                            Approve
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {sessions.filter(s => s.hours_worked).length === 0 && (
-                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 text-sm">No hours logged yet</td></tr>
+          return (
+            <div className="space-y-4">
+              {/* Hourly Rate Editor */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="font-display text-xs font-bold tracking-[0.15em] uppercase text-accent mb-1">Hourly Rate</div>
+                    {hourlyRate != null ? (
+                      <div className="text-2xl font-bold text-ink">${parseFloat(hourlyRate).toFixed(2)}<span className="text-sm font-medium text-gray-400">/hr</span></div>
+                    ) : (
+                      <div className="text-sm text-gray-400">Not set</div>
+                    )}
+                  </div>
+                  {rateEditing ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-500">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={rateInput}
+                        onChange={e => setRateInput(e.target.value)}
+                        placeholder="0.00"
+                        className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          const val = parseFloat(rateInput);
+                          if (!isNaN(val) && val >= 0) setRateMutation.mutate(val);
+                        }}
+                        disabled={setRateMutation.isPending}
+                        className="px-4 py-1.5 bg-accent text-white text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                      >
+                        {setRateMutation.isPending ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setRateEditing(false)}
+                        className="px-3 py-1.5 border border-gray-200 text-gray-500 text-sm rounded-lg hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setRateInput(hourlyRate != null ? String(hourlyRate) : ""); setRateEditing(true); }}
+                      className="text-xs font-bold tracking-[0.1em] uppercase px-4 py-2 border border-accent/30 text-accent rounded-lg hover:bg-accent/5 transition-colors"
+                    >
+                      {hourlyRate != null ? "Edit rate" : "Set rate"}
+                    </button>
                   )}
-                </tbody>
-              </table>
+                </div>
+              </div>
+
+              {/* Hours summary + earnings cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="text-xs text-gray-500 mb-1">Total Hours</div>
+                  <div className="text-3xl font-bold text-ink">{parseFloat(stats.total_hours || 0).toFixed(1)}h</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="text-xs text-gray-500 mb-1">Pending Approval</div>
+                  <div className="text-3xl font-bold text-amber-600">{parseFloat(stats.pending_hours || 0).toFixed(1)}h</div>
+                </div>
+                {owed != null ? (
+                  <div className="bg-accent/5 border border-accent/20 rounded-xl p-5">
+                    <div className="font-display text-xs font-bold tracking-[0.12em] uppercase text-accent mb-1">Owed</div>
+                    <div className="text-3xl font-bold text-accent">${owed.toFixed(2)}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{approvedHours.toFixed(1)}h approved</div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-5 flex items-center justify-center col-span-2">
+                    <span className="text-xs text-gray-400 text-center">Set an hourly rate to track pay.</span>
+                  </div>
+                )}
+                {paid != null && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="font-display text-xs font-bold tracking-[0.12em] uppercase text-gray-400 mb-1">Paid</div>
+                    <div className="text-3xl font-bold text-gray-700">${paid.toFixed(2)}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{paidHours.toFixed(1)}h paid</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Session hours breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                  <h3 className="font-display text-sm font-semibold text-ink">Hours Breakdown</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
+                      <th className="px-4 py-2.5 text-left">Session</th>
+                      <th className="px-4 py-2.5 text-left">Date</th>
+                      <th className="px-4 py-2.5 text-center">Hours</th>
+                      <th className="px-4 py-2.5 text-center">Status</th>
+                      <th className="px-4 py-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {sessions.filter(s => s.hours_worked).map(s => (
+                      <tr key={s.schedule_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5">
+                          <div className="font-medium text-gray-900">{s.org_name}</div>
+                          <div className="text-xs text-gray-400">{s.category_name} · S{s.session_number} G{s.group_number}</div>
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">{s.scheduled_date?.toString().split("T")[0]}</td>
+                        <td className="px-4 py-2.5 text-center font-bold text-gray-900">{parseFloat(s.hours_worked).toFixed(1)}h</td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            s.hours_status === "approved" ? "bg-green-100 text-green-700" :
+                            s.hours_status === "paid" ? "bg-accent/10 text-accent" :
+                            "bg-amber-100 text-amber-700"
+                          }`}>{s.hours_status}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {s.hours_status === "pending" && (
+                            <button onClick={() => approveMutation.mutate(s.hours_id)}
+                              className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 font-medium">
+                              Approve
+                            </button>
+                          )}
+                          {s.hours_status === "approved" && (
+                            <button
+                              onClick={() => markPaidMutation.mutate([s.hours_id])}
+                              disabled={markPaidMutation.isPending}
+                              className="text-xs px-3 py-1 bg-accent text-white rounded-full hover:opacity-90 disabled:opacity-50 font-medium transition-opacity"
+                            >
+                              Mark paid
+                            </button>
+                          )}
+                          {s.hours_status === "paid" && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-accent/10 text-accent rounded-full font-semibold">
+                              <Check size={11} /> Paid
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {sessions.filter(s => s.hours_worked).length === 0 && (
+                      <tr><td colSpan={5} className="py-8 text-center text-gray-400 text-sm">No hours logged yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Rating Modal */}
