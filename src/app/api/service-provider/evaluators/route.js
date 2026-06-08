@@ -10,7 +10,7 @@ export async function GET(request) {
     const spId = await resolveSpOrgId(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
     const evaluators = await sql`
-      SELECT u.id, u.name, u.email, u.role, em.created_at as joined_at, em.status as membership_status,
+      SELECT u.id, u.name, u.email, u.role, em.created_at as joined_at, em.status as membership_status, em.hourly_rate,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.status = 'signed_up' OR ess.status = 'completed') as total_sessions,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.no_show = true) as no_shows,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.completed = true) as completed_sessions,
@@ -28,7 +28,7 @@ export async function GET(request) {
       LEFT JOIN evaluator_ratings er ON er.evaluator_id = u.id AND er.organization_id = ${spId}
       LEFT JOIN evaluator_flags ef ON ef.evaluator_id = u.id AND ef.organization_id = ${spId}
       WHERE em.organization_id = ${spId} AND em.status != 'deleted'
-      GROUP BY u.id, em.created_at, em.status ORDER BY u.name
+      GROUP BY u.id, em.created_at, em.status, em.hourly_rate ORDER BY u.name
     `;
     const flags = await sql`
       SELECT ef.*, u.name as evaluator_name, es.session_number, es.scheduled_date, o.name as org_name
@@ -85,6 +85,25 @@ export async function POST(request) {
         return NextResponse.json({ error: "Wages aren't available yet (pending migration)." }, { status: 503 });
       }
       return NextResponse.json({ success: true });
+    }
+    if (action === "set_rates") {
+      // Batch: [{ evaluator_id, hourly_rate }]. Only this SP's evaluators (IDOR-safe).
+      const rates = Array.isArray(body.rates) ? body.rates : [];
+      if (!rates.length) return NextResponse.json({ error: "No rates" }, { status: 400 });
+      let updated = 0;
+      try {
+        for (const r of rates) {
+          const eid = parseInt(r.evaluator_id);
+          if (!eid) continue;
+          const rate = r.hourly_rate === null || r.hourly_rate === "" ? null : parseFloat(r.hourly_rate);
+          if (rate !== null && (isNaN(rate) || rate < 0)) continue;
+          await sql`UPDATE evaluator_memberships SET hourly_rate = ${rate} WHERE user_id = ${eid} AND organization_id = ${sp_id}`;
+          updated++;
+        }
+      } catch {
+        return NextResponse.json({ error: "Wages aren't available yet (pending migration)." }, { status: 503 });
+      }
+      return NextResponse.json({ success: true, updated });
     }
     if (action === "mark_paid") {
       const ids = asArray(body.hours_ids, hours_id);

@@ -595,6 +595,100 @@ function LeadsSection({ spUrl, orgParam, associations }) {
   );
 }
 
+// Set hourly rates modal — batch editor for the full evaluator pool.
+// evaluators: full list (all non-deleted/non-suspended as caller prefers)
+// onClose: () => void
+// onSaved: () => void  (caller refetches + shows banner)
+function SetRatesModal({ evaluators, onClose, onSaved }) {
+  // Seed local map: evaluatorId (string) → input string value
+  const [rates, setRates] = useState(() => {
+    const m = {};
+    for (const ev of evaluators) {
+      m[String(ev.id)] = ev.hourly_rate != null ? String(ev.hourly_rate) : "";
+    }
+    return m;
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const inputCls = "w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-accent/30";
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    // Only send rows where value changed vs. original
+    const changed = evaluators
+      .filter(ev => {
+        const orig = ev.hourly_rate != null ? String(ev.hourly_rate) : "";
+        return rates[String(ev.id)] !== orig;
+      })
+      .map(ev => ({
+        evaluator_id: ev.id,
+        hourly_rate: rates[String(ev.id)] === "" ? null : parseFloat(rates[String(ev.id)]),
+      }));
+    if (changed.length === 0) { onClose(); return; }
+    const res = await fetch("/api/service-provider/evaluators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_rates", rates: changed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok || data.error) { setError(data.error || "Failed to save rates"); return; }
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col" style={{ maxHeight: "90vh" }}>
+        <div className="flex items-start justify-between mb-1 flex-shrink-0">
+          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Evaluator hourly rates</h3>
+          <button onClick={onClose} disabled={saving} className="text-gray-400 hover:text-gray-600 disabled:opacity-50"><X size={18} /></button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4 flex-shrink-0">Enter $/hour for each evaluator. Blank = no rate.</p>
+
+        {evaluators.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No active evaluators.</p>
+        ) : (
+          <div className="overflow-y-auto flex-1 divide-y divide-gray-100 -mx-6 px-6">
+            {evaluators.map(ev => (
+              <div key={ev.id} className="flex items-center justify-between py-2.5 gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-ink truncate">{ev.name}</div>
+                  <div className="text-xs text-gray-400 truncate">{ev.email}</div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-sm text-gray-400">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={rates[String(ev.id)]}
+                    onChange={e => setRates(p => ({ ...p, [String(ev.id)]: e.target.value }))}
+                    className={inputCls}
+                    placeholder="—"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <p className="text-xs font-medium text-red-500 mt-3 flex-shrink-0">{error}</p>}
+
+        <div className="flex gap-3 pt-4 flex-shrink-0">
+          <button onClick={onClose} disabled={saving} className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-50">Cancel</button>
+          <button onClick={save} disabled={saving || evaluators.length === 0} className="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40">
+            {saving ? "Saving…" : "Save all"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Compose-message modal — Minimal Athletic look. Self-contained: takes a recipient
 // descriptor and posts to the global /api/messages endpoint, then reports back.
 //   recipient = { to_all_pool: true, label } | { to_user_ids: [...], label }
@@ -808,6 +902,8 @@ function SPDashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [bulkDeleteMsg, setBulkDeleteMsg] = useState(null);
   const [composeRecipient, setComposeRecipient] = useState(null); // { to_all_pool } | { to_user_ids, label }
+  const [showSetRates, setShowSetRates] = useState(false);
+  const [ratesSavedMsg, setRatesSavedMsg] = useState(false);
 
   const bulkAction = async (payload) => {
     const res = await fetch(spUrl("/api/service-provider/evaluators"), {
@@ -1302,6 +1398,9 @@ function SPDashboard() {
               <div className="flex items-center gap-3">
                 {flags.length > 0 && <span className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-full">{flags.length} open flags</span>}
                 {pendingHours.length > 0 && <span className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">{pendingHours.length} pending hours</span>}
+                <button onClick={() => setShowSetRates(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
+                  $ Set rates
+                </button>
                 <button onClick={() => setComposeRecipient({ to_all_pool: true, label: "To everyone in your evaluator pool" })} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
                   <MessageSquare size={14} /> Message all pool
                 </button>
@@ -1317,6 +1416,13 @@ function SPDashboard() {
                 </div>
               );
             })()}
+
+            {ratesSavedMsg && (
+              <div className="rounded-xl px-4 py-3 flex items-center justify-between text-sm bg-green-50 border border-green-200 text-green-700">
+                <span>Rates saved.</span>
+                <button onClick={() => setRatesSavedMsg(false)} className="text-green-600 hover:text-green-800"><X size={14} /></button>
+              </div>
+            )}
 
             {flags.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -1541,6 +1647,18 @@ function SPDashboard() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {showSetRates && (
+              <SetRatesModal
+                evaluators={evaluators.filter(ev => ev.membership_status !== "deleted" && ev.membership_status !== "suspended")}
+                onClose={() => setShowSetRates(false)}
+                onSaved={() => {
+                  queryClient.invalidateQueries(["sp-evaluators", orgParam]);
+                  setRatesSavedMsg(true);
+                  setTimeout(() => setRatesSavedMsg(false), 4000);
+                }}
+              />
             )}
 
             {composeRecipient && (
