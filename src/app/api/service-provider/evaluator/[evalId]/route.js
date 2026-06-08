@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 import { canViewEvaluator } from "@/lib/authorize";
 
 export async function GET(request, { params }) {
@@ -64,6 +64,7 @@ export async function GET(request, { params }) {
       total_hours: sessions.reduce((sum, s) => sum + parseFloat(s.hours_worked || 0), 0),
       pending_hours: sessions.filter(s => s.hours_status === 'pending').reduce((sum, s) => sum + parseFloat(s.hours_worked || 0), 0),
       approved_hours: sessions.filter(s => s.hours_status === 'approved').reduce((sum, s) => sum + parseFloat(s.hours_worked || 0), 0),
+      paid_hours: sessions.filter(s => s.hours_status === 'paid').reduce((sum, s) => sum + parseFloat(s.hours_worked || 0), 0),
       avg_rating: sessions.filter(s => s.rating).length > 0
         ? sessions.reduce((sum, s) => sum + parseFloat(s.rating || 0), 0) / sessions.filter(s => s.rating).length
         : 0,
@@ -176,7 +177,17 @@ export async function GET(request, { params }) {
       };
     })();
 
-    return NextResponse.json({ evaluator: evaluator[0], sessions, flags, stats, scorecard });
+    // Hourly rate for this SP (best-effort — column added by the wages migration)
+    let hourly_rate = null;
+    try {
+      const spId = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
+      if (spId) {
+        const m = await sql`SELECT hourly_rate FROM evaluator_memberships WHERE user_id = ${evalId} AND organization_id = ${spId}`;
+        hourly_rate = m[0]?.hourly_rate != null ? parseFloat(m[0].hourly_rate) : null;
+      }
+    } catch { /* not migrated yet */ }
+
+    return NextResponse.json({ evaluator: evaluator[0], sessions, flags, stats, scorecard, hourly_rate });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

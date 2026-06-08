@@ -961,6 +961,101 @@ function AvailabilitySection() {
   );
 }
 
+function HoursAndPaySection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["evaluator-pay"],
+    queryFn: async () => {
+      const res = await fetch("/api/evaluator/pay");
+      if (!res.ok) throw new Error("fetch failed");
+      return res.json();
+    },
+  });
+
+  const orgs = data?.orgs || [];
+
+  if (isLoading) {
+    return (
+      <div className="py-12 text-center text-gray-400 text-sm">Loading hours &amp; pay…</div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <h2 className="font-display font-bold text-ink text-base mb-1">Hours &amp; Pay</h2>
+        <p className="text-xs text-gray-500">
+          Hours are logged automatically when you score a session, then approved by your provider.
+        </p>
+      </div>
+
+      {orgs.length === 0 ? (
+        <div className="py-16 text-center">
+          <Clock size={48} className="mx-auto text-gray-200 mb-4" />
+          <p className="text-sm text-gray-400">No hours logged yet.</p>
+        </div>
+      ) : (
+        orgs.map((org) => {
+          const hasRate = org.hourly_rate != null;
+          return (
+            <div key={org.org_id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+              {/* Org name + rate header */}
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <h3 className="font-display font-bold text-ink text-base leading-tight truncate">
+                    {org.org_name}
+                  </h3>
+                  {hasRate ? (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-accent-soft text-accent text-xs font-semibold rounded-full">
+                      ${Number(org.hourly_rate).toFixed(2)}/hr
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400 mt-1 block">Rate not set by provider</span>
+                  )}
+                </div>
+                {hasRate && org.earned != null && (
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-display font-black text-ink text-2xl leading-none">
+                      ${Number(org.earned).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">earned</div>
+                    {org.paid_amount != null && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Paid: <span className="font-semibold text-ink">${Number(org.paid_amount).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hours breakdown */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Pending", value: org.pending_hours, cls: "text-amber-600" },
+                  { label: "Approved", value: org.approved_hours, cls: "text-accent" },
+                  { label: "Paid", value: org.paid_hours, cls: "text-green-600" },
+                ].map(({ label, value, cls }) => (
+                  <div key={label} className="bg-gray-50 rounded-xl p-3 text-center">
+                    <div className={`font-display font-bold text-lg leading-none ${cls}`}>
+                      {Number(value || 0).toFixed(1)}h
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {!hasRate && (
+                <p className="mt-3 text-xs text-gray-400 italic">
+                  Your provider hasn&apos;t set a pay rate yet.
+                </p>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 function MessagesSection() {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(null);
@@ -1335,6 +1430,7 @@ function EvaluatorDashboard() {
               { id: "available", label: `Available (${availSessions.length})` },
               { id: "availability", label: "Availability" },
               { id: "messages", label: "Messages" },
+              { id: "pay", label: "Hours & Pay" },
               { id: "join", label: "Join Organization" },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -1459,6 +1555,12 @@ function EvaluatorDashboard() {
         {activeTab === "messages" && (
           <div className="max-w-lg">
             <MessagesSection />
+          </div>
+        )}
+
+        {activeTab === "pay" && (
+          <div className="max-w-lg">
+            <HoursAndPaySection />
           </div>
         )}
 
