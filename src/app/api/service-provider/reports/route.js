@@ -1,22 +1,11 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailOpenSessionsBlast } from "@/lib/email";
 
 async function getOrgId(session) {
-  // Try evaluator_memberships first, then org contact_email
-  const byMembership = await sql`
-    SELECT em.organization_id FROM evaluator_memberships em
-    JOIN users u ON u.id = em.user_id
-    WHERE u.email = ${session.email} AND u.role IN ('sp_admin','association_admin')
-    LIMIT 1
-  `;
-  if (byMembership.length) return byMembership[0].organization_id;
-  
-  const byContact = await sql`
-    SELECT id as organization_id FROM organizations WHERE contact_email = ${session.email} LIMIT 1
-  `;
-  return byContact[0]?.organization_id;
+  // Canonical resolver: contact_email, additional-admin role, or membership.
+  return await resolveSpOrgId(session, null);
 }
 
 async function getSessionStaffing(orgId, daysAhead = 7) {

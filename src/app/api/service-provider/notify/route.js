@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
@@ -44,17 +44,10 @@ export async function POST(request) {
       return NextResponse.json({ success: true, message: process.env.RESEND_API_KEY ? `Invite sent to ${email}` : `No email sent — configure RESEND_API_KEY. Share this link manually: ${signup_url}` });
     }
 
-    // Get SP id
-    const spMembership = await sql`
-      SELECT em.organization_id as sp_id, u.id as admin_id, u.name as admin_name
-      FROM evaluator_memberships em
-      JOIN organizations o ON o.id = em.organization_id
-      JOIN users u ON u.email = ${session.email}
-      WHERE u.email = ${session.email} AND em.status = 'active' AND o.type = 'service_provider'
-      LIMIT 1
-    `;
-    if (!spMembership.length) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-    const { sp_id, admin_name } = spMembership[0];
+    // Resolve SP org (contact_email, additional-admin role, or membership)
+    const sp_id = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
+    if (!sp_id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    const admin_name = session.name || session.email;
 
     if (!schedule_id) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
 

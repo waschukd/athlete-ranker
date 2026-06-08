@@ -30,21 +30,28 @@ export async function authorizeCategoryAccess(session, catId) {
   if (!users.length) return { authorized: false };
   const userId = users[0].id;
 
-  // Service provider admin — allowed if their SP is linked to the category's association
+  // Service provider admin — allowed if an SP they administer is linked to the
+  // category's association. "Administer" = the SP's contact_email OR an
+  // additional admin via user_organization_roles (e.g. someone invited as a
+  // second SP admin). Without the user_organization_roles arm, only the original
+  // contact could reach client data.
   if (session.role === "service_provider_admin") {
     const linked = await sql`
-      SELECT sal.id FROM sp_association_links sal
-      JOIN organizations o ON o.id = sal.service_provider_id
-      WHERE o.contact_email = ${session.email}
-        AND sal.association_id = ${orgId}
+      SELECT 1 FROM sp_association_links sal
+      JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
+      WHERE sal.association_id = ${orgId} AND sal.status = 'active'
+        AND (
+          sp.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = sp.id AND uor.user_id = ${userId})
+        )
     `;
     if (linked.length) return { authorized: true, orgId };
 
-    // Also check if they directly own this org (some SPs may have categories directly)
-    const directOwner = await sql`
-      SELECT id FROM organizations WHERE id = ${orgId} AND contact_email = ${session.email}
-    `;
+    // Or they directly own / have a role on the category's org itself
+    const directOwner = await sql`SELECT id FROM organizations WHERE id = ${orgId} AND contact_email = ${session.email}`;
     if (directOwner.length) return { authorized: true, orgId };
+    const directRole = await sql`SELECT id FROM user_organization_roles WHERE organization_id = ${orgId} AND user_id = ${userId}`;
+    if (directRole.length) return { authorized: true, orgId };
 
     return { authorized: false };
   }
@@ -128,12 +135,17 @@ export async function authorizeOrgAccess(session, orgId) {
   `;
   if (role.length) return { authorized: true };
 
-  // SP linked to association
+  // SP linked to association — recognise the SP via contact_email OR an
+  // additional admin's user_organization_roles row.
   if (session.role === "service_provider_admin") {
     const linked = await sql`
-      SELECT sal.id FROM sp_association_links sal
-      JOIN organizations o ON o.id = sal.service_provider_id
-      WHERE o.contact_email = ${session.email} AND sal.association_id = ${orgId}
+      SELECT 1 FROM sp_association_links sal
+      JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
+      WHERE sal.association_id = ${orgId} AND sal.status = 'active'
+        AND (
+          sp.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = sp.id AND uor.user_id = ${userId})
+        )
     `;
     if (linked.length) return { authorized: true };
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 
 export async function GET(request) {
   try {
@@ -11,21 +11,8 @@ export async function GET(request) {
     const from = searchParams.get("from") || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const to = searchParams.get("to") || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    // Get SP org by email
-    // Get SP org - try contact_email first, then evaluator_memberships
-    let spId = null;
-    const byContact = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} AND type = 'service_provider' LIMIT 1`;
-    if (byContact.length) {
-      spId = byContact[0].id;
-    } else {
-      const byMembership = await sql`
-        SELECT em.organization_id as sp_id FROM evaluator_memberships em
-        JOIN organizations o ON o.id = em.organization_id
-        JOIN users u ON u.id = em.user_id
-        WHERE u.email = ${session.email} AND o.type = 'service_provider' LIMIT 1
-      `;
-      if (byMembership.length) spId = byMembership[0].sp_id;
-    }
+    // Resolve SP org (contact_email, additional-admin role, or membership)
+    const spId = await resolveSpOrgId(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
 
     // Get all sessions across all client associations
