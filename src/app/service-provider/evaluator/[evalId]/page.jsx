@@ -58,6 +58,8 @@ function EvaluatorDetailInner() {
   const evalId = params.evalId;
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("sessions");
+  const [sessionsShown, setSessionsShown] = useState(20);
+  const SESSIONS_PAGE = 20;
   const [ratingModal, setRatingModal] = useState(null);
   const [rating, setRating] = useState(0);
   const [ratingNotes, setRatingNotes] = useState("");
@@ -352,7 +354,7 @@ function EvaluatorDetailInner() {
                 <Calendar size={40} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">No sessions yet</p>
               </div>
-            ) : sessions.map(s => {
+            ) : sessions.slice(0, sessionsShown).map(s => {
               const isPast = new Date(s.scheduled_date?.toString().split("T")[0]) < new Date();
               const sessionEnd = s.end_time ? new Date(`${s.scheduled_date?.toString().split("T")[0]}T${s.end_time}`) : null;
               const scoringDuration = s.first_score_at && s.last_score_at
@@ -443,6 +445,31 @@ function EvaluatorDetailInner() {
                 </div>
               );
             })}
+            {sessions.length > 0 && (
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <span className="text-xs text-gray-400">
+                  Showing {Math.min(sessionsShown, sessions.length)} of {sessions.length} sessions
+                </span>
+                <div className="flex items-center gap-2">
+                  {sessionsShown > SESSIONS_PAGE && (
+                    <button
+                      onClick={() => setSessionsShown(SESSIONS_PAGE)}
+                      className="text-xs font-semibold px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50"
+                    >
+                      Show less
+                    </button>
+                  )}
+                  {sessionsShown < sessions.length && (
+                    <button
+                      onClick={() => setSessionsShown(n => n + SESSIONS_PAGE)}
+                      className="text-xs font-semibold px-3 py-1.5 border border-accent/30 text-accent rounded-lg hover:bg-accent/5"
+                    >
+                      Show more
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
