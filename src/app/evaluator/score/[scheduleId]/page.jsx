@@ -622,6 +622,36 @@ function ScoringInterface() {
     });
   }, [scheduleId, debouncedSync]);
 
+  // ── Auto-advance (Buttons mode) ────────────────────────────────────────────
+  // After scoring category `i`, gently scroll the next still-unscored category
+  // into view so the evaluator's eyes/thumb land on it. APPEARANCE only — no
+  // scores are read or written here. Skips when the tap CLEARED a value
+  // (toggle-off) and when every category is now scored.
+  const advanceToNextUnscored = useCallback((i, wasToggleOff) => {
+    if (wasToggleOff) return; // tapping the same value clears it — don't advance
+    setTimeout(() => {
+      const cats = scoringCatsRef.current || [];
+      const sel = selectedRef.current;
+      if (!sel) return;
+      const filled = scoresRef.current[sel.id]?.cats || {};
+      let nextIdx = -1;
+      for (let j = i + 1; j < cats.length; j++) {
+        const v = filled[cats[j].id];
+        if (v === null || v === undefined) { nextIdx = j; break; }
+      }
+      // wrap to any earlier unscored category if everything after i is filled
+      if (nextIdx === -1) {
+        for (let j = 0; j < i; j++) {
+          const v = filled[cats[j].id];
+          if (v === null || v === undefined) { nextIdx = j; break; }
+        }
+      }
+      if (nextIdx === -1) return; // all scored — do nothing
+      document.querySelector('[data-catblock="' + nextIdx + '"]')
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 0);
+  }, []);
+
   // ── Navigation ────────────────────────────────────────────────────────────
   const navigate = useCallback((dir) => {
     const current = selectedRef.current;
@@ -1400,7 +1430,7 @@ function ScoringInterface() {
           <div className="px-4 py-3 space-y-4">
             {viewMode === "numpad" ? (
               /* ── Numpad mode: compact inline inputs ── */
-              scoringCats.map(cat => {
+              scoringCats.map((cat, i) => {
                 const current = scores[selected.id]?.cats?.[cat.id];
                 return (
                   <div key={cat.id} className="flex items-center gap-3">
@@ -1411,11 +1441,21 @@ function ScoringInterface() {
                       step={increment}
                       min={0}
                       max={scale}
+                      data-cat={i}
                       value={current ?? ""}
                       onChange={e => {
                         const v = e.target.value === "" ? null : parseFloat(e.target.value);
                         if (v !== null && (v < 0 || v > scale)) return;
                         updateScore(selected.id, cat.id, v);
+                      }}
+                      onFocus={e => e.target.select()}
+                      onKeyDown={e => {
+                        // Enter = advance to next category input (Tab stays native).
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        const next = document.querySelector('[data-cat="' + (i + 1) + '"]');
+                        if (next) next.focus();
+                        else e.target.blur(); // last category — done
                       }}
                       placeholder="—"
                       className={`w-20 py-3 text-center text-lg font-bold rounded-xl border-2 outline-none transition-colors ${
@@ -1429,10 +1469,10 @@ function ScoringInterface() {
               })
             ) : (
               /* ── Button mode: tappable score buttons ── */
-              scoringCats.map(cat => {
+              scoringCats.map((cat, i) => {
                 const current = scores[selected.id]?.cats?.[cat.id];
                 return (
-                  <div key={cat.id}>
+                  <div key={cat.id} data-catblock={i}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-sm font-semibold text-gray-700">{cat.name}</span>
                       {current !== null && current !== undefined && (
@@ -1444,7 +1484,7 @@ function ScoringInterface() {
                     </div>
                     <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(scoreValues.length, 10)}, 1fr)` }}>
                       {scoreValues.map(v => (
-                        <button key={v} onClick={() => updateScore(selected.id, cat.id, v)}
+                        <button key={v} onClick={() => { updateScore(selected.id, cat.id, v); advanceToNextUnscored(i, v === current); }}
                           className={`py-2 md:py-3.5 rounded text-xs md:text-base font-bold transition-all ${
                             current === v
                               ? "bg-accent text-white shadow-md"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
@@ -12,6 +12,7 @@ const qc = new QueryClient();
 
 function Dashboard() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orgId = searchParams.get("org");
   useTrackPageView("dashboard.association.viewed", { orgId });
 
@@ -171,7 +172,7 @@ function Dashboard() {
               {myOrgs.length > 1 && (
                 <select
                   value={orgId || ""}
-                  onChange={(e) => { window.location.href = `/association/dashboard?org=${e.target.value}`; }}
+                  onChange={(e) => { router.push(`/association/dashboard?org=${e.target.value}`); }}
                   className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer max-w-[14rem]"
                   aria-label="Switch club"
                 >

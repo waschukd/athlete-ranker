@@ -762,7 +762,18 @@ function SPDashboard() {
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [scheduleView, setScheduleView] = useState("list"); // "list" | "calendar"
-  const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null); // YYYY-MM-DD or null
+  // Persisted so the date selection is retained across tab navigation (and reloads).
+  const [scheduleSelectedDate, setScheduleSelectedDateState] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem("sp-schedule-selected-date") || null;
+  }); // YYYY-MM-DD or null
+  const setScheduleSelectedDate = (val) => {
+    setScheduleSelectedDateState(val);
+    if (typeof window !== "undefined") {
+      if (val) window.localStorage.setItem("sp-schedule-selected-date", val);
+      else window.localStorage.removeItem("sp-schedule-selected-date");
+    }
+  };
   const [evalInviteEmail, setEvalInviteEmail] = useState("");
   const [evalInviteSending, setEvalInviteSending] = useState(false);
   const [evalInviteMsg, setEvalInviteMsg] = useState(null);

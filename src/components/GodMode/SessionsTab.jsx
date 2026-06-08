@@ -10,6 +10,8 @@ const statusStyle = {
 
 export function SessionsTab() {
   const [statusFilter, setStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["god-mode-sessions", statusFilter],
@@ -23,8 +25,19 @@ export function SessionsTab() {
     },
   });
 
-  const sessions = data?.sessions || [];
+  const allSessions = data?.sessions || [];
   const stats = data?.stats || {};
+
+  // Client-side date-range filter over the already-loaded sessions, by scheduled_date.
+  // (The sessions endpoint is not date-paginated, so this filters the loaded set.)
+  const sessions = allSessions.filter((session) => {
+    if (!fromDate && !toDate) return true;
+    if (!session.scheduled_date) return false;
+    const d = session.scheduled_date.toString().split("T")[0];
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+  });
 
   const statItems = [
     { label: "Total", value: stats.total || 0, color: "var(--gm-text)" },
@@ -48,7 +61,7 @@ export function SessionsTab() {
       </div>
 
       {/* Filter */}
-      <div>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -60,6 +73,34 @@ export function SessionsTab() {
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
         </select>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--gm-muted)", fontWeight: 500 }}>From</span>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="gm-input"
+            style={{ width: "auto" }}
+          />
+          <span style={{ fontSize: 12, color: "var(--gm-muted)", fontWeight: 500 }}>To</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="gm-input"
+            style={{ width: "auto" }}
+          />
+        </div>
+        {(fromDate || toDate) && (
+          <button
+            type="button"
+            onClick={() => { setFromDate(""); setToDate(""); }}
+            className="gm-input"
+            style={{ width: "auto", cursor: "pointer", color: "var(--gm-muted)" }}
+          >
+            Clear dates
+          </button>
+        )}
       </div>
 
       {/* Table */}
