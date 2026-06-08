@@ -55,6 +55,11 @@ export async function resolveSpOrgId(session, orgParamId) {
   }
   const byContact = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} AND type = 'service_provider' LIMIT 1`;
   if (byContact.length) return byContact[0].id;
+  // Additional admins added via "Invite Admin" get a user_organization_roles row
+  // on the SP org (not contact_email / not an evaluator membership) — they must
+  // resolve to the SP too, or they'd have no access to what the SP manages.
+  const byRole = await sql`SELECT o.id FROM user_organization_roles uor JOIN organizations o ON o.id = uor.organization_id JOIN users u ON u.id = uor.user_id WHERE u.email = ${session.email} AND o.type = 'service_provider' LIMIT 1`;
+  if (byRole.length) return byRole[0].id;
   const byMembership = await sql`SELECT em.organization_id as id FROM evaluator_memberships em JOIN organizations o ON o.id = em.organization_id JOIN users u ON u.id = em.user_id WHERE u.email = ${session.email} AND o.type = 'service_provider' LIMIT 1`;
   return byMembership[0]?.id || null;
 }
