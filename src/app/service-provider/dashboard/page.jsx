@@ -360,6 +360,8 @@ function EvaluatorEfficiencyReport() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Evaluator</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Sessions</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Average % of the session window the evaluator was actively scoring. Low = scored only briefly (e.g. the first few minutes, not the full session).">Engagement</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Quality flags: too-fast scoring, incomplete sessions, late scoring, suspected score-copying.">Flags</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Strikes</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Approved Hrs</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pending Hrs</th>
@@ -367,17 +369,24 @@ function EvaluatorEfficiencyReport() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {(data.evaluators || []).length === 0 && <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">No evaluators found</td></tr>}
-              {(data.evaluators || []).map(ev => (
+              {(data.evaluators || []).length === 0 && <tr><td colSpan={8} className="py-10 text-center text-gray-400 text-sm">No evaluators found</td></tr>}
+              {(data.evaluators || []).map(ev => {
+                const eng = ev.avg_pct_session_used != null ? Math.round(parseFloat(ev.avg_pct_session_used)) : null;
+                const engCls = eng == null ? "text-gray-300" : eng >= 50 ? "text-green-600" : eng >= 15 ? "text-amber-600" : "text-red-500";
+                const flagCount = parseInt(ev.too_fast_flags || 0) + parseInt(ev.incomplete_flags || 0) + parseInt(ev.late_scoring_flags || 0) + parseInt(ev.score_copy_flags || 0);
+                return (
                 <tr key={ev.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelected(ev)}>
                   <td className="px-4 py-3"><div className="font-medium text-gray-900">{ev.name}</div><div className="text-xs text-gray-400">{ev.email}</div></td>
                   <td className="px-4 py-3 text-center">{parseInt(ev.total_sessions || 0)}</td>
+                  <td className="px-4 py-3 text-center"><span className={`font-semibold ${engCls}`} title={eng == null ? "No scoring data yet" : `Active ~${eng}% of the session window`}>{eng == null ? "–" : `${eng}%`}</span></td>
+                  <td className="px-4 py-3 text-center"><span className={`font-semibold ${flagCount > 0 ? "text-red-500" : "text-gray-400"}`} title={`Too fast: ${ev.too_fast_flags || 0} · Incomplete: ${ev.incomplete_flags || 0} · Late: ${ev.late_scoring_flags || 0} · Copy: ${ev.score_copy_flags || 0}`}>{flagCount}</span></td>
                   <td className="px-4 py-3 text-center"><span className={`font-bold ${parseInt(ev.late_cancel_strikes || 0) === 0 ? "text-green-600" : "text-red-500"}`}>{ev.late_cancel_strikes || 0}</span></td>
                   <td className="px-4 py-3 text-center font-semibold">{parseFloat(ev.approved_hours || 0).toFixed(1)}h</td>
                   <td className="px-4 py-3 text-center">{parseFloat(ev.pending_hours || 0) > 0 ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">{parseFloat(ev.pending_hours).toFixed(1)}h</span> : "-"}</td>
                   <td className="px-4 py-3 text-center">{parseFloat(ev.avg_rating || 0) > 0 ? `${parseFloat(ev.avg_rating).toFixed(1)} *` : "-"}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
