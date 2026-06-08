@@ -493,8 +493,11 @@ function LeadsSection({ spUrl, orgParam, associations }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Association Leads</h2>
-        <p className="text-sm text-gray-400">{leads.length} lead{leads.length !== 1 ? "s" : ""}</p>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Association Leads <span className="text-accent text-sm font-medium">· scoped access</span></h2>
+          <p className="text-xs text-gray-400 mt-0.5">A lead manages <b className="text-gray-500">only the associations you pick</b> — for someone running one or two clubs. Need someone with full access to everything? Add a <b className="text-gray-500">Co-Admin</b> instead.</p>
+        </div>
+        <p className="text-sm text-gray-400 flex-shrink-0">{leads.length} lead{leads.length !== 1 ? "s" : ""}</p>
       </div>
 
       {/* Current leads */}
@@ -1088,8 +1091,9 @@ function SPDashboard() {
 
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Invite Service Provider Admin</h3>
-                <p className="text-xs text-gray-400 mt-0.5">They'll get full admin access to {sp?.name || "this service provider"} once they accept.</p>
+                <h3 className="text-sm font-semibold text-gray-900">Add Co-Admin <span className="text-accent font-medium">· full access</span></h3>
+                <p className="text-xs text-gray-500 mt-0.5">Sees and manages <b className="text-ink">every</b> association under {sp?.name || "this service provider"} — for a partner who helps anywhere.</p>
+                <p className="text-xs text-gray-400 mt-1">Only need them on one or two associations? Use the <b className="text-gray-500">Leads</b> tab instead.</p>
               </div>
               <div className="p-5">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
