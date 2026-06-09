@@ -22,7 +22,29 @@ export async function GET(request, { params }) {
       GROUP BY ac.id
       ORDER BY ac.name
     `;
-    return NextResponse.json({ categories });
+
+    // Next upcoming sessions across the whole association (for the dashboard's
+    // "Upcoming schedule" rail). signups lets us flag understaffed sessions.
+    let upcoming = [];
+    try {
+      upcoming = await sql`
+        SELECT es.id, es.scheduled_date, es.start_time, es.end_time, es.location,
+          es.session_number, es.group_number, es.evaluators_required,
+          ac.name AS category_name,
+          COUNT(ess.id) FILTER (WHERE ess.status = 'signed_up') AS signups
+        FROM evaluation_schedule es
+        JOIN age_categories ac ON ac.id = es.age_category_id
+        LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id
+        WHERE ac.organization_id = ${params.orgId}
+          AND es.scheduled_date >= CURRENT_DATE
+          AND es.status = 'scheduled'
+        GROUP BY es.id, ac.name
+        ORDER BY es.scheduled_date ASC, es.start_time ASC
+        LIMIT 8
+      `;
+    } catch { upcoming = []; }
+
+    return NextResponse.json({ categories, upcoming });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

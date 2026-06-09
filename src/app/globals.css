@@ -176,6 +176,61 @@ body {
 [data-theme="premium"] .bg-gray-200             { background:var(--p-well) !important; }
 [data-theme="premium"] .hover\:bg-gray-300:hover { background:var(--p-hover) !important; }
 
+/* ============================================================
+   PREMIUM LIGHT — the toggle's light mode. Keeps the original
+   light surfaces (white cards, gray page) but swaps the ice-blue
+   accent for the SAME gold scheme + serif fonts as the dark theme,
+   so secondary colors stay consistent across the toggle.
+   ============================================================ */
+[data-theme="premium-light"] {
+  --plg:#a87f1c;        /* readable gold for text / icons / borders on white */
+  --plg-fill:#d4af37;   /* gold button fill (with dark text) */
+  --plg-hi:#c19a2c;
+  --plg-soft:#f6edd2;   /* cream wash (replaces accent-soft / blue-50) */
+  --plg-bd:rgba(168,127,28,0.38);
+}
+[data-theme="premium-light"] .font-display { font-family:'Playfair Display', serif; }
+[data-theme="premium-light"] .font-mono    { font-family:'JetBrains Mono', monospace; }
+
+[data-theme="premium-light"] .text-accent,
+[data-theme="premium-light"] .text-blue-400,
+[data-theme="premium-light"] .text-blue-600,
+[data-theme="premium-light"] .text-blue-700,
+[data-theme="premium-light"] .text-blue-900,
+[data-theme="premium-light"] .text-\[\#0b5cd6\] { color:var(--plg) !important; }
+
+[data-theme="premium-light"] .bg-accent,
+[data-theme="premium-light"] .bg-blue-600,
+[data-theme="premium-light"] .bg-blue-700,
+[data-theme="premium-light"] .bg-\[\#0b5cd6\] { background:var(--plg-fill) !important; color:#141414 !important; }
+[data-theme="premium-light"] .hover\:bg-blue-700:hover,
+[data-theme="premium-light"] .hover\:bg-\[\#0a4fc0\]:hover { background:var(--plg-hi) !important; }
+
+[data-theme="premium-light"] .bg-accent-soft,
+[data-theme="premium-light"] .bg-blue-50,
+[data-theme="premium-light"] .bg-blue-100,
+[data-theme="premium-light"] .bg-\[\#e8f0fd\] { background:var(--plg-soft) !important; }
+[data-theme="premium-light"] .hover\:bg-accent-soft:hover,
+[data-theme="premium-light"] .hover\:bg-blue-50:hover,
+[data-theme="premium-light"] .hover\:bg-\[\#e8f0fd\]:hover { background:var(--plg-soft) !important; }
+
+[data-theme="premium-light"] .border-accent\/20,
+[data-theme="premium-light"] .border-accent\/30,
+[data-theme="premium-light"] .border-blue-200,
+[data-theme="premium-light"] .border-\[\#0b5cd6\]\/25,
+[data-theme="premium-light"] .border-\[\#0b5cd6\]\/30,
+[data-theme="premium-light"] .hover\:border-accent\/40:hover,
+[data-theme="premium-light"] .hover\:border-\[\#0b5cd6\]\/30:hover { border-color:var(--plg-bd) !important; }
+
+[data-theme="premium-light"] .from-\[\#0b5cd6\] { --tw-gradient-from:var(--plg-fill) var(--tw-gradient-from-position); --tw-gradient-to:rgb(212 175 55 / 0) var(--tw-gradient-to-position); --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
+[data-theme="premium-light"] .to-\[\#3b82f6\]   { --tw-gradient-to:var(--plg-hi) var(--tw-gradient-to-position); }
+[data-theme="premium-light"] .bg-gradient-to-r,
+[data-theme="premium-light"] .bg-gradient-to-br { color:#141414 !important; }
+
+[data-theme="premium-light"] .focus\:ring-accent:focus,
+[data-theme="premium-light"] .focus\:ring-accent\/30:focus,
+[data-theme="premium-light"] .focus\:ring-\[\#0b5cd6\]:focus { --tw-ring-color:var(--plg-bd) !important; }
+
 /* ── Premium landing: cinematic full-bleed hero ── */
 .ss-hero { position:relative; overflow:hidden; }
 .ss-hero-bg {
