@@ -64,7 +64,7 @@ export default function LandingPage() {
             </div>
 
             {/* Quick-jump nav — skip the long scroll, especially on mobile */}
-            <nav className="ss-reveal ss-d5 mt-9 pt-7 border-t border-white/15 flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
+            <nav className="ss-reveal ss-d5 mt-9 pt-7 border-t border-white/15 flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-2.5">
               {[
                 { label: "Why we're different", id: "why", Icon: Sparkles },
                 { label: "Voice & reports", id: "capabilities", Icon: Mic },
