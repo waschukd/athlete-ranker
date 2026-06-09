@@ -64,7 +64,7 @@ export default function LandingPage() {
             </div>
 
             {/* Quick-jump nav — skip the long scroll, especially on mobile */}
-            <nav className="ss-reveal ss-d5 mt-9 pt-7 border-t border-white/15 flex flex-wrap gap-2.5">
+            <nav className="ss-reveal ss-d5 mt-9 pt-7 border-t border-white/15 flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
               {[
                 { label: "Why we're different", id: "why", Icon: Sparkles },
                 { label: "Voice & reports", id: "capabilities", Icon: Mic },
@@ -73,7 +73,7 @@ export default function LandingPage() {
                 <button
                   key={id}
                   onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })}
-                  className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-gray-200 border border-white/20 hover:border-accent/50 hover:text-accent px-4 py-2.5 rounded-full transition-colors backdrop-blur-sm"
+                  className="flex sm:inline-flex w-full sm:w-auto items-center justify-center sm:justify-start gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-gray-200 border border-white/20 hover:border-accent/50 hover:text-accent px-4 py-3 sm:py-2.5 rounded-full transition-colors backdrop-blur-sm"
                 >
                   <Icon className="w-3.5 h-3.5 text-accent" /> {label}
                 </button>
