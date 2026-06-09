@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import {
-  ArrowRight, Mic, FileText,
+  ArrowRight, Mic, FileText, Sparkles,
   Upload, CalendarDays, ClipboardCheck, TrendingUp,
 } from "lucide-react";
 
@@ -57,38 +57,34 @@ export default function LandingPage() {
               ice — voice-fast scoring, offline-proof, with instant rankings and reports.
             </p>
 
-            <div className="ss-reveal ss-d5 flex flex-wrap gap-4 mt-10">
-              <Link href="/account/signin" className="px-8 py-3.5 bg-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform">
+            <div className="ss-reveal ss-d5 mt-10">
+              <Link href="/account/signin" className="inline-flex px-8 py-3.5 bg-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform">
                 Get Started
               </Link>
-              <button
-                onClick={() => document.getElementById("why")?.scrollIntoView({ behavior: "smooth" })}
-                className="px-8 py-3.5 border border-accent/30 text-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-accent-soft transition-colors backdrop-blur-sm"
-              >
-                Why it's different
-              </button>
             </div>
 
-            <div className="ss-reveal ss-d5 mt-12 pt-8 border-t border-white/15 flex flex-wrap items-center gap-x-10 gap-y-4">
-              <div className="flex items-center gap-2.5">
-                <Mic className="w-4 h-4 text-accent" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-gray-400">Voice scoring</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4 text-accent" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-gray-400">Instant reports</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <TrendingUp className="w-4 h-4 text-accent" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-gray-400">Live rankings</span>
-              </div>
-            </div>
+            {/* Quick-jump nav — skip the long scroll, especially on mobile */}
+            <nav className="ss-reveal ss-d5 mt-9 pt-7 border-t border-white/15 flex flex-wrap gap-2.5">
+              {[
+                { label: "Why we're different", id: "why", Icon: Sparkles },
+                { label: "Voice & reports", id: "capabilities", Icon: Mic },
+                { label: "How it works", id: "how-it-works", Icon: TrendingUp },
+              ].map(({ label, id, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })}
+                  className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-gray-200 border border-white/20 hover:border-accent/50 hover:text-accent px-4 py-2.5 rounded-full transition-colors backdrop-blur-sm"
+                >
+                  <Icon className="w-3.5 h-3.5 text-accent" /> {label}
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
       </section>
 
       {/* ─── Manifesto: why we're different ─── */}
-      <section id="why" className="py-24 md:py-32 bg-gray-50">
+      <section id="why" className="scroll-mt-20 py-24 md:py-32 bg-gray-50">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <div className="font-mono text-accent text-[11px] uppercase tracking-[0.3em] mb-6">The difference</div>
           <h2 className="font-display font-black text-ink text-3xl md:text-5xl leading-tight tracking-tight">
@@ -111,7 +107,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Spotlights: Voice + Reports ─── */}
-      <section className="pb-8 bg-gray-50">
+      <section id="capabilities" className="scroll-mt-20 pt-4 pb-8 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Voice scoring */}
           <div className="bg-white border border-accent/20 rounded-2xl p-8 md:p-10">
@@ -148,7 +144,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── How It Works ─── */}
-      <section id="how-it-works" className="py-20 md:py-28 bg-gray-50">
+      <section id="how-it-works" className="scroll-mt-20 py-20 md:py-28 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <div className="w-10 h-1 bg-accent rounded-full mx-auto mb-4" />
