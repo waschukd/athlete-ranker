@@ -23,7 +23,7 @@ export default function LandingPage() {
             <img src="/mark-gold.svg" alt="Sideline Star" className="h-9 w-10 sm:h-11 sm:w-12 object-contain flex-shrink-0" />
             <div className="min-w-0">
               <h1 className="font-display italic font-black text-accent text-base sm:text-2xl lg:text-3xl uppercase tracking-[0.12em] sm:tracking-[0.18em] leading-none whitespace-nowrap">Sideline Star</h1>
-              <p className="hidden sm:block font-mono text-[10px] text-gray-400 mt-1.5 tracking-[0.3em]">PLAYER EVALUATION, ELEVATED</p>
+              <p className="hidden sm:block font-mono text-[10px] text-gray-400 mt-0.5 tracking-[0.3em] leading-none">PLAYER EVALUATION ELEVATED</p>
             </div>
           </div>
           <div className="ss-reveal ss-d2 flex items-center flex-shrink-0">
