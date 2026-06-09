@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@500;600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,3 +17,190 @@ body {
 }
 
 .font-display { font-family: 'Archivo', system-ui, sans-serif; }
+
+/* ============================================================
+   PREMIUM THEME — "Pro-Draft Vision" dark/gold skin.
+   Reversible, scoped override. Applied ONLY where an ancestor
+   sets [data-theme="premium"] (currently just the evaluator
+   dashboard). Re-maps the utility classes those screens use to
+   the dark/gold palette so no JSX needs rewriting yet. To roll
+   a screen back: remove its data-theme="premium" wrapper.
+   When we commit to the look, screens migrate to these tokens
+   directly and this override layer shrinks away.
+   ============================================================ */
+[data-theme="premium"] {
+  --p-bg:#0d0d0d; --p-card:#1a1a1a; --p-well:#1f1f1f; --p-hover:#252525;
+  --p-ink:#f4f1ea; --p-text:#dcd7cc; --p-muted:#c2bdb2; --p-faint:#a8a39a;
+  --p-line:#2c2c2c;
+  --p-gold:#d4af37; --p-gold-hi:#e6c14a; --p-gold-soft:rgba(212,175,55,0.10); --p-gold-bd:rgba(212,175,55,0.32);
+  --p-green:#74c25f; --p-amber:#e0a93f; --p-red:#d4685f; --p-violet:#b9a7f5;
+  background:var(--p-bg);
+  color:var(--p-text);
+}
+
+/* fonts: serif display + mono labels carry the look */
+[data-theme="premium"] .font-display { font-family:'Playfair Display', serif; }
+[data-theme="premium"] .font-mono    { font-family:'JetBrains Mono', monospace; }
+
+/* surfaces */
+[data-theme="premium"] .bg-white      { background:var(--p-card) !important; }
+[data-theme="premium"] .bg-gray-50    { background:var(--p-bg) !important; }
+[data-theme="premium"] .bg-gray-100   { background:var(--p-well) !important; }
+[data-theme="premium"] .hover\:bg-gray-50:hover  { background:var(--p-hover) !important; }
+[data-theme="premium"] .hover\:bg-gray-100:hover { background:var(--p-hover) !important; }
+
+/* borders */
+[data-theme="premium"] .border-gray-100,
+[data-theme="premium"] .border-gray-200,
+[data-theme="premium"] .border-gray-300 { border-color:var(--p-line) !important; }
+
+/* text */
+[data-theme="premium"] .text-gray-900,
+[data-theme="premium"] .text-gray-800,
+[data-theme="premium"] .text-gray-700,
+[data-theme="premium"] .text-ink      { color:var(--p-ink) !important; }
+[data-theme="premium"] .text-gray-600,
+[data-theme="premium"] .text-gray-500 { color:var(--p-muted) !important; }
+[data-theme="premium"] .text-gray-400,
+[data-theme="premium"] .text-gray-300,
+[data-theme="premium"] .text-gray-200 { color:var(--p-faint) !important; }
+
+/* accent (already-tokenized) -> gold */
+[data-theme="premium"] .text-accent           { color:var(--p-gold) !important; }
+[data-theme="premium"] .bg-accent             { background:var(--p-gold) !important; color:#141414 !important; }
+[data-theme="premium"] .bg-accent-soft        { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .hover\:bg-accent:hover{ background:var(--p-gold) !important; color:#141414 !important; }
+
+/* blues -> gold */
+[data-theme="premium"] .text-blue-400,
+[data-theme="premium"] .text-blue-600,
+[data-theme="premium"] .text-blue-700,
+[data-theme="premium"] .text-blue-900 { color:var(--p-gold) !important; }
+[data-theme="premium"] .bg-blue-50,
+[data-theme="premium"] .bg-blue-100   { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .bg-blue-600,
+[data-theme="premium"] .bg-blue-700   { background:var(--p-gold) !important; color:#141414 !important; }
+[data-theme="premium"] .border-blue-200 { border-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .hover\:bg-blue-50:hover  { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .hover\:bg-blue-700:hover { background:var(--p-gold-hi) !important; }
+
+/* arbitrary brand hexes (#0b5cd6 / #3b82f6 / #e8f0fd) -> gold */
+[data-theme="premium"] .text-\[\#0b5cd6\]  { color:var(--p-gold) !important; }
+[data-theme="premium"] .bg-\[\#0b5cd6\]    { background:var(--p-gold) !important; color:#141414 !important; }
+[data-theme="premium"] .bg-\[\#e8f0fd\]    { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .border-\[\#0b5cd6\]\/25,
+[data-theme="premium"] .border-\[\#0b5cd6\]\/30,
+[data-theme="premium"] .hover\:border-\[\#0b5cd6\]\/30:hover { border-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .hover\:bg-\[\#0a4fc0\]:hover { background:var(--p-gold-hi) !important; }
+[data-theme="premium"] .hover\:bg-\[\#e8f0fd\]:hover { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .focus\:ring-\[\#0b5cd6\]:focus { --tw-ring-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .focus\:ring-accent:focus { --tw-ring-color:var(--p-gold-bd) !important; }
+
+/* gradient CTAs -> solid gold gradient with dark text */
+[data-theme="premium"] .from-\[\#0b5cd6\] { --tw-gradient-from:var(--p-gold) var(--tw-gradient-from-position); --tw-gradient-to:rgb(212 175 55 / 0) var(--tw-gradient-to-position); --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
+[data-theme="premium"] .to-\[\#3b82f6\]   { --tw-gradient-to:var(--p-gold-hi) var(--tw-gradient-to-position); }
+[data-theme="premium"] .bg-gradient-to-r,
+[data-theme="premium"] .bg-gradient-to-br { color:#141414 !important; }
+
+/* status colours: keep semantic meaning, adapt washes for dark */
+[data-theme="premium"] .bg-amber-50,
+[data-theme="premium"] .bg-amber-100,
+[data-theme="premium"] .bg-orange-50  { background:rgba(224,169,63,0.12) !important; }
+[data-theme="premium"] .bg-orange-50\/20 { background:rgba(224,169,63,0.06) !important; }
+[data-theme="premium"] .border-amber-200,
+[data-theme="premium"] .border-amber-300,
+[data-theme="premium"] .border-orange-200 { border-color:rgba(224,169,63,0.35) !important; }
+[data-theme="premium"] .text-amber-500,
+[data-theme="premium"] .text-amber-600,
+[data-theme="premium"] .text-amber-700,
+[data-theme="premium"] .text-amber-800,
+[data-theme="premium"] .text-amber-900,
+[data-theme="premium"] .text-orange-700 { color:var(--p-amber) !important; }
+
+[data-theme="premium"] .bg-green-50,
+[data-theme="premium"] .bg-green-100  { background:rgba(116,194,95,0.13) !important; }
+[data-theme="premium"] .border-green-200 { border-color:rgba(116,194,95,0.35) !important; }
+[data-theme="premium"] .text-green-500,
+[data-theme="premium"] .text-green-600,
+[data-theme="premium"] .text-green-700 { color:var(--p-green) !important; }
+
+[data-theme="premium"] .bg-red-50     { background:rgba(212,104,95,0.12) !important; }
+[data-theme="premium"] .border-red-200,
+[data-theme="premium"] .border-red-300 { border-color:rgba(212,104,95,0.4) !important; }
+[data-theme="premium"] .text-red-500,
+[data-theme="premium"] .text-red-600,
+[data-theme="premium"] .text-red-800  { color:var(--p-red) !important; }
+/* red action buttons keep white text — only soften the fill */
+[data-theme="premium"] .bg-red-500    { background:#b8453c !important; }
+[data-theme="premium"] .hover\:bg-red-600:hover { background:#c4453b !important; }
+
+/* session-type chips */
+[data-theme="premium"] .bg-purple-100 { background:rgba(185,167,245,0.14) !important; }
+[data-theme="premium"] .text-purple-700 { color:var(--p-violet) !important; }
+[data-theme="premium"] .border-purple-200 { border-color:rgba(185,167,245,0.35) !important; }
+
+/* form controls need explicit dark fills (browser default is white) */
+[data-theme="premium"] input,
+[data-theme="premium"] textarea,
+[data-theme="premium"] select {
+  background:var(--p-well) !important;
+  color:var(--p-ink) !important;
+  border-color:var(--p-line) !important;
+}
+[data-theme="premium"] input::placeholder,
+[data-theme="premium"] textarea::placeholder { color:var(--p-faint) !important; }
+
+/* legibility: small text reads too small/dim on dark — nudge size up a touch.
+   Big bold headings (text-base and larger) are intentionally left alone. */
+[data-theme="premium"] .text-xs      { font-size:0.825rem; line-height:1.15rem; }
+[data-theme="premium"] .text-sm      { font-size:0.95rem;  line-height:1.4rem; }
+[data-theme="premium"] .text-\[9px\]  { font-size:10.5px; }
+[data-theme="premium"] .text-\[10px\] { font-size:11.5px; }
+[data-theme="premium"] .text-\[11px\] { font-size:12.5px; }
+
+/* logo: premium screens use the two-tone gold badge (public/mark-gold.svg)
+   directly, so no filter recolor is needed. */
+
+/* extra classes used by the association + landing screens */
+[data-theme="premium"] .border-\[\#ededeb\]      { border-color:var(--p-line) !important; }
+[data-theme="premium"] .bg-green-500             { background:var(--p-green) !important; }
+[data-theme="premium"] .bg-amber-500             { background:var(--p-amber) !important; }
+[data-theme="premium"] .text-green-500           { color:var(--p-green) !important; }
+[data-theme="premium"] .hover\:bg-green-200:hover{ background:rgba(116,194,95,0.22) !important; }
+[data-theme="premium"] .hover\:bg-red-100:hover  { background:rgba(212,104,95,0.20) !important; }
+[data-theme="premium"] .border-accent\/20,
+[data-theme="premium"] .border-accent\/30,
+[data-theme="premium"] .hover\:border-accent\/40:hover { border-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .hover\:bg-accent-soft:hover { background:var(--p-gold-soft) !important; }
+[data-theme="premium"] .focus\:ring-accent\/30:focus { --tw-ring-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .bg-gray-200             { background:var(--p-well) !important; }
+[data-theme="premium"] .hover\:bg-gray-300:hover { background:var(--p-hover) !important; }
+
+/* ── Premium landing: cinematic full-bleed hero ── */
+.ss-hero { position:relative; overflow:hidden; }
+.ss-hero-bg {
+  position:absolute; inset:0;
+  background:url('/hero-rink.png') center 38% / cover no-repeat;
+  filter:contrast(108%) saturate(104%) brightness(0.96);
+  transform:scale(1.06);
+  animation:ssKen 26s ease-out forwards;
+}
+@keyframes ssKen {
+  from { transform:scale(1.12) translate3d(-1.5%, 1.5%, 0); }
+  to   { transform:scale(1) translate3d(0, 0, 0); }
+}
+.ss-hero-scrim {
+  position:absolute; inset:0;
+  background:
+    linear-gradient(90deg, rgba(6,6,6,0.95) 0%, rgba(6,6,6,0.86) 30%, rgba(6,6,6,0.38) 60%, rgba(6,6,6,0.62) 100%),
+    linear-gradient(180deg, rgba(6,6,6,0.88) 0%, transparent 24%, transparent 56%, rgba(6,6,6,0.94) 100%),
+    radial-gradient(130% 100% at 50% 45%, transparent 52%, rgba(0,0,0,0.55) 100%);
+}
+.ss-grain::before {
+  content:""; position:absolute; inset:0; z-index:30; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity:0.045;
+}
+@keyframes ssRise { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
+.ss-reveal { opacity:0; animation:ssRise .95s cubic-bezier(.2,.7,.2,1) forwards; }
+.ss-d1{animation-delay:.15s}.ss-d2{animation-delay:.32s}.ss-d3{animation-delay:.5s}.ss-d4{animation-delay:.68s}.ss-d5{animation-delay:.86s}
