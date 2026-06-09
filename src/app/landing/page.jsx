@@ -198,11 +198,16 @@ export default function LandingPage() {
       {/* ─── Final CTA ─── */}
       <section className="bg-accent-soft border-t border-accent/20">
         <div className="max-w-3xl mx-auto text-center py-24 md:py-32 px-6">
-          <h2 className="text-3xl md:text-5xl font-display font-black text-ink mb-6 tracking-tight">Run your next evaluation the right way.</h2>
-          <p className="text-lg text-gray-500 mb-10 max-w-lg mx-auto">Set up your first evaluation in minutes. No credit card required.</p>
-          <Link href="/account/signin" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-accent font-semibold text-lg hover:opacity-90 transition-opacity">
-            Get Started Free <ArrowRight className="w-5 h-5" />
-          </Link>
+          <h2 className="text-3xl md:text-5xl font-display font-black text-ink mb-6 tracking-tight">Stop guessing. Start evaluating.</h2>
+          <p className="text-lg text-gray-500 mb-10 max-w-lg mx-auto">Bring your next evaluation onto the platform the people who run them actually built.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/account/signin" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-accent font-semibold text-lg hover:opacity-90 transition-opacity">
+              Get Started <ArrowRight className="w-5 h-5" />
+            </Link>
+            <Link href="/account/signin" className="inline-flex items-center px-6 py-4 rounded-xl border border-accent/30 text-accent font-mono text-[11px] uppercase tracking-[0.18em] hover:bg-accent/10 transition-colors">
+              Sign in
+            </Link>
+          </div>
         </div>
       </section>
 
