@@ -814,18 +814,44 @@ export default function CategoryDashboard({
                               const file = e.target.files[0]; if (!file) return;
                               const text = await file.text();
                               const lines = text.trim().split('\n').filter(l => l.trim());
-                              const hasHeader = lines[0].toLowerCase().includes('first') || lines[0].toLowerCase().includes('name');
-                              const results = (hasHeader ? lines.slice(1) : lines).map(line => {
-                                const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                                return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] };
-                              }).filter(r => r.first_name && r.last_name && r.overall_rank);
+                              if (!lines.length) { e.target.value = ""; return; }
+                              const splitCsv = (line) => line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                              const header = splitCsv(lines[0]);
+                              const lower = header.map(h => h.toLowerCase());
+                              const looksHeader = lower.some(h => h.includes('name')) || lower.includes('overall rank');
+                              let results;
+                              if (looksHeader) {
+                                // Full SportTesting export: First, Last, Position, then (Test, Rank) pairs, ending in Overall Rank.
+                                const firstIdx = lower.findIndex(h => h.includes('first'));
+                                const lastIdx = lower.findIndex(h => h.includes('last'));
+                                const overallIdx = lower.lastIndexOf('overall rank');
+                                const testCols = [];
+                                for (let i = 0; i < header.length; i++) {
+                                  const h = lower[i];
+                                  if (!h || h.includes('first') || h.includes('last') || h === 'position' || h === 'rank' || h === 'overall rank') continue;
+                                  testCols.push({ name: header[i], valueIdx: i, rankIdx: lower[i + 1] === 'rank' ? i + 1 : -1 });
+                                }
+                                results = lines.slice(1).map(splitCsv).map(cols => ({
+                                  first_name: firstIdx >= 0 ? cols[firstIdx] : cols[0],
+                                  last_name: lastIdx >= 0 ? cols[lastIdx] : cols[1],
+                                  overall_rank: overallIdx >= 0 ? cols[overallIdx] : cols[cols.length - 1],
+                                  tests: testCols
+                                    .map(tc => ({ name: tc.name, value: cols[tc.valueIdx], rank: tc.rankIdx >= 0 ? cols[tc.rankIdx] : null }))
+                                    .filter(t => t.value !== undefined && t.value !== ''),
+                                })).filter(r => r.first_name && r.last_name && r.overall_rank);
+                              } else {
+                                // Legacy stripped format: first, last, overall_rank
+                                results = lines.map(splitCsv)
+                                  .map(cols => ({ first_name: cols[0], last_name: cols[1], overall_rank: cols[2] }))
+                                  .filter(r => r.first_name && r.last_name && r.overall_rank);
+                              }
                               const res = await fetch(`/api/categories/${catId}/testing-upload`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
                               });
                               const data = await res.json();
-                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}` : 'Error: ' + data.error);
+                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}` : 'Error: ' + data.error);
                               refetchRankings(); e.target.value = "";
                             }} />
                           </label>

@@ -3,6 +3,20 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
+const GOLD = "#c79a2c";
+const GOLD_SOFT = "#f6edd2";
+const INK = "#1a1a1a";
+const SERIF = "'Playfair Display', Georgia, serif";
+const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+function Bar({ pct, color = GOLD, h = 8, track = "#eee7d6" }) {
+  return (
+    <div style={{ flex: 1, height: h, background: track, borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ height: "100%", width: `${Math.max(2, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} />
+    </div>
+  );
+}
+
 function PDFReportInner() {
   const searchParams = useSearchParams();
   const athleteId = searchParams.get("athlete");
@@ -15,205 +29,207 @@ function PDFReportInner() {
       .then(r => r.json())
       .then(d => {
         setData(d);
-        setTimeout(() => window.print(), 800);
+        setTimeout(() => window.print(), 900);
       });
   }, [athleteId, catId]);
 
   if (!data) return (
-    <div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "sans-serif", color: "#6b7280" }}>
-      Preparing report...
+    <div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: SANS, color: "#6b7280" }}>
+      Preparing report…
     </div>
   );
 
-  const { athlete, sessions, scores, notes, ranking, total_athletes } = data;
-  const scale = data.category?.scoring_scale || 10;
-  const percentile = total_athletes > 1
-    ? Math.round(((total_athletes - ranking?.rank) / (total_athletes - 1)) * 100)
-    : 100;
+  const { athlete, category, notes = [], standing, skillProfile = [], testingProfile = [] } = data;
+  const scale = category?.scoring_scale || 10;
+  const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
+  const firstName = athlete?.first_name || "This athlete";
 
-  // Agreement calculation
-  const sessionAgreement = {};
-  for (const session of sessions) {
-    const ss = scores.filter(s => s.session_number === session.session_number);
-    if (!ss.length) continue;
-    const cats = [...new Set(ss.map(s => s.scoring_category_id))];
-    const catAgreements = cats.map(catId => {
-      const vals = ss.filter(s => s.scoring_category_id === catId).map(s => parseFloat(s.score));
-      if (vals.length < 2) return 100;
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const sd = Math.sqrt(vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vals.length);
-      return Math.max(0, Math.min(100, Math.round((1 - sd / scale) * 100)));
-    });
-    sessionAgreement[session.session_number] = catAgreements.length
-      ? Math.round(catAgreements.reduce((a, b) => a + b, 0) / catAgreements.length) : null;
-  }
-  const overallAgreement = Object.values(sessionAgreement).filter(Boolean).length
-    ? Math.round(Object.values(sessionAgreement).filter(Boolean).reduce((a, b) => a + b, 0) / Object.values(sessionAgreement).filter(Boolean).length)
-    : null;
+  // Skill focus: biggest gaps to the top of the group
+  const skillFocus = skillProfile
+    .filter(s => s.player != null && s.top != null)
+    .map(s => ({ ...s, gap: Math.round((s.top - s.player) * 10) / 10 }))
+    .filter(s => s.gap > 0)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 3);
 
-  // Per session score breakdown
-  const sessionBreakdown = sessions.map(s => {
-    const ss = scores.filter(sc => sc.session_number === s.session_number);
-    const byEval = {};
-    for (const sc of ss) {
-      if (!byEval[sc.evaluator_name]) byEval[sc.evaluator_name] = {};
-      byEval[sc.evaluator_name][sc.category_name] = sc.score;
-    }
-    const cats = [...new Set(ss.map(sc => sc.category_name))];
-    const catAvgs = cats.map(cat => {
-      const vals = ss.filter(sc => sc.category_name === cat).map(sc => parseFloat(sc.score));
-      return { name: cat, avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 };
-    });
-    const sd = ranking?.session_scores?.[s.session_number];
-    return { session: s, sd, byEval, catAvgs };
-  });
+  // Testing focus: biggest gaps to the group best (lower = better, so positive gap = behind)
+  const testFocus = testingProfile
+    .filter(t => t.player_best != null && t.group_best != null)
+    .map(t => ({ ...t, gap: Math.round((t.player_best - t.group_best) * 1000) / 1000 }))
+    .filter(t => t.gap > 0)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 2);
 
-  const ORANGE = "#c79a2c";
-  const LIGHT = "#fff7f4";
-  const agreementColor = (pct) => pct >= 95 ? "#16a34a" : pct >= 80 ? "#d97706" : "#dc2626";
-  const agreementBg = (pct) => pct >= 95 ? "#f0fdf4" : pct >= 80 ? "#fffbeb" : "#fef2f2";
+  const Section = ({ title, kicker, children }) => (
+    <div style={{ marginBottom: 26 }}>
+      {kicker && <div style={{ fontFamily: SANS, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 4 }}>{kicker}</div>}
+      <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 20, color: INK, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${GOLD_SOFT}` }}>{title}</div>
+      {children}
+    </div>
+  );
 
   return (
-    <div data-theme="premium-light" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 800, margin: "0 auto", padding: "32px 24px", color: "#111827", fontSize: 13 }}>
+    <div data-theme="premium-light" style={{ fontFamily: SANS, maxWidth: 820, margin: "0 auto", padding: "0 0 40px", color: "#1f2430", fontSize: 13, background: "#fff" }}>
 
-      {/* Header */}
-      <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #c79a2c)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sideline Star · Player Report</div>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{athlete.first_name} {athlete.last_name}</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
-              {athlete.position && <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12, textTransform: "capitalize" }}>{athlete.position}</span>}
-              {athlete.external_id && <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12 }}>{athlete.external_id}</span>}
-              <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 10px", borderRadius: 20, fontSize: 12 }}>{data.category?.name}</span>
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 2 }}>Generated</div>
-            <div style={{ fontSize: 12 }}>{new Date().toLocaleDateString()}</div>
-          </div>
+      {/* ── Cover band ── */}
+      <div style={{ background: `linear-gradient(135deg, #2a2a2a, #111)`, padding: "34px 36px", color: "#f4f1ea", position: "relative", overflow: "hidden" }}>
+        <div style={{ fontFamily: SANS, fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
+        <div style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 900, lineHeight: 1.05, marginTop: 10 }}>{fullName}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          {athlete?.position && <span style={{ border: `1px solid ${GOLD}`, color: GOLD, padding: "3px 12px", borderRadius: 99, fontSize: 11, textTransform: "capitalize", letterSpacing: "0.04em" }}>{athlete.position}</span>}
+          {athlete?.external_id && <span style={{ border: "1px solid rgba(244,241,234,0.3)", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{athlete.external_id}</span>}
+          <span style={{ border: "1px solid rgba(244,241,234,0.3)", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{category?.name}</span>
+          <span style={{ border: "1px solid rgba(244,241,234,0.3)", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        {[
-          { label: "Overall Rank", value: `#${ranking?.rank || "—"}`, sub: `of ${total_athletes}` },
-          { label: "Percentile", value: `${percentile}th`, sub: percentile >= 90 ? "Elite" : percentile >= 75 ? "Above Average" : percentile >= 50 ? "Average" : "Developing" },
-          { label: "Total Score", value: `${ranking?.weighted_total?.toFixed(1) || "—"}`, sub: "out of 100" },
-          ...(overallAgreement !== null ? [{ label: "Eval Agreement", value: `${overallAgreement}%`, sub: overallAgreement >= 95 ? "Strong Consensus" : overallAgreement >= 80 ? "General Agreement" : "Mixed Assessments", color: agreementColor(overallAgreement), bg: agreementBg(overallAgreement) }] : []),
-        ].map(({ label, value, sub, color, bg }) => (
-          <div key={label} style={{ background: bg || "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: color || ORANGE }}>{value}</div>
-            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{label}</div>
-            <div style={{ fontSize: 10, color: "#9ca3af" }}>{sub}</div>
-          </div>
-        ))}
-      </div>
+      <div style={{ padding: "30px 36px 0" }}>
 
-      {/* Session Scores */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}`, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Session Scores</div>
-        {sessionBreakdown.map(({ session, sd, catAvgs, byEval }) => (
-          <div key={session.session_number} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#f9fafb", borderBottom: "1px solid #f3f4f6" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: sd ? ORANGE : "#d1d5db", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 13 }}>
-                  {session.session_number}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{session.name}</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "capitalize" }}>{session.session_type} · {session.weight_percentage}% weight</div>
-                </div>
+        {/* ── Where they stood ── */}
+        <Section title="Where they stood" kicker="Overall standing">
+          {standing ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 20, background: GOLD_SOFT, borderRadius: 14, padding: "20px 24px" }}>
+              <div style={{ textAlign: "center", flexShrink: 0 }}>
+                <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 30, color: GOLD, lineHeight: 1 }}>{standing.band}</div>
+                <div style={{ fontSize: 11, color: "#7a6a3a", marginTop: 4, fontWeight: 600 }}>of the group</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {sessionAgreement[session.session_number] != null && sd?.source !== "testing" && (
-                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, color: agreementColor(sessionAgreement[session.session_number]), background: agreementBg(sessionAgreement[session.session_number]) }}>
-                    {sessionAgreement[session.session_number]}% agree
-                  </span>
-                )}
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: sd ? ORANGE : "#d1d5db" }}>{sd ? sd.normalized_score?.toFixed(1) : "—"}</div>
-                  <div style={{ fontSize: 10, color: "#9ca3af" }}>/ 100</div>
+              <div style={{ width: 1, alignSelf: "stretch", background: "rgba(168,127,28,0.25)" }} />
+              <div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 22, color: INK }}>{standing.tier}</div>
+                <div style={{ color: "#4a4434", lineHeight: 1.55, marginTop: 4 }}>
+                  {firstName} graded out in the <b>{standing.band.toLowerCase()}</b> of {standing.total} skaters evaluated. Below is where the strengths are — and exactly what to chase to climb.
                 </div>
               </div>
             </div>
-            {catAvgs.length > 0 && (
-              <div style={{ padding: "12px 16px" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Category Averages</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
-                  {catAvgs.map(({ name, avg }) => (
-                    <div key={name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: 12, color: "#374151", width: 120, flexShrink: 0 }}>{name}</div>
-                      <div style={{ flex: 1, height: 6, background: "#f3f4f6", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ height: "100%", background: ORANGE, borderRadius: 3, width: `${(avg / scale) * 100}%` }} />
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#111827", width: 32, textAlign: "right" }}>{avg}</div>
+          ) : (
+            <div style={{ color: "#6b7280" }}>Not enough scores yet to place an overall standing.</div>
+          )}
+        </Section>
+
+        {/* ── Skill profile ── */}
+        {skillProfile.length > 0 && (
+          <Section title="Skill profile" kicker="Evaluator scores vs the group">
+            <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 14, display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: GOLD, display: "inline-block" }} /> {firstName}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 2, background: "#9aa0aa", display: "inline-block" }} /> Group average</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 2, background: INK, display: "inline-block" }} /> Top of group</span>
+            </div>
+            {skillProfile.map(s => {
+              const pPct = s.player != null ? (s.player / scale) * 100 : 0;
+              const gPct = s.group != null ? (s.group / scale) * 100 : null;
+              const tPct = s.top != null ? (s.top / scale) * 100 : null;
+              return (
+                <div key={s.scoring_category_id} style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: INK }}>{s.name}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: GOLD }}>{s.player != null ? s.player.toFixed(1) : "—"}<span style={{ color: "#9aa0aa", fontWeight: 400 }}> / {scale}</span></span>
+                  </div>
+                  <div style={{ position: "relative", height: 10 }}>
+                    <Bar pct={pPct} h={10} />
+                    {gPct != null && <div title="Group average" style={{ position: "absolute", top: -3, bottom: -3, left: `calc(${Math.min(100, gPct)}% - 1px)`, width: 2, background: "#9aa0aa" }} />}
+                    {tPct != null && <div title="Top of group" style={{ position: "absolute", top: -3, bottom: -3, left: `calc(${Math.min(100, tPct)}% - 1px)`, width: 2, background: INK }} />}
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+        )}
+
+        {/* ── Objective testing ── */}
+        {testingProfile.length > 0 && (
+          <Section title="Objective testing" kicker="The numbers don't lie">
+            <div style={{ fontSize: 12, color: "#4a4434", lineHeight: 1.6, marginBottom: 16, background: GOLD_SOFT, borderRadius: 12, padding: "12px 16px" }}>
+              These are measured results — same drills, same clock for everyone. Lower is better. The goal is simple:
+              <b> beat these numbers next time you test.</b> Put in the work and the bars move.
+            </div>
+            {testingProfile.filter(t => t.player_best != null).map(t => {
+              const maxV = Math.max(t.player_best, t.group_avg ?? 0, t.group_best ?? 0) * 1.12 || 1;
+              const isBest = t.group_best != null && t.player_best <= t.group_best + 0.0005;
+              const gap = t.group_best != null ? Math.round((t.player_best - t.group_best) * 1000) / 1000 : null;
+              const rows = [
+                { label: firstName, v: t.player_best, color: GOLD, strong: true },
+                { label: "Group average", v: t.group_avg, color: "#9aa0aa" },
+                { label: "Group best", v: t.group_best, color: INK },
+              ].filter(r => r.v != null);
+              return (
+                <div key={t.test_name} style={{ marginBottom: 16, border: "1px solid #eee7d6", borderRadius: 12, padding: "12px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: INK }}>{t.test_name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isBest ? "#2f8f2f" : GOLD }}>
+                      {isBest ? "Group best — outstanding" : `${gap}s off the group best`}
+                    </span>
+                  </div>
+                  {rows.map(r => (
+                    <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
+                      <span style={{ width: 92, fontSize: 11, color: r.strong ? INK : "#6b7280", fontWeight: r.strong ? 700 : 400, flexShrink: 0 }}>{r.label}</span>
+                      <Bar pct={(r.v / maxV) * 100} color={r.color} h={r.strong ? 9 : 6} />
+                      <span style={{ width: 44, textAlign: "right", fontSize: 11.5, fontWeight: r.strong ? 700 : 500, color: r.strong ? GOLD : "#4a4434" }}>{r.v.toFixed(3)}</span>
                     </div>
                   ))}
                 </div>
-                {Object.keys(byEval).length > 1 && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Per Evaluator</div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                      <thead>
-                        <tr style={{ background: "#f9fafb" }}>
-                          <th style={{ padding: "4px 8px", textAlign: "left", color: "#6b7280", fontWeight: 600 }}>Evaluator</th>
-                          {[...new Set(scores.filter(s => s.session_number === session.session_number).map(s => s.category_name))].map(cat => (
-                            <th key={cat} style={{ padding: "4px 8px", textAlign: "center", color: "#6b7280", fontWeight: 600 }}>{cat}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(byEval).map(([evalName, cats]) => (
-                          <tr key={evalName} style={{ borderTop: "1px solid #f3f4f6" }}>
-                            <td style={{ padding: "4px 8px", color: "#374151" }}>{evalName}</td>
-                            {[...new Set(scores.filter(s => s.session_number === session.session_number).map(s => s.category_name))].map(cat => (
-                              <td key={cat} style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600, color: "#111827" }}>{cats[cat] || "—"}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+              );
+            })}
+          </Section>
+        )}
 
-      {/* Notes */}
-      {notes.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${ORANGE}`, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Evaluator Notes</div>
-          {sessions.map(s => {
-            const sNotes = notes.filter(n => n.session_number === s.session_number);
-            if (!sNotes.length) return null;
-            return (
-              <div key={s.session_number} style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Session {s.session_number} — {s.session_type}</div>
-                {sNotes.map((n, i) => (
-                  <div key={i} style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 8, padding: "10px 14px", marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", marginBottom: 4 }}>{n.evaluator_name}</div>
-                    <div style={{ color: "#374151", lineHeight: 1.6 }}>{n.note_text}</div>
-                  </div>
-                ))}
+        {/* ── Plan of action ── */}
+        {(skillFocus.length > 0 || testFocus.length > 0 || standing) && (
+          <Section title="Plan of action" kicker="Where to put the work">
+            <div style={{ color: "#1f2430", lineHeight: 1.7 }}>
+              {standing && <p style={{ marginTop: 0 }}>{firstName} came in <b>{standing.tier}</b> ({standing.band.toLowerCase()} of the group). Here's the most direct path to climb:</p>}
+              {skillFocus.length > 0 && (
+                <>
+                  <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Skills to develop</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {skillFocus.map(s => (
+                      <li key={s.scoring_category_id} style={{ marginBottom: 6 }}>
+                        <b>{s.name}</b> — scored {s.player.toFixed(1)}; the top of the group sits around {s.top.toFixed(1)} (a {s.gap.toFixed(1)}-point gap). The single biggest lever to move up.
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {testFocus.length > 0 && (
+                <>
+                  <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Testing to chase</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {testFocus.map(t => (
+                      <li key={t.test_name} style={{ marginBottom: 6 }}>
+                        <b>{t.test_name}</b> — best of {t.player_best.toFixed(3)}, ~{t.gap.toFixed(3)}s behind the group's best ({t.group_best.toFixed(3)}). Trainable with focused reps.
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p style={{ marginBottom: 0, marginTop: 14, color: "#4a4434" }}>
+                Hit these in your training now and over the off-season, then come back and crush these numbers at the next evaluation. The work shows up on the sheet.
+              </p>
+            </div>
+          </Section>
+        )}
+
+        {/* ── Evaluator observations ── */}
+        {notes.length > 0 && (
+          <Section title="What the evaluators saw" kicker="Selected observations">
+            {notes.slice(0, 8).map((n, i) => (
+              <div key={i} style={{ borderLeft: `3px solid ${GOLD}`, paddingLeft: 14, marginBottom: 12 }}>
+                <div style={{ color: "#1f2430", lineHeight: 1.6, fontStyle: "italic" }}>&ldquo;{n.note_text}&rdquo;</div>
+                <div style={{ fontSize: 10.5, color: "#9aa0aa", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.08em" }}>Session {n.session_number}</div>
               </div>
-            );
-          })}
+            ))}
+          </Section>
+        )}
+
+        {/* ── Footer ── */}
+        <div style={{ borderTop: `1px solid #eee7d6`, paddingTop: 16, marginTop: 8, display: "flex", justifyContent: "space-between", color: "#9aa0aa", fontSize: 10.5 }}>
+          <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>
+          <span>{category?.name} · {fullName} · Player Development Report</span>
         </div>
-      )}
-
-      {/* Footer */}
-      <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16, display: "flex", justifyContent: "space-between", color: "#9ca3af", fontSize: 11 }}>
-        <span>Sideline Star · Confidential — For internal use only</span>
-        <span>{data.category?.name} · {athlete.first_name} {athlete.last_name}</span>
       </div>
 
       <style>{`
         @media print {
-          @page { margin: 16mm; size: A4; }
+          @page { margin: 12mm; size: A4; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           button { display: none !important; }
         }
@@ -224,7 +240,7 @@ function PDFReportInner() {
 
 export default function PDFReportPage() {
   return (
-    <Suspense fallback={<div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>Preparing...</div>}>
+    <Suspense fallback={<div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>Preparing…</div>}>
       <PDFReportInner />
     </Suspense>
   );
