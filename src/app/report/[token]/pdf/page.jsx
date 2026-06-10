@@ -16,7 +16,7 @@ export default function PublicReportPDF({ params }) {
       });
   }, [token]);
 
-  if (!data) return <div style={{ padding: 40, textAlign: "center", color: "#999" }}>Loading report...</div>;
+  if (!data) return <div data-theme="premium-light" style={{ padding: 40, textAlign: "center", color: "#999" }}>Loading report...</div>;
 
   const { athlete, category_name, org_name, rank, total_athletes, percentile, overall_avg, scale, sessions, scores, notes, scouting_report } = data;
 
@@ -30,14 +30,14 @@ export default function PublicReportPDF({ params }) {
   const categories = [...new Map((scores || []).map(s => [s.scoring_category_id, { id: s.scoring_category_id, name: s.category_name, order: s.display_order }])).values()].sort((a, b) => a.order - b.order);
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 40px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: 13, color: "#111" }}>
+    <div data-theme="premium-light" style={{ maxWidth: 800, margin: "0 auto", padding: "20px 40px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: 13, color: "#111" }}>
       <style>{`
         @media print { @page { size: A4; margin: 16mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         table { width: 100%; border-collapse: collapse; } th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #eee; } th { font-size: 11px; color: #666; font-weight: 500; text-transform: uppercase; background: #f9fafb; }
       `}</style>
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #0b5cd6, #3b82f6)", borderRadius: 12, padding: "24px 32px", color: "white", marginBottom: 24 }}>
+      <div style={{ background: "linear-gradient(135deg, #c79a2c, #c79a2c)", borderRadius: 12, padding: "24px 32px", color: "white", marginBottom: 24 }}>
         <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Sideline Star</div>
         <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>Player Evaluation Report</div>
       </div>
@@ -47,7 +47,7 @@ export default function PublicReportPDF({ params }) {
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>{athlete.first_name} {athlete.last_name}</div>
           <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-            {athlete.position && <span style={{ background: "#EFF6FF", color: "#1D4ED8", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, marginRight: 8 }}>{athlete.position}</span>}
+            {athlete.position && <span style={{ background: "#faf3e0", color: "#a87f1c", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, marginRight: 8 }}>{athlete.position}</span>}
             {category_name} · {org_name}
           </div>
         </div>
@@ -60,7 +60,7 @@ export default function PublicReportPDF({ params }) {
       {/* Stats Row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
         {[
-          { label: "Overall Rank", value: `#${rank || "—"}`, color: "#0b5cd6" },
+          { label: "Overall Rank", value: `#${rank || "—"}`, color: "#c79a2c" },
           { label: "Percentile", value: percentile !== null ? `${percentile}%` : "—", color: "#16a34a" },
           { label: "Avg Score", value: `${overall_avg || "—"}/${scale}`, color: "#111" },
           { label: "Athletes", value: total_athletes, color: "#111" },
@@ -118,7 +118,7 @@ export default function PublicReportPDF({ params }) {
       {scouting_report && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#333", fontFamily: "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>Scouting Report</div>
-          <div style={{ borderLeft: "4px solid #0b5cd6", paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap" }}>
+          <div style={{ borderLeft: "4px solid #c79a2c", paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap" }}>
             {scouting_report}
           </div>
           <div style={{ fontSize: 10, color: "#999", marginTop: 8 }}>Generated from evaluator observations using AI analysis</div>

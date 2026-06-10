@@ -6,7 +6,7 @@ import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsight
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Sun, Moon
+  Download, FileText, LogOut, Search, X, AlertTriangle
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -17,6 +17,8 @@ import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
 import { generateICS, downloadICS } from "@/lib/calendar";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -46,13 +48,7 @@ export default function CategoryDashboard({
 
   const [activeTab, setActiveTab] = useState("rankings");
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
-  const [theme, setTheme] = useState("premium"); // premium (dark/gold) | premium-light (light/gold) — user toggle, persisted
-  useEffect(() => {
-    try { const t = localStorage.getItem("ss_cat_theme"); if (t === "premium" || t === "premium-light") setTheme(t); else if (t === "light") setTheme("premium-light"); } catch {}
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem("ss_cat_theme", theme); } catch {}
-  }, [theme]);
+  const [theme, toggleTheme] = useTheme();
   const [scoresOpen, setScoresOpen] = useState(false);
   const [analysisView, setAnalysisView] = useState("insights"); // insights | reports
   // Shared search box used by Rankings + Athletes tabs. Client-side filter
@@ -353,11 +349,7 @@ export default function CategoryDashboard({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setTheme(t => t === "premium" ? "premium-light" : "premium")} title="Toggle light / dark"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-                  {theme === "premium" ? <Sun size={15} /> : <Moon size={15} />}
-                  <span className="hidden sm:inline">{theme === "premium" ? "Light" : "Dark"}</span>
-                </button>
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 {directorsData?.directors?.length > 0 ? (
                   <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
@@ -392,11 +384,7 @@ export default function CategoryDashboard({
                 </div>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <button onClick={() => setTheme(t => t === "premium" ? "premium-light" : "premium")} title="Toggle light / dark"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-                  {theme === "premium" ? <Sun size={15} /> : <Moon size={15} />}
-                  <span className="hidden sm:inline">{theme === "premium" ? "Light" : "Dark"}</span>
-                </button>
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 {categorySwitcher}
                 <button onClick={onSignOut}
                   className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">

@@ -20,7 +20,7 @@ function PDFReportInner() {
   }, [athleteId, catId]);
 
   if (!data) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "sans-serif", color: "#6b7280" }}>
+    <div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "sans-serif", color: "#6b7280" }}>
       Preparing report...
     </div>
   );
@@ -68,16 +68,16 @@ function PDFReportInner() {
     return { session: s, sd, byEval, catAvgs };
   });
 
-  const ORANGE = "#0b5cd6";
+  const ORANGE = "#c79a2c";
   const LIGHT = "#fff7f4";
   const agreementColor = (pct) => pct >= 95 ? "#16a34a" : pct >= 80 ? "#d97706" : "#dc2626";
   const agreementBg = (pct) => pct >= 95 ? "#f0fdf4" : pct >= 80 ? "#fffbeb" : "#fef2f2";
 
   return (
-    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 800, margin: "0 auto", padding: "32px 24px", color: "#111827", fontSize: 13 }}>
+    <div data-theme="premium-light" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 800, margin: "0 auto", padding: "32px 24px", color: "#111827", fontSize: 13 }}>
 
       {/* Header */}
-      <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #3b82f6)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
+      <div style={{ background: `linear-gradient(135deg, ${ORANGE}, #c79a2c)`, borderRadius: 16, padding: "24px 28px", marginBottom: 24, color: "white" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Sideline Star · Player Report</div>
@@ -224,7 +224,7 @@ function PDFReportInner() {
 
 export default function PDFReportPage() {
   return (
-    <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>Preparing...</div>}>
+    <Suspense fallback={<div data-theme="premium-light" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>Preparing...</div>}>
       <PDFReportInner />
     </Suspense>
   );

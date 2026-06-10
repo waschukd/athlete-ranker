@@ -217,6 +217,7 @@ body {
 [data-theme="premium-light"] .border-accent\/20,
 [data-theme="premium-light"] .border-accent\/30,
 [data-theme="premium-light"] .border-blue-200,
+[data-theme="premium-light"] .border-\[\#0b5cd6\],
 [data-theme="premium-light"] .border-\[\#0b5cd6\]\/25,
 [data-theme="premium-light"] .border-\[\#0b5cd6\]\/30,
 [data-theme="premium-light"] .hover\:border-accent\/40:hover,
@@ -246,10 +247,11 @@ body {
 }
 .ss-hero-scrim {
   position:absolute; inset:0;
+  /* balanced (centered) scrim — even left/right so centered copy reads,
+     darker top & bottom, plus a vignette to focus the middle */
   background:
-    linear-gradient(90deg, rgba(6,6,6,0.95) 0%, rgba(6,6,6,0.86) 30%, rgba(6,6,6,0.38) 60%, rgba(6,6,6,0.62) 100%),
-    linear-gradient(180deg, rgba(6,6,6,0.88) 0%, transparent 24%, transparent 56%, rgba(6,6,6,0.94) 100%),
-    radial-gradient(130% 100% at 50% 45%, transparent 52%, rgba(0,0,0,0.55) 100%);
+    linear-gradient(180deg, rgba(6,6,6,0.86) 0%, rgba(6,6,6,0.52) 32%, rgba(6,6,6,0.58) 66%, rgba(6,6,6,0.93) 100%),
+    radial-gradient(120% 95% at 50% 45%, rgba(0,0,0,0.12) 38%, rgba(0,0,0,0.62) 100%);
 }
 .ss-grain::before {
   content:""; position:absolute; inset:0; z-index:30; pointer-events:none;
