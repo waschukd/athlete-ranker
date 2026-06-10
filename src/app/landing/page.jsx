@@ -39,8 +39,8 @@ export default function LandingPage() {
         <div className="ss-hero-bg" />
         <div className="ss-hero-scrim" />
 
-        <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-10 flex items-center min-h-screen">
-          <div className="max-w-2xl pt-24 pb-16" style={{ textShadow: "0 2px 24px rgba(0,0,0,0.7)" }}>
+        <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-center min-h-screen">
+          <div className="max-w-2xl mx-auto text-center pt-24 pb-16" style={{ textShadow: "0 2px 24px rgba(0,0,0,0.7)" }}>
             <span className="ss-reveal ss-d2 font-mono text-accent text-[11px] uppercase tracking-[0.32em] inline-flex items-center gap-2">
               <span className="inline-block w-6 h-px bg-accent/70" />
               Built with evaluators, not for them
@@ -51,13 +51,13 @@ export default function LandingPage() {
               <span className="italic text-accent"> gets it.</span>
             </h2>
 
-            <p className="ss-reveal ss-d4 text-gray-500 text-base lg:text-lg leading-relaxed mt-7 max-w-xl">
+            <p className="ss-reveal ss-d4 text-gray-500 text-base lg:text-lg leading-relaxed mt-7 max-w-xl mx-auto">
               Every other tool was built by software people guessing at the process. Sideline Star was
               shaped by the evaluators, association admins, and service providers who actually run the
               ice — voice-fast scoring, offline-proof, with instant rankings and reports.
             </p>
 
-            <div className="ss-reveal ss-d5 mt-10">
+            <div className="ss-reveal ss-d5 mt-10 flex justify-center">
               <Link href="/account/signin" className="inline-flex px-8 py-3.5 bg-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform">
                 Get Started
               </Link>
