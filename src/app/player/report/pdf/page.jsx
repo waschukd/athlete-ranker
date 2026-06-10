@@ -44,13 +44,33 @@ function PDFReportInner() {
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
 
-  // Skill focus: biggest gaps to the top of the group
+  // Foundational priority — skating is the base everything builds on, then
+  // hands, then sense, etc. We attack the biggest gaps, but order them so the
+  // most foundational one is recommended FIRST (it lifts the others).
+  const FOUNDATION = ["power skat", "skat", "edge", "balance", "puck", "stick", "hand", "iq", "sense", "position", "compete", "battle", "shot", "shoot", "pass"];
+  const foundationRank = (name) => {
+    const n = (name || "").toLowerCase();
+    const i = FOUNDATION.findIndex(f => n.includes(f));
+    return i < 0 ? 999 : i;
+  };
+  const cascadeFor = (name) => {
+    const n = (name || "").toLowerCase();
+    if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
+      return "the foundation everything else is built on — stronger edges, balance and top speed make puck control, shooting and compete battles all easier, so improving it first tends to lift the other scores with it";
+    if (n.includes("puck") || n.includes("stick") || n.includes("hand"))
+      return "a high-leverage base skill — once the hands are reliable at speed, hockey sense and shooting under pressure improve on their own";
+    if (n.includes("iq") || n.includes("sense") || n.includes("position"))
+      return "where reads make every physical tool more effective — being in the right place beats raw speed";
+    return "the highest-leverage gap to close first; the areas below get easier once it's in place";
+  };
+  // biggest gaps to the top, re-ordered foundation-first
   const skillFocus = skillProfile
     .filter(s => s.player != null && s.top != null)
     .map(s => ({ ...s, gap: Math.round((s.top - s.player) * 10) / 10 }))
     .filter(s => s.gap > 0)
     .sort((a, b) => b.gap - a.gap)
-    .slice(0, 3);
+    .slice(0, 4)
+    .sort((a, b) => foundationRank(a.name) - foundationRank(b.name) || b.gap - a.gap);
 
   // Testing focus: biggest gaps to the group best (lower = better, so positive gap = behind)
   const testFocus = testingProfile
@@ -176,22 +196,35 @@ function PDFReportInner() {
         {(skillFocus.length > 0 || testFocus.length > 0 || standing) && (
           <Section title="Plan of action" kicker="Where to put the work">
             <div style={{ color: "#1f2430", lineHeight: 1.7 }}>
-              {standing && <p style={{ marginTop: 0 }}>{firstName} came in <b>{standing.tier}</b> ({standing.band.toLowerCase()} of the group). Here's the most direct path to climb:</p>}
-              {skillFocus.length > 0 && (
-                <>
-                  <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Skills to develop</div>
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {skillFocus.map(s => (
-                      <li key={s.scoring_category_id} style={{ marginBottom: 6 }}>
-                        <b>{s.name}</b> — scored {s.player.toFixed(1)}; the top of the group sits around {s.top.toFixed(1)} (a {s.gap.toFixed(1)}-point gap). The single biggest lever to move up.
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
+              {standing && <p style={{ marginTop: 0 }}>{firstName} graded out <b>{standing.tier}</b> ({standing.band.toLowerCase()} of the group). If they invest in development, the order matters — build the foundation first and the rest compounds. Here's the path we'd recommend:</p>}
+              {skillFocus.length > 0 && (() => {
+                const primary = skillFocus[0];
+                const rest = skillFocus.slice(1);
+                return (
+                  <>
+                    <div style={{ background: GOLD_SOFT, borderRadius: 12, padding: "14px 18px", margin: "14px 0" }}>
+                      <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 6 }}>Start here — the foundation</div>
+                      <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: INK, marginBottom: 4 }}>1. {primary.name}</div>
+                      <div style={{ color: "#4a4434" }}>{primary.name} is {cascadeFor(primary.name)}. It's a {primary.gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
+                    </div>
+                    {rest.length > 0 && (
+                      <>
+                        <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Then, in order</div>
+                        <ol start={2} style={{ margin: 0, paddingLeft: 18 }}>
+                          {rest.map(s => (
+                            <li key={s.scoring_category_id} style={{ marginBottom: 6 }}>
+                              <b>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group; gets easier once the foundation above is in place.
+                            </li>
+                          ))}
+                        </ol>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
               {testFocus.length > 0 && (
                 <>
-                  <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Testing to chase</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginTop: 14, marginBottom: 8 }}>Objective targets to chase</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {testFocus.map(t => (
                       <li key={t.test_name} style={{ marginBottom: 6 }}>
@@ -202,7 +235,7 @@ function PDFReportInner() {
                 </>
               )}
               <p style={{ marginBottom: 0, marginTop: 14, color: "#4a4434" }}>
-                Hit these in your training now and over the off-season, then come back and crush these numbers at the next evaluation. The work shows up on the sheet.
+                Attack the foundation now and through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.
               </p>
             </div>
           </Section>
