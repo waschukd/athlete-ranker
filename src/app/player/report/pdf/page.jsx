@@ -89,7 +89,7 @@ function PDFReportInner() {
   );
 
   return (
-    <div data-theme="premium-light" style={{ fontFamily: SANS, maxWidth: 820, margin: "0 auto", padding: "0 0 40px", color: "#1f2430", fontSize: 13, background: "#fff" }}>
+    <div className="ssrpt" data-theme="premium-light" style={{ fontFamily: SANS, maxWidth: 720, margin: "0 auto", padding: "0 0 40px", color: "#1f2430", fontSize: 13.5, lineHeight: 1.6, background: "#fff" }}>
 
       {/* ── Cover band ── */}
       <div style={{ background: `linear-gradient(135deg, #2a2a2a, #111)`, padding: "34px 36px", color: "#f4f1ea", position: "relative", overflow: "hidden" }}>
@@ -261,8 +261,9 @@ function PDFReportInner() {
       </div>
 
       <style>{`
+        @page { size: A4; margin: 14mm; }
         @media print {
-          @page { margin: 12mm; size: A4; }
+          .ssrpt { max-width: none !important; width: 100% !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           button { display: none !important; }
         }
