@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, User, FileText, BarChart3, Zap, Download, Loader } from "lucide-react";
+import { ArrowLeft, User, Users, FileText, BarChart3, Zap, Download, Loader } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -269,11 +269,16 @@ function PlayerReportInner() {
             {/* Action buttons. Parent access (paywall/share) is controlled by the
                 Service Provider, not the director — so no "Share with Parent" here.
                 Export PDF prints this internal data report (see exportInternalPdf). */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 print:hidden">
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <a
+                href={`/player/compare?cat=${catId}&athletes=${athleteId}`}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <Users size={14} /> Compare
+              </a>
               <button
                 onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 print:hidden">
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
                 <Download size={14} /> Export PDF
               </button>
             </div>
