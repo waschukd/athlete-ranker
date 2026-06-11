@@ -174,13 +174,12 @@
         <p style="margin-top:0;">If Timmy invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
         <div class="plan">
           <div class="planK">Start here — the foundation</div>
-          <div style="font-family:var(--serif);font-weight:700;font-size:18px;color:#fff;margin-bottom:4px;">1. Power Skating</div>
-          <div style="color:#c7cbd2;">This is the biggest gap to the top of the group <b style="color:#fff;">and</b> the foundation everything else is built on. Stronger edges, balance and top speed make puck control, shooting and compete battles all easier — improve skating first and the other scores tend to rise with it. If Timmy invests in one thing this off-season, make it power skating.</div>
+          <div style="font-family:var(--serif);font-weight:700;font-size:18px;color:#fff;margin-bottom:4px;">1. Skating</div>
+          <div style="color:#c7cbd2;">This is the biggest gap to the top of the group <b style="color:#fff;">and</b> the foundation everything else is built on. Stronger edges, balance and top speed make puck skills, shooting and compete battles all easier — improve skating first and the other scores tend to rise with it. If Timmy invests in one thing this off-season, make it skating.</div>
         </div>
         <div class="planK" style="margin:11px 0 6px;">Then, in order</div>
         <ol>
-          <li><b style="color:#fff;">Puck Control</b> — ~1.9 behind the top of the group. With a stronger skating base, hands at speed come faster; protect pucks and delay rather than forcing plays.</li>
-          <li><b style="color:#fff;">Shot</b> — ~0.9 behind the top. Quicker, less-telegraphed release; climbs naturally once the legs and hands are sorted.</li>
+          <li><b style="color:#fff;">Puck Skills</b> — ~1.9 behind the top of the group. With a stronger skating base, hands at speed come faster; protect pucks and delay rather than forcing plays.</li>
           <li><b style="color:#fff;">Hockey IQ</b> — ~0.6 behind. Already a relative strength — small read-and-react gains keep it there.</li>
         </ol>
         <p style="margin:11px 0 0;color:#c7cbd2;">The two objective targets to chase first — <b style="color:#fff;">Weave Agility</b> and <b style="color:#fff;">30M with Puck</b> — both tie straight back to power skating. Attack the foundation through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
@@ -235,14 +234,13 @@
     </div>`;
   }).join("");
 
-  /* ── Skill profile ── */
+  /* ── Skill profile (typical four: Skating, Puck Skills, Hockey IQ, Effort & Compete) ── */
   const scale = 10;
   const skills = [
-    { name:"Power Skating", player:6.3, group:6.5, top:8.6 },
-    { name:"Puck Control", player:6.2, group:6.0, top:8.1 },
+    { name:"Skating", player:6.3, group:6.5, top:8.6 },
+    { name:"Puck Skills", player:6.2, group:6.0, top:8.1 },
     { name:"Hockey IQ", player:7.4, group:6.1, top:8.0 },
-    { name:"Compete", player:8.8, group:6.7, top:8.9 },
-    { name:"Shot", player:6.9, group:6.3, top:7.8 },
+    { name:"Effort & Compete", player:8.8, group:6.7, top:8.9 },
   ];
   const skillPill = (p,g,top) => {
     if (p >= top-0.2) return { bg:"rgba(80,200,120,.16)", c:"#5fd08a", t:"Strength" };
@@ -250,19 +248,36 @@
     if (p >= g-0.6)   return { bg:"var(--gold-soft)", c:"#cda434", t:"Around average" };
     return { bg:"rgba(224,138,42,.16)", c:"#e0944a", t:"Focus area" };
   };
+  const skillInfo = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes("skat")) return "Edges, speed, balance and explosiveness on the ice.";
+    if (n.includes("puck")) return "Control, protection and hands at game speed.";
+    if (n.includes("iq")||n.includes("hockey")) return "Reads, positioning and decisions with and without the puck.";
+    if (n.includes("compete")||n.includes("effort")) return "Work rate, battle level and consistency shift to shift.";
+    return "";
+  };
+  const skillInterp = (s) => {
+    const f = v => v.toFixed(1);
+    if (s.player >= s.top-0.2) return `A genuine strength — at ${f(s.player)}, Timmy is right with the top of the group (${f(s.top)}). Keep it sharp and lean on it.`;
+    if (s.player >= s.group)   return `Above the group average (${f(s.group)}) at ${f(s.player)}; the next target is closing the gap to the top of the group (${f(s.top)}).`;
+    if (s.player >= s.group-0.6) return `Right around the group average (${f(s.group)}). This is the kind of gap that closes fast with a focused block of reps.`;
+    return `The clearest area to attack — ${f(s.player)} against a group average of ${f(s.group)} and a top of ${f(s.top)}. The single biggest opportunity to climb.`;
+  };
   const brow = (k, val, color, strong) => `
-    <div class="brow">
-      <span class="bk" style="color:${strong?'#fff':'#8b8f99'};font-weight:${strong?700:500};">${k}</span>
-      <div class="bar"><span style="width:${Math.max(2,(val/scale)*100)}%;background:${color};"></span></div>
-      <span class="bv" style="color:${strong?GOLD:'#aeb2bb'};">${val.toFixed(1)}</span>
+    <div class="brow" style="margin-bottom:6px;">
+      <span class="bk" style="width:96px;font-size:10.5px;color:${strong?'#fff':'#8b8f99'};font-weight:${strong?700:500};">${k}</span>
+      <div class="bar" style="height:10px;"><span style="width:${Math.max(2,(val/scale)*100)}%;background:${color};"></span></div>
+      <span class="bv" style="width:36px;font-size:13px;color:${strong?GOLD:'#aeb2bb'};">${val.toFixed(1)}</span>
     </div>`;
   document.getElementById("skills").innerHTML = skills.map(s => {
     const p = skillPill(s.player,s.group,s.top);
-    return `<div class="scard">
-      <div class="scardTop"><span class="scardName">${s.name}</span><span class="pill" style="background:${p.bg};color:${p.c};">${p.t}</span></div>
+    return `<div class="scard" style="padding:14px 18px;margin-bottom:12px;border-radius:14px;">
+      <div class="scardTop" style="margin-bottom:0;"><span class="scardName" style="font-size:15px;">${s.name}</span><span class="pill" style="background:${p.bg};color:${p.c};padding:4px 11px;">${p.t}</span></div>
+      <div style="font-size:10.5px;color:var(--muted);margin:3px 0 11px;">${skillInfo(s.name)}</div>
       ${brow("Timmy", s.player, "linear-gradient(90deg,#e3c560,#cda434)", true)}
       ${brow("Group avg", s.group, "#5f636c", false)}
       ${brow("Top of group", s.top, "#d8dade", false)}
+      <div style="margin-top:10px;padding-top:11px;border-top:1px solid var(--line);font-size:11.5px;color:#c7cbd2;line-height:1.5;">${skillInterp(s)}</div>
     </div>`;
   }).join("");
 

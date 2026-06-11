@@ -30,6 +30,19 @@ function testInfo(name) {
 }
 const fmt = (v) => (v == null ? "—" : v.toFixed(2));
 
+// What each graded skill actually measures (typical four: Skating, Puck Skills,
+// Hockey IQ, Effort & Compete) — keyword-matched so custom category names still resolve.
+function skillInfo(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "Edges, speed, balance and explosiveness on the ice.";
+  if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "Control, protection and hands at game speed.";
+  if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "Reads, positioning and decisions with and without the puck.";
+  if (n.includes("compete") || n.includes("effort") || n.includes("battle") || n.includes("work")) return "Work rate, battle level and consistency shift to shift.";
+  if (n.includes("shot") || n.includes("shoot")) return "Release, accuracy and how the shot threatens off the rush.";
+  if (n.includes("pass")) return "Vision and accuracy moving the puck.";
+  return "";
+}
+
 export function ReportFonts() {
   return <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
 }
@@ -163,22 +176,35 @@ export default function DevelopmentReport({ data }) {
             <div style={leadStyle}>Beyond the clock, evaluators graded each skill by eye over the sessions. Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
             {skillProfile.map(s => {
               const p = skillPill(s.player, s.group, s.top);
+              // Data-driven interpretation, scaled to where the player sits.
+              let interp = "";
+              if (s.player != null) {
+                const f = (v) => (v != null ? v.toFixed(1) : "—");
+                if (s.top != null && s.player >= s.top - 0.2) interp = `A genuine strength — at ${f(s.player)}, ${firstName} is right with the top of the group (${f(s.top)}). Keep it sharp and lean on it.`;
+                else if (s.group != null && s.player >= s.group) interp = `Above the group average (${f(s.group)}) at ${f(s.player)}; the next target is closing the gap to the top of the group (${f(s.top)}).`;
+                else if (s.group != null && s.player >= s.group - 0.6) interp = `Right around the group average (${f(s.group)}). This is the kind of gap that closes fast with a focused block of reps.`;
+                else interp = `The clearest area to attack — ${f(s.player)} against a group average of ${f(s.group)} and a top of ${f(s.top)}. The single biggest opportunity to climb.`;
+              }
+              const sub = skillInfo(s.name);
               const brow = (k, val, color, strong) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3 }}>
-                  <span style={{ width: 92, flexShrink: 0, fontSize: 10, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
-                  <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
-                  <span style={{ width: 34, textAlign: "right", fontFamily: NUM, fontSize: 12, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
+                  <div style={{ flex: 1, height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
+                  <span style={{ width: 36, textAlign: "right", fontFamily: NUM, fontSize: 13, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
                 </div>
               );
               return (
-                <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 13, padding: "9px 16px", marginBottom: 8, background: "#101014", breakInside: "avoid" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{s.name}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 800, padding: "3px 10px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
+                <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 18px", marginBottom: 12, background: "#101014", breakInside: "avoid" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 11px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
                   </div>
+                  {sub && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 11px" }}>{sub}</div>}
+                  {!sub && <div style={{ height: 8 }} />}
                   {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
                   {brow("Group avg", s.group, "#5f636c", false)}
                   {brow("Top of group", s.top, "#d8dade", false)}
+                  {interp && <div style={{ marginTop: 10, paddingTop: 11, borderTop: `1px solid ${LINE}`, fontSize: 11.5, color: "#c7cbd2", lineHeight: 1.5 }}>{interp}</div>}
                 </div>
               );
             })}
