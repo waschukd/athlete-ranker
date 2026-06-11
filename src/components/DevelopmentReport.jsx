@@ -79,7 +79,11 @@ export default function DevelopmentReport({ data }) {
     </div>
   );
   const leadStyle = { fontSize: 11.5, color: GRAY, lineHeight: 1.5, marginBottom: 11 };
-  const newPage = { breakBefore: "page", paddingTop: 42 };
+  // Sections flow and tile tightly — NOT one-per-page. Each is kept whole
+  // (break-inside:avoid) so an overflowing tail never strands a near-blank
+  // page, and carries a top pad so when a whole section does land at a page
+  // top it still has breathing room (with @page margin:0 for full-bleed dark).
+  const section = { paddingTop: 30, breakInside: "avoid", pageBreakInside: "avoid" };
 
   return (
     <div className="ssrpt" style={{ fontFamily: SANS, maxWidth: 720, margin: "0 auto", color: TXT, fontSize: 13, lineHeight: 1.55, background: BG }}>
@@ -148,7 +152,7 @@ export default function DevelopmentReport({ data }) {
 
         {/* Skill profile + progress trend */}
         {skillProfile.length > 0 && (
-          <div style={{ marginBottom: 10, ...newPage }}>
+          <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Evaluator scores vs the group" title="Skill profile" />
             <div style={leadStyle}>Beyond the clock, evaluators graded each skill by eye over the sessions. Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
             {skillProfile.map(s => {
@@ -203,7 +207,7 @@ export default function DevelopmentReport({ data }) {
 
         {/* Evaluator notes */}
         {notes.length > 0 && (
-          <div style={{ marginBottom: 10, ...newPage }}>
+          <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Selected observations" title="What the evaluators saw" />
             <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play.</div>
             {notes.slice(0, 10).map((n, i) => (
@@ -217,7 +221,7 @@ export default function DevelopmentReport({ data }) {
 
         {/* Summary & recommendations */}
         {(standing || skillFocus.length > 0 || testFocus.length > 0) && (
-          <div style={{ marginBottom: 10, ...newPage }}>
+          <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="The bottom line" title="Summary & recommendations" />
             {standing && (
               <div style={{ display: "flex", alignItems: "center", gap: 22, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "12px 20px", breakInside: "avoid" }}>
