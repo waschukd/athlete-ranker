@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sideline Star | Live Scoring</title>
+<link rel="stylesheet" href="ss-premium.css">
+<style>
+  /* ---- scoring-app specific components (existing tokens only) ---- */
+  body { overflow-x: hidden; }
+
+  .console { max-width: 1500px; margin: 0 auto; padding: 26px 32px 48px; }
+
+  /* tailored topbar */
+  .scorebar { height: 76px; border-bottom: 1px solid var(--outline); display: flex;
+    align-items: center; justify-content: space-between; padding: 0 32px; position: sticky;
+    top: 0; z-index: 30; background: rgba(13,13,13,0.86); backdrop-filter: blur(8px); }
+  .scorebar .lead { display: flex; align-items: center; gap: 16px; }
+  .exit { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--outline);
+    background: var(--surface-2); color: var(--muted); display: flex; align-items: center;
+    justify-content: center; cursor: pointer; transition: all .15s; flex-shrink: 0; }
+  .exit:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .scorebar h2 { font-family: "Playfair Display", serif; font-size: 23px; margin: 0; line-height: 1; }
+  .scorebar .sub { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--muted-2);
+    letter-spacing: 0.16em; text-transform: uppercase; margin-top: 5px; }
+  .scorebar .right { display: flex; align-items: center; gap: 12px; }
+  .save-note { font-family: "JetBrains Mono", monospace; font-size: 8.5px; color: var(--muted-2);
+    letter-spacing: 0.12em; text-transform: uppercase; max-width: 168px; line-height: 1.5; text-align: right; }
+
+  /* roster strip */
+  .roster-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 2px 14px; }
+  .mini-link { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); cursor: pointer; display: inline-flex;
+    align-items: center; gap: 6px; transition: color .15s; }
+  .mini-link:hover { color: var(--gold); }
+  .mini-link .material-symbols-outlined { font-size: 16px; }
+
+  .roster { display: flex; gap: 16px; overflow-x: auto; padding: 6px 2px 16px; scrollbar-width: thin; }
+  .roster::-webkit-scrollbar { height: 6px; }
+  .roster::-webkit-scrollbar-track { background: #0c0c0c; }
+  .roster::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+  .jersey { flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+    gap: 7px; cursor: pointer; }
+  .token { position: relative; width: 58px; height: 58px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 16px; letter-spacing: 0.04em; transition: transform .12s, box-shadow .15s; }
+  .jersey:hover .token { transform: translateY(-2px); }
+  /* dark team */
+  .token.dark { background: var(--surface-2); border: 1.5px solid var(--gold-dim); color: var(--ink); }
+  /* light team */
+  .token.light { background: var(--ink); border: 1.5px solid var(--ink); color: var(--charcoal); }
+  .token.pending.dark { border-color: var(--outline); color: var(--muted); }
+  .token .check { position: absolute; top: -4px; right: -4px; font-size: 19px; color: var(--green);
+    background: var(--charcoal); border-radius: 50%; line-height: 1; }
+  .jersey .num { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    color: var(--muted-2); }
+  .jersey.selected .token { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(212,175,55,0.55); }
+  .jersey.selected .num { color: var(--gold); }
+
+  /* main scoring grid */
+  .score-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; margin-top: 10px; }
+  @media (max-width: 1080px) { .score-grid { grid-template-columns: 1fr; } }
+
+  .player-name { font-family: "Playfair Display", serif; font-size: 34px; line-height: 1.05; margin: 0; }
+  .player-meta { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted-2);
+    letter-spacing: 0.12em; text-transform: uppercase; margin: 9px 0 0; }
+
+  .cat-list { margin-top: 26px; display: flex; flex-direction: column; gap: 4px; }
+  .cat-row { display: grid; grid-template-columns: 140px 1fr 42px; align-items: center; gap: 18px;
+    padding: 14px 16px; border-radius: 8px; border-left: 3px solid transparent; transition: background .15s; }
+  .cat-row:hover { background: rgba(212,175,55,0.03); }
+  .cat-row.active { background: rgba(212,175,55,0.07); border-left-color: var(--gold); }
+  .cat-name { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink); }
+  .cat-row.active .cat-name { color: var(--gold); }
+  .cat-score { font-family: "Playfair Display", serif; font-size: 26px; color: var(--gold);
+    text-align: right; line-height: 1; }
+  .cat-score.empty { color: var(--muted-2); }
+
+  .hint { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--muted-2);
+    letter-spacing: 0.08em; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
+  .hint .material-symbols-outlined { font-size: 15px; color: var(--gold-dim); }
+  kbd { font-family: "JetBrains Mono", monospace; font-size: 9px; background: var(--surface-2);
+    border: 1px solid var(--outline); border-radius: 4px; padding: 2px 6px; color: var(--ink); }
+
+  .notes { width: 100%; margin-top: 22px; min-height: 88px; resize: vertical; border-radius: 8px;
+    border: 1px solid var(--outline); background: var(--surface-2); color: var(--ink);
+    font-family: "Inter", sans-serif; font-size: 14px; padding: 14px 16px; line-height: 1.5; }
+  .notes::placeholder { color: var(--muted-2); }
+  .notes:focus { outline: none; border-color: var(--gold-dim); }
+
+  /* numpad */
+  .numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 22px 0 8px; }
+  .num-tile { aspect-ratio: 1 / 1; border-radius: 10px; border: 1px solid var(--outline);
+    background: var(--surface-2); color: var(--ink); font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 22px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: transform .1s, border-color .15s, background .15s; }
+  .num-tile:hover { border-color: var(--gold-dim); transform: translateY(-2px); }
+  .num-tile.selected { background: var(--gold); color: var(--charcoal); border-color: var(--gold);
+    box-shadow: 0 0 22px rgba(212,175,55,0.45); }
+
+  .btn.full { width: 100%; justify-content: center; }
+  .pad-foot { font-family: "JetBrains Mono", monospace; font-size: 9px; color: var(--muted-2);
+    letter-spacing: 0.1em; text-transform: uppercase; text-align: center; margin-top: 16px; line-height: 1.6; }
+  .stack { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+</style>
+</head>
+
+<body>
+
+<!-- A) STICKY TOP BAR -->
+<header class="scorebar reveal d1">
+  <div class="lead">
+    <div class="exit" title="Exit session"><span class="material-symbols-outlined">chevron_left</span></div>
+    <div>
+      <h2 class="serif">U13 AA</h2>
+      <div class="sub">Session 5 · Group B · Northbridge Rink 2</div>
+    </div>
+  </div>
+  <div class="right">
+    <span class="pill green"><span class="dot green"></span>Saved · Synced</span>
+    <span class="save-note">flips to amber “Saving…” / red “Offline — backed up locally”</span>
+    <button class="btn btn-dark btn-sm"><span class="material-symbols-outlined" style="font-size:15px">view_compact</span>Compact</button>
+    <button class="btn btn-ghost btn-sm"><span class="material-symbols-outlined" style="font-size:15px">cloud_download</span>Backup</button>
+  </div>
+</header>
+
+<div class="console">
+
+  <!-- B) PLAYER ROSTER STRIP -->
+  <section class="reveal d2">
+    <div class="roster-head">
+      <span class="eyebrow">Group B · 18 Skaters</span>
+      <span class="mini-link"><span class="material-symbols-outlined">unfold_less</span>Minimize</span>
+    </div>
+    <div class="roster">
+      <!-- completed -->
+      <div class="jersey"><div class="token dark"><span class="material-symbols-outlined check">check_circle</span>C</div><span class="num">#7</span></div>
+      <div class="jersey"><div class="token light"><span class="material-symbols-outlined check">check_circle</span>LW</div><span class="num">#12</span></div>
+      <div class="jersey"><div class="token dark"><span class="material-symbols-outlined check">check_circle</span>RW</div><span class="num">#9</span></div>
+      <div class="jersey"><div class="token light"><span class="material-symbols-outlined check">check_circle</span>LD</div><span class="num">#4</span></div>
+      <div class="jersey"><div class="token dark"><span class="material-symbols-outlined check">check_circle</span>RD</div><span class="num">#22</span></div>
+      <div class="jersey"><div class="token light"><span class="material-symbols-outlined check">check_circle</span>G</div><span class="num">#31</span></div>
+      <div class="jersey"><div class="token dark"><span class="material-symbols-outlined check">check_circle</span>C</div><span class="num">#15</span></div>
+      <!-- selected -->
+      <div class="jersey selected"><div class="token light">LW</div><span class="num">#19</span></div>
+      <!-- pending -->
+      <div class="jersey"><div class="token pending dark">RW</div><span class="num">#11</span></div>
+      <div class="jersey"><div class="token light">LD</div><span class="num">#6</span></div>
+      <div class="jersey"><div class="token pending dark">RD</div><span class="num">#27</span></div>
+      <div class="jersey"><div class="token light">C</div><span class="num">#88</span></div>
+    </div>
+  </section>
+
+  <!-- C) MAIN SCORING AREA -->
+  <div class="score-grid">
+
+    <!-- LEFT: current player -->
+    <section class="card pad reveal d3">
+      <h1 class="player-name">#19&nbsp;&nbsp;Jake Anderson</h1>
+      <p class="player-meta">Left Wing · Shoots Left · 5'7" · Age 13</p>
+
+      <div class="cat-list">
+        <div class="cat-row active">
+          <span class="cat-name">Skating</span>
+          <div class="bar"><span style="width:80%"></span></div>
+          <span class="cat-score">8</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">Puck Control</span>
+          <div class="bar"><span style="width:70%"></span></div>
+          <span class="cat-score">7</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">Hockey IQ</span>
+          <div class="bar"><span style="width:90%"></span></div>
+          <span class="cat-score">9</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">Compete</span>
+          <div class="bar"><span style="width:80%"></span></div>
+          <span class="cat-score">8</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">Shot</span>
+          <div class="bar"><span style="width:60%"></span></div>
+          <span class="cat-score">6</span>
+        </div>
+      </div>
+
+      <div class="hint">
+        <span class="material-symbols-outlined">keyboard</span>
+        Press <kbd>1</kbd>–<kbd>10</kbd> to score · <kbd>Enter</kbd> / <kbd>Tab</kbd> / <kbd>→</kbd> advances to the next category
+      </div>
+
+      <textarea class="notes" placeholder="Quick note on Jake…"></textarea>
+    </section>
+
+    <!-- RIGHT: input pad -->
+    <section class="card pad reveal d4">
+      <span class="eyebrow">Score · Skating</span>
+      <div class="numpad">
+        <button class="num-tile">1</button>
+        <button class="num-tile">2</button>
+        <button class="num-tile">3</button>
+        <button class="num-tile">4</button>
+        <button class="num-tile">5</button>
+        <button class="num-tile">6</button>
+        <button class="num-tile">7</button>
+        <button class="num-tile selected">8</button>
+        <button class="num-tile">9</button>
+        <button class="num-tile">10</button>
+      </div>
+
+      <div class="stack">
+        <button class="btn btn-gold full">Save &amp; next player&nbsp;▶</button>
+        <button class="btn btn-ghost full">Skip player</button>
+      </div>
+
+      <p class="pad-foot">Auto-advances to next player<br/>when all categories are scored.</p>
+    </section>
+
+  </div>
+</div>
+
+</body>
+</html>

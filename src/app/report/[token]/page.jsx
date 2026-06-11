@@ -1,25 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trophy, BarChart3, FileText, Lock, Download, Star, TrendingUp, Users, ChevronDown, ChevronRight } from "lucide-react";
-import { useTheme } from "@/lib/useTheme";
-import ThemeToggle from "@/components/ThemeToggle";
+import { Lock, Download, Check } from "lucide-react";
+
+const GOLD = "#cda434";
+const BG = "#0b0b0d";
+const LINE = "rgba(255,255,255,0.08)";
+const GOLD_LINE = "rgba(205,164,52,0.3)";
+const SERIF = "'Playfair Display', Georgia, serif";
+const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 export default function PublicReportPage({ params }) {
   const { token } = params;
-  const [theme, toggleTheme] = useTheme();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
   const [unlocking, setUnlocking] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
   useEffect(() => {
-    // Check for payment return
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("payment") === "success") setPaymentStatus("success");
     if (urlParams.get("payment") === "cancelled") setPaymentStatus("cancelled");
-
     fetchData();
   }, [token]);
 
@@ -30,7 +31,7 @@ export default function PublicReportPage({ params }) {
     setLoading(false);
   };
 
-  // Poll briefly after payment success for webhook to fire
+  // Poll briefly after payment success for the webhook to flip the purchase.
   useEffect(() => {
     if (paymentStatus === "success" && data && !data.purchased) {
       const interval = setInterval(fetchData, 2000);
@@ -42,9 +43,7 @@ export default function PublicReportPage({ params }) {
   const handleUnlock = async () => {
     setUnlocking(true);
     const res = await fetch("/api/payments/create-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
     });
     const result = await res.json();
     if (result.already_purchased) { fetchData(); setUnlocking(false); return; }
@@ -52,302 +51,109 @@ export default function PublicReportPage({ params }) {
     else setUnlocking(false);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
-    </div>
-  );
+  const Fonts = () => <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
+  const shell = { minHeight: "100vh", background: BG, color: "#e9eaec", fontFamily: SANS };
 
-  if (!data) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6" data-theme="premium-light">
-      <div className="text-center">
-        <div className="text-5xl mb-4">🔗</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Report Not Found</h2>
-        <p className="text-gray-500 text-sm">This link is invalid or has expired.</p>
+  if (loading) return <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center" }}><Fonts /><span style={{ color: "#8b8f99" }}>Loading…</span></div>;
+  if (!data || data.error) return (
+    <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <Fonts />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div>
+        <h2 style={{ fontFamily: SERIF, fontSize: 22, color: "#fff", margin: 0 }}>Report Not Found</h2>
+        <p style={{ color: "#8b8f99", fontSize: 14 }}>This link is invalid or has expired.</p>
       </div>
     </div>
   );
 
-  const { athlete, category_name, org_name, rank, total_athletes, percentile, overall_avg, scale, sessions, purchased, price } = data;
-  const priceStr = `$${(price / 100).toFixed(2)}`;
-
-  const tabs = [
-    { id: "overview", label: "Overview", icon: BarChart3, locked: false },
-    { id: "scores", label: "Scores", icon: Trophy, locked: !purchased },
-    { id: "notes", label: "Notes", icon: FileText, locked: !purchased },
-    { id: "scout", label: "Scouting Report", icon: Star, locked: !purchased },
-  ];
+  const { athlete, category, org_name, standing, purchased, price } = data;
+  const scale = category?.scoring_scale || 10;
+  const skillProfile = data.skillProfile || [];
+  const priceStr = `$${((price || 2499) / 100).toFixed(2)}`;
+  const firstName = athlete?.first_name || "your athlete";
 
   return (
-    <div className="min-h-screen bg-gray-50" data-theme={theme}>
+    <div style={shell}>
+      <Fonts />
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 20px" }}>
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-3xl mx-auto px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              {/* Kicker */}
-              <div className="flex items-center gap-2 mb-2">
-                <img src="/s-mark-dark.svg" style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />
-                <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent">
-                  {category_name || "Sideline Star"} · Player Report
-                </div>
-              </div>
-              {/* Title row */}
-              <div className="flex items-end gap-4 flex-wrap">
-                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
-                  {athlete.first_name} {athlete.last_name}
-                </h1>
-                <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {athlete.first_name[0]}{athlete.last_name[0]}
-                </div>
-              </div>
-              {/* Chips sub-line */}
-              <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
-                {athlete.position && (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 capitalize">
-                    {athlete.position}
-                  </span>
-                )}
-                {athlete.position && (category_name || org_name) && <span className="text-gray-300">·</span>}
-                {category_name && <span>{category_name}</span>}
-                {org_name && <><span className="text-gray-300">·</span><span>{org_name}</span></>}
-              </div>
-            </div>
-            {/* Action area */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            </div>
+        {/* Cover */}
+        <div style={{ background: "radial-gradient(120% 140% at 80% 0%, #23211a 0%, #121214 40%, #0a0a0c 100%)", borderBottom: `1px solid ${GOLD_LINE}`, borderRadius: "0 0 18px 18px", padding: "28px 28px 24px", position: "relative", overflow: "hidden", marginBottom: 24 }}>
+          <div style={{ position: "absolute", top: -80, right: -50, width: 260, height: 260, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.14)" }} />
+          <div style={{ fontSize: 9.5, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
+          <div style={{ fontFamily: SERIF, fontSize: 36, fontWeight: 900, lineHeight: 1.05, marginTop: 8, color: "#fff" }}>{athlete?.first_name} {athlete?.last_name}</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", fontSize: 11, color: "#cfd2d7" }}>
+            {athlete?.position && <span style={{ border: `1px solid ${GOLD}`, color: GOLD, padding: "3px 12px", borderRadius: 99, textTransform: "capitalize" }}>{athlete.position}</span>}
+            {category?.name && <span style={{ border: "1px solid rgba(255,255,255,0.18)", padding: "3px 12px", borderRadius: 99 }}>{category.name}</span>}
+            {org_name && <span style={{ border: "1px solid rgba(255,255,255,0.18)", padding: "3px 12px", borderRadius: 99 }}>{org_name}</span>}
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="flex gap-1 overflow-x-auto">
-            {tabs.map(tab => (
-              <button key={tab.id} onClick={() => !tab.locked && setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-[3px] whitespace-nowrap transition-colors ${
-                  activeTab === tab.id ? "border-accent text-ink" : tab.locked ? "border-transparent text-gray-300 cursor-not-allowed" : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}>
-                {tab.locked ? <Lock size={12} /> : <tab.icon size={14} />} {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Payment status banners */}
-      {paymentStatus === "success" && !purchased && (
-        <div className="max-w-3xl mx-auto px-6 mt-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700 flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-            Processing your payment... this usually takes a few seconds.
-          </div>
-        </div>
-      )}
-      {paymentStatus === "success" && purchased && (
-        <div className="max-w-3xl mx-auto px-6 mt-4">
-          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">
-            Payment successful! Your full report is now unlocked.
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-3xl mx-auto px-6 py-8">
-
-        {/* ─── Overview (always visible) ────────────────── */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-accent">#{rank || "—"}</div>
-                <div className="text-xs text-gray-500 mt-1">Overall Rank</div>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-green-600">{percentile !== null ? `${percentile}%` : "—"}</div>
-                <div className="text-xs text-gray-500 mt-1">Percentile</div>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-gray-900">{overall_avg || "—"}</div>
-                <div className="text-xs text-gray-500 mt-1">Avg Score (/{scale})</div>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-gray-900">{total_athletes}</div>
-                <div className="text-xs text-gray-500 mt-1">Total Athletes</div>
-              </div>
-            </div>
-
-            {/* Session performance */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="font-display text-sm font-semibold text-ink mb-4">Session Performance</h3>
-              <div className="space-y-3">
-                {sessions.map(s => (
-                  <div key={s.session_number} className="flex items-center gap-4">
-                    <div className="w-20 text-xs text-gray-500 flex-shrink-0">S{s.session_number} · {s.session_type}</div>
-                    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-accent rounded-full" style={{ width: s.avg_score ? `${(s.avg_score / scale) * 100}%` : "0%" }} />
-                    </div>
-                    <div className="w-12 text-right text-sm font-semibold text-gray-900">{s.avg_score || "—"}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Payment banners */}
+        {paymentStatus === "success" && !purchased && (
+          <div style={{ background: "rgba(205,164,52,0.1)", border: `1px solid ${GOLD_LINE}`, borderRadius: 12, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: GOLD }}>Processing your payment… this usually takes a few seconds.</div>
         )}
-
-        {/* ─── Paid content ────────────────────────────── */}
-        {activeTab === "scores" && purchased && data.scores && (
-          <div className="space-y-4">
-            <h3 className="font-display text-base font-semibold text-ink">Detailed Score Breakdown</h3>
-            {sessions.map(s => {
-              const sessionScores = data.scores.filter(sc => sc.session_number === s.session_number);
-              if (!sessionScores.length) return null;
-              const evaluators = [...new Set(sessionScores.map(sc => sc.evaluator_name))];
-              const categories = [...new Map(sessionScores.map(sc => [sc.scoring_category_id, sc.category_name])).entries()];
-              return (
-                <div key={s.session_number} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-700">Session {s.session_number} — {s.name}</div>
-                  <div className="overflow-x-auto p-4">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="text-left py-2 pr-3 text-xs text-gray-400">Evaluator</th>
-                          {categories.map(([id, name]) => <th key={id} className="text-center py-2 px-2 text-xs text-gray-400">{name}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {evaluators.map(ev => (
-                          <tr key={ev} className="border-b border-gray-50 last:border-0">
-                            <td className="py-2 pr-3 text-xs text-gray-600 font-medium">{ev}</td>
-                            {categories.map(([catId]) => {
-                              const score = sessionScores.find(sc => sc.evaluator_name === ev && sc.scoring_category_id === catId);
-                              return <td key={catId} className="text-center py-2 px-2 text-sm font-mono text-gray-900">{score ? parseFloat(score.score) : "—"}</td>;
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {activeTab === "notes" && purchased && data.notes && (
-          <div className="space-y-4">
-            <h3 className="font-display text-base font-semibold text-ink">Evaluator Notes</h3>
-            {data.notes.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 text-sm">No evaluator notes for this player</div>
-            ) : (
-              sessions.map(s => {
-                const sessionNotes = data.notes.filter(n => n.session_number === s.session_number);
-                if (!sessionNotes.length) return null;
-                return (
-                  <div key={s.session_number} className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Session {s.session_number}</div>
-                    <div className="space-y-3">
-                      {sessionNotes.map((n, i) => (
-                        <div key={i} className="bg-gray-50 rounded-lg p-3">
-                          <div className="text-xs text-gray-400 mb-1">{n.evaluator_name} · {new Date(n.created_at).toLocaleDateString()}</div>
-                          <div className="text-sm text-gray-700 leading-relaxed">{n.note_text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-
-        {activeTab === "scout" && purchased && (
-          <div className="space-y-4">
-            <h3 className="font-display text-base font-semibold text-ink">AI Scouting Report</h3>
-            {data.scouting_report ? (
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                    <Star size={14} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">Scouting Report</div>
-                    <div className="text-xs text-gray-400">{athlete.first_name} {athlete.last_name} · {category_name}</div>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-l-4 border-accent/30 pl-4">
-                  {data.scouting_report}
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
-                  Generated from evaluator observations using AI analysis
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-400 text-sm">
-                {data.notes?.length ? "Generating scouting report... refresh the page in a moment." : "No evaluator notes available to generate a report."}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── Paywall (shown on locked tabs or below overview) ── */}
-        {!purchased && (
-          <div className="mt-8">
-            <div className="bg-white border-2 border-accent/20 rounded-2xl p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-4">
-                <Lock size={24} className="text-white" />
-              </div>
-              <h3 className="font-display text-xl font-bold text-ink mb-2">Unlock Full Report</h3>
-              <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">Get the complete evaluation breakdown for {athlete.first_name} including detailed scores, evaluator notes, and an AI-powered scouting report with development suggestions.</p>
-
-              <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto mb-6 text-left">
-                {[
-                  "Detailed score breakdown",
-                  "Per-evaluator scores",
-                  "All evaluator notes",
-                  "AI scouting report",
-                  "Development suggestions",
-                  "Downloadable PDF",
-                ].map(item => (
-                  <div key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="text-green-500 text-xs">✓</span> {item}
-                  </div>
-                ))}
-              </div>
-
-              <div className="text-3xl font-bold text-gray-900 mb-1">{priceStr}</div>
-              <div className="text-xs text-gray-400 mb-6">One-time purchase · Instant access</div>
-
-              <button
-                onClick={handleUnlock}
-                disabled={unlocking}
-                className="px-8 py-3.5 bg-accent text-white rounded-xl font-semibold text-base hover:opacity-90 transition-all disabled:opacity-50"
-              >
-                {unlocking ? "Redirecting to checkout..." : `Unlock Report — ${priceStr}`}
-              </button>
-
-              <p className="text-xs text-gray-400 mt-4">Secure payment via Stripe. No account required.</p>
-            </div>
-          </div>
-        )}
-
-        {/* PDF download button (paid only) */}
         {purchased && (
-          <div className="mt-8 text-center">
-            <a href={`/report/${token}/pdf`} target="_blank"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold text-sm hover:bg-gray-800 transition-colors">
-              <Download size={16} /> Download PDF Report
+          <div style={{ background: "rgba(80,200,120,.12)", border: "1px solid rgba(80,200,120,.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#5fd08a" }}>Unlocked — your full report is ready.</div>
+        )}
+
+        {/* Standing (free preview) */}
+        {standing && (
+          <div style={{ display: "flex", alignItems: "center", gap: 20, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "18px 22px", marginBottom: 16 }}>
+            <div style={{ textAlign: "center", flexShrink: 0 }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 28, color: GOLD, lineHeight: 1 }}>{standing.band}</div>
+              <div style={{ fontSize: 10, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>of the group</div>
+            </div>
+            <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
+            <div>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fff" }}>{standing.tier}</div>
+              <div style={{ color: "#b8bcc4", fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>{firstName} graded out in the <b style={{ color: "#fff" }}>{standing.band.toLowerCase()}</b> of {standing.total} skaters. The full report shows exactly what to chase to climb.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Skill teaser (free) */}
+        {skillProfile.length > 0 && (
+          <div style={{ border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 18px", marginBottom: 16, background: "#101014" }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 10 }}>Skill snapshot</div>
+            {skillProfile.slice(0, 3).map(s => (
+              <div key={s.scoring_category_id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
+                <span style={{ width: 110, flexShrink: 0, fontSize: 12, color: "#dfe1e4" }}>{s.name}</span>
+                <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${s.player != null ? Math.max(2, (s.player / scale) * 100) : 0}%`, background: `linear-gradient(90deg,#e3c560,${GOLD})`, borderRadius: 99 }} /></div>
+                <span style={{ width: 30, textAlign: "right", fontSize: 12, fontWeight: 700, color: GOLD }}>{s.player != null ? s.player.toFixed(1) : "—"}</span>
+              </div>
+            ))}
+            {skillProfile.length > 3 && <div style={{ fontSize: 11, color: "#6b7078", marginTop: 4 }}>+{skillProfile.length - 3} more skills in the full report</div>}
+          </div>
+        )}
+
+        {/* Paywall / unlocked actions */}
+        {!purchased ? (
+          <div style={{ border: `1px solid ${GOLD_LINE}`, borderRadius: 18, padding: "26px 24px", textAlign: "center", background: "linear-gradient(180deg,#16140e,#0d0d10)", marginBottom: 28 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Lock size={22} color="#141414" /></div>
+            <h3 style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 900, color: "#fff", margin: "0 0 6px" }}>Unlock {firstName}'s full report</h3>
+            <p style={{ fontSize: 13, color: "#b8bcc4", maxWidth: 420, margin: "0 auto 18px", lineHeight: 1.55 }}>The complete development report — objective testing vs. the group, skill profile, session-by-session progress, evaluator notes, and a personalized plan of what to work on first.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", maxWidth: 380, margin: "0 auto 20px", textAlign: "left" }}>
+              {["Objective testing breakdown", "Full skill profile", "Progress across sessions", "Every evaluator note", "Personalized development plan", "Downloadable PDF"].map(it => (
+                <div key={it} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#dfe1e4" }}><Check size={13} color="#5fd08a" /> {it}</div>
+              ))}
+            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 900, color: "#fff" }}>{priceStr}</div>
+            <div style={{ fontSize: 11, color: "#6b7078", marginBottom: 18 }}>One-time purchase · Instant access</div>
+            <button onClick={handleUnlock} disabled={unlocking} style={{ padding: "13px 30px", background: GOLD, color: "#141414", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: unlocking ? "default" : "pointer", opacity: unlocking ? 0.6 : 1 }}>
+              {unlocking ? "Redirecting to checkout…" : `Unlock Report — ${priceStr}`}
+            </button>
+            <p style={{ fontSize: 11, color: "#6b7078", marginTop: 14 }}>Secure payment via Stripe. No account required.</p>
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", margin: "8px 0 28px" }}>
+            <a href={`/report/${token}/pdf`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 26px", background: GOLD, color: "#141414", borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+              <Download size={16} /> View &amp; download full report
             </a>
           </div>
         )}
-      </div>
 
-      {/* Footer */}
-      <div className="border-t border-gray-200 py-6 mt-8">
-        <div className="max-w-3xl mx-auto px-6 flex items-center justify-center gap-3 text-xs text-gray-400">
-          <img src="/s-mark-dark.svg" style={{ width: 16, height: 16, objectFit: "contain", opacity: 0.4 }} alt="" />
-          <span>Powered by Sideline Star · sidelinestar.com</span>
-        </div>
+        <div style={{ borderTop: `1px solid ${LINE}`, padding: "18px 0 28px", textAlign: "center", fontSize: 11, color: "#6b7078" }}>Powered by Sideline Star · sidelinestar.com</div>
       </div>
     </div>
   );

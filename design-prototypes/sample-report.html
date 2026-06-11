@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sideline Star — Sample Development Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --gold:#cda434; --gold-soft:rgba(205,164,52,.14); --gold-line:rgba(205,164,52,.3);
+    --bg:#0b0b0d; --card:#131317; --line:rgba(255,255,255,.08);
+    --txt:#e9eaec; --gray:#8b8f99; --muted:#6b7078;
+    --serif:'Playfair Display',Georgia,serif; --num:'Archivo',-apple-system,sans-serif;
+    --sans:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  /* dark bleeds across the whole sheet (root bg paints the full page canvas,
+     including the @page margins) so every page top has dark breathing room
+     instead of jamming text against a white edge */
+  html{ background:var(--bg); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ margin:0; background:var(--bg); font-family:var(--sans); color:var(--txt); font-size:13px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .page{ max-width:720px; margin:0 auto; background:var(--bg); }
+  .pad{ padding:24px 34px 0; }
+  .kicker{ font-size:9.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:5px; }
+  .h{ font-family:var(--serif); font-weight:900; font-size:21px; color:#fff; margin:0 0 12px; padding-bottom:9px; border-bottom:1px solid var(--gold-line); }
+  .section{ margin-bottom:10px; }
+  .lead{ font-size:11.5px; color:var(--gray); line-height:1.5; margin-bottom:11px; }
+  /* margin:0 → dark bleeds to the paper edge on every page (no white border).
+     the per-page top gap comes from .newpage padding-top instead. */
+  @page{ size:A4; margin:0; }
+  /* keep a section heading with the block that follows it (no orphaned headers) */
+  .shead{ break-inside:avoid; page-break-inside:avoid; break-after:avoid; page-break-after:avoid; }
+  .h,.lead{ break-after:avoid; page-break-after:avoid; }
+  /* short sections (skill, notes) stay whole — never split across a page */
+  .keep{ break-inside:avoid; page-break-inside:avoid; }
+  /* a section that opens its own page: break before it + pad the top so text
+     isn't jammed against the paper edge */
+  .newpage{ break-before:page; page-break-before:always; break-inside:avoid; page-break-inside:avoid; padding-top:38px; }
+  @media print{
+    html,body{ background:var(--bg); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .page{ max-width:none; width:100%; }
+    .newpage{ break-before:page; page-break-before:always; break-inside:avoid; page-break-inside:avoid; padding-top:38px; }
+    .tcard,.scard,.note,.plan,.standing{ break-inside:avoid; page-break-inside:avoid; }
+    .shead{ break-inside:avoid; page-break-inside:avoid; break-after:avoid; page-break-after:avoid; }
+    .h,.lead{ break-after:avoid; page-break-after:avoid; }
+    .keep{ break-inside:avoid; page-break-inside:avoid; }
+  }
+
+  /* ── Objective testing cards (condensed dark) ── */
+  .tcard{ position:relative; overflow:hidden; border-radius:11px; border:1px solid var(--line);
+    background:radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%);
+    padding:8px 16px 7px; margin-bottom:7px; }
+  .tring{ position:absolute; top:-50px; right:-50px; width:150px; height:150px; border-radius:50%; border:1px solid rgba(255,255,255,.06); }
+  .trow1{ display:flex; justify-content:space-between; align-items:center; }
+  .tname{ font-size:11.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#aeb2bb; }
+  .tchip{ font-size:9.5px; font-weight:800; letter-spacing:.04em; color:var(--gold); background:var(--gold-soft); border:1px solid var(--gold-line); padding:2px 9px; border-radius:99px; white-space:nowrap; }
+  .tinfo{ font-size:9.5px; color:var(--muted); line-height:1.4; margin:2px 0 4px; max-width:92%; }
+  .tmain{ display:flex; align-items:center; gap:18px; }
+  .thero{ display:flex; align-items:flex-end; gap:5px; flex-shrink:0; }
+  .theroNum{ font-family:var(--num); font-weight:800; font-size:30px; line-height:.85; color:#f6f7f8; letter-spacing:-.02em; }
+  .theroUnit{ font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin-bottom:3px; }
+  .tslider{ position:relative; flex:1; height:34px; }
+  .ttrack{ position:absolute; left:2%; right:2%; top:6px; height:3px; background:rgba(255,255,255,.13); border-radius:99px; }
+  .tfill{ position:absolute; top:6px; height:3px; background:linear-gradient(90deg,rgba(205,164,52,.2),var(--gold)); border-radius:99px; }
+  .tdot{ position:absolute; top:0; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+  .tpip{ width:13px; height:13px; border-radius:50%; }
+  .tlab{ font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-top:4px; line-height:1.25; text-align:center; white-space:nowrap; }
+  .tlab b{ display:block; font-family:var(--num); font-size:9.5px; letter-spacing:0; }
+
+  /* ── Skill profile bars ── */
+  .scard{ border:1px solid var(--line); border-radius:13px; padding:6px 16px; margin-bottom:5px; background:#101014; }
+  .scardTop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .scardName{ font-size:13px; font-weight:700; color:#fff; }
+  .pill{ font-size:9.5px; font-weight:800; padding:3px 10px; border-radius:99px; letter-spacing:.03em; }
+  .brow{ display:flex; align-items:center; gap:10px; margin-bottom:2px; }
+  .brow .bk{ width:92px; flex-shrink:0; font-size:10px; }
+  .bar{ flex:1; height:7px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden; }
+  .bar>span{ display:block; height:100%; border-radius:99px; }
+  .brow .bv{ width:34px; text-align:right; font-family:var(--num); font-size:12px; font-weight:700; }
+
+  /* ── Notes ── */
+  .note{ border-left:2px solid var(--gold); padding:1px 0 1px 14px; margin-bottom:9px; }
+  .note .q{ color:#dfe1e4; line-height:1.55; font-style:italic; font-size:12.5px; }
+  .note .s{ font-size:9.5px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:.1em; }
+
+  /* ── Summary / plan ── */
+  .standing{ display:flex; align-items:center; gap:22px; background:linear-gradient(120deg,#1a1812,#121216); border:1px solid var(--gold-line); border-radius:16px; padding:12px 20px; }
+  .standing .big{ font-family:var(--serif); font-weight:900; font-size:30px; color:var(--gold); line-height:1; }
+  .callout{ margin-top:8px; border-left:2px solid var(--gold); background:rgba(205,164,52,.06); border-radius:0 10px 10px 0; padding:9px 14px; color:#b8bcc4; font-size:11px; line-height:1.5; }
+  .plan{ background:var(--gold-soft); border:1px solid var(--gold-line); border-radius:12px; padding:11px 15px; margin:9px 0; }
+  .planK{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); font-weight:800; margin-bottom:6px; }
+  ol,ul{ margin:0; padding-left:18px; } li{ margin-bottom:4px; color:#c7cbd2; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Cover -->
+  <div style="background:radial-gradient(120% 140% at 80% 0%, #23211a 0%, #121214 40%, #0a0a0c 100%);padding:32px 34px;border-bottom:1px solid var(--gold-line);position:relative;overflow:hidden;">
+    <div style="position:absolute;top:-90px;right:-60px;width:320px;height:320px;border-radius:50%;border:1px solid rgba(205,164,52,.16);"></div>
+    <div style="position:absolute;top:-40px;right:-10px;width:230px;height:230px;border-radius:50%;border:1px solid rgba(205,164,52,.1);"></div>
+    <div style="font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);font-weight:700;">Sideline Star · Development Report</div>
+    <div style="font-family:var(--serif);font-size:40px;font-weight:900;line-height:1.05;margin-top:10px;color:#fff;">Timmy Calder</div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <span style="border:1px solid var(--gold);color:var(--gold);padding:3px 12px;border-radius:99px;font-size:11px;">Centre</span>
+      <span style="border:1px solid rgba(255,255,255,.18);color:#cfd2d7;padding:3px 12px;border-radius:99px;font-size:11px;">#19</span>
+      <span style="border:1px solid rgba(255,255,255,.18);color:#cfd2d7;padding:3px 12px;border-radius:99px;font-size:11px;">U13 AA</span>
+      <span style="border:1px solid rgba(255,255,255,.18);color:#cfd2d7;padding:3px 12px;border-radius:99px;font-size:11px;">June 2026</span>
+    </div>
+  </div>
+
+  <div class="pad">
+
+    <!-- Objective testing (first) -->
+    <div class="section">
+      <div class="shead">
+        <div class="kicker">The numbers don't lie</div>
+        <div class="h">Objective testing</div>
+        <div class="lead">These come first — measured results from the testing session, same drills and same clock for everyone. <b style="color:#cfd2d7;">Lower is better — the fastest time wins.</b> Each card shows where Timmy landed against the day's best and the group average.</div>
+      </div>
+      <div id="tests"></div>
+    </div>
+
+    <!-- Skill profile -->
+    <div class="section newpage">
+      <div class="shead">
+        <div class="kicker">Evaluator scores vs the group</div>
+        <div class="h">Skill profile</div>
+        <div class="lead">Beyond the clock, evaluators graded each skill by eye over the sessions. Here's how Timmy stacks up against the group average and the top of the group, out of 10. Higher is better.</div>
+      </div>
+      <div id="skills"></div>
+    </div>
+
+    <!-- Progress across sessions -->
+    <div class="section newpage">
+      <div class="shead">
+        <div class="kicker" id="progKicker">Session by session</div>
+        <div class="h">Progress across sessions</div>
+        <div class="lead">How Timmy's evaluator scores moved from one session to the next, against the group average. Improvement across sessions is the strongest signal there is — it shows the work is landing.</div>
+      </div>
+      <div id="progress"></div>
+    </div>
+
+    <!-- Notes -->
+    <div class="section newpage">
+      <div class="shead">
+        <div class="kicker">Selected observations</div>
+        <div class="h">What the evaluators saw</div>
+        <div class="lead">In their own words — the notes evaluators wrote while watching Timmy play.</div>
+      </div>
+      <div id="notes"></div>
+    </div>
+
+    <!-- Summary & recommendations -->
+    <div class="section newpage">
+      <div class="shead">
+        <div class="kicker">The bottom line</div>
+        <div class="h">Summary &amp; recommendations</div>
+      </div>
+      <div class="standing">
+        <div style="text-align:center;flex-shrink:0;">
+          <div class="big">Top 25%</div>
+          <div style="font-size:10.5px;color:var(--gold);margin-top:4px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">of the group</div>
+        </div>
+        <div style="width:1px;align-self:stretch;background:var(--gold-line);"></div>
+        <div>
+          <div style="font-family:var(--serif);font-weight:700;font-size:21px;color:#fff;">Above Average</div>
+          <div style="color:#b8bcc4;line-height:1.55;margin-top:4px;font-size:12px;">Across testing and evaluator scores, Timmy graded out in the <b style="color:#fff;">top 25%</b> of 28 skaters evaluated. Here's exactly what to chase to climb.</div>
+        </div>
+      </div>
+      <div class="callout"><b style="color:#fff;">A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.</div>
+
+      <div style="line-height:1.55;margin-top:11px;font-size:12.5px;color:#c7cbd2;">
+        <p style="margin-top:0;">If Timmy invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
+        <div class="plan">
+          <div class="planK">Start here — the foundation</div>
+          <div style="font-family:var(--serif);font-weight:700;font-size:18px;color:#fff;margin-bottom:4px;">1. Skating</div>
+          <div style="color:#c7cbd2;">This is the biggest gap to the top of the group <b style="color:#fff;">and</b> the foundation everything else is built on. Stronger edges, balance and top speed make puck skills, shooting and compete battles all easier — improve skating first and the other scores tend to rise with it. If Timmy invests in one thing this off-season, make it skating.</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gold-line);color:#c7cbd2;"><b style="color:var(--gold);">At the top of the group, this looks like</b> explosive first three steps, edges that hold through hard turns, and the speed to separate with the puck on the stick.</div>
+        </div>
+        <div class="planK" style="margin:11px 0 6px;">Then, in order</div>
+        <ol>
+          <li><b style="color:#fff;">Puck Skills</b> — ~1.9 behind the top of the group. With a stronger skating base, hands at speed come faster; protect pucks and delay rather than forcing plays.</li>
+          <li><b style="color:#fff;">Hockey IQ</b> — ~0.6 behind. Already a relative strength — small read-and-react gains keep it there.</li>
+        </ol>
+        <p style="margin:11px 0 0;color:#c7cbd2;">The two objective targets to chase first — <b style="color:#fff;">Weave Agility</b> and <b style="color:#fff;">Forward Sprint With Puck</b> — both tie straight back to skating. Attack the foundation through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+      </div>
+
+      <!-- Where to put in the work (association-curated local providers) -->
+      <div style="margin-top:16px;">
+        <div class="planK">Where to put in the work</div>
+        <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Local programs Riverside Minor Hockey's coaches recommend for these development areas.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="border:1px solid var(--line);border-radius:12px;background:#101014;padding:11px 15px;">
+            <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px;">Skating / Power Skating</div>
+            <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;"><div><span style="font-size:12.5px;font-weight:700;color:#fff;">Edge Academy Power Skating</span><span style="font-size:11.5px;color:#b8bcc4;"> — small-group edges & explosiveness, U9–U15.</span></div><span style="font-size:11px;color:var(--gold);white-space:nowrap;">edgeacademy.ca</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;"><div><span style="font-size:12.5px;font-weight:700;color:#fff;">Crossover Skating Lab</span><span style="font-size:11.5px;color:#b8bcc4;"> — treadmill + on-ice stride work.</span></div><span style="font-size:11px;color:var(--gold);white-space:nowrap;">(555) 210-7788</span></div>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:12px;background:#101014;padding:11px 15px;">
+            <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px;">Puck Skills</div>
+            <div style="display:flex;justify-content:space-between;gap:12px;"><div><span style="font-size:12.5px;font-weight:700;color:#fff;">Top Shelf Skills</span><span style="font-size:11.5px;color:#b8bcc4;"> — stickhandling & deking at game speed.</span></div><span style="font-size:11px;color:var(--gold);white-space:nowrap;">topshelf.ca</span></div>
+          </div>
+        </div>
+        <div style="font-size:9.5px;color:var(--muted);margin-top:8px;font-style:italic;">Listed at the association's recommendation. Sideline Star does not endorse or vet these providers.</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid var(--line);padding:11px 0 40px;display:flex;justify-content:space-between;color:var(--muted);font-size:10px;">
+      <span style="font-family:var(--serif);font-style:italic;color:var(--gold);font-weight:700;">Sideline Star</span>
+      <span>U13 AA · Timmy Calder · Player Development Report</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GOLD="#cda434";
+
+  /* ── Objective testing ── */
+  const tests = [
+    { name:"Forward Sprint", you:4.85, best:4.49, avg:5.20, info:"Flat-out straight-line speed — pure acceleration and stride power." },
+    { name:"Forward Sprint With Puck", you:5.10, best:4.61, avg:5.35, info:"The same sprint while controlling the puck — how much speed holds up with the puck on the stick." },
+    { name:"Backward Sprint", you:6.10, best:5.55, avg:6.40, info:"Straight-line backward speed — edge control, posture and defensive footspeed." },
+    { name:"Weave Agility", you:13.20, best:12.61, avg:13.95, info:"Tight turns and cuts through obstacles — balance, edge control and quickness in close." },
+    { name:"Transition Agility Left", you:5.45, best:5.10, avg:5.70, info:"Pivots and direction changes turning to the left — footwork and clean transitions." },
+    { name:"Transition Agility Right", you:5.55, best:5.15, avg:5.80, info:"Pivots and direction changes turning to the right — footwork and clean transitions." },
+    { name:"Stop and Start", you:3.30, best:3.04, avg:3.50, info:"Explosive stop-and-start — how fast they stop hard and get moving again the other way." },
+  ];
+  document.getElementById("tests").innerHTML = tests.map(t => {
+    const youBest = t.you <= t.best + 0.0005;
+    const gap = (t.you - t.best).toFixed(2);
+    const pos = v => (12 + (t.avg - v) / ((t.avg - t.best) || 1) * 76);
+    const py = Math.max(7, Math.min(97, pos(t.you)));
+    const dot = (left, pip, labCol, lab, val, ring) =>
+      `<div class="tdot" style="left:${left}%;"><span class="tpip" style="background:${pip};${ring?`box-shadow:0 0 0 4px ${ring};`:''}"></span><span class="tlab" style="color:${labCol};">${lab}<b>${val.toFixed(2)}</b></span></div>`;
+    return `<div class="tcard">
+      <div class="tring"></div>
+      <div class="trow1">
+        <span class="tname">${t.name}</span>
+        <span class="tchip">${youBest ? "🏆 Today's best" : gap + "s off best"}</span>
+      </div>
+      <div class="tinfo">${t.info}</div>
+      <div class="tmain">
+        <div class="thero"><span class="theroNum">${t.you.toFixed(2)}</span><span class="theroUnit">sec</span></div>
+        <div class="tslider">
+          <div class="ttrack"></div>
+          <div class="tfill" style="left:${pos(t.avg)}%;width:${Math.max(0,pos(t.best)-pos(t.avg))}%;"></div>
+          ${dot(pos(t.avg), "#5f636c", "#8b8f99", "Avg", t.avg)}
+          ${dot(py, "#ffffff", "#ffffff", "You", t.you, "rgba(255,255,255,.1)")}
+          ${dot(pos(t.best), GOLD, GOLD, "Best", t.best, GOLD+"22")}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  /* ── Skill profile (typical four: Skating, Puck Skills, Hockey IQ, Effort & Compete) ── */
+  const scale = 10;
+  const skills = [
+    { name:"Skating", player:6.3, group:6.5, top:8.6 },
+    { name:"Puck Skills", player:6.2, group:6.0, top:8.1 },
+    { name:"Hockey IQ", player:7.4, group:6.1, top:8.0 },
+    { name:"Effort & Compete", player:8.8, group:6.7, top:8.9 },
+  ];
+  const skillPill = (p,g,top) => {
+    if (p >= top-0.2) return { bg:"rgba(80,200,120,.16)", c:"#5fd08a", t:"Strength" };
+    if (p >= g)       return { bg:"rgba(80,200,120,.12)", c:"#67c98c", t:"Above average" };
+    if (p >= g-0.6)   return { bg:"var(--gold-soft)", c:"#cda434", t:"Around average" };
+    return { bg:"rgba(224,138,42,.16)", c:"#e0944a", t:"Focus area" };
+  };
+  const skillInfo = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes("skat")) return "Edges, speed, balance and explosiveness on the ice.";
+    if (n.includes("puck")) return "Control, protection and hands at game speed.";
+    if (n.includes("iq")||n.includes("hockey")) return "Reads, positioning and decisions with and without the puck.";
+    if (n.includes("compete")||n.includes("effort")) return "Work rate, battle level and consistency shift to shift.";
+    return "";
+  };
+  const skillInterp = (s) => {
+    const f = v => v.toFixed(1);
+    if (s.player >= s.top-0.2) return `A genuine strength — at ${f(s.player)}, Timmy is right with the top of the group (${f(s.top)}). Keep it sharp and lean on it.`;
+    if (s.player >= s.group)   return `Above the group average (${f(s.group)}) at ${f(s.player)}; the next target is closing the gap to the top of the group (${f(s.top)}).`;
+    if (s.player >= s.group-0.6) return `Right around the group average (${f(s.group)}). This is the kind of gap that closes fast with a focused block of reps.`;
+    return `The clearest area to attack — ${f(s.player)} against a group average of ${f(s.group)} and a top of ${f(s.top)}. The single biggest opportunity to climb.`;
+  };
+  const brow = (k, val, color, strong) => `
+    <div class="brow" style="margin-bottom:6px;">
+      <span class="bk" style="width:96px;font-size:10.5px;color:${strong?'#fff':'#8b8f99'};font-weight:${strong?700:500};">${k}</span>
+      <div class="bar" style="height:10px;"><span style="width:${Math.max(2,(val/scale)*100)}%;background:${color};"></span></div>
+      <span class="bv" style="width:36px;font-size:13px;color:${strong?GOLD:'#aeb2bb'};">${val.toFixed(1)}</span>
+    </div>`;
+  document.getElementById("skills").innerHTML = skills.map(s => {
+    const p = skillPill(s.player,s.group,s.top);
+    return `<div class="scard" style="padding:14px 18px;margin-bottom:12px;border-radius:14px;">
+      <div class="scardTop" style="margin-bottom:0;"><span class="scardName" style="font-size:15px;">${s.name}</span><span class="pill" style="background:${p.bg};color:${p.c};padding:4px 11px;">${p.t}</span></div>
+      <div style="font-size:10.5px;color:var(--muted);margin:3px 0 11px;">${skillInfo(s.name)}</div>
+      ${brow("Timmy", s.player, "linear-gradient(90deg,#e3c560,#cda434)", true)}
+      ${brow("Group avg", s.group, "#5f636c", false)}
+      ${brow("Top of group", s.top, "#d8dade", false)}
+      <div style="margin-top:10px;padding-top:11px;border-top:1px solid var(--line);font-size:11.5px;color:#c7cbd2;line-height:1.5;">${skillInterp(s)}</div>
+    </div>`;
+  }).join("");
+
+  /* ── Progress across sessions (its own page) ── */
+  const prog = [
+    { s:1, player:6.1, group:6.4 },
+    { s:2, player:6.6, group:6.5 },
+    { s:3, player:7.2, group:6.6 },
+  ];
+  (function(){
+    const W=660,H=300,padX=44,padTop=28,padBot=46,n=prog.length;
+    const x=i=>padX+(n===1?(W-padX*2)/2:(i*(W-padX*2))/(n-1));
+    const y=v=>padTop+(1-(v/scale))*(H-padTop-padBot);
+    const line=key=>prog.map((p,i)=>`${i===0?"M":"L"} ${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+    const area=`${line("player")} L ${x(n-1).toFixed(1)} ${(H-padBot).toFixed(1)} L ${x(0).toFixed(1)} ${(H-padBot).toFixed(1)} Z`;
+    const grid=[0,scale/2,scale];
+    const first=prog[0].player,last=prog[n-1].player,delta=Math.round((last-first)*10)/10;
+    document.getElementById("progKicker").textContent = delta>=0.3?"Trending up":delta<=-0.3?"Trending down":"Holding steady";
+    document.getElementById("progress").innerHTML = `
+      <div style="display:flex;align-items:center;gap:18px;background:linear-gradient(120deg,#1a1812,#121216);border:1px solid var(--gold-line);border-radius:16px;padding:16px 22px;margin-bottom:16px;">
+        <div style="text-align:center;flex-shrink:0;">
+          <div style="font-family:var(--num);font-weight:800;font-size:34px;color:${delta>=0?"#5fd08a":"#e0944a"};line-height:1;">${delta>=0?"+":""}${delta.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--gold);margin-top:4px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">pts · ${n} sessions</div>
+        </div>
+        <div style="width:1px;align-self:stretch;background:var(--gold-line);"></div>
+        <div style="color:#c7cbd2;font-size:12.5px;line-height:1.55;">Timmy ${delta>=0.3?"improved":delta<=-0.3?"slipped":"held steady"} from <b style="color:#fff;">${first.toFixed(1)}</b> in session 1 to <b style="color:#fff;">${last.toFixed(1)}</b> by session ${n}${delta>=0.3?" — a clear upward trajectory across the evaluation.":"."} The line below tracks every session against the group.</div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:16px;background:#0e0e12;padding:8px 6px 4px;">
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+          <defs><linearGradient id="pf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cda434" stop-opacity="0.28"/><stop offset="100%" stop-color="#cda434" stop-opacity="0"/></linearGradient></defs>
+          ${grid.map(g=>`<line x1="${padX}" y1="${y(g)}" x2="${W-padX}" y2="${y(g)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/><text x="${padX-8}" y="${y(g)+3}" text-anchor="end" font-size="11" fill="#6b7078" font-family="var(--num)">${g}</text>`).join("")}
+          <path d="${area}" fill="url(#pf)"/>
+          <path d="${line("group")}" fill="none" stroke="#4a4f57" stroke-width="2" stroke-dasharray="5 5"/>
+          <path d="${line("player")}" fill="none" stroke="#cda434" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+          ${prog.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.group)}" r="3.5" fill="#4a4f57"/><circle cx="${x(i)}" cy="${y(p.player)}" r="5.5" fill="#cda434" stroke="#0e0e12" stroke-width="2"/><text x="${x(i)}" y="${y(p.player)-12}" text-anchor="middle" font-size="14" font-weight="700" fill="#f6f7f8" font-family="var(--num)">${p.player.toFixed(1)}</text><text x="${x(i)}" y="${H-22}" text-anchor="middle" font-size="12" font-weight="700" fill="#aeb2bb" font-family="var(--sans)">SESSION ${p.s}</text>`).join("")}
+        </svg>
+        <div style="display:flex;gap:18px;justify-content:center;padding:4px 0 10px;font-size:11px;color:#6b7078;font-weight:600;">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;background:#cda434;border-radius:2px;"></span>Timmy</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:0;border-top:2px dashed #4a4f57;"></span>Group average</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        ${prog.map((p,i)=>{
+          const d=i===0?null:Math.round((p.player-prog[i-1].player)*10)/10;
+          return `<div style="flex:1;border:1px solid var(--line);border-radius:12px;background:#101014;padding:10px 12px;text-align:center;">
+            <div style="font-size:9.5px;color:var(--gray);font-weight:700;letter-spacing:.1em;text-transform:uppercase;">Session ${p.s}</div>
+            <div style="font-family:var(--num);font-size:24px;font-weight:800;color:#fff;margin:3px 0 2px;">${p.player.toFixed(1)}</div>
+            ${d==null?`<div style="font-size:10.5px;color:var(--muted);">starting point</div>`:`<div style="font-size:11.5px;font-weight:700;color:${d>0?"#5fd08a":d<0?"#e0944a":"#6b7078"};">${d>0?"▲ +":d<0?"▼ ":"– "}${Math.abs(d).toFixed(1)} vs S${prog[i-1].s}</div>`}
+          </div>`;
+        }).join("")}
+      </div>`;
+  })();
+
+  /* ── Notes ── */
+  const notes = [
+    { s:1, t:"Compete level jumps off the ice — first on pucks, finishes every check, and never coasts back on the backcheck." },
+    { s:1, t:"Skating is the area to attack: straight-line speed is okay, but edges and balance break down under pressure and the first step isn't explosive yet." },
+    { s:1, t:"Puck skills under pressure are inconsistent — tends to force plays instead of protecting and delaying." },
+    { s:2, t:"Motor again was a real standout. Wins the wall battles he has no business winning because he just out-works people." },
+    { s:2, t:"Reads developing plays well and supports the puck — hockey sense is ahead of his feet right now." },
+    { s:2, t:"Hands look better in tight than at speed; when the legs are moving the puck gets away from him." },
+    { s:3, t:"Noticeable jump in skating from session 1 — quicker first three steps and holding his edges better through turns." },
+    { s:3, t:"Smart, competitive two-way centre. If the skating keeps climbing, the rest of his game is already in place." },
+  ];
+  document.getElementById("notes").innerHTML = notes.map(n=>`
+    <div class="note"><div class="q">&ldquo;${n.t}&rdquo;</div><div class="s">Session ${n.s}</div></div>`).join("")
+    + `<div style="margin-top:16px;background:var(--gold-soft);border:1px solid var(--gold-line);border-radius:14px;padding:14px 18px;">
+      <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:7px;">What it adds up to</div>
+      <div style="font-size:12.5px;color:#dfe1e4;line-height:1.6;">Read together, the evaluators tell a consistent story. Timmy's <b style="color:#fff;">effort &amp; compete</b> is the standout — the trait that came up most as a genuine asset — while <b style="color:#fff;">skating</b> is the area they kept flagging to attack first. Overall Timmy graded out <b style="color:#fff;">above average</b> — top 25% of 28 skaters. The development plan on the next page lays out the order to climb.</div>
+    </div>`;
+</script>
+</body>
+</html>

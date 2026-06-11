@@ -81,7 +81,7 @@ export async function POST(request) {
     `;
     if (existing.length) return NextResponse.json({ already_purchased: true });
 
-    const priceCents = parseInt(process.env.REPORT_PRICE_CENTS || "1999");
+    const priceCents = parseInt(process.env.REPORT_PRICE_CENTS || "2499");
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
     // Create Stripe Checkout Session

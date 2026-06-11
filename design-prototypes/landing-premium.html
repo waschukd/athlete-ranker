@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sideline Star | See every prospect clearly</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --charcoal: #0d0d0d;
+    --surface: #1a1a1a;
+    --gold: #d4af37;
+    --premium-white: #f4f1ea;
+  }
+  body { background: var(--charcoal); }
+  .serif { font-family: 'Playfair Display', serif; }
+  .mono  { font-family: 'JetBrains Mono', monospace; }
+  .gold-text { color: var(--gold); }
+
+  /* film grain so the dark fields read as cinematic, not flat */
+  .grain::after {
+    content: ""; position: fixed; inset: 0; z-index: 30; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    opacity: 0.045;
+  }
+
+  /* hero photo + cinematic scrim so the copy stays legible over a busy image */
+  .hero-bg {
+    background-image: url("hero-rink.png");
+    background-size: cover; background-position: center 38%;
+    filter: contrast(108%) saturate(104%) brightness(0.96);
+    transform: scale(1.06);
+    animation: kenburns 26s ease-out forwards;
+  }
+  @keyframes kenburns {
+    from { transform: scale(1.12) translate3d(-1.5%, 1.5%, 0); }
+    to   { transform: scale(1.0)  translate3d(0, 0, 0); }
+  }
+  .hero-scrim {
+    background:
+      /* readable left column for the copy */
+      linear-gradient(90deg, rgba(6,6,6,0.95) 0%, rgba(6,6,6,0.86) 30%, rgba(6,6,6,0.38) 60%, rgba(6,6,6,0.62) 100%),
+      /* top fade under the header + grounded bottom */
+      linear-gradient(180deg, rgba(6,6,6,0.88) 0%, transparent 24%, transparent 56%, rgba(6,6,6,0.92) 100%),
+      /* corner vignette for cinematic focus */
+      radial-gradient(130% 100% at 50% 45%, transparent 52%, rgba(0,0,0,0.55) 100%);
+  }
+
+  /* one orchestrated load: staggered reveal */
+  @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .reveal { opacity: 0; animation: rise 0.95s cubic-bezier(.2,.7,.2,1) forwards; }
+  .photo-reveal { opacity: 0; animation: fade 1.8s ease forwards; }
+  .d1{animation-delay:.15s}.d2{animation-delay:.32s}.d3{animation-delay:.5s}
+  .d4{animation-delay:.68s}.d5{animation-delay:.86s}
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0c0c0c; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+  .gold-rule { height: 1px; background: linear-gradient(90deg, var(--gold), transparent); }
+</style>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: { extend: {
+      colors: {
+        primary: "#d4af37", background: "#0d0d0d", surface: "#1a1a1a",
+        "on-surface": "#f4f1ea", "on-surface-variant": "#b8b3a8", outline: "#333333",
+      },
+      fontFamily: { serif: ["Playfair Display","serif"], body: ["Inter","sans-serif"], mono: ["JetBrains Mono","monospace"] },
+    } },
+  }
+</script>
+</head>
+
+<body class="grain text-on-surface font-body antialiased">
+
+<!-- ── Top bar ── -->
+<header class="fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-background/40 border-b border-primary/10">
+  <div class="max-w-[1500px] mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
+    <div class="reveal d1">
+      <h1 class="serif text-xl font-black gold-text uppercase tracking-[0.25em] italic leading-none">Sideline Star</h1>
+      <p class="mono text-[9px] text-on-surface-variant mt-1 tracking-[0.3em]">PLAYER EVALUATION, ELEVATED</p>
+    </div>
+    <nav class="reveal d2 flex items-center gap-3">
+      <a href="#" class="hidden sm:inline-block px-5 py-2.5 text-[11px] mono uppercase tracking-[0.18em] text-on-surface-variant hover:text-on-surface transition-colors">Sign In</a>
+      <a href="#" class="px-6 py-2.5 bg-primary text-background text-[11px] mono font-bold uppercase tracking-[0.18em] rounded hover:scale-[1.03] transition-transform">Get Started</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ── Full-bleed hero ── -->
+<main class="relative min-h-screen overflow-hidden">
+  <div class="hero-bg photo-reveal absolute inset-0 z-0"></div>
+  <div class="hero-scrim absolute inset-0 z-10"></div>
+
+  <section class="relative z-20 min-h-screen max-w-[1500px] mx-auto px-6 lg:px-12 flex items-center">
+    <div class="max-w-2xl pt-24 pb-16" style="text-shadow: 0 2px 24px rgba(0,0,0,0.7);">
+      <span class="reveal d2 mono gold-text text-[11px] uppercase tracking-[0.32em] inline-flex items-center gap-2">
+        <span class="inline-block w-6 h-px bg-primary/70"></span>For associations · scouts · service providers
+      </span>
+
+      <h2 class="reveal d3 serif text-5xl lg:text-7xl leading-[1.03] mt-6">
+        See every<br/>prospect
+        <span class="italic text-primary/90"> clearly.</span>
+      </h2>
+
+      <p class="reveal d4 text-on-surface-variant text-base lg:text-lg leading-relaxed mt-7 max-w-xl">
+        From the glass to the rankings. Run live evaluations, capture every score the moment it
+        happens, and let the data sort the lineup for you — no clipboards, no spreadsheets.
+      </p>
+
+      <div class="reveal d5 flex flex-wrap gap-4 mt-10">
+        <a href="#" class="px-8 py-3.5 bg-primary text-background mono font-bold text-[11px] uppercase tracking-[0.2em] rounded hover:scale-[1.02] transition-transform">
+          Get Started
+        </a>
+        <a href="#" class="px-8 py-3.5 border border-primary/40 gold-text mono font-bold text-[11px] uppercase tracking-[0.2em] rounded hover:bg-primary/10 transition-colors backdrop-blur-sm">
+          Watch the flow
+        </a>
+      </div>
+
+      <div class="reveal d5 mt-12 pt-8 border-t border-on-surface/15 flex flex-wrap items-center gap-x-10 gap-y-4">
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
+          <span class="mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">Real-time scoring</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+          <span class="mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">Role-based access</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-primary text-[18px]">trending_up</span>
+          <span class="mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">Automatic rankings</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- bottom editorial line -->
+  <div class="absolute bottom-6 inset-x-0 z-20 max-w-[1500px] mx-auto px-6 lg:px-12">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="gold-rule w-full sm:w-40"></div>
+      <p class="mono text-[10px] text-on-surface-variant uppercase tracking-[0.22em]">© Sideline Star — sidelinestar.com</p>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>
