@@ -35,11 +35,11 @@
   .keep{ break-inside:avoid; page-break-inside:avoid; }
   /* a section that opens its own page: break before it + pad the top so text
      isn't jammed against the paper edge */
-  .newpage{ padding-top:30px; break-inside:avoid; page-break-inside:avoid; }
+  .newpage{ break-before:page; page-break-before:always; break-inside:avoid; page-break-inside:avoid; padding-top:38px; }
   @media print{
     html,body{ background:var(--bg); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     .page{ max-width:none; width:100%; }
-    .newpage{ padding-top:30px; break-inside:avoid; page-break-inside:avoid; }
+    .newpage{ break-before:page; page-break-before:always; break-inside:avoid; page-break-inside:avoid; padding-top:38px; }
     .tcard,.scard,.note,.plan,.standing{ break-inside:avoid; page-break-inside:avoid; }
     .shead{ break-inside:avoid; page-break-inside:avoid; break-after:avoid; page-break-after:avoid; }
     .h,.lead{ break-after:avoid; page-break-after:avoid; }
@@ -129,6 +129,15 @@
         <div class="lead">Beyond the clock, evaluators graded each skill by eye over the sessions. Here's how Timmy stacks up against the group average and the top of the group, out of 10. Higher is better.</div>
       </div>
       <div id="skills"></div>
+    </div>
+
+    <!-- Progress across sessions -->
+    <div class="section newpage">
+      <div class="shead">
+        <div class="kicker" id="progKicker">Session by session</div>
+        <div class="h">Progress across sessions</div>
+        <div class="lead">How Timmy's evaluator scores moved from one session to the next, against the group average. Improvement across sessions is the strongest signal there is — it shows the work is landing.</div>
+      </div>
       <div id="progress"></div>
     </div>
 
@@ -257,33 +266,55 @@
     </div>`;
   }).join("");
 
-  /* ── Progress across sessions (the $24.99 value-add) ── */
-  const progress = [
+  /* ── Progress across sessions (its own page) ── */
+  const prog = [
     { s:1, player:6.1, group:6.4 },
     { s:2, player:6.6, group:6.5 },
     { s:3, player:7.2, group:6.6 },
   ];
-  document.getElementById("progress").innerHTML = `
-    <div class="scard" style="margin-top:4px;">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#aeb2bb;margin-bottom:8px;">Progress across sessions</div>
-      <div style="display:flex;align-items:flex-end;gap:14px;height:70px;padding:0 4px;">
-        ${progress.map(pt=>{
-          const ph=Math.max(4,(pt.player/scale)*64), gh=Math.max(4,(pt.group/scale)*64);
-          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
-            <div style="font-family:var(--num);font-size:11px;font-weight:700;color:#cda434;margin-bottom:3px;">${pt.player.toFixed(1)}</div>
-            <div style="display:flex;align-items:flex-end;gap:4px;height:64px;">
-              <div style="width:10px;height:${gh}px;background:#3a3f47;border-radius:3px 3px 0 0;"></div>
-              <div style="width:14px;height:${ph}px;background:linear-gradient(180deg,#e3c560,#cda434);border-radius:3px 3px 0 0;"></div>
-            </div>
-            <div style="font-size:9px;color:#8b8f99;margin-top:5px;font-weight:600;">S${pt.s}</div>
+  (function(){
+    const W=660,H=300,padX=44,padTop=28,padBot=46,n=prog.length;
+    const x=i=>padX+(n===1?(W-padX*2)/2:(i*(W-padX*2))/(n-1));
+    const y=v=>padTop+(1-(v/scale))*(H-padTop-padBot);
+    const line=key=>prog.map((p,i)=>`${i===0?"M":"L"} ${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+    const area=`${line("player")} L ${x(n-1).toFixed(1)} ${(H-padBot).toFixed(1)} L ${x(0).toFixed(1)} ${(H-padBot).toFixed(1)} Z`;
+    const grid=[0,scale/2,scale];
+    const first=prog[0].player,last=prog[n-1].player,delta=Math.round((last-first)*10)/10;
+    document.getElementById("progKicker").textContent = delta>=0.3?"Trending up":delta<=-0.3?"Trending down":"Holding steady";
+    document.getElementById("progress").innerHTML = `
+      <div style="display:flex;align-items:center;gap:18px;background:linear-gradient(120deg,#1a1812,#121216);border:1px solid var(--gold-line);border-radius:16px;padding:16px 22px;margin-bottom:16px;">
+        <div style="text-align:center;flex-shrink:0;">
+          <div style="font-family:var(--num);font-weight:800;font-size:34px;color:${delta>=0?"#5fd08a":"#e0944a"};line-height:1;">${delta>=0?"+":""}${delta.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--gold);margin-top:4px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">pts · ${n} sessions</div>
+        </div>
+        <div style="width:1px;align-self:stretch;background:var(--gold-line);"></div>
+        <div style="color:#c7cbd2;font-size:12.5px;line-height:1.55;">Timmy ${delta>=0.3?"improved":delta<=-0.3?"slipped":"held steady"} from <b style="color:#fff;">${first.toFixed(1)}</b> in session 1 to <b style="color:#fff;">${last.toFixed(1)}</b> by session ${n}${delta>=0.3?" — a clear upward trajectory across the evaluation.":"."} The line below tracks every session against the group.</div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:16px;background:#0e0e12;padding:8px 6px 4px;">
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+          <defs><linearGradient id="pf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cda434" stop-opacity="0.28"/><stop offset="100%" stop-color="#cda434" stop-opacity="0"/></linearGradient></defs>
+          ${grid.map(g=>`<line x1="${padX}" y1="${y(g)}" x2="${W-padX}" y2="${y(g)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/><text x="${padX-8}" y="${y(g)+3}" text-anchor="end" font-size="11" fill="#6b7078" font-family="var(--num)">${g}</text>`).join("")}
+          <path d="${area}" fill="url(#pf)"/>
+          <path d="${line("group")}" fill="none" stroke="#4a4f57" stroke-width="2" stroke-dasharray="5 5"/>
+          <path d="${line("player")}" fill="none" stroke="#cda434" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+          ${prog.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.group)}" r="3.5" fill="#4a4f57"/><circle cx="${x(i)}" cy="${y(p.player)}" r="5.5" fill="#cda434" stroke="#0e0e12" stroke-width="2"/><text x="${x(i)}" y="${y(p.player)-12}" text-anchor="middle" font-size="14" font-weight="700" fill="#f6f7f8" font-family="var(--num)">${p.player.toFixed(1)}</text><text x="${x(i)}" y="${H-22}" text-anchor="middle" font-size="12" font-weight="700" fill="#aeb2bb" font-family="var(--sans)">SESSION ${p.s}</text>`).join("")}
+        </svg>
+        <div style="display:flex;gap:18px;justify-content:center;padding:4px 0 10px;font-size:11px;color:#6b7078;font-weight:600;">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;background:#cda434;border-radius:2px;"></span>Timmy</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:0;border-top:2px dashed #4a4f57;"></span>Group average</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        ${prog.map((p,i)=>{
+          const d=i===0?null:Math.round((p.player-prog[i-1].player)*10)/10;
+          return `<div style="flex:1;border:1px solid var(--line);border-radius:12px;background:#101014;padding:10px 12px;text-align:center;">
+            <div style="font-size:9.5px;color:var(--gray);font-weight:700;letter-spacing:.1em;text-transform:uppercase;">Session ${p.s}</div>
+            <div style="font-family:var(--num);font-size:24px;font-weight:800;color:#fff;margin:3px 0 2px;">${p.player.toFixed(1)}</div>
+            ${d==null?`<div style="font-size:10.5px;color:var(--muted);">starting point</div>`:`<div style="font-size:11.5px;font-weight:700;color:${d>0?"#5fd08a":d<0?"#e0944a":"#6b7078"};">${d>0?"▲ +":d<0?"▼ ":"– "}${Math.abs(d).toFixed(1)} vs S${prog[i-1].s}</div>`}
           </div>`;
         }).join("")}
-      </div>
-      <div style="display:flex;gap:16px;margin-top:6px;font-size:9px;color:#6b7078;font-weight:600;">
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:#cda434;"></span>Timmy</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:#3a3f47;"></span>Group avg</span>
-      </div>
-    </div>`;
+      </div>`;
+  })();
 
   /* ── Notes ── */
   const notes = [

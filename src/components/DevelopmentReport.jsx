@@ -79,11 +79,17 @@ export default function DevelopmentReport({ data }) {
     </div>
   );
   const leadStyle = { fontSize: 11.5, color: GRAY, lineHeight: 1.5, marginBottom: 11 };
-  // Sections flow and tile tightly — NOT one-per-page. Each is kept whole
-  // (break-inside:avoid) so an overflowing tail never strands a near-blank
-  // page, and carries a top pad so when a whole section does land at a page
-  // top it still has breathing room (with @page margin:0 for full-bleed dark).
-  const section = { paddingTop: 30, breakInside: "avoid", pageBreakInside: "avoid" };
+  // Each major section gets its own page (break-before) AND is kept whole
+  // (break-inside:avoid) so a section never splits and orphans a near-blank
+  // page. paddingTop gives the top gap under the full-bleed dark (@page
+  // margin:0). Testing rides page 1 with the cover (no break-before).
+  const section = { breakBefore: "page", pageBreakBefore: "always", breakInside: "avoid", pageBreakInside: "avoid", paddingTop: 38 };
+
+  // ── Progress maths (for the dedicated progress page) ──
+  const prog = progress.filter(p => p.player != null);
+  const firstP = prog[0]?.player, lastP = prog[prog.length - 1]?.player;
+  const totalDelta = (firstP != null && lastP != null) ? Math.round((lastP - firstP) * 10) / 10 : null;
+  const trendWord = totalDelta == null ? "" : totalDelta >= 0.3 ? "Trending up" : totalDelta <= -0.3 ? "Trending down" : "Holding steady";
 
   return (
     <div className="ssrpt" style={{ fontFamily: SANS, maxWidth: 720, margin: "0 auto", color: TXT, fontSize: 13, lineHeight: 1.55, background: BG }}>
@@ -176,34 +182,90 @@ export default function DevelopmentReport({ data }) {
                 </div>
               );
             })}
-
-            {progress.length > 1 && (
-              <div style={{ border: `1px solid ${LINE}`, borderRadius: 13, padding: "10px 16px 12px", marginTop: 4, background: "#101014", breakInside: "avoid" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#aeb2bb", marginBottom: 8 }}>Progress across sessions</div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 70, padding: "0 4px" }}>
-                  {progress.map(pt => {
-                    const ph = pt.player != null ? Math.max(4, (pt.player / scale) * 64) : 0;
-                    const gh = pt.group != null ? Math.max(4, (pt.group / scale) * 64) : 0;
-                    return (
-                      <div key={pt.session_number} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                        <div style={{ fontFamily: NUM, fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 3 }}>{pt.player != null ? pt.player.toFixed(1) : "—"}</div>
-                        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 64 }}>
-                          <div title="Group avg" style={{ width: 10, height: gh, background: "#3a3f47", borderRadius: "3px 3px 0 0" }} />
-                          <div title={firstName} style={{ width: 14, height: ph, background: `linear-gradient(180deg,#e3c560,${GOLD})`, borderRadius: "3px 3px 0 0" }} />
-                        </div>
-                        <div style={{ fontSize: 9, color: GRAY, marginTop: 5, fontWeight: 600 }}>S{pt.session_number}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 9, color: MUTED, fontWeight: 600 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 2, background: GOLD }} />{firstName}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 2, background: "#3a3f47" }} />Group avg</span>
-                </div>
-              </div>
-            )}
           </div>
         )}
+
+        {/* Progress across sessions — its own page */}
+        {prog.length > 1 && (() => {
+          const W = 660, H = 300, padX = 44, padTop = 28, padBot = 46;
+          const n = prog.length;
+          const x = (i) => padX + (n === 1 ? (W - padX * 2) / 2 : (i * (W - padX * 2)) / (n - 1));
+          const y = (v) => padTop + (1 - (v / scale)) * (H - padTop - padBot);
+          const line = (key) => prog.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+          const area = `${line("player")} L ${x(n - 1).toFixed(1)} ${(H - padBot).toFixed(1)} L ${x(0).toFixed(1)} ${(H - padBot).toFixed(1)} Z`;
+          const gridVals = [0, scale / 2, scale];
+          return (
+            <div style={{ marginBottom: 10, ...section }}>
+              <Shead kicker={trendWord || "Session by session"} title="Progress across sessions" />
+              <div style={leadStyle}>How {firstName}'s evaluator scores moved from one session to the next, against the group average. Improvement across sessions is the strongest signal there is — it shows the work is landing.</div>
+
+              {/* Big takeaway */}
+              {totalDelta != null && (
+                <div style={{ display: "flex", alignItems: "center", gap: 18, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "16px 22px", marginBottom: 16 }}>
+                  <div style={{ textAlign: "center", flexShrink: 0 }}>
+                    <div style={{ fontFamily: NUM, fontWeight: 800, fontSize: 34, color: totalDelta >= 0 ? "#5fd08a" : "#e0944a", lineHeight: 1 }}>{totalDelta >= 0 ? "+" : ""}{totalDelta.toFixed(1)}</div>
+                    <div style={{ fontSize: 10, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>pts · {n} sessions</div>
+                  </div>
+                  <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
+                  <div style={{ color: "#c7cbd2", fontSize: 12.5, lineHeight: 1.55 }}>
+                    {firstName} {totalDelta >= 0.3 ? "improved" : totalDelta <= -0.3 ? "slipped" : "held steady"} from <b style={{ color: "#fff" }}>{firstP.toFixed(1)}</b> in session 1 to <b style={{ color: "#fff" }}>{lastP.toFixed(1)}</b> by session {n}{totalDelta >= 0.3 ? " — a clear upward trajectory across the evaluation." : "."} The line below tracks every session against the group.
+                  </div>
+                </div>
+              )}
+
+              {/* Line chart */}
+              <div style={{ border: `1px solid ${LINE}`, borderRadius: 16, background: "#0e0e12", padding: "8px 6px 4px" }}>
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+                  <defs>
+                    <linearGradient id="progFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={GOLD} stopOpacity="0.28" />
+                      <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {gridVals.map((g, i) => (
+                    <g key={i}>
+                      <line x1={padX} y1={y(g)} x2={W - padX} y2={y(g)} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+                      <text x={padX - 8} y={y(g) + 3} textAnchor="end" fontSize="11" fill="#6b7078" fontFamily={NUM}>{g}</text>
+                    </g>
+                  ))}
+                  <path d={area} fill="url(#progFill)" />
+                  <path d={line("group")} fill="none" stroke="#4a4f57" strokeWidth="2" strokeDasharray="5 5" />
+                  <path d={line("player")} fill="none" stroke={GOLD} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                  {prog.map((p, i) => (
+                    <g key={i}>
+                      <circle cx={x(i)} cy={y(p.group)} r="3.5" fill="#4a4f57" />
+                      <circle cx={x(i)} cy={y(p.player)} r="5.5" fill={GOLD} stroke="#0e0e12" strokeWidth="2" />
+                      <text x={x(i)} y={y(p.player) - 12} textAnchor="middle" fontSize="14" fontWeight="700" fill="#f6f7f8" fontFamily={NUM}>{p.player.toFixed(1)}</text>
+                      <text x={x(i)} y={H - 22} textAnchor="middle" fontSize="12" fontWeight="700" fill="#aeb2bb" fontFamily={SANS}>SESSION {p.session_number}</text>
+                    </g>
+                  ))}
+                </svg>
+                <div style={{ display: "flex", gap: 18, justifyContent: "center", padding: "4px 0 10px", fontSize: 11, color: MUTED, fontWeight: 600 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: GOLD, borderRadius: 2 }} />{firstName}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 0, borderTop: "2px dashed #4a4f57" }} />Group average</span>
+                </div>
+              </div>
+
+              {/* Per-session deltas */}
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                {prog.map((p, i) => {
+                  const d = i === 0 ? null : Math.round((p.player - prog[i - 1].player) * 10) / 10;
+                  return (
+                    <div key={i} style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 12, background: "#101014", padding: "10px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 9.5, color: GRAY, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Session {p.session_number}</div>
+                      <div style={{ fontFamily: NUM, fontSize: 24, fontWeight: 800, color: "#fff", margin: "3px 0 2px" }}>{p.player.toFixed(1)}</div>
+                      {d == null ? (
+                        <div style={{ fontSize: 10.5, color: MUTED }}>starting point</div>
+                      ) : (
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: d > 0 ? "#5fd08a" : d < 0 ? "#e0944a" : MUTED }}>{d > 0 ? "▲ +" : d < 0 ? "▼ " : "– "}{Math.abs(d).toFixed(1)} vs S{prog[i - 1].session_number}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Evaluator notes */}
         {notes.length > 0 && (
