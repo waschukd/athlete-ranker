@@ -266,35 +266,21 @@ function PlayerReportInner() {
                 {data.category?.name && <span>{data.category.name}</span>}
               </div>
             </div>
-            {/* Action buttons */}
+            {/* Action buttons. Parent access (paywall/share) is controlled by the
+                Service Provider, not the director — so no "Share with Parent" here.
+                Export PDF prints this internal data report (see exportInternalPdf). */}
             <div className="flex items-center gap-2">
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <button
-                onClick={async () => {
-                  const res = await fetch("/api/report/generate-link", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ athlete_id: athleteId, age_category_id: catId }),
-                  });
-                  const data = await res.json();
-                  if (data.url) {
-                    navigator.clipboard.writeText(data.url);
-                    alert("Parent report link copied to clipboard:\n" + data.url);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
-                Share with Parent
-              </button>
-              <button
-                onClick={() => window.open(`/player/report/pdf?athlete=${athleteId}&cat=${catId}`, "_blank")}
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 print:hidden">
                 <Download size={14} /> Export PDF
               </button>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-5 overflow-x-auto">
+          <div className="flex gap-1 mt-5 overflow-x-auto print:hidden">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
@@ -313,8 +299,8 @@ function PlayerReportInner() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* OVERVIEW TAB */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
+          <div data-tab="overview" className={`space-y-6 print:block ${activeTab === "overview" ? "" : "hidden"}`}>
+            <h2 className="hidden print:block text-lg font-bold text-ink mb-2">Overview</h2>
             {/* Stats row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -377,11 +363,10 @@ function PlayerReportInner() {
               </div>
             </div>
           </div>
-        )}
 
         {/* SCORES TAB */}
-        {activeTab === "scores" && (
-          <div className="space-y-5">
+          <div data-tab="scores" className={`space-y-5 print:block print:break-before-page ${activeTab === "scores" ? "" : "hidden"}`}>
+            <h2 className="hidden print:block text-lg font-bold text-ink mb-2">Score Breakdown</h2>
             {sessionBreakdown.map(({ session, sd, byEvaluator, catAvgs, testingEntry }) => (
               <div key={session.session_number} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-100">
@@ -457,11 +442,10 @@ function PlayerReportInner() {
               </div>
             ))}
           </div>
-        )}
 
         {/* NOTES TAB */}
-        {activeTab === "notes" && (
-          <div className="space-y-4">
+          <div data-tab="notes" className={`space-y-4 print:block print:break-before-page ${activeTab === "notes" ? "" : "hidden"}`}>
+            <h2 className="hidden print:block text-lg font-bold text-ink mb-2">Evaluator Notes</h2>
             {notes.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
                 <FileText size={36} className="mx-auto text-gray-200 mb-3" />
@@ -501,11 +485,10 @@ function PlayerReportInner() {
               </>
             )}
           </div>
-        )}
 
         {/* SCOUTING REPORT TAB */}
-        {activeTab === "scout" && (
-          <div className="space-y-5">
+          <div data-tab="scout" className={`space-y-5 print:block print:break-before-page ${activeTab === "scout" ? "" : "hidden"}`}>
+            <h2 className="hidden print:block text-lg font-bold text-ink mb-2">Scouting Report</h2>
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div>
@@ -582,8 +565,15 @@ function PlayerReportInner() {
               </div>
             )}
           </div>
-        )}
       </div>
+
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 14mm; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
