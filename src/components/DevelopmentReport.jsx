@@ -47,12 +47,25 @@ function skillInfo(name) {
   return "";
 }
 
+// What the SKILL looks like operating at the top of the group — the target state
+// behind each recommendation.
+function skillElite(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "explosive first three steps, edges that hold through hard turns, and the speed to separate with the puck on the stick";
+  if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "clean hands at full speed, pucks protected through contact, and the right play made under pressure instead of forced";
+  if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "a step ahead of the play — reading it before it develops, supporting the puck, and in the right spot away from it";
+  if (n.includes("compete") || n.includes("effort") || n.includes("battle") || n.includes("work")) return "winning more than his share of battles, first on every loose puck, with the same motor in the third period as the first";
+  if (n.includes("shot") || n.includes("shoot")) return "a quick, deceptive release he can get off in traffic and off the rush";
+  if (n.includes("pass")) return "crisp, accurate puck movement that hits teammates in stride";
+  return "consistent, high-level execution when the game speeds up";
+}
+
 export function ReportFonts() {
   return <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
 }
 
 export default function DevelopmentReport({ data }) {
-  const { athlete, category, notes = [], standing, skillProfile = [], testingProfile = [], progress = [] } = data;
+  const { athlete, category, notes = [], standing, skillProfile = [], testingProfile = [], progress = [], trainingProviders = [], org_name } = data;
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -351,6 +364,7 @@ export default function DevelopmentReport({ data }) {
                     <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>Start here — the foundation</div>
                     <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 4 }}>1. {skillFocus[0].name}</div>
                     <div style={{ color: "#c7cbd2" }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${GOLD_LINE}`, color: "#c7cbd2" }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name)}.</div>
                   </div>
                   {skillFocus.length > 1 && (
                     <>
@@ -368,6 +382,31 @@ export default function DevelopmentReport({ data }) {
                 <p style={{ margin: "11px 0 0", color: "#c7cbd2" }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
               )}
             </div>
+
+            {trainingProviders.length > 0 && (
+              <div style={{ marginTop: 16, breakInside: "avoid" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 3 }}>Where to put in the work</div>
+                <div style={{ fontSize: 11, color: GRAY, marginBottom: 10 }}>Local programs {org_name ? `${org_name}'s coaches` : "our coaches"} recommend for these development areas.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {trainingProviders.map((a, i) => (
+                    <div key={i} style={{ border: `1px solid ${LINE}`, borderRadius: 12, background: "#101014", padding: "11px 15px", breakInside: "avoid" }}>
+                      <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 6 }}>{a.area}</div>
+                      {(a.providers || []).map((p, j) => (
+                        <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: j < a.providers.length - 1 ? 6 : 0 }}>
+                          <div>
+                            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#fff" }}>{p.name}</span>
+                            {p.blurb && <span style={{ fontSize: 11.5, color: "#b8bcc4" }}> — {p.blurb}</span>}
+                          </div>
+                          {p.contact && <span style={{ fontSize: 11, color: GOLD, whiteSpace: "nowrap", flexShrink: 0 }}>{p.contact}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 8, fontStyle: "italic" }}>Listed at the association's recommendation. Sideline Star does not endorse or vet these providers.</div>
+              </div>
+            )}
+
             <div style={{ borderTop: `1px solid ${LINE}`, padding: "11px 0 40px", marginTop: 16, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>
               <span>{category?.name} · {fullName} · Player Development Report</span>
