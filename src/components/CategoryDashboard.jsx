@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsights";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X
+  Download, FileText, LogOut, Search, X, AlertTriangle
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -17,6 +17,8 @@ import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
 import { generateICS, downloadICS } from "@/lib/calendar";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -46,6 +48,7 @@ export default function CategoryDashboard({
 
   const [activeTab, setActiveTab] = useState("rankings");
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
+  const [theme, toggleTheme] = useTheme();
   const [scoresOpen, setScoresOpen] = useState(false);
   const [analysisView, setAnalysisView] = useState("insights"); // insights | reports
   // Shared search box used by Rankings + Athletes tabs. Client-side filter
@@ -277,9 +280,10 @@ export default function CategoryDashboard({
     { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "analysis", label: "Analysis", icon: FileText },
     { id: "athletes", label: "Athletes", icon: Users },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
+  if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
 
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
@@ -288,7 +292,42 @@ export default function CategoryDashboard({
   const activeTitle = TAB_TITLES[activeTab] || "Rankings";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex" data-theme={theme}>
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 sticky top-0 h-screen bg-white border-r border-gray-200">
+        <div className="px-6 pt-7 pb-6 border-b border-gray-100 flex items-center gap-3">
+          <img src="/mark-gold.svg" className="h-9 w-10 object-contain" alt="Sideline Star" />
+          <div>
+            <div className="font-display italic font-black text-accent text-base uppercase tracking-[0.16em] leading-none">Sideline Star</div>
+            <div className="font-mono text-[9px] text-gray-400 mt-1 tracking-[0.28em]">CATEGORY</div>
+          </div>
+        </div>
+        {categorySwitcher && (
+          <div className="px-4 py-3 border-b border-gray-100">{categorySwitcher}</div>
+        )}
+        <nav className="flex-1 py-4">
+          {tabs.map(tab => { const Icon = tab.icon; return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-accent-soft text-accent border-r-2 border-accent" : "text-gray-500 hover:bg-gray-100 hover:text-ink"}`}
+            >
+              <Icon size={18} /> {tab.label}
+            </button>
+          ); })}
+        </nav>
+        <div className="px-4 py-4 border-t border-gray-100 space-y-2">
+          {canManage ? (
+            <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">
+              <Settings size={15} /> Edit Setup
+            </a>
+          ) : (
+            <button onClick={onSignOut} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">
+              <LogOut size={14} /> Sign out
+            </button>
+          )}
+        </div>
+      </aside>
+      <div className="flex-1 min-w-0">
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           {canManage ? (
@@ -310,6 +349,7 @@ export default function CategoryDashboard({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 {directorsData?.directors?.length > 0 ? (
                   <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
@@ -344,6 +384,7 @@ export default function CategoryDashboard({
                 </div>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 {categorySwitcher}
                 <button onClick={onSignOut}
                   className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
@@ -353,7 +394,7 @@ export default function CategoryDashboard({
             </div>
           )}
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="lg:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-7 overflow-x-auto border-b border-[#ededeb]">
             {tabs.map(tab => { const Icon = tab.icon; return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`font-display flex items-center gap-2 pb-3.5 pt-1 text-sm font-bold tracking-wide whitespace-nowrap transition-colors border-b-[3px] -mb-px ${activeTab === tab.id ? "border-accent text-ink" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
@@ -367,7 +408,8 @@ export default function CategoryDashboard({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {activeTab === "rankings" && (
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            <div className="xl:col-span-3 space-y-5">
             {/* Rankings hub control row */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
@@ -379,6 +421,11 @@ export default function CategoryDashboard({
                 <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#0b5cd6] text-white hover:bg-[#0F4FCC]"}`}>
                   {scoresOpen ? "← Back to Rankings" : "Edit Scores"}
                 </button>
+                {!scoresOpen && hasScores && (
+                  <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold">
+                    <Download size={14} /> Export
+                  </button>
+                )}
                 <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
               </div>
             </div>
@@ -403,7 +450,7 @@ export default function CategoryDashboard({
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
-                          {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
+                          {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
                           <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
                         </tr>
                       </thead>
@@ -559,30 +606,20 @@ export default function CategoryDashboard({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${compareCoaches ? "bg-accent text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
                     >Compare coaches</button>
                   )}
-                  {hasScores && <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"><Download size={12} /> Export CSV</button>}
-                  {compareIds.length >= 2 && (
-                    <button onClick={() => setShowCompare(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold hover:bg-[#0F4FCC]">
-                      Compare ({compareIds.length})
-                    </button>
-                  )}
-                  {compareIds.length > 0 && (
-                    <button onClick={() => setCompareIds([])} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
-                  )}
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-2 py-3 w-8"></th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('rank')}>Rank{sortIcon('rank')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('first')}>First{sortIcon('first')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('last')}>Last{sortIcon('last')}</th>
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
-                      {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}<span className="block text-gray-400 font-normal normal-case">{s.weight_percentage}%</span></th>)}
+                      {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}</th>)}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {compareCoaches && hasCoaches && <th className="px-4 py-3 text-center text-xs font-medium text-accent uppercase">Coach rk</th>}
-                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Track</th>}
+                      {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>}
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                     </tr>
                   </thead>
@@ -591,10 +628,7 @@ export default function CategoryDashboard({
                       <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1 + (compareCoaches && hasCoaches ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
-                      <tr key={a.id} className={`hover:bg-gray-50 ${compareIds.includes(a.id) ? "bg-blue-50/50" : a.rank === 1 ? "bg-accent-soft" : ""}`}>
-                        <td className="px-2 py-3">
-                          <input type="checkbox" checked={compareIds.includes(a.id)} onChange={e => { setCompareIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)); }} className="w-3.5 h-3.5 rounded border-gray-300 text-[#0b5cd6] focus:ring-[#0b5cd6]" />
-                        </td>
+                      <tr key={a.id} className={`hover:bg-gray-50 ${a.rank === 1 ? "bg-accent-soft" : ""}`}>
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#0b5cd6]">{a.first_name}</a></td>
                         <td className="px-4 py-3">
@@ -619,31 +653,18 @@ export default function CategoryDashboard({
                           );
                         })()}
                         {hasScores && <td className="px-4 py-3 text-center">
-                          {a.rank_history?.length > 0 ? (
-                            <div className="flex items-center justify-center gap-0.5 flex-wrap">
-                              {a.rank_history.map((r, i) => {
-                                const prev = i > 0 ? a.rank_history[i - 1] : null;
-                                const up = prev !== null && r < prev;
-                                const dn = prev !== null && r > prev;
-                                return (
-                                  <span key={i} className="inline-flex items-center gap-0.5">
-                                    {i > 0 && <span className={`text-xs font-bold leading-none ${up ? 'text-green-500' : dn ? 'text-red-400' : 'text-gray-300'}`}>{up ? '↑' : dn ? '↓' : '–'}</span>}
-                                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${r <= 5 ? 'bg-green-100 text-green-700' : r <= 15 ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{r}</span>
-                                  </span>
-                                );
-                              })}
-                              {(() => {
-                                const last = a.rank_history[a.rank_history.length - 1];
-                                const upF = a.rank < last; const dnF = a.rank > last;
-                                return (
-                                  <span className="inline-flex items-center gap-0.5">
-                                    <span className={`text-xs font-bold leading-none ${upF ? 'text-green-500' : dnF ? 'text-red-400' : 'text-gray-300'}`}>{upF ? '↑' : dnF ? '↓' : '–'}</span>
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-[#0b5cd6] text-white">{a.rank}</span>
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          ) : <span className="text-gray-200 text-xs">—</span>}
+                          {(() => {
+                            const hist = a.rank_history || [];
+                            if (!hist.length) return <span className="text-gray-200 text-xs">—</span>;
+                            const last = hist[hist.length - 1];
+                            const up = a.rank < last, dn = a.rank > last;
+                            return (
+                              <span className={`text-base font-bold leading-none ${up ? "text-green-500" : dn ? "text-red-400" : "text-gray-300"}`}
+                                title={up ? `Up from #${last}` : dn ? `Down from #${last}` : "No change since last eval"}>
+                                {up ? "▲" : dn ? "▼" : "–"}
+                              </span>
+                            );
+                          })()}
                         </td>}
                         <td className="px-4 py-3 text-center">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
@@ -661,6 +682,70 @@ export default function CategoryDashboard({
             </div>
             </>
             )}
+            </div>
+            <aside className="space-y-6">
+              {/* RAIL CARD A — Session Progress */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="font-display font-bold text-ink text-sm flex items-center gap-2"><Calendar size={15} className="text-accent" /> Session Progress</h3>
+                </div>
+                <div className="px-5 py-4 space-y-4">
+                  {(sessions || []).length === 0 ? (
+                    <p className="text-sm text-gray-400">No sessions yet.</p>
+                  ) : (sessions || []).map(s => {
+                    const st = sessionStatus?.[s.session_number] || sessionStatus?.[Number(s.session_number)] || "not_started";
+                    const isComplete = st === "complete" || (completedSessions || []).some(c => String(c) === String(s.session_number));
+                    const isInProgress = !isComplete && (st === "in_progress" || (inProgressSessions || []).some(c => String(c) === String(s.session_number)));
+                    const pill = isComplete
+                      ? { cls: "bg-green-100 text-green-700", label: "Complete" }
+                      : isInProgress
+                      ? { cls: "bg-amber-100 text-amber-700", label: "In progress" }
+                      : { cls: "bg-gray-100 text-gray-500", label: "Scheduled" };
+                    const width = isComplete ? "100%" : isInProgress ? "50%" : "0%";
+                    return (
+                      <div key={s.session_number}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-sm font-medium text-ink">Session {s.session_number}{s.weight_percentage != null ? ` · ${s.weight_percentage}%` : ""}</span>
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${pill.cls}`}>{pill.label}</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full">
+                          <div className="h-full bg-accent rounded-full" style={{ width }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* RAIL CARD B — Needs Attention */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="font-display font-bold text-ink text-sm flex items-center gap-2"><AlertTriangle size={15} className="text-accent" /> Needs Attention</h3>
+                </div>
+                <div className="px-5 py-4 space-y-3">
+                  {(() => {
+                    const items = [];
+                    if (!hasScores) items.push("No scores submitted yet");
+                    const ip = (inProgressSessions || []).length;
+                    if (ip > 0) items.push(`${ip} session${ip === 1 ? "" : "s"} in progress`);
+                    const unscored = (rankedAthletes || []).filter(a => a.weighted_total == null).length;
+                    if (hasScores && unscored > 0) items.push(`${unscored} athlete${unscored === 1 ? "" : "s"} not yet scored`);
+                    const shown = items.slice(0, 3);
+                    if (shown.length === 0) {
+                      return <p className="text-sm text-gray-400">All clear — nothing needs attention.</p>;
+                    }
+                    return shown.map((text, i) => (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <span className="flex-shrink-0 mt-0.5 w-6 h-6 rounded-lg bg-amber-100 text-amber-600 inline-flex items-center justify-center">
+                          <AlertTriangle size={13} />
+                        </span>
+                        <span className="text-sm text-gray-600">{text}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </aside>
           </div>
         )}
 
@@ -729,18 +814,44 @@ export default function CategoryDashboard({
                               const file = e.target.files[0]; if (!file) return;
                               const text = await file.text();
                               const lines = text.trim().split('\n').filter(l => l.trim());
-                              const hasHeader = lines[0].toLowerCase().includes('first') || lines[0].toLowerCase().includes('name');
-                              const results = (hasHeader ? lines.slice(1) : lines).map(line => {
-                                const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                                return { first_name: cols[0], last_name: cols[1], overall_rank: cols[2] };
-                              }).filter(r => r.first_name && r.last_name && r.overall_rank);
+                              if (!lines.length) { e.target.value = ""; return; }
+                              const splitCsv = (line) => line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                              const header = splitCsv(lines[0]);
+                              const lower = header.map(h => h.toLowerCase());
+                              const looksHeader = lower.some(h => h.includes('name')) || lower.includes('overall rank');
+                              let results;
+                              if (looksHeader) {
+                                // Full SportTesting export: First, Last, Position, then (Test, Rank) pairs, ending in Overall Rank.
+                                const firstIdx = lower.findIndex(h => h.includes('first'));
+                                const lastIdx = lower.findIndex(h => h.includes('last'));
+                                const overallIdx = lower.lastIndexOf('overall rank');
+                                const testCols = [];
+                                for (let i = 0; i < header.length; i++) {
+                                  const h = lower[i];
+                                  if (!h || h.includes('first') || h.includes('last') || h === 'position' || h === 'rank' || h === 'overall rank') continue;
+                                  testCols.push({ name: header[i], valueIdx: i, rankIdx: lower[i + 1] === 'rank' ? i + 1 : -1 });
+                                }
+                                results = lines.slice(1).map(splitCsv).map(cols => ({
+                                  first_name: firstIdx >= 0 ? cols[firstIdx] : cols[0],
+                                  last_name: lastIdx >= 0 ? cols[lastIdx] : cols[1],
+                                  overall_rank: overallIdx >= 0 ? cols[overallIdx] : cols[cols.length - 1],
+                                  tests: testCols
+                                    .map(tc => ({ name: tc.name, value: cols[tc.valueIdx], rank: tc.rankIdx >= 0 ? cols[tc.rankIdx] : null }))
+                                    .filter(t => t.value !== undefined && t.value !== ''),
+                                })).filter(r => r.first_name && r.last_name && r.overall_rank);
+                              } else {
+                                // Legacy stripped format: first, last, overall_rank
+                                results = lines.map(splitCsv)
+                                  .map(cols => ({ first_name: cols[0], last_name: cols[1], overall_rank: cols[2] }))
+                                  .filter(r => r.first_name && r.last_name && r.overall_rank);
+                              }
                               const res = await fetch(`/api/categories/${catId}/testing-upload`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
                               });
                               const data = await res.json();
-                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}` : 'Error: ' + data.error);
+                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}` : 'Error: ' + data.error);
                               refetchRankings(); e.target.value = "";
                             }} />
                           </label>
@@ -1553,6 +1664,7 @@ export default function CategoryDashboard({
           </div>
         )}
 
+      </div>
       </div>
     </div>
   );

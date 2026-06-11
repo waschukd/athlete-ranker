@@ -3,6 +3,8 @@
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, User, FileText, BarChart3, Zap, Download, Loader } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -44,19 +46,19 @@ function RankHistoryChart({ history, sessions }) {
       {/* Area fill */}
       <defs>
         <linearGradient id="rankGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0b5cd6" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#0b5cd6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#c79a2c" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#c79a2c" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={`${pathD} L ${points[points.length-1].x} ${height} L ${points[0].x} ${height} Z`}
         fill="url(#rankGrad)" />
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#0b5cd6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#c79a2c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       {/* Points */}
       {points.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r="5" fill="#0b5cd6" stroke="white" strokeWidth="2" />
-          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#0b5cd6" fontWeight="600">#{p.rank}</text>
+          <circle cx={p.x} cy={p.y} r="5" fill="#c79a2c" stroke="white" strokeWidth="2" />
+          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#a87f1c" fontWeight="600">#{p.rank}</text>
           <text x={p.x} y={height - 4} textAnchor="middle" fontSize="10" fill="#9ca3af">S{i + 1}</text>
         </g>
       ))}
@@ -64,7 +66,7 @@ function RankHistoryChart({ history, sessions }) {
   );
 }
 
-function ScoreBar({ value, max = 10, color = "#0b5cd6" }) {
+function ScoreBar({ value, max = 10, color = "#c79a2c" }) {
   const pct = Math.min(100, (value / max) * 100);
   return (
     <div className="flex items-center gap-2">
@@ -148,14 +150,16 @@ function PlayerReportInner() {
     el.click();
   };
 
+  const [theme, toggleTheme] = useTheme();
+
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
     </div>
   );
 
   if (!data || data.error) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light">
       <p className="text-gray-400">Player not found</p>
     </div>
   );
@@ -223,7 +227,7 @@ function PlayerReportInner() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -264,6 +268,7 @@ function PlayerReportInner() {
             </div>
             {/* Action buttons */}
             <div className="flex items-center gap-2">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <button
                 onClick={async () => {
                   const res = await fetch("/api/report/generate-link", {
@@ -585,7 +590,7 @@ function PlayerReportInner() {
 
 export default function PlayerReportPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
       <PlayerReportInner />
     </Suspense>
   );

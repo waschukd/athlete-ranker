@@ -13,7 +13,9 @@ export async function POST(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
     const { session_number, results } = body;
-    // results = [{ first_name, last_name, overall_rank }]
+    // results = [{ first_name, last_name, overall_rank, tests?: [{ name, value, rank }] }]
+    // `tests` is the full SportTesting per-test breakdown (kept for reporting);
+    // overall_rank alone is what rankings use.
 
     const athletes = await sql`
       SELECT id, first_name, last_name FROM athletes
@@ -27,6 +29,7 @@ export async function POST(request, { params }) {
       const firstName = row.first_name?.trim().toLowerCase();
       const lastName = row.last_name?.trim().toLowerCase();
       const rank = parseInt(row.overall_rank || row.overall_ranking);
+      const tests = Array.isArray(row.tests) ? row.tests : [];
 
       if (!firstName || !lastName || isNaN(rank)) { skipped.push(row); continue; }
 
@@ -43,17 +46,17 @@ export async function POST(request, { params }) {
           a.first_name.toLowerCase().startsWith(firstName[0])
         );
         if (partial) {
-          matched.push({ athlete_id: partial.id, name: `${partial.first_name} ${partial.last_name}`, rank });
+          matched.push({ athlete_id: partial.id, name: `${partial.first_name} ${partial.last_name}`, rank, tests });
         } else {
           skipped.push({ ...row, reason: "No name match" });
         }
         continue;
       }
 
-      matched.push({ athlete_id: athlete.id, name: `${athlete.first_name} ${athlete.last_name}`, rank });
+      matched.push({ athlete_id: athlete.id, name: `${athlete.first_name} ${athlete.last_name}`, rank, tests });
     }
 
-    // Insert/upsert testing results
+    // Insert/upsert overall rank (used by rankings)
     for (const m of matched) {
       await sql`
         INSERT INTO testing_drill_results (athlete_id, age_category_id, session_number, overall_rank)
@@ -63,10 +66,34 @@ export async function POST(request, { params }) {
       `;
     }
 
+    // Insert/upsert the individual test values (used by the parent report).
+    // Best-effort: degrades silently if the testing_results table isn't there.
+    let testsStored = 0;
+    try {
+      for (const m of matched) {
+        for (const t of (m.tests || [])) {
+          const name = (t.name || "").trim();
+          const value = parseFloat(t.value);
+          if (!name || isNaN(value)) continue;
+          const trank = parseInt(t.rank);
+          await sql`
+            INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank)
+            VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${name}, ${value}, ${isNaN(trank) ? null : trank})
+            ON CONFLICT (athlete_id, age_category_id, session_number, test_name)
+            DO UPDATE SET value = ${value}, test_rank = ${isNaN(trank) ? null : trank}, updated_at = NOW()
+          `;
+          testsStored++;
+        }
+      }
+    } catch (e) {
+      console.error("testing_results upsert skipped:", e.message);
+    }
+
     return NextResponse.json({
       success: true,
       matched: matched.length,
       skipped: skipped.length,
+      tests_stored: testsStored,
       skipped_names: skipped.map(s => `${s.first_name} ${s.last_name}${s.reason ? ` (${s.reason})` : ""}`),
     });
   } catch (error) {

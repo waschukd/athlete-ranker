@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Trophy, BarChart3, FileText, Lock, Download, Star, TrendingUp, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function PublicReportPage({ params }) {
   const { token } = params;
+  const [theme, toggleTheme] = useTheme();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -50,13 +53,13 @@ export default function PublicReportPage({ params }) {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   if (!data) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6" data-theme="premium-light">
       <div className="text-center">
         <div className="text-5xl mb-4">🔗</div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">Report Not Found</h2>
@@ -76,38 +79,44 @@ export default function PublicReportPage({ params }) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-5">
-          <div className="min-w-0">
-            {/* Kicker */}
-            <div className="flex items-center gap-2 mb-2">
-              <img src="/s-mark-dark.svg" style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />
-              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent">
-                {category_name || "Sideline Star"} · Player Report
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {/* Kicker */}
+              <div className="flex items-center gap-2 mb-2">
+                <img src="/s-mark-dark.svg" style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />
+                <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent">
+                  {category_name || "Sideline Star"} · Player Report
+                </div>
+              </div>
+              {/* Title row */}
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+                  {athlete.first_name} {athlete.last_name}
+                </h1>
+                <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {athlete.first_name[0]}{athlete.last_name[0]}
+                </div>
+              </div>
+              {/* Chips sub-line */}
+              <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
+                {athlete.position && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 capitalize">
+                    {athlete.position}
+                  </span>
+                )}
+                {athlete.position && (category_name || org_name) && <span className="text-gray-300">·</span>}
+                {category_name && <span>{category_name}</span>}
+                {org_name && <><span className="text-gray-300">·</span><span>{org_name}</span></>}
               </div>
             </div>
-            {/* Title row */}
-            <div className="flex items-end gap-4 flex-wrap">
-              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
-                {athlete.first_name} {athlete.last_name}
-              </h1>
-              <div className="w-11 h-11 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {athlete.first_name[0]}{athlete.last_name[0]}
-              </div>
-            </div>
-            {/* Chips sub-line */}
-            <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
-              {athlete.position && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 capitalize">
-                  {athlete.position}
-                </span>
-              )}
-              {athlete.position && (category_name || org_name) && <span className="text-gray-300">·</span>}
-              {category_name && <span>{category_name}</span>}
-              {org_name && <><span className="text-gray-300">·</span><span>{org_name}</span></>}
+            {/* Action area */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
           </div>
         </div>
