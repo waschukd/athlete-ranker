@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpOrgId } from "@/lib/auth";
 import { canViewEvaluator } from "@/lib/authorize";
+import { bonusForEvaluator } from "@/lib/reportBonus";
 
 export async function GET(request, { params }) {
   try {
@@ -177,17 +178,19 @@ export async function GET(request, { params }) {
       };
     })();
 
-    // Hourly rate for this SP (best-effort — column added by the wages migration)
+    // Hourly rate + report-note bonus for this SP (best-effort).
     let hourly_rate = null;
+    let report_bonus = null;
     try {
       const spId = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
       if (spId) {
         const m = await sql`SELECT hourly_rate FROM evaluator_memberships WHERE user_id = ${evalId} AND organization_id = ${spId}`;
         hourly_rate = m[0]?.hourly_rate != null ? parseFloat(m[0].hourly_rate) : null;
+        report_bonus = await bonusForEvaluator(evalId, spId); // { eligibleNotes, rateCents, bonusCents }
       }
     } catch { /* not migrated yet */ }
 
-    return NextResponse.json({ evaluator: evaluator[0], sessions, flags, stats, scorecard, hourly_rate });
+    return NextResponse.json({ evaluator: evaluator[0], sessions, flags, stats, scorecard, hourly_rate, report_bonus });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
