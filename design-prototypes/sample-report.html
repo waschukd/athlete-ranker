@@ -333,13 +333,21 @@
 
   /* ── Notes ── */
   const notes = [
-    { s:2, t:"Compete level is a real standout — finishes checks, backchecks hard, never takes a shift off." },
+    { s:1, t:"Compete level jumps off the ice — first on pucks, finishes every check, and never coasts back on the backcheck." },
     { s:1, t:"Skating is the area to attack: straight-line speed is okay, but edges and balance break down under pressure and the first step isn't explosive yet." },
     { s:1, t:"Puck skills under pressure are inconsistent — tends to force plays instead of protecting and delaying." },
-    { s:3, t:"Good hockey sense — reads developing plays and supports the puck well; a relative strength to build around." },
+    { s:2, t:"Motor again was a real standout. Wins the wall battles he has no business winning because he just out-works people." },
+    { s:2, t:"Reads developing plays well and supports the puck — hockey sense is ahead of his feet right now." },
+    { s:2, t:"Hands look better in tight than at speed; when the legs are moving the puck gets away from him." },
+    { s:3, t:"Noticeable jump in skating from session 1 — quicker first three steps and holding his edges better through turns." },
+    { s:3, t:"Smart, competitive two-way centre. If the skating keeps climbing, the rest of his game is already in place." },
   ];
   document.getElementById("notes").innerHTML = notes.map(n=>`
-    <div class="note"><div class="q">&ldquo;${n.t}&rdquo;</div><div class="s">Session ${n.s}</div></div>`).join("");
+    <div class="note"><div class="q">&ldquo;${n.t}&rdquo;</div><div class="s">Session ${n.s}</div></div>`).join("")
+    + `<div style="margin-top:16px;background:var(--gold-soft);border:1px solid var(--gold-line);border-radius:14px;padding:14px 18px;">
+      <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:7px;">What it adds up to</div>
+      <div style="font-size:12.5px;color:#dfe1e4;line-height:1.6;">Read together, the evaluators tell a consistent story. Timmy's <b style="color:#fff;">effort &amp; compete</b> is the standout — the trait that came up most as a genuine asset — while <b style="color:#fff;">skating</b> is the area they kept flagging to attack first. Overall Timmy graded out <b style="color:#fff;">above average</b> — top 25% of 28 skaters. The development plan on the next page lays out the order to climb.</div>
+    </div>`;
 </script>
 </body>
 </html>

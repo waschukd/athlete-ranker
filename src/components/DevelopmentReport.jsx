@@ -80,6 +80,10 @@ export default function DevelopmentReport({ data }) {
   const testFocus = testingProfile
     .filter(t => t.player_best != null && t.group_best != null).map(t => ({ ...t, gap: Math.round((t.player_best - t.group_best) * 1000) / 1000 }))
     .filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 2);
+  // Standout strength (highest grade) + the focus area, for the notes synthesis.
+  const gradedSkills = skillProfile.filter(s => s.player != null);
+  const strengthSkill = gradedSkills.slice().sort((a, b) => b.player - a.player)[0];
+  const focusSkill = skillFocus[0];
 
   const skillPill = (p, g, top) => {
     if (p == null) return { bg: "rgba(255,255,255,.06)", c: GRAY, t: "—" };
@@ -302,12 +306,20 @@ export default function DevelopmentReport({ data }) {
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Selected observations" title="What the evaluators saw" />
             <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play.</div>
-            {notes.slice(0, 10).map((n, i) => (
+            {notes.slice(0, 12).map((n, i) => (
               <div key={i} style={{ borderLeft: `2px solid ${GOLD}`, padding: "1px 0 1px 14px", marginBottom: 9, breakInside: "avoid" }}>
                 <div style={{ color: "#dfe1e4", lineHeight: 1.55, fontStyle: "italic", fontSize: 12.5 }}>&ldquo;{n.note_text}&rdquo;</div>
                 <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>
               </div>
             ))}
+            {(strengthSkill || focusSkill || standing) && (
+              <div style={{ marginTop: 16, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 14, padding: "14px 18px", breakInside: "avoid" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 7 }}>What it adds up to</div>
+                <div style={{ fontSize: 12.5, color: "#dfe1e4", lineHeight: 1.6 }}>
+                  Read together, the evaluators tell a consistent story.{strengthSkill ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> is the standout — the trait that came up most as a genuine asset</> : ""}{focusSkill ? <>, while <b style={{ color: "#fff" }}>{focusSkill.name.toLowerCase()}</b> is the area they kept flagging to attack first</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} skaters. The development plan on the next page lays out the order to climb.</> : ""}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
