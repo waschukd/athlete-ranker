@@ -182,7 +182,7 @@
           <li><b style="color:#fff;">Puck Skills</b> — ~1.9 behind the top of the group. With a stronger skating base, hands at speed come faster; protect pucks and delay rather than forcing plays.</li>
           <li><b style="color:#fff;">Hockey IQ</b> — ~0.6 behind. Already a relative strength — small read-and-react gains keep it there.</li>
         </ol>
-        <p style="margin:11px 0 0;color:#c7cbd2;">The two objective targets to chase first — <b style="color:#fff;">Weave Agility</b> and <b style="color:#fff;">30M with Puck</b> — both tie straight back to power skating. Attack the foundation through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+        <p style="margin:11px 0 0;color:#c7cbd2;">The two objective targets to chase first — <b style="color:#fff;">Weave Agility</b> and <b style="color:#fff;">Forward Sprint With Puck</b> — both tie straight back to skating. Attack the foundation through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
       </div>
     </div>
 
@@ -199,13 +199,13 @@
 
   /* ── Objective testing ── */
   const tests = [
-    { name:"30M Forward Sprint", you:4.85, best:4.49, avg:5.20, info:"Flat-out straight-line speed over 30 metres — pure acceleration and stride power." },
-    { name:"30M Forward with Puck", you:5.10, best:4.61, avg:5.35, info:"The same sprint while controlling the puck — how much speed holds up with the puck on the stick." },
+    { name:"Forward Sprint", you:4.85, best:4.49, avg:5.20, info:"Flat-out straight-line speed — pure acceleration and stride power." },
+    { name:"Forward Sprint With Puck", you:5.10, best:4.61, avg:5.35, info:"The same sprint while controlling the puck — how much speed holds up with the puck on the stick." },
+    { name:"Backward Sprint", you:6.10, best:5.55, avg:6.40, info:"Straight-line backward speed — edge control, posture and defensive footspeed." },
     { name:"Weave Agility", you:13.20, best:12.61, avg:13.95, info:"Tight turns and cuts through obstacles — balance, edge control and quickness in close." },
-    { name:"Transition", you:5.45, best:5.10, avg:5.70, info:"Switching between forward and backward skating — pivots, footwork and clean direction changes." },
-    { name:"CAPS Stop", you:3.30, best:3.04, avg:3.50, info:"Explosive stop-and-start — how fast they stop hard and get moving again the other way." },
-    { name:"30M Backward", you:6.10, best:5.55, avg:6.40, info:"Straight-line backward speed — edge control, posture and defensive footspeed." },
-    { name:"Reaction Start", you:1.95, best:1.74, avg:2.12, info:"First-step quickness off the whistle — explosiveness and reaction time." },
+    { name:"Transition Agility Left", you:5.45, best:5.10, avg:5.70, info:"Pivots and direction changes turning to the left — footwork and clean transitions." },
+    { name:"Transition Agility Right", you:5.55, best:5.15, avg:5.80, info:"Pivots and direction changes turning to the right — footwork and clean transitions." },
+    { name:"Stop and Start", you:3.30, best:3.04, avg:3.50, info:"Explosive stop-and-start — how fast they stop hard and get moving again the other way." },
   ];
   document.getElementById("tests").innerHTML = tests.map(t => {
     const youBest = t.you <= t.best + 0.0005;

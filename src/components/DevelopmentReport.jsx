@@ -22,9 +22,13 @@ function testInfo(name) {
   if (n.includes("backward")) return "Straight-line backward speed — edge control, posture and defensive footspeed.";
   if (n.includes("puck")) return "Speed while controlling the puck — how much pace holds up with the puck on the stick.";
   if (n.includes("forward") || (n.includes("30m") && !n.includes("backward"))) return "Flat-out straight-line speed — pure acceleration and stride power.";
+  if (n.includes("transition") || n.includes("pivot")) {
+    if (n.includes("left")) return "Pivots and direction changes turning to the left — footwork and clean transitions.";
+    if (n.includes("right")) return "Pivots and direction changes turning to the right — footwork and clean transitions.";
+    return "Pivots, footwork and how cleanly direction changes.";
+  }
   if (n.includes("weave") || n.includes("agility") || n.includes("cone")) return "Tight turns and cuts through obstacles — balance, edge control and quickness in close.";
-  if (n.includes("transition") || n.includes("pivot")) return "Switching between forward and backward skating — pivots, footwork and clean direction changes.";
-  if (n.includes("stop") || n.includes("caps")) return "Explosive stop-and-start — how fast they stop hard and get moving again the other way.";
+  if (n.includes("stop") || n.includes("caps") || n.includes("start")) return "Explosive stop-and-start — how fast they stop hard and get moving again the other way.";
   if (n.includes("reaction") || n.includes("start")) return "First-step quickness off the whistle — explosiveness and reaction time.";
   return "";
 }

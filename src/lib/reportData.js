@@ -2,6 +2,21 @@ import sql from "@/lib/db";
 import { computeCategoryRankings } from "@/lib/rankings";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
 
+// Canonical SportTesting order: Forward Sprint, Forward Sprint w/ Puck, Backward
+// Sprint, Weave Agility, Transition Agility L, Transition Agility R, Stop & Start.
+// Keyword-matched so name variants ("30M Forward Sprint") still slot in; unknown
+// tests fall to the end (alphabetical among themselves).
+function testOrder(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("forward")) return n.includes("puck") ? 2 : 1;
+  if (n.includes("backward")) return 3;
+  if (n.includes("puck")) return 2; // "sprint with puck" without the word "forward"
+  if (n.includes("transition")) return n.includes("right") ? 6 : 5;
+  if (n.includes("weave") || n.includes("agility")) return 4;
+  if (n.includes("stop") || n.includes("start") || n.includes("caps")) return 7;
+  return 99;
+}
+
 // Single source of truth for the parent Development Report payload. Used by both
 // the authed director render (/api/athletes/[id]/report) and the token-gated
 // paid-parent render (/api/report/[token]). The caller is responsible for
@@ -104,7 +119,8 @@ export async function buildAthleteReport(catId, athleteId) {
         group_avg: round3(r.group_avg),
         group_best: round3(r.group_best),
         lower_is_better: true,
-      }));
+      }))
+      .sort((a, b) => testOrder(a.test_name) - testOrder(b.test_name) || a.test_name.localeCompare(b.test_name));
   } catch { testingProfile = []; }
 
   // ── Session-over-session progress: player avg vs group avg per session ──
