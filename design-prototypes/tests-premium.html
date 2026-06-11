@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Premium testing cards</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{ --gold:#cda434; --ink:#0c0c0e; --sans:'Hanken Grotesk',-apple-system,sans-serif; --num:'Archivo',-apple-system,sans-serif; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#000; font-family:var(--sans); padding:24px; }
+  .stack{ max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+
+  .card{
+    position:relative; overflow:hidden; border-radius:18px;
+    background:radial-gradient(120% 90% at 85% 8%, #1b1b20 0%, #0e0e11 45%, #0a0a0c 100%);
+    border:1px solid rgba(255,255,255,.06);
+    padding:26px 30px 28px; color:#e9eaec;
+  }
+  .ring{ position:absolute; top:-70px; right:-70px; width:300px; height:300px; border-radius:50%;
+    border:1px solid rgba(255,255,255,.07); }
+  .ring.sm{ top:-30px; right:-30px; width:220px; height:220px; border-color:rgba(255,255,255,.05); }
+
+  .name{ font-size:15px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#9094a0; }
+
+  .hero{ display:flex; align-items:flex-end; gap:0; margin:14px 0 4px; }
+  .heroNum{ font-family:var(--num); font-weight:800; font-size:84px; line-height:.9; color:#f6f7f8; letter-spacing:-.02em; }
+  .heroUnit{ font-size:15px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+
+  .rule{ height:1px; background:rgba(255,255,255,.09); margin:18px 0; }
+  .row{ display:flex; justify-content:space-between; align-items:center; padding:7px 0; }
+  .row .k{ font-size:13px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8b8f99; }
+  .row .v{ font-family:var(--num); font-weight:700; font-size:26px; color:#f1f2f3; }
+
+  .gap{ display:flex; align-items:baseline; gap:14px; margin-top:4px; }
+  .gapNum{ font-family:var(--num); font-weight:800; font-size:46px; line-height:1; color:var(--gold); letter-spacing:-.01em; }
+  .gapTxt{ font-size:15px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#e9eaec; }
+
+  .slider{ position:relative; margin:30px 6px 6px; height:46px; }
+  .track{ position:absolute; left:0; right:0; top:8px; height:3px; background:rgba(255,255,255,.14); border-radius:99px; }
+  .dot{ position:absolute; top:0; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+  .pip{ width:19px; height:19px; border-radius:50%; }
+  .dot .lab{ font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-top:12px; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="stack" id="stack"></div>
+<script>
+  const GOLD="#cda434";
+  const tests = [
+    { name:"30M Forward Sprint", you:4.39, best:4.21, avg:4.73 },
+    { name:"30M Forward with Puck", you:5.10, best:4.61, avg:5.35 },
+    { name:"Weave Agility", you:13.20, best:12.61, avg:13.95 },
+    { name:"Transition", you:5.45, best:5.10, avg:5.70 },
+    { name:"CAPS Stop", you:3.30, best:3.04, avg:3.50 },
+  ];
+
+  const card = (t) => {
+    const youIsBest = t.you <= t.best + 0.0005;
+    const gap = (t.you - t.best).toFixed(2);
+    // position: faster (lower) → right. Map [avg, best] → [14%, 92%].
+    const pos = v => (14 + (t.avg - v) / ((t.avg - t.best) || 1) * 78);
+    const px = { avg: pos(t.avg), you: Math.max(6, Math.min(98, pos(t.you))), best: pos(t.best) };
+    return `<div class="card">
+      <div class="ring"></div><div class="ring sm"></div>
+      <div class="name">${t.name}</div>
+      <div class="hero"><span class="heroNum">${t.you.toFixed(2)}</span></div>
+      <div class="heroUnit">Seconds</div>
+      <div class="rule"></div>
+      <div class="row"><span class="k">Today's best</span><span class="v">${t.best.toFixed(2)}</span></div>
+      <div class="row"><span class="k">Group average</span><span class="v">${t.avg.toFixed(2)}</span></div>
+      <div class="rule"></div>
+      <div class="gap"><span class="gapNum">${youIsBest ? "0.00" : gap}</span><span class="gapTxt">${youIsBest ? "You set today's best 🏆" : "Seconds from today's best"}</span></div>
+      <div class="slider">
+        <div class="track"></div>
+        <div class="dot" style="left:${px.avg}%;"><span class="pip" style="background:#5f636c;"></span><span class="lab" style="color:#8b8f99;">Avg</span></div>
+        <div class="dot" style="left:${px.you}%;"><span class="pip" style="background:#ffffff;box-shadow:0 0 0 5px rgba(255,255,255,.08);"></span><span class="lab" style="color:#ffffff;">You</span></div>
+        <div class="dot" style="left:${px.best}%;"><span class="pip" style="background:${GOLD};box-shadow:0 0 0 5px ${GOLD}22;"></span><span class="lab" style="color:${GOLD};">Best</span></div>
+      </div>
+    </div>`;
+  };
+  document.getElementById("stack").innerHTML = tests.map(card).join("");
+</script>
+</body>
+</html>

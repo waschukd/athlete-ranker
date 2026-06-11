@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sideline Star | Evaluator</title>
+<link rel="stylesheet" href="ss-premium.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Sideline Star</h1>
+      <p>EVALUATOR</p>
+    </div>
+    <nav>
+      <div class="nav-item active"><span class="material-symbols-outlined">dashboard</span> Dashboard</div>
+      <div class="nav-item"><span class="material-symbols-outlined">event_available</span> My Sessions</div>
+      <div class="nav-item"><span class="material-symbols-outlined">schedule</span> Availability</div>
+      <div class="nav-item"><span class="material-symbols-outlined">payments</span> Hours &amp; Pay</div>
+      <div class="nav-item"><span class="material-symbols-outlined">settings</span> Settings</div>
+    </nav>
+    <div class="foot">
+      <div class="pill gold"><span class="dot gold"></span> ON SHIFT</div>
+      <div class="mono" style="font-size:10px;color:var(--muted-2);margin-top:12px;letter-spacing:0.16em;">NORTHBRIDGE MINOR HOCKEY</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <div class="topbar">
+      <div>
+        <div class="page-title">My Dashboard</div>
+        <div class="mono" style="font-size:11px;color:var(--muted-2);margin-top:4px;letter-spacing:0.16em;">GOOD EVENING, COACH — YOU HAVE 1 SESSION LIVE</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="text-align:right;">
+          <div class="mono" style="font-size:12px;color:var(--ink);">Coach D. Ward</div>
+          <div class="mono" style="font-size:9px;color:var(--muted-2);letter-spacing:0.18em;margin-top:2px;">EVALUATOR · ID 4471</div>
+        </div>
+        <div class="avatar" style="background:rgba(212,175,55,0.12);color:var(--gold);border:1px solid rgba(212,175,55,0.35);">DW</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- 1. SCORE-NOW HERO -->
+      <div class="card reveal d1" style="background:linear-gradient(145deg,#1f1b10,#141414);border-color:rgba(212,175,55,0.35);padding:32px;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;margin-bottom:32px;">
+        <div style="min-width:280px;">
+          <div class="kicker"><span class="dot gold" style="animation:none;"></span> HAPPENING NOW</div>
+          <h2 class="serif" style="font-size:32px;margin:14px 0 10px;line-height:1.1;">U13 AA · Session 5 · Group B</h2>
+          <div class="mono" style="font-size:12px;color:var(--muted);letter-spacing:0.06em;">Northbridge Arena · Rink 2 · 6:00–7:30 PM</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:18px;">
+            <div class="mono" style="font-size:11px;color:var(--gold);letter-spacing:0.14em;">12 OF 42 ATHLETES SCORED</div>
+            <div class="bar" style="width:160px;"><span style="width:29%;"></span></div>
+          </div>
+        </div>
+        <div style="flex-shrink:0;">
+          <button class="btn btn-gold" style="padding:18px 40px;font-size:14px;">▶ Score now</button>
+        </div>
+      </div>
+
+      <!-- 2. TABS -->
+      <div class="tabs reveal d2">
+        <div class="tab active">My Sessions</div>
+        <div class="tab">Availability</div>
+        <div class="tab">Hours &amp; Pay</div>
+      </div>
+
+      <!-- 3. MY SESSIONS -->
+
+      <!-- TODAY -->
+      <div class="eyebrow reveal d2" style="margin-bottom:12px;">TODAY</div>
+      <div class="card pad reveal d2" style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:32px;">
+        <div>
+          <div class="serif" style="font-size:20px;">U13 AA · Session 5</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:0.06em;">Mon Jun 9 · 6:00–7:30 PM · Northbridge Arena, Rink 2</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="pill gold">Evaluator</span>
+          <span class="pill amber"><span class="dot amber"></span> In progress</span>
+        </div>
+      </div>
+
+      <!-- UPCOMING -->
+      <div class="eyebrow reveal d3" style="margin-bottom:12px;">UPCOMING</div>
+      <div class="grid reveal d3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:32px;">
+
+        <div class="card pad" style="display:flex;flex-direction:column;justify-content:space-between;gap:18px;">
+          <div>
+            <div class="serif" style="font-size:19px;">U15 AAA · Session 3</div>
+            <div class="mono" style="font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:0.05em;">Wed Jun 11 · 7:15–8:45 PM · Rink 1</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="pill">Coach (non-counting)</span>
+            <span class="pill green"><span class="dot green"></span> Confirmed</span>
+          </div>
+        </div>
+
+        <div class="card pad" style="display:flex;flex-direction:column;justify-content:space-between;gap:18px;">
+          <div>
+            <div class="serif" style="font-size:19px;">U11 A · Session 2</div>
+            <div class="mono" style="font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:0.05em;">Thu Jun 12 · 5:30–6:45 PM · Rink 3</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="pill gold">Evaluator</span>
+            <span class="pill green"><span class="dot green"></span> Confirmed</span>
+          </div>
+        </div>
+
+        <div class="card pad" style="display:flex;flex-direction:column;justify-content:space-between;gap:18px;border-style:dashed;">
+          <div>
+            <div class="serif" style="font-size:19px;">U13 AA · Session 6</div>
+            <div class="mono" style="font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:0.05em;">Sat Jun 14 · 9:00–10:30 AM · Rink 2</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <span class="pill"><span class="dot gold"></span> Open</span>
+            <button class="btn btn-ghost btn-sm">Claim shift</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- COMPLETED -->
+      <div class="eyebrow reveal d4" style="margin-bottom:12px;">COMPLETED</div>
+      <div class="card reveal d4" style="margin-bottom:36px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(44,44,44,0.6);flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+            <span class="serif" style="font-size:17px;">U13 AA · Session 4</span>
+            <span class="mono" style="font-size:11px;color:var(--muted-2);letter-spacing:0.08em;">Fri Jun 6</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span class="mono" style="font-size:11px;color:var(--muted);">✓ 41 athletes · 1.5 hrs</span>
+            <span class="pill green"><span class="dot green"></span> Completed</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+            <span class="serif" style="font-size:17px;">U11 A · Session 1</span>
+            <span class="mono" style="font-size:11px;color:var(--muted-2);letter-spacing:0.08em;">Tue Jun 3</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span class="mono" style="font-size:11px;color:var(--muted);">✓ 38 athletes · 1.5 hrs</span>
+            <span class="pill green"><span class="dot green"></span> Completed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. HOURS & PAY STRIP -->
+      <div class="reveal d5" style="margin-bottom:12px;">
+        <div class="eyebrow" style="margin-bottom:6px;">HOURS &amp; PAY</div>
+        <div class="mono" style="font-size:11px;color:var(--muted-2);letter-spacing:0.08em;">Rates are set by your service provider · paid out monthly</div>
+      </div>
+      <div class="grid reveal d6" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+        <div class="card pad stat">
+          <div class="label">Rate</div>
+          <div class="value">$25.00<span class="mono" style="font-size:13px;color:var(--muted-2);"> /hr</span></div>
+        </div>
+        <div class="card pad stat">
+          <div class="label">Pending</div>
+          <div class="value">3.0<span class="mono" style="font-size:13px;color:var(--muted-2);"> hrs</span></div>
+        </div>
+        <div class="card pad stat">
+          <div class="label">Approved</div>
+          <div class="value">18.5<span class="mono" style="font-size:13px;color:var(--muted-2);"> hrs</span></div>
+        </div>
+        <div class="card pad stat">
+          <div class="label">Earned</div>
+          <div class="value gold">$462.50</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
