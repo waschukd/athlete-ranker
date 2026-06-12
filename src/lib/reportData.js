@@ -155,14 +155,31 @@ export async function buildAthleteReport(catId, athleteId) {
   `;
   const notes = notesRows.map(n => ({ session_number: n.session_number, note_text: n.note_text }));
 
+  // Association-curated local training providers ("Where to put in the work"),
+  // grouped by area. Renders in the report only when present.
+  let trainingProviders = [];
+  try {
+    const tp = await sql`
+      SELECT area, name, blurb, contact
+      FROM training_providers
+      WHERE organization_id = ${athleteRes[0].organization_id}
+      ORDER BY area, sort_order, id
+    `;
+    const byArea = {};
+    for (const p of tp) { (byArea[p.area] ||= []).push({ name: p.name, blurb: p.blurb, contact: p.contact }); }
+    trainingProviders = Object.entries(byArea).map(([area, providers]) => ({ area, providers }));
+  } catch { trainingProviders = []; }
+
   return {
     athlete: athleteRes[0],
     category: category[0] || null,
+    org_name: athleteRes[0].org_name || null,
     standing,
     skillProfile,
     testingProfile,
     progress,
     notes,
+    trainingProviders,
     total_athletes: totalAthletes,
   };
 }

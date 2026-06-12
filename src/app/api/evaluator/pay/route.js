@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { appUserId } from "@/lib/notify";
+import { eligibleNoteCount, getNoteBonusRate } from "@/lib/reportBonus";
 
 // The evaluator's own hours + pay, per organization. Pay = (approved + paid)
 // hours × the rate the org set for them. Degrades to [] if the wages column
@@ -26,18 +27,26 @@ export async function GET() {
         GROUP BY o.id, o.name, em.hourly_rate
         ORDER BY o.name
       `;
-      const orgs = rows.map(r => {
+      // Eligible notes are evaluator-global (their notes that landed in sold
+      // reports); the per-note bonus rate varies by org.
+      const eligibleNotes = await eligibleNoteCount(userId);
+      const orgs = (await Promise.all(rows.map(async r => {
         const rate = r.hourly_rate != null ? parseFloat(r.hourly_rate) : null;
         const approved = parseFloat(r.approved_hours) || 0;
         const paid = parseFloat(r.paid_hours) || 0;
         const pending = parseFloat(r.pending_hours) || 0;
+        const bonusRateCents = await getNoteBonusRate(r.org_id);
+        const report_bonus = bonusRateCents > 0
+          ? { eligibleNotes, rateCents: bonusRateCents, bonusCents: eligibleNotes * bonusRateCents }
+          : null;
         return {
           org_id: r.org_id, org_name: r.org_name, hourly_rate: rate,
           pending_hours: pending, approved_hours: approved, paid_hours: paid,
           earned: rate != null ? Math.round((approved + paid) * rate * 100) / 100 : null,
           paid_amount: rate != null ? Math.round(paid * rate * 100) / 100 : null,
+          report_bonus,
         };
-      }).filter(o => o.pending_hours || o.approved_hours || o.paid_hours || o.hourly_rate != null);
+      }))).filter(o => o.pending_hours || o.approved_hours || o.paid_hours || o.hourly_rate != null || o.report_bonus);
       return NextResponse.json({ orgs });
     } catch {
       return NextResponse.json({ orgs: [] });

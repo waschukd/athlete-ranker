@@ -78,6 +78,7 @@ export async function GET(request, { params }) {
         testingProfile: report.testingProfile,
         progress: report.progress,
         notes: report.notes,
+        trainingProviders: report.trainingProviders,
       });
     }
 
