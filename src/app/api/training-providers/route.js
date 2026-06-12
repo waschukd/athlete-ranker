@@ -11,11 +11,14 @@ export async function GET(request) {
     if (!orgId) return NextResponse.json({ error: "org required" }, { status: 400 });
     const auth = await authorizeOrgAccess(session, orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    const providers = await sql`
-      SELECT id, area, name, blurb, contact, sort_order
-      FROM training_providers WHERE organization_id = ${orgId}
-      ORDER BY area, sort_order, id
-    `;
+    let providers = [];
+    try {
+      providers = await sql`
+        SELECT id, area, name, blurb, contact, sort_order
+        FROM training_providers WHERE organization_id = ${orgId}
+        ORDER BY area, sort_order, id
+      `;
+    } catch { providers = []; } // table not migrated yet
     return NextResponse.json({ providers });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
