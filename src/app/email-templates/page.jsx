@@ -71,7 +71,7 @@ function TemplatesInner() {
         <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
           <p className="text-xs text-gray-400">Customize the welcome email parents receive. Use merge fields and they'll be filled in per athlete. Leave blank to use the default.</p>
           <div className="flex flex-wrap gap-1.5">
-            {FIELDS.map(f => <code key={f} className="text-xs bg-blue-50 text-accent border border-blue-100 rounded px-1.5 py-0.5">{`{{${f}}}`}</code>)}
+            {FIELDS.map(f => <code key={f} className="text-xs bg-accent-soft text-accent border border-accent/20 rounded px-1.5 py-0.5">{`{{${f}}}`}</code>)}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Subject</label>
@@ -105,7 +105,7 @@ function TemplatesInner() {
 
 export default function EmailTemplatesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
       <TemplatesInner />
     </Suspense>
   );

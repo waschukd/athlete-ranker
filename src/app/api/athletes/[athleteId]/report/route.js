@@ -3,7 +3,6 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { buildAthleteReport } from "@/lib/reportData";
-import { computeCategoryRankings } from "@/lib/rankings";
 
 export async function GET(request, { params }) {
   try {
@@ -55,10 +54,9 @@ export async function GET(request, { params }) {
       WHERE pn.athlete_id = ${athleteId} AND pn.age_category_id = ${catId}
       ORDER BY pn.session_number, pn.created_at
     `;
-    const rankData = await computeCategoryRankings(catId);
-    const ranking = rankData.athletes?.find(a => String(a.id) === String(athleteId)) || null;
-
-    return NextResponse.json({ ...report, sessions, scores, testing, notes, ranking });
+    // ranking already computed inside buildAthleteReport — reuse it (don't run
+    // computeCategoryRankings twice; that was the report-load stall).
+    return NextResponse.json({ ...report, sessions, scores, testing, notes });
   } catch (error) {
     console.error("Player report error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

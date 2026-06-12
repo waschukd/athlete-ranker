@@ -180,6 +180,7 @@ export async function buildAthleteReport(catId, athleteId) {
     progress,
     notes,
     trainingProviders,
+    ranking: athleteRanking || null,
     total_athletes: totalAthletes,
   };
 }
