@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, parentOnboardingHtml, parentScheduleHtml } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml } from "@/lib/email";
 import { generateICS } from "@/lib/calendar";
+import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
 export async function POST(request, { params }) {
   try {
@@ -18,13 +19,13 @@ export async function POST(request, { params }) {
 
     // Get category + org info
     const catInfo = await sql`
-      SELECT ac.name as category_name, o.name as org_name
+      SELECT ac.name as category_name, ac.organization_id, o.name as org_name
       FROM age_categories ac
       JOIN organizations o ON o.id = ac.organization_id
       WHERE ac.id = ${catId}
     `;
     if (!catInfo.length) return NextResponse.json({ error: "Category not found" }, { status: 404 });
-    const { category_name, org_name } = catInfo[0];
+    const { category_name, org_name, organization_id } = catInfo[0];
 
     // Get all athletes with parent emails
     const athletes = await sql`
@@ -39,15 +40,24 @@ export async function POST(request, { params }) {
 
     // ── Onboarding Email ──────────────────────────────────
     if (action === "onboarding") {
+      // Association may override the welcome copy (subject + body with merge fields).
+      const override = await getEmailTemplate(organization_id, "welcome");
       let sent = 0;
       for (const a of athletes) {
         try {
-          const html = parentOnboardingHtml({
-            playerName: `${a.first_name} ${a.last_name}`,
-            categoryName: category_name,
-            orgName: org_name,
-          });
-          await sendEmail(a.parent_email, `Welcome to ${category_name} Evaluations — ${org_name}`, html);
+          const playerName = `${a.first_name} ${a.last_name}`;
+          let subject = `Welcome to ${category_name} Evaluations — ${org_name}`;
+          let html;
+          if (override && (override.body_html || override.subject)) {
+            const vars = { player_name: a.first_name, org_name, category_name, sp_name: org_name };
+            if (override.subject) subject = renderTemplate(override.subject, vars);
+            const bodyHtml = renderTemplate(override.body_html || "", vars)
+              .split(/\n\s*\n/).map(p => `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">${p.replace(/\n/g, "<br/>")}</p>`).join("");
+            html = emailWrapper(`<h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">Welcome</h2>${bodyHtml}`);
+          } else {
+            html = parentOnboardingHtml({ playerName, categoryName: category_name, orgName: org_name });
+          }
+          await sendEmail(a.parent_email, subject, html);
           sent++;
         } catch (e) {
           console.error("Failed to send onboarding to athlete " + a.id + ":", e?.message || e);
