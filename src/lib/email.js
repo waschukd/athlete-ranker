@@ -359,3 +359,27 @@ export function parentScheduleHtml({ playerName, categoryName, orgName, sessions
     <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Please arrive 15 minutes early for check-in. Check-in details will be provided at the venue.</p>
   `);
 }
+
+// ── Parent paywall delivery: "your child's report is ready" + preview/buy CTA ──
+// fromLine reads "<SP> on behalf of <Association>" when an SP name is provided.
+export function parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr }) {
+  const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
+  return emailWrapper(`
+    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0b5cd6;font-weight:700;margin-bottom:8px;">${fromLine}</div>
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;font-family:${DISPLAY_FONT};">${playerName}'s Development Report is ready</h2>
+    <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">${playerName}'s evaluation is complete. Their personalized Development Report shows where they stand against the group across objective testing and evaluator scoring, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
+    <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:12px;padding:16px 20px;margin:0 0 22px;font-size:13px;color:#5b606b;line-height:1.9;">
+      <b style="color:#111827;">Inside the full report</b><br/>
+      ✓ Objective testing vs the group &nbsp; ✓ Skill profile with interpretation<br/>
+      ✓ Session-by-session progress &nbsp; ✓ Every evaluator note<br/>
+      ✓ A personalized development plan &nbsp; ✓ Downloadable PDF
+    </div>
+    ${btn(reportUrl, "View the report →")}
+    <p style="margin:18px 0 0;font-size:12px;color:#9aa0aa;">Open a free preview now; unlock the full report for ${priceStr}. Secure payment via Stripe, no account needed.</p>
+  `);
+}
+
+export async function sendParentReportEmail({ to, playerName, orgName, spName, reportUrl, priceStr }) {
+  const html = parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr });
+  return sendEmail(to, `${playerName}'s Development Report — ${orgName}`, html);
+}
