@@ -12,6 +12,16 @@ export async function getEmailTemplate(orgId, key) {
 
 export async function setEmailTemplate(orgId, key, subject, bodyHtml) {
   await sql`
+    CREATE TABLE IF NOT EXISTS email_templates (
+      organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      template_key TEXT NOT NULL,
+      subject TEXT,
+      body_html TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (organization_id, template_key)
+    )
+  `;
+  await sql`
     INSERT INTO email_templates (organization_id, template_key, subject, body_html, updated_at)
     VALUES (${orgId}, ${key}, ${subject}, ${bodyHtml}, NOW())
     ON CONFLICT (organization_id, template_key) DO UPDATE

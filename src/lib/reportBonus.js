@@ -14,6 +14,13 @@ export async function getNoteBonusRate(orgId) {
 
 export async function setNoteBonusRate(orgId, cents) {
   await sql`
+    CREATE TABLE IF NOT EXISTS report_bonus_config (
+      organization_id INTEGER PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+      note_bonus_cents INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     INSERT INTO report_bonus_config (organization_id, note_bonus_cents, updated_at)
     VALUES (${orgId}, ${cents}, NOW())
     ON CONFLICT (organization_id) DO UPDATE

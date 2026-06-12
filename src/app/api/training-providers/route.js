@@ -37,6 +37,14 @@ export async function POST(request) {
     const area = (body.area || "").trim();
     const name = (body.name || "").trim();
     if (!area || !name) return NextResponse.json({ error: "area and name required" }, { status: 400 });
+    await sql`
+      CREATE TABLE IF NOT EXISTS training_providers (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        area TEXT NOT NULL, name TEXT NOT NULL, blurb TEXT, contact TEXT,
+        sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
     const row = await sql`
       INSERT INTO training_providers (organization_id, area, name, blurb, contact, sort_order)
       VALUES (${orgId}, ${area}, ${name}, ${body.blurb || null}, ${body.contact || null}, ${body.sort_order || 0})
