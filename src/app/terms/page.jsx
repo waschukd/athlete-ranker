@@ -1,3 +1,5 @@
+import ThemedShell from "@/components/ThemedShell";
+
 export const metadata = {
   title: "Terms of Service",
   description: "Terms governing your use of Sideline Star.",
@@ -7,6 +9,7 @@ const LAST_UPDATED = "April 29, 2026";
 
 export default function TermsPage() {
   return (
+    <ThemedShell>
     <main className="min-h-screen bg-gray-50 px-4 py-12">
       <article className="max-w-3xl mx-auto">
         <h1 className="font-display font-black text-3xl text-ink tracking-tight mb-2">Terms of Service</h1>
@@ -238,5 +241,6 @@ export default function TermsPage() {
         </p>
       </article>
     </main>
+    </ThemedShell>
   );
 }

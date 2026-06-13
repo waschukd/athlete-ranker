@@ -7,6 +7,8 @@ import {
   ArrowLeft, Calendar, Clock, MapPin, Star, AlertTriangle,
   CheckCircle, XCircle, Flag, DollarSign, TrendingUp, User, Check
 } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -65,6 +67,7 @@ function EvaluatorDetailInner() {
   const [ratingNotes, setRatingNotes] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [rateEditing, setRateEditing] = useState(false);
+  const [theme, toggleTheme] = useTheme();
 
   const { data, isLoading } = useQuery({
     queryKey: ["evaluator-detail", evalId],
@@ -152,13 +155,13 @@ function EvaluatorDetailInner() {
   const strikeCount = flags.filter(f => f.flag_type === "late_cancel").length;
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
@@ -195,6 +198,7 @@ function EvaluatorDetailInner() {
             </div>
             {/* Admin actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <button
                 onClick={async () => {
                   if (confirm(`Suspend ${evaluator?.name}? They will be removed from future sessions but all data is retained.`)) {
@@ -753,7 +757,7 @@ function EvaluatorDetailInner() {
 export default function EvaluatorDetailPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <EvaluatorDetailInner />
       </Suspense>
     </QueryClientProvider>

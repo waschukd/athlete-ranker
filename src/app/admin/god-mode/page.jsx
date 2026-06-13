@@ -11,15 +11,18 @@ import { SessionsTab } from "@/components/GodMode/SessionsTab";
 import { SystemToolsTab } from "@/components/GodMode/SystemToolsTab";
 import { SPLinksTab } from "@/components/GodMode/SPLinksTab";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const queryClient = new QueryClient();
 
 export default function GodModeDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [theme, toggleTheme] = useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="gm-root min-h-screen">
+      <div data-theme={theme} className="gm-root min-h-screen">
         <style dangerouslySetInnerHTML={{__html: `
           @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
           .gm-root {
@@ -83,9 +86,12 @@ export default function GodModeDashboard() {
                   <img src="/s-mark-dark.svg" style={{ width: 44, height: 44, objectFit: "contain" }} alt="Sideline Star" />
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-soft border border-accent/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                <span className="text-accent text-[10px] font-bold tracking-[0.8px]">SUPER ADMIN</span>
+              <div className="flex items-center gap-2">
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-soft border border-accent/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  <span className="text-accent text-[10px] font-bold tracking-[0.8px]">SUPER ADMIN</span>
+                </div>
               </div>
             </div>
             <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />

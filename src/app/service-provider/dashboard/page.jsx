@@ -3,12 +3,14 @@
 import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox } from "lucide-react";
+import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -33,6 +35,28 @@ function formatDate(d) {
   const [year, month, day] = str.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+// Compact session line used on the Overview (home) tab for Today's / Upcoming lists.
+function SessionRow({ s, showDate }) {
+  const spots = s.spots_open;
+  return (
+    <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-gray-900 truncate">{s.org_name} · {s.category_name}</div>
+        <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
+          <span>S{s.session_number}{s.group_number ? ` · G${s.group_number}` : ""}</span>
+          {showDate && <><span className="text-gray-300">·</span><span>{formatDate(s.scheduled_date)}</span></>}
+          {s.start_time && <><span className="text-gray-300">·</span><span className="inline-flex items-center gap-1"><Clock size={11} />{formatTime(s.start_time)}{s.end_time ? `–${formatTime(s.end_time)}` : ""}</span></>}
+          {s.location && <><span className="text-gray-300">·</span><span className="inline-flex items-center gap-1"><MapPin size={11} />{s.location}</span></>}
+        </div>
+      </div>
+      {spots > 0
+        ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{spots} spot{spots === 1 ? "" : "s"} open</span>
+        : <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium flex-shrink-0">Staffed</span>}
+      <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>
+    </div>
+  );
 }
 
 function JoinCodesPanel({ orgId, data, refetch }) {
@@ -864,7 +888,8 @@ function SPDashboard() {
     return `${path}${sep}org=${orgParam}`;
   };
 
-  const [activeTab, setActiveTab] = useState("associations");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [theme, toggleTheme] = useTheme();
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [scheduleView, setScheduleView] = useState("list"); // "list" | "calendar"
@@ -1001,6 +1026,23 @@ function SPDashboard() {
   const needsEvaluators = schedule.filter(s => s.spots_open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
   const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
 
+  // ── Overview (home) data ──
+  const dateOf = (s) => s.scheduled_date?.toString().split("T")[0];
+  const byDateTime = (a, b) => (dateOf(a) + (a.start_time || "")).localeCompare(dateOf(b) + (b.start_time || ""));
+  const liveSessions = schedule.filter(s => s.status !== "cancelled");
+  const todaySessions = liveSessions.filter(s => dateOf(s) === today).sort(byDateTime);
+  const upcomingSessions = liveSessions.filter(s => dateOf(s) > today).sort(byDateTime).slice(0, 8);
+  const needsAttention = liveSessions
+    .filter(s => s.spots_open > 0 && dateOf(s) >= today)
+    .sort(byDateTime)
+    .slice(0, 6);
+  const topEvaluators = [...evaluators]
+    .filter(ev => ev.membership_status !== "pending" && ev.membership_status !== "suspended")
+    .map(ev => ({ ...ev, _sessions: parseInt(ev.total_sessions || 0) }))
+    .filter(ev => ev._sessions > 0)
+    .sort((a, b) => b._sessions - a._sessions || parseFloat(b.total_hours || 0) - parseFloat(a.total_hours || 0))
+    .slice(0, 5);
+
   // Org -> palette map for the master schedule (deterministic, distinct).
   // Built from the orgs actually present in the current schedule view.
   const scheduleOrgColorMap = useMemo(() => {
@@ -1029,10 +1071,11 @@ function SPDashboard() {
     : upcomingDates;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end items-center gap-3">
           <NotificationBell />
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
             <LogOut size={14} /> Sign out
           </button>
@@ -1059,7 +1102,7 @@ function SPDashboard() {
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
-            {[{ id: "associations", label: "Associations" }, { id: "schedule", label: "Master Schedule" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
+            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Master Schedule" }, { id: "associations", label: "Associations" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {tab.label}
               </button>
@@ -1069,6 +1112,113 @@ function SPDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Client Associations", value: associations.length, Icon: Building2 },
+                { label: "Sessions Today", value: todaySessions.length, Icon: CalendarDays, gold: true },
+                { label: "Upcoming Sessions", value: totalUpcoming, Icon: Calendar },
+                { label: "Need Evaluators", value: needsEvaluators, Icon: AlertTriangle, amber: needsEvaluators > 0 },
+              ].map((c, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{c.label}</div>
+                    <c.Icon size={16} className={c.amber ? "text-amber-500" : "text-accent"} />
+                  </div>
+                  <div className={`mt-2 font-display font-black text-3xl ${c.gold ? "text-accent" : c.amber ? "text-amber-600" : "text-ink"}`}>{c.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              {/* LEFT: sessions */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <h3 className="font-display font-bold text-ink text-lg leading-tight flex items-center gap-2"><CalendarDays size={17} className="text-accent" /> Today's scheduled sessions</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">{formatDate(today)}</p>
+                    </div>
+                    <span className="text-sm text-gray-400">{todaySessions.length} session{todaySessions.length === 1 ? "" : "s"}</span>
+                  </div>
+                  {schedLoading ? (
+                    <div className="py-10 text-center text-gray-400 text-sm">Loading…</div>
+                  ) : todaySessions.length === 0 ? (
+                    <div className="py-10 text-center text-gray-400 text-sm">Nothing on the ice today.</div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {todaySessions.map(s => <SessionRow key={s.schedule_id} s={s} />)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="font-display font-bold text-ink text-lg leading-tight flex items-center gap-2"><Calendar size={17} className="text-accent" /> Upcoming sessions</h3>
+                    <button onClick={() => setActiveTab("schedule")} className="text-xs font-semibold text-accent hover:opacity-70 inline-flex items-center gap-1">View all <ArrowRight size={12} /></button>
+                  </div>
+                  {schedLoading ? (
+                    <div className="py-10 text-center text-gray-400 text-sm">Loading…</div>
+                  ) : upcomingSessions.length === 0 ? (
+                    <div className="py-10 text-center text-gray-400 text-sm">No upcoming sessions scheduled.</div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {upcomingSessions.map(s => <SessionRow key={s.schedule_id} s={s} showDate />)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: attention + top evaluators */}
+              <div className="space-y-6">
+                <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <h3 className="font-display font-bold text-ink text-lg leading-tight flex items-center gap-2"><AlertTriangle size={16} className="text-amber-500" /> Needs attention</h3>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-3">{needsEvaluators} session{needsEvaluators === 1 ? "" : "s"} short on evaluators</p>
+                  {needsAttention.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-3">All upcoming sessions are fully staffed.</p>
+                  ) : (
+                    <div>
+                      {needsAttention.map(s => (
+                        <div key={s.schedule_id} className="flex items-start gap-3 py-2.5 border-t border-gray-100 first:border-t-0">
+                          <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-ink truncate">{s.org_name} · {s.category_name}</div>
+                            <div className="text-xs text-gray-400">{formatDate(s.scheduled_date)} · needs {s.spots_open} more</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <h3 className="font-display font-bold text-ink text-lg leading-tight flex items-center gap-2"><Star size={16} className="text-accent" /> Top evaluators</h3>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-3">By sessions worked</p>
+                  {topEvaluators.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-3">No session history yet.</p>
+                  ) : (
+                    <div>
+                      {topEvaluators.map(ev => (
+                        <div key={ev.id} className="flex items-center gap-3 py-2.5 border-t border-gray-100 first:border-t-0">
+                          <div className="w-9 h-9 rounded-full bg-accent-soft text-accent flex items-center justify-center text-xs font-bold flex-shrink-0">{(ev.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-ink truncate">{ev.name}</div>
+                            <div className="text-xs text-gray-400 truncate">{ev._sessions} session{ev._sessions === 1 ? "" : "s"}{parseFloat(ev.total_hours || 0) > 0 ? ` · ${parseFloat(ev.total_hours).toFixed(0)}h` : ""}</div>
+                          </div>
+                          {parseFloat(ev.avg_rating || 0) > 0 && <span className="text-xs font-mono text-accent flex-shrink-0">{parseFloat(ev.avg_rating).toFixed(1)}★</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => setActiveTab("evaluators")} className="mt-3 text-xs font-semibold text-accent hover:opacity-70 inline-flex items-center gap-1">Full pool <ArrowRight size={12} /></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTab === "associations" && (
           <div className="space-y-4">
@@ -1678,7 +1828,7 @@ function SPDashboard() {
 export default function ServiceProviderDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <SPDashboard />
       </Suspense>
     </QueryClientProvider>

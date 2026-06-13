@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -36,6 +38,7 @@ function TeamGeneratorInner() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [dragPlayer, setDragPlayer] = useState(null);
+  const [theme, toggleTheme] = useTheme();
 
   const { data: rankingsData } = useQuery({
     queryKey: ["rankings", catId],
@@ -146,7 +149,7 @@ function TeamGeneratorInner() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -174,6 +177,7 @@ function TeamGeneratorInner() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               {hasExistingTeams && (
                 <>
                   <button onClick={exportTeamSheet}
@@ -450,7 +454,7 @@ function TeamGeneratorInner() {
 export default function TeamsPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <TeamGeneratorInner />
       </Suspense>
     </QueryClientProvider>

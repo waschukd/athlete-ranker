@@ -3,8 +3,11 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Lock, CheckCircle, AlertCircle, Zap } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 function AcceptInviteForm() {
+  const [theme, toggleTheme] = useTheme();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -48,13 +51,14 @@ function AcceptInviteForm() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div data-theme={theme} className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/s-mark-dark.svg" style={{width:"48px",height:"48px",objectFit:"contain"}} alt="Sideline Star" className="mx-auto mb-3" />
@@ -147,7 +151,7 @@ function AcceptInviteForm() {
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" /></div>}>
+    <Suspense fallback={<div data-theme="premium" className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" /></div>}>
       <AcceptInviteForm />
     </Suspense>
   );

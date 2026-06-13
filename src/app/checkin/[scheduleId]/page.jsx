@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -15,6 +17,7 @@ function formatTime(t) {
 }
 
 function CheckinPageInner() {
+  const [theme, toggleTheme] = useTheme();
   const params = useParams();
   const scheduleId = params.scheduleId;
 
@@ -132,13 +135,13 @@ function CheckinPageInner() {
   const pct = summary.total > 0 ? Math.round((summary.checked_in / summary.total) * 100) : 0;
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   if (!data?.schedule) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <AlertCircle size={40} className="mx-auto mb-3 text-red-400" />
         <p className="text-lg font-semibold text-ink">Session not found</p>
@@ -152,7 +155,7 @@ function CheckinPageInner() {
   const darkTotal = athletes.filter(a => a.team_color === "Dark").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-ink">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 text-ink">
       {/* Header — Minimal Athletic */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4">
@@ -171,6 +174,7 @@ function CheckinPageInner() {
             <div className="flex items-center gap-1.5 pb-1">
               <button onClick={() => setShowAddPlayer(!showAddPlayer)} className="px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">+ Add</button>
               <button onClick={() => refetch()} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100"><RefreshCw size={16} /></button>
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
           </div>
 
@@ -357,7 +361,7 @@ function CheckinPageInner() {
 export default function CheckinPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
+      <Suspense fallback={<div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <CheckinPageInner />
       </Suspense>
     </QueryClientProvider>

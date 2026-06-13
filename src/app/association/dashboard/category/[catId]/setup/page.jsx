@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RosterImport from "@/components/RosterImport";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -656,6 +658,7 @@ function SetupWizard() {
   const [catName, setCatName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [theme, toggleTheme] = useTheme();
 
   const [sessions, setSessions] = useState(DEFAULT_SESSIONS);
   const [scoring, setScoring] = useState({
@@ -725,18 +728,23 @@ function SetupWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-5">
-          <a
-            href={`/association/dashboard/category/${catId}?org=${orgId}`}
-            className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
-          >
-            <ArrowLeft size={13} /> {catName || "Back to category"}
-          </a>
-          <div className="flex items-end gap-4 flex-wrap">
-            <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Setup</h1>
-            <OrgBrandIcon orgId={orgId} size={44} />
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <a
+                href={`/association/dashboard/category/${catId}?org=${orgId}`}
+                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
+              >
+                <ArrowLeft size={13} /> {catName || "Back to category"}
+              </a>
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Setup</h1>
+                <OrgBrandIcon orgId={orgId} size={44} />
+              </div>
+            </div>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>
       </div>
@@ -787,7 +795,7 @@ function SetupWizard() {
 export default function CategorySetupPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
+      <Suspense fallback={<div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <SetupWizard />
       </Suspense>
     </QueryClientProvider>

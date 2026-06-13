@@ -3,8 +3,11 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Check, AlertCircle, Loader } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 function SignupForm() {
+  const [theme, toggleTheme] = useTheme();
   const searchParams = useSearchParams();
   const prefillCode = searchParams.get("code") || "";
 
@@ -38,7 +41,8 @@ function SignupForm() {
 
   if (result) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm w-full max-w-md p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
@@ -71,7 +75,8 @@ function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm w-full max-w-md p-8">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
@@ -172,7 +177,7 @@ function SignupForm() {
 
 export default function EvaluatorSignupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
+    <Suspense fallback={<div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
       <SignupForm />
     </Suspense>
   );

@@ -1,3 +1,5 @@
+import ThemedShell from "@/components/ThemedShell";
+
 export const metadata = {
   title: "Privacy Policy",
   description: "How Sideline Star collects, uses, and protects your information.",
@@ -7,6 +9,7 @@ const LAST_UPDATED = "April 28, 2026";
 
 export default function PrivacyPage() {
   return (
+    <ThemedShell>
     <main className="min-h-screen bg-gray-50 px-4 py-12">
       <article className="max-w-3xl mx-auto">
         <h1 className="font-display font-black text-3xl text-ink tracking-tight mb-2">Privacy Policy</h1>
@@ -176,5 +179,6 @@ export default function PrivacyPage() {
         </p>
       </article>
     </main>
+    </ThemedShell>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { Zap, ClipboardList, AlertCircle } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function CheckinEntryPage() {
+  const [theme, toggleTheme] = useTheme();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,12 +49,17 @@ export default function CheckinEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Check-In</div>
-          <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Player Check-In</h1>
-          <p className="text-gray-500 text-sm mt-2">Enter your session code to begin</p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Check-In</div>
+              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Player Check-In</h1>
+              <p className="text-gray-500 text-sm mt-2">Enter your session code to begin</p>
+            </div>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
         </div>
       </div>
 

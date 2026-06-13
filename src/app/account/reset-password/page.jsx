@@ -2,8 +2,11 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Lock } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 function ResetPasswordInner() {
+  const [theme, toggleTheme] = useTheme();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [password, setPassword] = useState("");
@@ -33,7 +36,8 @@ function ResetPasswordInner() {
   };
 
   if (!token) return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div data-theme={theme} className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="text-center">
         <p className="text-gray-600">Invalid reset link.</p>
         <a href="/account/forgot-password" className="text-accent text-sm hover:underline mt-2 inline-block">Request a new one →</a>
@@ -42,7 +46,8 @@ function ResetPasswordInner() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="w-full max-w-md">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           <div className="mb-6 text-center">
@@ -101,7 +106,7 @@ function ResetPasswordInner() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50" />}>
+    <Suspense fallback={<div data-theme="premium" className="min-h-screen flex items-center justify-center bg-gray-50" />}>
       <ResetPasswordInner />
     </Suspense>
   );

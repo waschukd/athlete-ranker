@@ -7,6 +7,8 @@ import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -104,6 +106,7 @@ function ScoringInterface() {
   const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [theme, toggleTheme] = useTheme();
 
   // Refs for voice callbacks (avoid stale closures)
   const notesModeRef = useRef(false);
@@ -1012,13 +1015,13 @@ function ScoringInterface() {
   const selectedIdx = selected ? filtered.findIndex(a => a.id === selected.id) : -1;
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 text-ink flex flex-col" style={{ paddingBottom: "80px" }}>
+    <div className="min-h-screen bg-gray-50 text-ink flex flex-col" style={{ paddingBottom: "80px" }} data-theme={theme}>
 
       {/* ── Top bar ────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -1065,6 +1068,7 @@ function ScoringInterface() {
                 'text-amber-500'
               }`}>{syncStatus}</span>
             )}
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>
 
@@ -1796,7 +1800,7 @@ export default function ScorePage() {
   return (
     <QueryClientProvider client={qc}>
       <Suspense fallback={
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
         </div>
       }>

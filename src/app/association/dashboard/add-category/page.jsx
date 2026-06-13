@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Zap } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -14,6 +16,7 @@ function AddCategoryForm() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [theme, toggleTheme] = useTheme();
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -39,19 +42,22 @@ function AddCategoryForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="min-w-0">
-            <a
-              href={`/association/dashboard?org=${orgId}`}
-              className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
-            >
-              <ArrowLeft size={13} /> Back to dashboard
-            </a>
-            <div className="flex items-end gap-4 flex-wrap">
-              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Add Age Category</h1>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <a
+                href={`/association/dashboard?org=${orgId}`}
+                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2"
+              >
+                <ArrowLeft size={13} /> Back to dashboard
+              </a>
+              <div className="flex items-end gap-4 flex-wrap">
+                <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Add Age Category</h1>
+              </div>
             </div>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>
       </div>
@@ -108,8 +114,8 @@ export default function AddCategoryPage() {
     <QueryClientProvider client={qc}>
       <Suspense
         fallback={
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6]" />
+          <div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
           </div>
         }
       >

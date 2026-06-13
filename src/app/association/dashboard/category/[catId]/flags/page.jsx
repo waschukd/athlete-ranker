@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, AlertTriangle, CheckCircle, Zap } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 function FlagsContent() {
   const params = useParams();
@@ -16,6 +18,7 @@ function FlagsContent() {
   const [detecting, setDetecting] = useState(false);
   const [msg, setMsg] = useState("");
   const [categoryName, setCategoryName] = useState("");
+  const [theme, toggleTheme] = useTheme();
 
   const loadFlags = useCallback(async () => {
     setLoading(true);
@@ -64,7 +67,7 @@ function FlagsContent() {
   const reviewed = displayed.filter(f => f.acknowledged);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5">
@@ -105,6 +108,7 @@ function FlagsContent() {
             </div>
             <div className="flex items-center gap-3 pt-1">
               {msg && <span className="text-sm text-green-600 font-medium">{msg}</span>}
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <button onClick={detect} disabled={detecting}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:shadow-md transition-shadow">
                 <Zap size={14} />
@@ -232,8 +236,8 @@ function FlagsContent() {
 export default function FlagsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+      <div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
       </div>
     }>
       <FlagsContent />

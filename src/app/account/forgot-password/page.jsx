@@ -1,8 +1,11 @@
 "use client";
 import { useState } from "react";
 import { Mail, ArrowLeft } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function ForgotPasswordPage() {
+  const [theme, toggleTheme] = useTheme();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -27,7 +30,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="w-full max-w-md">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           <div className="mb-6 text-center">

@@ -7,6 +7,8 @@ import {
   ArrowLeft, Users, Shuffle, Check, AlertCircle,
   GripVertical, ChevronRight, Copy, ExternalLink, RefreshCw, Download, Printer
 } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -23,6 +25,7 @@ function GroupsManagerInner() {
   const catId = params.catId;
   const orgId = searchParams.get("org");
   const queryClient = useQueryClient();
+  const [theme, toggleTheme] = useTheme();
 
   const initialSession = searchParams.get("session") ? parseInt(searchParams.get("session")) : null;
   const [selectedSession, setSelectedSession] = useState(initialSession);
@@ -269,15 +272,18 @@ function GroupsManagerInner() {
   rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-            className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
-            <ArrowLeft size={13} /> Back to rankings
-          </a>
-          <div className="flex items-end gap-4 flex-wrap">
+          <div className="flex items-start justify-between gap-4">
+            <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
+              className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
+              <ArrowLeft size={13} /> Back to rankings
+            </a>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
+          <div className="flex items-end gap-4 flex-wrap -mt-1">
             <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Groups</h1>
           </div>
           {(sessions.length > 0 || assignments.length > 0) && (
@@ -639,8 +645,8 @@ export default function GroupsPage() {
   return (
     <QueryClientProvider client={qc}>
       <Suspense fallback={
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+        <div data-theme="premium" className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
         </div>
       }>
         <GroupsManagerInner />

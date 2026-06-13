@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { Building2, Mail, Phone, User, MessageSquare, Send, AlertCircle, CheckCircle } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function SignUpPage() {
+  const [theme, toggleTheme] = useTheme();
   const [associationName, setAssociationName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,7 +53,8 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-md">
         <div className="mb-6 text-center">
           <img

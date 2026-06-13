@@ -7,6 +7,8 @@ import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/org
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const qc = new QueryClient();
 
@@ -1238,6 +1240,7 @@ function EvaluatorDashboard() {
   const [joinMsg, setJoinMsg] = useState("");
   const [joiningOrg, setJoiningOrg] = useState(false);
   const [signupError, setSignupError] = useState(null);
+  const [theme, toggleTheme] = useTheme();
 
   const { data: statusData } = useQuery({
     queryKey: ["evaluator-status"],
@@ -1348,9 +1351,10 @@ function EvaluatorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex justify-end items-center gap-3">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <NotificationBell />
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
@@ -1600,7 +1604,7 @@ function EvaluatorDashboard() {
 export default function EvaluatorDashboardPage() {
   return (
     <QueryClientProvider client={qc}>
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>}>
+      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>}>
         <EvaluatorDashboard />
       </Suspense>
     </QueryClientProvider>
