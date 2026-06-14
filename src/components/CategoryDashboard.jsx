@@ -186,6 +186,12 @@ export default function CategoryDashboard({
   }, [coachRankingsData]);
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  // Rankings position tabs: Overall (skaters) · F · D · G. Goalies rank separately.
+  const positionTabs = [
+    { id: "all", label: "Overall" },
+    ...(hasPositions ? [{ id: "forward", label: "F" }, { id: "defense", label: "D" }] : []),
+    ...(goalieAthletes.length > 0 ? [{ id: "goalie", label: "G" }] : []),
+  ];
   const sortedAthletes = sortBy ? [...filteredAthletes].sort((a, b) => {
     const dir = sortBy.dir === 'asc' ? 1 : -1;
     if (sortBy.key === 'total') return dir * ((a.weighted_total || 0) - (b.weighted_total || 0));
@@ -412,11 +418,13 @@ export default function CategoryDashboard({
             <div className="xl:col-span-3 space-y-5">
             {/* Rankings hub control row */}
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                {[{ id: "skaters", label: "Skaters" }, { id: "goalies", label: "Goalies" }].map(v => (
-                  <button key={v.id} onClick={() => setRankingsView(v.id)} disabled={scoresOpen} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${rankingsView === v.id && !scoresOpen ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"} ${scoresOpen ? "opacity-40 cursor-not-allowed" : ""}`}>{v.label}</button>
-                ))}
-              </div>
+              {positionTabs.length > 1 ? (
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                  {positionTabs.map(v => (
+                    <button key={v.id} onClick={() => setPositionFilter(v.id)} disabled={scoresOpen} title={v.id === "goalie" ? "Goalies — ranked separately" : v.id === "all" ? "All skaters" : undefined} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${positionFilter === v.id && !scoresOpen ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"} ${scoresOpen ? "opacity-40 cursor-not-allowed" : ""}`}>{v.label}</button>
+                  ))}
+                </div>
+              ) : <div />}
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#0b5cd6] text-white hover:bg-[#0F4FCC]"}`}>
                   {scoresOpen ? "← Back to Rankings" : "Edit Scores"}
@@ -432,7 +440,7 @@ export default function CategoryDashboard({
 
             {scoresOpen ? (
               <ScoreEditor catId={catId} canEdit={canManage || role === "director"} requireReason={role === "director"} />
-            ) : rankingsView === "goalies" ? (
+            ) : positionFilter === "goalie" ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                   <div>
@@ -593,13 +601,7 @@ export default function CategoryDashboard({
                       </button>
                     )}
                   </div>
-                  {hasPositions && category?.position_tagging && (
-                    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                      {["all", "forward", "defense", "goalie"].map(pos => (
-                        <button key={pos} onClick={() => setPositionFilter(pos)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all capitalize ${positionFilter === pos ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>{pos === "all" ? "All" : POSITION_SHORT[pos]}</button>
-                      ))}
-                    </div>
-                  )}
+                  {/* Position tabs (Overall · F · D · G) live in the rankings header now */}
                   {hasCoaches && (
                     <button
                       onClick={() => setCompareCoaches(v => !v)}
@@ -677,6 +679,44 @@ export default function CategoryDashboard({
                 </table>
               </div>
             </div>
+
+            {/* Goalies — pinned beneath the overall skater rankings (separate, apples-to-apples) */}
+            {positionFilter === "all" && goalieAthletes.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
+                  <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700">G</span>
+                  <h3 className="font-display text-base font-extrabold tracking-tight text-ink">Goalies</h3>
+                  <span className="text-xs text-gray-400">· ranked separately from skaters</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
+                        {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {goalieAthletes.map(a => (
+                        <tr key={a.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
+                          <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
+                          <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
+                          {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                          <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                          <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors"><FileText size={13} /> Report</a></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
             </div>

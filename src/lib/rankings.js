@@ -168,34 +168,34 @@ export async function computeCategoryRankings(catId, opts = {}) {
     };
   });
 
-  // Per-session rank: rank athletes within each individual session only
-  const rankHistory = {};
-  for (const session of sessions) {
-    const sNum = session.session_number;
-    const sessionScoreList = athletes.map(a => {
-      const sd = (scoreMap[a.id] || {})[sNum];
-      return { id: a.id, score: sd ? sd.normalized_score : null };
-    }).filter(s => s.score !== null);
-
-    if (!sessionScoreList.length) continue;
-
-    sessionScoreList.sort((a, b) => b.score - a.score);
-    sessionScoreList.forEach((s, idx) => {
-      if (!rankHistory[s.id]) rankHistory[s.id] = [];
-      rankHistory[s.id].push(idx + 1);
+  // Rank a set of athletes independently: per-session rank history is computed
+  // WITHIN the set, and overall rank is 1..n within the set. Goalies are ranked
+  // separately from skaters — they're evaluated on different terms and must
+  // never share a ranking with skaters (apples vs oranges).
+  const rankGroup = (group) => {
+    const rankHistory = {};
+    for (const session of sessions) {
+      const sNum = session.session_number;
+      const list = group
+        .map(a => { const sd = (scoreMap[a.id] || {})[sNum]; return { id: a.id, score: sd ? sd.normalized_score : null }; })
+        .filter(s => s.score !== null);
+      if (!list.length) continue;
+      list.sort((a, b) => b.score - a.score);
+      list.forEach((s, idx) => { (rankHistory[s.id] ||= []).push(idx + 1); });
+    }
+    const sorted = [...group].sort((a, b) => b.weighted_total !== a.weighted_total
+      ? b.weighted_total - a.weighted_total
+      : a.last_name.localeCompare(b.last_name));
+    let currentRank = 1;
+    return sorted.map((a, i) => {
+      currentRank = (i > 0 && a.weighted_total === sorted[i - 1].weighted_total) ? currentRank : i + 1;
+      return { ...a, rank: currentRank, rank_history: rankHistory[a.id] || [], agreement_pct: agreementMap[a.id] || null };
     });
-  }
+  };
 
-  // Final sort and rank
-  withTotals.sort((a, b) => b.weighted_total !== a.weighted_total
-    ? b.weighted_total - a.weighted_total
-    : a.last_name.localeCompare(b.last_name));
-
-  let currentRank = 1;
-  const ranked = withTotals.map((a, i) => {
-    currentRank = (i > 0 && a.weighted_total === withTotals[i - 1].weighted_total) ? currentRank : i + 1;
-    return { ...a, rank: currentRank, rank_history: rankHistory[a.id] || [], agreement_pct: agreementMap[a.id] || null };
-  });
+  const isGoalie = (a) => (a.position || "").toLowerCase() === "goalie";
+  const ranked = rankGroup(withTotals.filter(a => !isGoalie(a)));
+  const rankedGoalies = rankGroup(withTotals.filter(isGoalie));
 
   // Determine per-session status: not_started / in_progress / complete
   const sessionStatus = {};
@@ -223,7 +223,7 @@ export async function computeCategoryRankings(catId, opts = {}) {
     : trueCompletedSessions.length === sessions.length ? "complete" : "in_progress";
 
   return {
-    athletes: ranked, has_scores: true, phase, sessions,
+    athletes: ranked, goalies: rankedGoalies, has_scores: true, phase, sessions,
     completed_sessions: trueCompletedSessions,
     in_progress_sessions: inProgressSessions,
     session_status: sessionStatus, category,

@@ -38,8 +38,13 @@ export async function buildAthleteReport(catId, athleteId) {
 
   // ── Rankings from the single source of truth (no HTTP self-fetch) ──
   const rankData = await computeCategoryRankings(catId);
-  const athleteRanking = rankData.athletes?.find(a => String(a.id) === String(athleteId));
-  const totalAthletes = rankData.athletes?.length || 0;
+  // Goalies rank separately from skaters — resolve this athlete against the right
+  // pool so standing/percentile compares like with like.
+  const skaterPool = rankData.athletes || [];
+  const goaliePool = rankData.goalies || [];
+  const rankPool = goaliePool.some(a => String(a.id) === String(athleteId)) ? goaliePool : skaterPool;
+  const athleteRanking = rankPool.find(a => String(a.id) === String(athleteId));
+  const totalAthletes = rankPool.length || 0;
 
   // ── Standing: tier + coarse band, deliberately NOT an exact rank ──
   const rank = athleteRanking?.rank || null;
@@ -62,7 +67,7 @@ export async function buildAthleteReport(catId, athleteId) {
     ORDER BY sc.display_order
   `;
   const topCount = Math.max(1, Math.ceil(totalAthletes * 0.25));
-  const topIds = (rankData.athletes || []).filter(a => a.rank && a.rank <= topCount).map(a => a.id);
+  const topIds = rankPool.filter(a => a.rank && a.rank <= topCount).map(a => a.id);
   let topMap = {};
   if (topIds.length) {
     const topAvg = await sql`
