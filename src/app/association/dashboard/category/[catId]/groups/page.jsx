@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import GroupEmailDialog from "@/components/GroupEmailDialog";
 
 const qc = new QueryClient();
 
@@ -323,6 +324,9 @@ function GroupsManagerInner() {
                 </div>
               )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
+              {groups.length > 0 && assignments.length > 0 && selectedSession && (
+                <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} />
+              )}
             </div>
           </div>
         </div>

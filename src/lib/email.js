@@ -1,28 +1,33 @@
 const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-// Returns { ok, skipped?, error? } so callers can surface delivery status to the
-// user instead of silently swallowing failures.
-export async function sendEmail(to, subject, html) {
+// Returns { ok, id?, skipped?, error? } so callers can surface delivery status
+// to the user instead of silently swallowing failures. `id` is the Resend
+// message id — callers that track delivery/bounces correlate webhook events to it.
+// `attachments` (optional) = [{ filename, content }] where content is base64.
+export async function sendEmail(to, subject, html, attachments) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set — skipping email to", to);
     return { ok: false, skipped: true, error: "Email is not configured" };
   }
   try {
+    const payload = { from: FROM, to, subject, html };
+    if (attachments?.length) payload.attachments = attachments;
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.text();
       console.error("Resend error:", err);
       return { ok: false, error: err || "Email provider rejected the message" };
     }
-    return { ok: true };
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, id: data.id || null };
   } catch (e) {
     console.error("Email send failed:", e);
     return { ok: false, error: e?.message || "Email send failed" };
@@ -357,6 +362,27 @@ export function parentScheduleHtml({ playerName, categoryName, orgName, sessions
     </div>
 
     <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Please arrive 15 minutes early for check-in. Check-in details will be provided at the venue.</p>
+  `);
+}
+
+// Group-assignment alert: tells a parent which group their athlete is in for a
+// specific session, with the rink/date/time. Sent from the Groups page once the
+// director has set the groups for a session.
+export function groupAssignmentHtml({ playerName, categoryName, orgName, sessionLabel, groupNumber, date, time, location }) {
+  const rows = [
+    ["Group", `Group ${groupNumber}`, true],
+    ["Session", sessionLabel || "—"],
+    ["Date", date || "TBD"],
+    ["Time", time || "TBD"],
+    ["Location", location || "TBD"],
+  ];
+  return emailWrapper(`
+    <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:22px;font-weight:800;letter-spacing:-0.4px;color:#101113;">${playerName}'s group assignment</h2>
+    <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Here is <strong style="color:#101113;">${playerName}</strong>'s group and ice time for <strong style="color:#101113;">${categoryName}</strong> evaluations with <strong style="color:#101113;">${orgName}</strong>. Please arrive at least 15 minutes early for check-in.</p>
+    ${credBox(rows)}
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin:4px 0 0;">
+      <p style="margin:0;font-size:13px;color:#374151;">📎 A calendar invite is attached — open it to add this session to your calendar.</p>
+    </div>
   `);
 }
 

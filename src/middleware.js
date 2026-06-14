@@ -30,6 +30,7 @@ const PUBLIC_PATHS = [
   "/report",
   "/api/report",
   "/api/payments",
+  "/api/webhooks",
   "/_next",
   "/favicon",
 ];
