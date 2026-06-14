@@ -8,8 +8,11 @@ export async function GET(request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const from = searchParams.get("from") || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const to = searchParams.get("to") || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    // Default to a full season either side so past sessions (which can be months
+    // old) tie into the master schedule's "Show Past" view, not just the last 30
+    // days. Callers can still narrow with explicit from/to params.
+    const from = searchParams.get("from") || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const to = searchParams.get("to") || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     // Resolve SP org (contact_email, additional-admin role, or membership)
     const spId = await resolveSpOrgId(session, searchParams.get("org"));
