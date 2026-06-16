@@ -35,6 +35,19 @@ const DEFAULT_SCORING_CATS = [
   { name: "Hockey IQ", applies_to: "all" },
 ];
 
+// Goalie evaluation standard template (separate from skaters).
+const DEFAULT_GOALIE_CATS = [
+  { name: "Skating / Balance / Agility" },
+  { name: "Positioning / Angles / Net Coverage" },
+  { name: "Feet / Hands / Stick / Rebounds" },
+  { name: "Anticipation / Reading the Play" },
+];
+const DEFAULT_GOALIE_SESSIONS = [
+  { session_number: 1, name: "Goalie Session 1", session_type: "goalie_skills", weight_percentage: 40 },
+  { session_number: 2, name: "Goalie Session 2", session_type: "scrimmage", weight_percentage: 30 },
+  { session_number: 3, name: "Goalie Session 3", session_type: "scrimmage", weight_percentage: 30 },
+];
+
 const STEPS = [
   { id: 1, label: "Sessions", icon: Trophy },
   { id: 2, label: "Scoring", icon: Settings },
@@ -232,6 +245,31 @@ function ScoringStep({ scoring, setScoring }) {
     }));
   };
 
+  // ── Goalie config handlers ──
+  const setEvaluatesGoalies = (on) => setScoring(prev => ({
+    ...prev,
+    evaluates_goalies: on,
+    // seed the standard template the first time it's switched on
+    goalie_categories: on && (!prev.goalie_categories || prev.goalie_categories.length === 0) ? DEFAULT_GOALIE_CATS : prev.goalie_categories,
+    goalie_sessions: on && (!prev.goalie_sessions || prev.goalie_sessions.length === 0) ? DEFAULT_GOALIE_SESSIONS : prev.goalie_sessions,
+  }));
+  const addGoalieCategory = () => setScoring(prev => ({ ...prev, goalie_categories: [...(prev.goalie_categories || []), { name: "" }] }));
+  const removeGoalieCategory = (i) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.filter((_, idx) => idx !== i) }));
+  const updateGoalieCategory = (i, value) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.map((c, idx) => idx === i ? { ...c, name: value } : c) }));
+  const addGoalieSession = () => setScoring(prev => {
+    const n = (prev.goalie_sessions?.length || 0) + 1;
+    return { ...prev, goalie_sessions: [...(prev.goalie_sessions || []), { session_number: n, name: `Goalie Session ${n}`, session_type: "scrimmage", weight_percentage: 0 }] };
+  });
+  const removeGoalieSession = (i) => setScoring(prev => ({
+    ...prev,
+    goalie_sessions: prev.goalie_sessions.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, session_number: idx + 1 })),
+  }));
+  const updateGoalieSession = (i, field, value) => setScoring(prev => ({
+    ...prev,
+    goalie_sessions: prev.goalie_sessions.map((s, idx) => idx === i ? { ...s, [field]: value } : s),
+  }));
+  const goalieWeightTotal = (scoring.goalie_sessions || []).reduce((t, s) => t + Number(s.weight_percentage || 0), 0);
+
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-1">Scoring Configuration</h2>
@@ -291,22 +329,92 @@ function ScoringStep({ scoring, setScoring }) {
       </div>
 
       {scoring.position_tagging && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-semibold text-gray-700">Player evaluators can evaluate goalies</label>
-            <button
-              type="button"
-              onClick={() => setScoring(prev => ({ ...prev, players_eval_goalies: !prev.players_eval_goalies }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.players_eval_goalies ? "bg-accent" : "bg-gray-200"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.players_eval_goalies ? "translate-x-6" : "translate-x-1"}`} />
+        <div className="mb-8 border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <label className="text-sm font-semibold text-gray-700">Will you be evaluating goalies?</label>
+              <p className="text-xs text-gray-500 mt-0.5">Goalies are evaluated separately — their own sessions, categories, and evaluators.</p>
+            </div>
+            <button type="button" onClick={() => setEvaluatesGoalies(!scoring.evaluates_goalies)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${scoring.evaluates_goalies ? "bg-accent" : "bg-gray-200"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.evaluates_goalies ? "translate-x-6" : "translate-x-1"}`} />
             </button>
           </div>
-          <p className="text-xs text-gray-500">
-            {scoring.players_eval_goalies
-              ? "Goalies also appear for your player evaluators to score. Use only when you don't have dedicated goalie evaluators."
-              : "Default. Goalies are hidden from player evaluators — only goalie evaluators (and goalie service providers) see goalies."}
-          </p>
+
+          {scoring.evaluates_goalies && (
+            <div className="mt-5 space-y-6 border-t border-gray-100 pt-5">
+              {/* Goalie sessions & weighting */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Goalie sessions &amp; weighting</label>
+                  <button onClick={addGoalieSession} className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-70 font-medium"><Plus size={12} /> Add session</button>
+                </div>
+                <div className="space-y-2">
+                  {(scoring.goalie_sessions || []).map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                      <span className="text-xs font-mono text-gray-400 w-5">{i + 1}</span>
+                      <select value={s.session_type} onChange={e => updateGoalieSession(i, "session_type", e.target.value)} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+                        <option value="goalie_skills">Goalie Skills</option>
+                        <option value="scrimmage">Scrimmage</option>
+                      </select>
+                      <input type="number" min="0" max="100" value={s.weight_percentage} onChange={e => updateGoalieSession(i, "weight_percentage", e.target.value)} className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right bg-white" />
+                      <span className="text-xs text-gray-400">%</span>
+                      <button onClick={() => removeGoalieSession(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+                <p className={`text-xs mt-1.5 ${Math.round(goalieWeightTotal) === 100 ? "text-green-600" : "text-amber-600"}`}>Weights total {goalieWeightTotal}% {Math.round(goalieWeightTotal) === 100 ? "✓" : "— must equal 100%"}</p>
+              </div>
+
+              {/* Goalie scale + increment */}
+              <div className="flex gap-4 flex-wrap">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Goalie scale</label>
+                  <select value={scoring.goalie_scale} onChange={e => setScoring(prev => ({ ...prev, goalie_scale: Number(e.target.value) }))} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+                    <option value={5}>Out of 5</option>
+                    <option value={10}>Out of 10</option>
+                    <option value={100}>Out of 100</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Increment</label>
+                  <select value={scoring.goalie_increment} onChange={e => setScoring(prev => ({ ...prev, goalie_increment: Number(e.target.value) }))} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+                    <option value={0.5}>0.5</option>
+                    <option value={1}>1.0</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Goalie categories */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Goalie categories</label>
+                  <button onClick={addGoalieCategory} className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-70 font-medium"><Plus size={12} /> Add category</button>
+                </div>
+                <div className="space-y-2">
+                  {(scoring.goalie_categories || []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
+                      <input type="text" value={c.name} onChange={e => updateGoalieCategory(i, e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white" placeholder="Goalie category name" />
+                      <button onClick={() => removeGoalieCategory(i)} className="p-1.5 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Player evaluators can also score goalies */}
+              <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Let player evaluators also score goalies</label>
+                  <p className="text-xs text-gray-500 mt-0.5">Off by default — goalies are scored only by goalie evaluators. Turn on if you don't have dedicated goalie evaluators.</p>
+                </div>
+                <button type="button" onClick={() => setScoring(prev => ({ ...prev, players_eval_goalies: !prev.players_eval_goalies }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${scoring.players_eval_goalies ? "bg-accent" : "bg-gray-200"}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.players_eval_goalies ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -687,6 +795,11 @@ function SetupWizard() {
     position_tagging: false,
     players_eval_goalies: false,
     categories: DEFAULT_SCORING_CATS,
+    evaluates_goalies: false,
+    goalie_scale: 10,
+    goalie_increment: 0.5,
+    goalie_sessions: DEFAULT_GOALIE_SESSIONS,
+    goalie_categories: DEFAULT_GOALIE_CATS,
   });
 
   useEffect(() => {
@@ -703,10 +816,21 @@ function SetupWizard() {
             scoring_increment: parseFloat(data.category.scoring_increment),
             position_tagging: data.category.position_tagging,
             players_eval_goalies: !!data.category.players_eval_goalies,
+            evaluates_goalies: !!data.category.evaluates_goalies,
+            goalie_scale: data.category.goalie_config?.scale ?? prev.goalie_scale,
+            goalie_increment: data.category.goalie_config?.increment ?? prev.goalie_increment,
+            goalie_sessions: Array.isArray(data.category.goalie_config?.sessions) && data.category.goalie_config.sessions.length
+              ? data.category.goalie_config.sessions : prev.goalie_sessions,
           }));
         }
         if (data.scoringCategories?.length) {
-          setScoring(prev => ({ ...prev, categories: data.scoringCategories }));
+          const gcats = data.scoringCategories.filter(c => c.applies_to === "goalies");
+          const scats = data.scoringCategories.filter(c => c.applies_to !== "goalies");
+          setScoring(prev => ({
+            ...prev,
+            categories: scats.length ? scats : prev.categories,
+            goalie_categories: gcats.length ? gcats : prev.goalie_categories,
+          }));
         }
       });
   }, [catId]);
@@ -725,10 +849,16 @@ function SetupWizard() {
         });
       }
       if (step === 2) {
+        const data = {
+          ...scoring,
+          goalie_config: scoring.evaluates_goalies
+            ? { scale: scoring.goalie_scale, increment: scoring.goalie_increment, sessions: scoring.goalie_sessions }
+            : null,
+        };
         await fetch(`/api/categories/${catId}/setup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ step: "scoring", data: scoring }),
+          body: JSON.stringify({ step: "scoring", data }),
         });
       }
       if (step === 5) {

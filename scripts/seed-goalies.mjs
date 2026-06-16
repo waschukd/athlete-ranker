@@ -14,7 +14,6 @@ const GCATS = [
   "Skating / Balance / Agility",
   "Positioning / Angles / Net Coverage",
   "Feet / Hands / Stick / Rebounds",
-  "Concentration / Consistency / Big Saves",
   "Anticipation / Reading the Play",
 ];
 const GEVALS = [27, 33]; // goalie evaluator user ids (Danny Boy, Payton Basterash)

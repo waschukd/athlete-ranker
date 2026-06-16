@@ -81,17 +81,28 @@ export async function POST(request, { params }) {
             position_tagging = ${data.position_tagging},
             director_can_edit_scores = ${data.director_can_edit_scores || false},
             evaluators_anonymous = ${data.evaluators_anonymous ?? true},
-            players_eval_goalies = ${data.players_eval_goalies ?? false}
+            players_eval_goalies = ${data.players_eval_goalies ?? false},
+            evaluates_goalies = ${data.evaluates_goalies ?? false},
+            goalie_config = ${data.evaluates_goalies && data.goalie_config ? JSON.stringify(data.goalie_config) : null}::jsonb
           WHERE id = ${catId}
         `;
 
-        // Recreate scoring categories
+        // Recreate scoring categories — skater (applies_to all/skaters) + goalie.
         await sql`DELETE FROM scoring_categories WHERE age_category_id = ${catId}`;
         for (let i = 0; i < data.categories.length; i++) {
           await sql`
             INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
             VALUES (${catId}, ${data.categories[i].name}, ${i}, ${data.categories[i].applies_to || 'all'})
           `;
+        }
+        if (data.evaluates_goalies && Array.isArray(data.goalie_categories)) {
+          for (let i = 0; i < data.goalie_categories.length; i++) {
+            if (!data.goalie_categories[i]?.name) continue;
+            await sql`
+              INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
+              VALUES (${catId}, ${data.goalie_categories[i].name}, ${100 + i}, 'goalies')
+            `;
+          }
         }
         return NextResponse.json({ success: true });
       }

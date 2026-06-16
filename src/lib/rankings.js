@@ -125,14 +125,20 @@ export async function computeCategoryRankings(catId, opts = {}) {
   // Weighted total: prorate from attended sessions only
   // If athlete attended 1 of 2 sessions (each 50%), their score is prorated
   // to 100% instead of penalizing for missed sessions
-  const withTotals = athletes.map(a => {
-    const athleteScores = scoreMap[a.id] || {};
-    let weightedTotal = 0;
-    let totalWeightAttended = 0;
-    let sessionsAttended = 0;
-    const sessionBreakdown = {};
+  // Skaters rank on the category sessions. Goalies rank on their OWN configured
+  // sessions (category.goalie_config.sessions) when present, else fall back to
+  // the shared sessions. Skater behaviour is byte-identical to before — they
+  // always use `sessions`; only the goalie branch can diverge.
+  const goalieCfg = category?.goalie_config;
+  const goalieSessions = (Array.isArray(goalieCfg?.sessions) && goalieCfg.sessions.length) ? goalieCfg.sessions : sessions;
 
-    for (const session of sessions) {
+  // Weighted total for a set of athletes over a given session set. Prorates from
+  // attended sessions only (a missed session doesn't penalise the rest).
+  const buildTotals = (list, sess) => list.map(a => {
+    const athleteScores = scoreMap[a.id] || {};
+    let weightedTotal = 0, totalWeightAttended = 0, sessionsAttended = 0;
+    const sessionBreakdown = {};
+    for (const session of sess) {
       const sd = athleteScores[session.session_number];
       if (sd) {
         const weight = parseFloat(session.weight_percentage) / 100;
@@ -141,11 +147,9 @@ export async function computeCategoryRankings(catId, opts = {}) {
         sessionBreakdown[session.session_number] = { ...sd, weight: session.weight_percentage };
       }
     }
-
-    // Prorate: scale up scores proportionally if sessions were missed
     if (totalWeightAttended > 0) {
-      const prorateFactor = 1 / totalWeightAttended; // e.g., attended 50% → multiply by 2
-      for (const session of sessions) {
+      const prorateFactor = 1 / totalWeightAttended;
+      for (const session of sess) {
         const sd = athleteScores[session.session_number];
         if (sd) {
           const weight = parseFloat(session.weight_percentage) / 100;
@@ -155,26 +159,22 @@ export async function computeCategoryRankings(catId, opts = {}) {
         }
       }
     }
-
-    const incomplete = sessionsAttended < sessions.length;
-
     return {
       ...a,
       weighted_total: Math.round(weightedTotal * 10) / 10,
       session_scores: sessionBreakdown,
       sessions_attended: sessionsAttended,
-      sessions_total: sessions.length,
-      incomplete,
+      sessions_total: sess.length,
+      incomplete: sessionsAttended < sess.length,
     };
   });
 
-  // Rank a set of athletes independently: per-session rank history is computed
-  // WITHIN the set, and overall rank is 1..n within the set. Goalies are ranked
-  // separately from skaters — they're evaluated on different terms and must
-  // never share a ranking with skaters (apples vs oranges).
-  const rankGroup = (group) => {
+  // Rank a set independently: per-session rank history is computed WITHIN the set
+  // (over that set's sessions), overall rank is 1..n. Goalies are ranked separately
+  // from skaters — they're evaluated on different terms (apples vs oranges).
+  const rankGroup = (group, sess) => {
     const rankHistory = {};
-    for (const session of sessions) {
+    for (const session of sess) {
       const sNum = session.session_number;
       const list = group
         .map(a => { const sd = (scoreMap[a.id] || {})[sNum]; return { id: a.id, score: sd ? sd.normalized_score : null }; })
@@ -194,8 +194,8 @@ export async function computeCategoryRankings(catId, opts = {}) {
   };
 
   const isGoalie = (a) => (a.position || "").toLowerCase() === "goalie";
-  const ranked = rankGroup(withTotals.filter(a => !isGoalie(a)));
-  const rankedGoalies = rankGroup(withTotals.filter(isGoalie));
+  const ranked = rankGroup(buildTotals(athletes.filter(a => !isGoalie(a)), sessions), sessions);
+  const rankedGoalies = rankGroup(buildTotals(athletes.filter(isGoalie), goalieSessions), goalieSessions);
 
   // Determine per-session status: not_started / in_progress / complete
   const sessionStatus = {};
