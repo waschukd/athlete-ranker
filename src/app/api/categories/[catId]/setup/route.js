@@ -80,7 +80,8 @@ export async function POST(request, { params }) {
             scoring_increment = ${data.scoring_increment},
             position_tagging = ${data.position_tagging},
             director_can_edit_scores = ${data.director_can_edit_scores || false},
-            evaluators_anonymous = ${data.evaluators_anonymous ?? true}
+            evaluators_anonymous = ${data.evaluators_anonymous ?? true},
+            players_eval_goalies = ${data.players_eval_goalies ?? false}
           WHERE id = ${catId}
         `;
 

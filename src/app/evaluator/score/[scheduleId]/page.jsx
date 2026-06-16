@@ -405,16 +405,26 @@ function ScoringInterface() {
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
-  // Data queries — scoped to the evaluator's kind (goalie evaluators see only
-  // goalies + goalie categories; everyone else sees skaters + skater categories).
+  // Roster scoping. Goalie evaluators ONLY ever see goalies. Player evaluators
+  // see skaters and — only if the category toggles it on — goalies too (the odd
+  // case where a player evaluator also grades goalies; off by default).
   const isGoalieEvaluator = viewerKind === "goalie";
-  const inRosterScope = (a) => viewerKind == null ? true
-    : isGoalieEvaluator ? (a.position || "").toLowerCase() === "goalie"
-    : (a.position || "").toLowerCase() !== "goalie";
+  const allowPlayerGoalies = !!catData?.category?.players_eval_goalies;
+  const inRosterScope = (a) => {
+    if (viewerKind == null) return true; // until kind loads
+    const isG = (a.position || "").toLowerCase() === "goalie";
+    if (isGoalieEvaluator) return isG;
+    return isG ? allowPlayerGoalies : true;
+  };
   const athletes = (sessionData?.athletes || []).filter(a => a.checked_in && inRosterScope(a));
   const teamColors = sessionData?.checkinSession?.team_colors || ["White", "Dark"];
+  // Categories follow the active position: the selected athlete when one is picked,
+  // else the roster composition. Goalies → goalie categories; skaters → skater ones.
+  const activeIsGoalie = selected
+    ? (selected.position || "").toLowerCase() === "goalie"
+    : isGoalieEvaluator || (athletes.length > 0 && athletes.every(a => (a.position || "").toLowerCase() === "goalie"));
   const scoringCats = (catData?.scoringCategories || []).filter(c =>
-    isGoalieEvaluator ? (c.applies_to === "goalies" || c.applies_to === "all") : c.applies_to !== "goalies"
+    activeIsGoalie ? (c.applies_to === "goalies" || c.applies_to === "all") : c.applies_to !== "goalies"
   );
   const scale = catData?.category?.scoring_scale || 10;
   const increment = catData?.category?.scoring_increment || 1;

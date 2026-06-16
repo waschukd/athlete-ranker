@@ -290,6 +290,26 @@ function ScoringStep({ scoring, setScoring }) {
         </p>
       </div>
 
+      {scoring.position_tagging && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-semibold text-gray-700">Player evaluators can evaluate goalies</label>
+            <button
+              type="button"
+              onClick={() => setScoring(prev => ({ ...prev, players_eval_goalies: !prev.players_eval_goalies }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.players_eval_goalies ? "bg-accent" : "bg-gray-200"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.players_eval_goalies ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            {scoring.players_eval_goalies
+              ? "Goalies also appear for your player evaluators to score. Use only when you don't have dedicated goalie evaluators."
+              : "Default. Goalies are hidden from player evaluators — only goalie evaluators (and goalie service providers) see goalies."}
+          </p>
+        </div>
+      )}
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-semibold text-gray-700">Scoring Categories</label>
@@ -665,6 +685,7 @@ function SetupWizard() {
     scoring_scale: 10,
     scoring_increment: 0.5,
     position_tagging: false,
+    players_eval_goalies: false,
     categories: DEFAULT_SCORING_CATS,
   });
 
@@ -681,6 +702,7 @@ function SetupWizard() {
             scoring_scale: data.category.scoring_scale,
             scoring_increment: parseFloat(data.category.scoring_increment),
             position_tagging: data.category.position_tagging,
+            players_eval_goalies: !!data.category.players_eval_goalies,
           }));
         }
         if (data.scoringCategories?.length) {

@@ -18,7 +18,7 @@ const GCATS = [
   "Anticipation / Reading the Play",
 ];
 const GEVALS = [27, 33]; // goalie evaluator user ids (Danny Boy, Payton Basterash)
-const SESSIONS = [2, 3, 4]; // goalies are evaluated during the scrimmage sessions (not session 1 testing)
+const SESSIONS = [1, 2, 3, 4]; // S1 = goalie-only ice session (stations); S2-4 = goalies in scrimmages
 
 let seed = 0x51ed5;
 const rng = () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
