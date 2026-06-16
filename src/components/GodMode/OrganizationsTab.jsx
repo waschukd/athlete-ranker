@@ -51,6 +51,7 @@ export function OrganizationsTab() {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {filterBtn("all", "All", allOrgs.length)}
           {filterBtn("service_provider", "Providers", allOrgs.filter(o => o.type === "service_provider").length)}
+          {filterBtn("goalie_service_provider", "Goalie SPs", allOrgs.filter(o => o.type === "goalie_service_provider").length)}
           {filterBtn("association", "Associations", allOrgs.filter(o => o.type === "association").length)}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

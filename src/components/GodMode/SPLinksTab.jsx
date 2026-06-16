@@ -95,7 +95,7 @@ export function SPLinksTab() {
             >
               <option value="">Select SP...</option>
               {serviceProviders.map(sp => (
-                <option key={sp.id} value={sp.id}>{sp.name}</option>
+                <option key={sp.id} value={sp.id}>{sp.name}{sp.type === "goalie_service_provider" ? " (Goalie SP)" : ""}</option>
               ))}
             </select>
           </div>

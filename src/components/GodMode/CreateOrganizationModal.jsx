@@ -59,6 +59,7 @@ export function CreateOrganizationModal({ onClose }) {
             <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="gm-input">
               <option value="association">Association</option>
               <option value="service_provider">Service Provider</option>
+              <option value="goalie_service_provider">Goalie Service Provider</option>
             </select>
           </div>
           {field("Contact Email", "contact_email", "email", true)}

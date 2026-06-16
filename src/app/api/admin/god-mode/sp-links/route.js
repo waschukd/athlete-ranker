@@ -22,7 +22,7 @@ export async function GET() {
       ORDER BY sp.name, a.name
     `;
     const serviceProviders = await sql`
-      SELECT id, name FROM organizations WHERE type = 'service_provider' ORDER BY name
+      SELECT id, name, type FROM organizations WHERE type IN ('service_provider', 'goalie_service_provider') ORDER BY type, name
     `;
     const associations = await sql`
       SELECT id, name FROM organizations WHERE type = 'association' ORDER BY name
