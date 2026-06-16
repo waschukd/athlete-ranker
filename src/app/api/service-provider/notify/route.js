@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
@@ -45,7 +45,7 @@ export async function POST(request) {
     }
 
     // Resolve SP org (contact_email, additional-admin role, or membership)
-    const sp_id = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
+    const { orgId: sp_id } = await resolveSpContext(session, new URL(request.url).searchParams.get("org"));
     if (!sp_id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const admin_name = session.name || session.email;
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 
 export async function GET(request) {
   try {
@@ -8,17 +8,18 @@ export async function GET(request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const spId = await resolveSpOrgId(session, searchParams.get("org"));
+    // A goalie SP gets the same dashboard, scoped to goalies; a skater SP is unchanged.
+    const { orgId: spId, isGoalie } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "No service provider found for this user" }, { status: 403 });
 
-    const spInfo = await sql`SELECT id, name FROM organizations WHERE id = ${spId} LIMIT 1`;
+    const spInfo = await sql`SELECT id, name, type FROM organizations WHERE id = ${spId} LIMIT 1`;
 
     const associations = await sql`
       SELECT
         o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url,
         sal.linked_at, sal.status,
         COUNT(DISTINCT ac.id) as age_categories,
-        COUNT(DISTINCT a.id) FILTER (WHERE a.is_active = true) as athletes,
+        COUNT(DISTINCT a.id) FILTER (WHERE a.is_active = true AND ((${isGoalie}::boolean AND a.position = 'goalie') OR (NOT ${isGoalie}::boolean))) as athletes,
         COUNT(DISTINCT es.id) FILTER (WHERE es.scheduled_date >= CURRENT_DATE) as upcoming_sessions,
         COUNT(DISTINCT es.id) FILTER (WHERE es.scheduled_date >= CURRENT_DATE AND (
           SELECT COUNT(*) FROM evaluator_session_signups ess2
@@ -59,7 +60,7 @@ export async function POST(request) {
     if (!association_id) return NextResponse.json({ error: "association_id required" }, { status: 400 });
 
     const { searchParams } = new URL(request.url);
-    const spId = await resolveSpOrgId(session, searchParams.get("org"));
+    const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "No service provider found" }, { status: 403 });
 
     const existing = await sql`

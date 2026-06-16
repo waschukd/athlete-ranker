@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailOpenSessionsBlast } from "@/lib/email";
 
 async function getOrgId(session) {
-  // Canonical resolver: contact_email, additional-admin role, or membership.
-  return await resolveSpOrgId(session, null);
+  // Canonical resolver: skater or goalie SP — contact_email, admin role, or membership.
+  return (await resolveSpContext(session, null)).orgId;
 }
 
 async function getSessionStaffing(orgId, daysAhead = 7) {

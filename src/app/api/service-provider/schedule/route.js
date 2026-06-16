@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 
 export async function GET(request) {
   try {
@@ -15,7 +15,7 @@ export async function GET(request) {
     const to = searchParams.get("to") || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     // Resolve SP org (contact_email, additional-admin role, or membership)
-    const spId = await resolveSpOrgId(session, searchParams.get("org"));
+    const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
 
     // Get all sessions across all client associations

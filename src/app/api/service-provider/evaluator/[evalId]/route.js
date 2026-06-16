@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 import { canViewEvaluator } from "@/lib/authorize";
 import { bonusForEvaluator } from "@/lib/reportBonus";
 
@@ -182,7 +182,7 @@ export async function GET(request, { params }) {
     let hourly_rate = null;
     let report_bonus = null;
     try {
-      const spId = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
+      const { orgId: spId } = await resolveSpContext(session, new URL(request.url).searchParams.get("org"));
       if (spId) {
         const m = await sql`SELECT hourly_rate FROM evaluator_memberships WHERE user_id = ${evalId} AND organization_id = ${spId}`;
         hourly_rate = m[0]?.hourly_rate != null ? parseFloat(m[0].hourly_rate) : null;

@@ -52,8 +52,8 @@ export async function POST(request) {
         : invite.org_type === "goalie_service_provider" ? "goalie_service_provider_admin"
         : "association_admin";
     const redirectTo =
-      invite.org_type === "service_provider" ? "/service-provider/dashboard"
-        : invite.org_type === "goalie_service_provider" ? "/goalie-provider/dashboard"
+      (invite.org_type === "service_provider" || invite.org_type === "goalie_service_provider")
+        ? "/service-provider/dashboard"
         : `/association/dashboard?org=${invite.organization_id}`;
 
     // Create or update auth user

@@ -76,3 +76,15 @@ export async function resolveGoalieSpOrgId(session, orgParamId) {
   const byRole = await sql`SELECT o.id FROM user_organization_roles uor JOIN organizations o ON o.id = uor.organization_id JOIN users u ON u.id = uor.user_id WHERE u.email = ${session.email} AND o.type = 'goalie_service_provider' LIMIT 1`;
   return byRole[0]?.id || null;
 }
+
+// Resolve the caller's service-provider org of EITHER type, with its scope.
+// Skater SP → { isGoalie:false }; goalie SP → { isGoalie:true }. The SP dashboard
+// + /api/service-provider routes use this to scope every query to goalies for a
+// goalie SP, while leaving the skater SP path byte-identical.
+export async function resolveSpContext(session, orgParam) {
+  const skaterId = await resolveSpOrgId(session, orgParam);
+  if (skaterId) return { orgId: skaterId, isGoalie: false, type: "service_provider" };
+  const goalieId = await resolveGoalieSpOrgId(session, orgParam);
+  if (goalieId) return { orgId: goalieId, isGoalie: true, type: "goalie_service_provider" };
+  return { orgId: null, isGoalie: false, type: null };
+}

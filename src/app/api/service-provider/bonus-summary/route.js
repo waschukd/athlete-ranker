@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 import { getNoteBonusRate, eligibleNoteCount } from "@/lib/reportBonus";
 
 // Per-SP bonus overview: the rate + each evaluator's eligible notes and bonus.
@@ -8,7 +8,7 @@ export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const orgId = await resolveSpOrgId(session, new URL(request.url).searchParams.get("org"));
+    const orgId = (await resolveSpContext(session, new URL(request.url).searchParams.get("org"))).orgId;
     if (!orgId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const rateCents = await getNoteBonusRate(orgId);

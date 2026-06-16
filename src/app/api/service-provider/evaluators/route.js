@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 
 export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { searchParams } = new URL(request.url);
-    const spId = await resolveSpOrgId(session, searchParams.get("org"));
+    const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
     const evaluators = await sql`
       SELECT u.id, u.name, u.email, u.role, em.created_at as joined_at, em.status as membership_status, em.hourly_rate,
@@ -63,7 +63,7 @@ export async function POST(request) {
     const { action, evaluator_id, schedule_id, hours_id, rating, notes, flag_id } = body;
     const asArray = (arr, single) => Array.isArray(arr) ? arr : (single != null ? [single] : []);
     const { searchParams } = new URL(request.url);
-    const sp_id = await resolveSpOrgId(session, searchParams.get("org"));
+    const { orgId: sp_id } = await resolveSpContext(session, searchParams.get("org"));
     if (!sp_id) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     const adminRes = await sql`SELECT id FROM users WHERE email = ${session.email} LIMIT 1`;
     const admin_id = adminRes[0]?.id;

@@ -1083,7 +1083,7 @@ function SPDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-1">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="min-w-0">
-              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Service Provider</div>
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{sp?.type === "goalie_service_provider" ? "Goalie Service Provider" : "Service Provider"}</div>
               <div className="flex items-end gap-4 flex-wrap">
                 <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{sp?.name || "Service Provider"}</h1>
                 <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
