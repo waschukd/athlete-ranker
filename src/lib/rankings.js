@@ -205,9 +205,11 @@ export async function computeCategoryRankings(catId, opts = {}) {
     if (!hasData) { sessionStatus[sNum] = "not_started"; continue; }
 
     if (session.session_type === "testing") {
-      // Testing complete if all athletes have a rank
+      // Testing complete when the SKATERS have ranks — goalies don't do testing
+      // (they run goalie stations instead), so don't hold the session open for them.
+      const skaterCount = athletes.filter(a => (a.position || "").toLowerCase() !== "goalie").length;
       const testingCount = testingRanks.filter(t => parseInt(t.session_number) === sNum).length;
-      sessionStatus[sNum] = testingCount >= athletes.length ? "complete" : "in_progress";
+      sessionStatus[sNum] = testingCount >= skaterCount ? "complete" : "in_progress";
     } else {
       // Skills/scrimmage: complete if all athletes have been scored by required evaluators
       const scoredAthletes = [...new Set(sessionScores.filter(s => parseInt(s.session_number) === sNum).map(s => s.athlete_id))];
