@@ -18,7 +18,7 @@ const GCATS = [
   "Anticipation / Reading the Play",
 ];
 const GEVALS = [27, 33]; // goalie evaluator user ids (Danny Boy, Payton Basterash)
-const SESSIONS = [1, 2, 3, 4];
+const SESSIONS = [2, 3, 4]; // goalies are evaluated during the scrimmage sessions (not session 1 testing)
 
 let seed = 0x51ed5;
 const rng = () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -70,7 +70,7 @@ goalies.forEach((g, gi) => {
       }
     });
   }
-  notes.push(sql`INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via) VALUES (${g.id}, ${CAT}, 1, ${GEVALS[gi % 2]}, ${NOTES[gi % NOTES.length]}, 'manual')`);
+  notes.push(sql`INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via) VALUES (${g.id}, ${CAT}, 2, ${GEVALS[gi % 2]}, ${NOTES[gi % NOTES.length]}, 'manual')`);
   notes.push(sql`INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via) VALUES (${g.id}, ${CAT}, 3, ${GEVALS[(gi + 1) % 2]}, ${NOTES[(gi + 2) % NOTES.length]}, 'manual')`);
 });
 

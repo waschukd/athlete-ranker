@@ -103,6 +103,7 @@ function ScoringInterface() {
   const [jerseySearch, setJerseySearch] = useState("");
   const [backupOpen, setBackupOpen] = useState(false);
   const [collapseList, setCollapseList] = useState(false); // hide player grid while scoring a selected player
+  const [viewerKind, setViewerKind] = useState(null); // 'goalie' | 'coach' | 'standard' — scopes the roster
   const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
   const [syncStatus, setSyncStatus] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -219,6 +220,16 @@ function ScoringInterface() {
   });
 
   const catId = sessionData?.schedule?.category_id;
+
+  // Scope the roster to this evaluator's kind: goalie evaluators only see goalies,
+  // skater evaluators only see skaters (goalies are graded separately).
+  useEffect(() => {
+    if (!catId) return;
+    fetch(`/api/evaluator/kind?cat=${catId}`)
+      .then(r => r.json())
+      .then(d => setViewerKind(d.kind || "standard"))
+      .catch(() => setViewerKind("standard"));
+  }, [catId]);
   // Time spent in a scoring session — fires once on unmount with duration_ms.
   // Metadata is read from a ref at flush time so the catId/scheduleId are
   // current even though the hook bound on first mount.
@@ -394,10 +405,17 @@ function ScoringInterface() {
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
-  // Data queries
-  const athletes = sessionData?.athletes?.filter(a => a.checked_in) || [];
+  // Data queries — scoped to the evaluator's kind (goalie evaluators see only
+  // goalies + goalie categories; everyone else sees skaters + skater categories).
+  const isGoalieEvaluator = viewerKind === "goalie";
+  const inRosterScope = (a) => viewerKind == null ? true
+    : isGoalieEvaluator ? (a.position || "").toLowerCase() === "goalie"
+    : (a.position || "").toLowerCase() !== "goalie";
+  const athletes = (sessionData?.athletes || []).filter(a => a.checked_in && inRosterScope(a));
   const teamColors = sessionData?.checkinSession?.team_colors || ["White", "Dark"];
-  const scoringCats = catData?.scoringCategories || [];
+  const scoringCats = (catData?.scoringCategories || []).filter(c =>
+    isGoalieEvaluator ? (c.applies_to === "goalies" || c.applies_to === "all") : c.applies_to !== "goalies"
+  );
   const scale = catData?.category?.scoring_scale || 10;
   const increment = catData?.category?.scoring_increment || 1;
   const totalCats = scoringCats.length;
