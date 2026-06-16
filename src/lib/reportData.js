@@ -42,7 +42,8 @@ export async function buildAthleteReport(catId, athleteId) {
   // pool so standing/percentile compares like with like.
   const skaterPool = rankData.athletes || [];
   const goaliePool = rankData.goalies || [];
-  const rankPool = goaliePool.some(a => String(a.id) === String(athleteId)) ? goaliePool : skaterPool;
+  const athleteIsGoalie = goaliePool.some(a => String(a.id) === String(athleteId));
+  const rankPool = athleteIsGoalie ? goaliePool : skaterPool;
   const athleteRanking = rankPool.find(a => String(a.id) === String(athleteId));
   const totalAthletes = rankPool.length || 0;
 
@@ -60,10 +61,10 @@ export async function buildAthleteReport(catId, athleteId) {
   const coachIds = await getCoachUserIds(catId);
   const coachKeys = coachIds.map(String);
   const groupAvg = await sql`
-    SELECT cs.scoring_category_id, sc.name AS category_name, sc.display_order, AVG(cs.score)::float AS avg
+    SELECT cs.scoring_category_id, sc.name AS category_name, sc.display_order, sc.applies_to, AVG(cs.score)::float AS avg
     FROM category_scores cs JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
     WHERE cs.age_category_id = ${catId} AND cs.evaluator_id <> ALL(${coachIds})
-    GROUP BY cs.scoring_category_id, sc.name, sc.display_order
+    GROUP BY cs.scoring_category_id, sc.name, sc.display_order, sc.applies_to
     ORDER BY sc.display_order
   `;
   const topCount = Math.max(1, Math.ceil(totalAthletes * 0.25));
@@ -90,14 +91,17 @@ export async function buildAthleteReport(catId, athleteId) {
     playerSum[k] = (playerSum[k] || 0) + parseFloat(s.score);
     playerCnt[k] = (playerCnt[k] || 0) + 1;
   }
-  const skillProfile = groupAvg.map(r => ({
-    scoring_category_id: r.scoring_category_id,
-    name: r.category_name,
-    display_order: r.display_order,
-    player: playerCnt[r.scoring_category_id] ? round1(playerSum[r.scoring_category_id] / playerCnt[r.scoring_category_id]) : null,
-    group: round1(r.avg),
-    top: round1(topMap[r.scoring_category_id]),
-  }));
+  const skillProfile = groupAvg
+    // Goalies see only goalie categories; skaters see skater/all categories.
+    .filter(r => athleteIsGoalie ? r.applies_to === "goalies" : r.applies_to !== "goalies")
+    .map(r => ({
+      scoring_category_id: r.scoring_category_id,
+      name: r.category_name,
+      display_order: r.display_order,
+      player: playerCnt[r.scoring_category_id] ? round1(playerSum[r.scoring_category_id] / playerCnt[r.scoring_category_id]) : null,
+      group: round1(r.avg),
+      top: round1(topMap[r.scoring_category_id]),
+    }));
 
   // ── Objective testing: best per test vs group avg / group best (lower = better) ──
   let testingProfile = [];
