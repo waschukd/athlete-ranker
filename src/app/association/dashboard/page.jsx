@@ -171,6 +171,24 @@ function Dashboard() {
     </div>
   );
 
+  // Guard: this is the ASSOCIATION dashboard. If the org is a (goalie) service
+  // provider, send the user to the right place instead of rendering it as an association.
+  if (org && org.type && org.type !== "association") {
+    const dest = org.type === "goalie_service_provider" ? `/goalie-provider/dashboard?org=${org.id}`
+      : org.type === "service_provider" ? "/service-provider/dashboard" : null;
+    const label = org.type === "goalie_service_provider" ? "Goalie Service Provider"
+      : org.type === "service_provider" ? "Service Provider" : org.type;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6" data-theme="premium">
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 max-w-md text-center">
+          <h2 className="font-display font-bold text-ink text-xl mb-2">{org.name} isn't an association</h2>
+          <p className="text-sm text-gray-500 mb-5">This is a <b className="text-ink">{label}</b>. The association dashboard only manages associations.</p>
+          {dest && <a href={dest} className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">Open the {label} dashboard →</a>}
+        </div>
+      </div>
+    );
+  }
+
   const navItems = [
     { id: "categories", label: "Age Categories", icon: LayoutGrid },
     ...(!serviceProvider ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null }] : []),
