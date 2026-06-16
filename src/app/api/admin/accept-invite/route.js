@@ -48,10 +48,12 @@ export async function POST(request) {
     // else (associations, etc.) gets association_admin. The redirect target
     // matches: /service-provider/dashboard auto-resolves the SP from session.
     const targetRole =
-      invite.org_type === "service_provider" ? "service_provider_admin" : "association_admin";
+      invite.org_type === "service_provider" ? "service_provider_admin"
+        : invite.org_type === "goalie_service_provider" ? "goalie_service_provider_admin"
+        : "association_admin";
     const redirectTo =
-      invite.org_type === "service_provider"
-        ? "/service-provider/dashboard"
+      invite.org_type === "service_provider" ? "/service-provider/dashboard"
+        : invite.org_type === "goalie_service_provider" ? "/goalie-provider/dashboard"
         : `/association/dashboard?org=${invite.organization_id}`;
 
     // Create or update auth user

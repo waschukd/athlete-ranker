@@ -56,8 +56,8 @@ export async function POST(request) {
     if (!name) return NextResponse.json({ error: "Organization name is required" }, { status: 400 });
     if (!contact_email) return NextResponse.json({ error: "Contact email is required" }, { status: 400 });
     if (!type) return NextResponse.json({ error: "Type is required" }, { status: 400 });
-    if (!["service_provider", "association"].includes(type)) {
-      return NextResponse.json({ error: "Type must be service_provider or association" }, { status: 400 });
+    if (!["service_provider", "goalie_service_provider", "association"].includes(type)) {
+      return NextResponse.json({ error: "Type must be service_provider, goalie_service_provider, or association" }, { status: 400 });
     }
 
     let orgCode = null;

@@ -38,6 +38,7 @@ const PUBLIC_PATHS = [
 const ROLE_ROUTES = {
   "/admin/god-mode": ["super_admin"],
   "/service-provider": ["service_provider_admin", "super_admin"],
+  "/goalie-provider": ["goalie_service_provider_admin", "super_admin"],
   "/association/dashboard": ["association_admin", "super_admin", "service_provider_admin"],
   "/association": ["association_admin", "super_admin", "service_provider_admin"],
   "/player": ["association_admin", "super_admin", "service_provider_admin", "director", "association_evaluator", "service_provider_evaluator"],

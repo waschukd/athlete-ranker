@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, Clock, MapPin, AlertTriangle, ChevronRight } from "lucide-react";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, Clock, MapPin, AlertTriangle, ChevronRight, Shield } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -49,6 +49,24 @@ function Dashboard() {
   const [inviteName, setInviteName] = useState("");
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  // Goalie service provider invite (goalies are evaluated separately)
+  const [gpOpen, setGpOpen] = useState(false);
+  const [gpName, setGpName] = useState("");
+  const [gpEmail, setGpEmail] = useState("");
+  const [gpResult, setGpResult] = useState(null);
+  const [gpLoading, setGpLoading] = useState(false);
+  const sendGoalieInvite = async (e) => {
+    e.preventDefault();
+    setGpLoading(true); setGpResult(null);
+    const res = await fetch("/api/goalie-provider/invite", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ association_id: parseInt(orgId), name: gpName, email: gpEmail }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setGpLoading(false);
+    if (!res.ok || d.error) { setGpResult({ error: d.error || "Failed to invite" }); return; }
+    setGpResult({ success: true, message: d.invite?.message || "Invite sent", inviteUrl: d.invite?.url || null });
+  };
   const [categorySearch, setCategorySearch] = useState("");
   const [approvalSearch, setApprovalSearch] = useState("");
   const [showAllApprovals, setShowAllApprovals] = useState(false);
@@ -462,6 +480,35 @@ function Dashboard() {
                     })}
                   </div>
                 )}
+              </div>
+
+              {/* Goalie evaluations */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="font-display font-bold text-ink text-sm flex items-center gap-2"><Shield size={15} className="text-accent" /> Goalie Evaluations</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Goalies are evaluated separately. Invite a goalie service provider to run and grade them.</p>
+                </div>
+                <div className="p-5">
+                  {!gpOpen ? (
+                    <button onClick={() => { setGpOpen(true); setGpResult(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90"><Plus size={14} /> Invite goalie service provider</button>
+                  ) : gpResult?.success ? (
+                    <div className="text-sm">
+                      <p className="text-green-600 font-medium">{gpResult.message}</p>
+                      {gpResult.inviteUrl && <div className="mt-2 flex items-center gap-2"><input readOnly value={gpResult.inviteUrl} className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 font-mono" /><button onClick={() => navigator.clipboard.writeText(gpResult.inviteUrl)} className="px-2.5 py-1.5 bg-accent text-white rounded text-xs font-semibold">Copy</button></div>}
+                      <button onClick={() => { setGpOpen(false); setGpName(""); setGpEmail(""); setGpResult(null); }} className="mt-3 text-xs text-gray-500 hover:text-gray-700">Done</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={sendGoalieInvite} className="space-y-2">
+                      <input type="text" value={gpName} onChange={e => setGpName(e.target.value)} placeholder="Provider name (e.g. Apex Goaltending)" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                      <input type="email" required value={gpEmail} onChange={e => setGpEmail(e.target.value)} placeholder="contact@goalieco.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                      {gpResult?.error && <p className="text-xs text-red-500">{gpResult.error}</p>}
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setGpOpen(false)} className="flex-1 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm">Cancel</button>
+                        <button type="submit" disabled={gpLoading || !gpEmail || !gpName} className="flex-1 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-50">{gpLoading ? "Sending…" : "Send invite"}</button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
 
               {/* Needs attention */}

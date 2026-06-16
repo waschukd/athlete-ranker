@@ -63,3 +63,16 @@ export async function resolveSpOrgId(session, orgParamId) {
   const byMembership = await sql`SELECT em.organization_id as id FROM evaluator_memberships em JOIN organizations o ON o.id = em.organization_id JOIN users u ON u.id = em.user_id WHERE u.email = ${session.email} AND o.type = 'service_provider' LIMIT 1`;
   return byMembership[0]?.id || null;
 }
+
+// Same resolution as resolveSpOrgId but for a Goalie Service Provider org
+// (type='goalie_service_provider') — a position-scoped SP that only manages goalies.
+export async function resolveGoalieSpOrgId(session, orgParamId) {
+  if (session?.role === "super_admin" && orgParamId) {
+    const org = await sql`SELECT id FROM organizations WHERE id = ${orgParamId} AND type = 'goalie_service_provider' LIMIT 1`;
+    return org[0]?.id || null;
+  }
+  const byContact = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} AND type = 'goalie_service_provider' LIMIT 1`;
+  if (byContact.length) return byContact[0].id;
+  const byRole = await sql`SELECT o.id FROM user_organization_roles uor JOIN organizations o ON o.id = uor.organization_id JOIN users u ON u.id = uor.user_id WHERE u.email = ${session.email} AND o.type = 'goalie_service_provider' LIMIT 1`;
+  return byRole[0]?.id || null;
+}
