@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/accept-invite",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/auth/me",
   "/api/auth/signup-request",
   "/api/checkin",
   "/api/evaluator/register",

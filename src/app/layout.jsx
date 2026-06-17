@@ -1,5 +1,6 @@
 import "./globals.css";
 import Providers from "@/components/Providers";
+import SessionBar from "@/components/SessionBar";
 
 export const metadata = {
   title: {
@@ -58,6 +59,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <Providers>
+          <SessionBar />
           {children}
         </Providers>
       </body>
