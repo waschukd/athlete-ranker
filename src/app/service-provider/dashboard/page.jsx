@@ -1335,9 +1335,15 @@ function SPDashboard() {
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.athletes || 0}</div><div className="text-xs text-gray-400">Athletes</div></div>
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assocSessions.length}</div><div className="text-xs text-gray-400">Upcoming</div></div>
                       </div>
-                      <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
-                        <ExternalLink size={14} /> Open Dashboard
-                      </a>
+                      {sp?.type === "goalie_service_provider" ? (
+                        <a href={`/goalie-provider/rankings?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                          <Star size={14} /> View goalie rankings
+                        </a>
+                      ) : (
+                        <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                          <ExternalLink size={14} /> Open Dashboard
+                        </a>
+                      )}
                     </div>
                   );
                 })}
