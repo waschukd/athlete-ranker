@@ -37,10 +37,10 @@ const DEFAULT_SCORING_CATS = [
 
 // Goalie evaluation standard template (separate from skaters).
 const DEFAULT_GOALIE_CATS = [
-  { name: "Skating / Balance / Agility" },
-  { name: "Positioning / Angles / Net Coverage" },
-  { name: "Feet / Hands / Stick / Rebounds" },
-  { name: "Anticipation / Reading the Play" },
+  { name: "Mobility" },
+  { name: "Rebound Control" },
+  { name: "Positioning & Awareness" },
+  { name: "Battle & Compete" },
 ];
 const DEFAULT_GOALIE_SESSIONS = [
   { session_number: 1, name: "Goalie Session 1", session_type: "goalie_skills", weight_percentage: 40 },
