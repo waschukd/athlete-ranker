@@ -114,6 +114,7 @@ export async function POST(request) {
     let redirectTo = "/evaluator/dashboard";
     if (role === "super_admin") redirectTo = "/admin/god-mode";
     else if (role === "service_provider_admin") redirectTo = orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
+    else if (role === "goalie_service_provider_admin") redirectTo = orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
     else if (role === "association_admin") redirectTo = orgId ? `/association/dashboard?org=${orgId}` : "/association/dashboard";
     else if (role === "director") redirectTo = "/director/dashboard";
     else if (role === "service_provider_evaluator") redirectTo = "/evaluator/dashboard";
