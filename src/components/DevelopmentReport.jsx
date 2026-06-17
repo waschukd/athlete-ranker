@@ -206,7 +206,7 @@ export default function DevelopmentReport({ data }) {
         {isGoalie && skillProfile.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <Shead kicker="How goalies are evaluated" title="The skills session" />
-            <div style={leadStyle}>Goaltenders are evaluated on their own ice, separately from skaters. The skills session runs every goalie through the same four drills under the same conditions, so evaluators grade <b style={{ color: "#cfd2d7" }}>technique and habits</b> — not just whether the puck went in. Each drill targets one area; together they make up the score on the next page.</div>
+            <div style={leadStyle}>Goaltenders are evaluated on their own ice, separately from skaters, on four areas. <b style={{ color: "#cfd2d7" }}>Session 1 is the skills session</b> — every goalie runs the same four drills under the same conditions, so evaluators can grade technique cleanly. In the <b style={{ color: "#cfd2d7" }}>scrimmage sessions that follow</b>, evaluators grade those same four areas in live game play. It's the same four criteria throughout — not just whether the puck went in. The score on the next page combines them across every session.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {skillProfile.map((s, i) => {
                 const blurb = drillBlurb(s.name);
