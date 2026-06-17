@@ -94,11 +94,16 @@ export async function authorizeCategoryAccess(session, catId) {
     `;
     if (membership.length) return { authorized: true, orgId };
 
-    // For SP evaluators, also check if their SP is linked to this association
+    // For SP evaluators, also check if their SP is linked to this association.
+    // Restrict to SKATER service providers — a goalie SP's evaluators resolve to
+    // the same 'service_provider_evaluator' role but must NEVER reach skater
+    // category data. (Goalie evaluators score goalies via the check-in flow,
+    // which scopes the roster to goalies.)
     if (session.role === "service_provider_evaluator") {
       const spLink = await sql`
         SELECT sal.id FROM sp_association_links sal
         JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id
+        JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
         WHERE em.user_id = ${userId} AND sal.association_id = ${orgId} AND em.status = 'active'
       `;
       if (spLink.length) return { authorized: true, orgId };

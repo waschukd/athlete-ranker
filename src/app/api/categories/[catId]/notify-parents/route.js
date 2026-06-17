@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc } from "@/lib/email";
 import { generateICS } from "@/lib/calendar";
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
@@ -52,7 +52,9 @@ export async function POST(request, { params }) {
           if (override && (override.body_html || override.subject)) {
             const vars = { player_name: a.first_name, org_name, category_name, sp_name: org_name };
             if (override.subject) subject = renderTemplate(override.subject, vars);
-            const bodyHtml = renderTemplate(override.body_html || "", vars)
+            // Escape the rendered (admin-authored + merged) text so it can't inject
+            // markup/links, then re-apply our own paragraph + line-break formatting.
+            const bodyHtml = esc(renderTemplate(override.body_html || "", vars))
               .split(/\n\s*\n/).map(p => `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">${p.replace(/\n/g, "<br/>")}</p>`).join("");
             html = emailWrapper(`<h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">Welcome</h2>${bodyHtml}`);
           } else {

@@ -24,7 +24,9 @@ export async function POST(request) {
       const session = event.data.object;
       const { athlete_id, age_category_id } = session.metadata || {};
 
-      if (athlete_id && age_category_id) {
+      // Only unlock when the money actually cleared. checkout.session.completed
+      // can fire for async/unpaid methods, so gate on payment_status === 'paid'.
+      if (athlete_id && age_category_id && session.payment_status === "paid") {
         await sql`
           UPDATE report_purchases SET
             status = 'completed',

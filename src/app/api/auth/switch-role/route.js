@@ -12,9 +12,11 @@ export async function POST(request) {
     const { role } = await request.json();
     if (!role) return NextResponse.json({ error: "role required" }, { status: 400 });
 
+    // Validate strictly against the roles the user currently holds (getUserRoles
+    // includes their base users.role). No "current role is always allowed" bypass,
+    // so a stale token can't re-affirm a role that was revoked in the DB.
     const available = await getUserRoles(session.email);
-    // The current active role is always allowed (covers super_admin etc.).
-    if (role !== session.role && !available.includes(role)) {
+    if (!available.includes(role)) {
       return NextResponse.json({ error: "You don't have that role" }, { status: 403 });
     }
 

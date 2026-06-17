@@ -1,6 +1,15 @@
 const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
+// Escape user-controlled values before interpolating into email HTML. Names,
+// org names, notes, locations, etc. come from rosters/admins and must never be
+// able to inject markup (phishing links, tracking pixels) into outbound mail.
+export function esc(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 // Returns { ok, id?, skipped?, error? } so callers can surface delivery status
 // to the user instead of silently swallowing failures. `id` is the Resend
 // message id — callers that track delivery/bounces correlate webhook events to it.
@@ -300,7 +309,8 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
 
 // ── Parent Emails ─────────────────────────────────────────────────────────
 
-export function parentOnboardingHtml({ playerName, categoryName, orgName }) {
+export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgName: _on }) {
+  const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
   return emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to ${categoryName} Evaluations</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
@@ -338,14 +348,15 @@ export function parentOnboardingHtml({ playerName, categoryName, orgName }) {
   `);
 }
 
-export function parentScheduleHtml({ playerName, categoryName, orgName, sessions }) {
+export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessions }) {
+  const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
   const rows = sessions.map(s => `
     <tr style="border-bottom:1px solid #f3f4f6;">
       <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">S${s.session_number}</td>
       <td style="padding:10px 0;font-size:13px;color:#111827;">Group ${s.group_number}</td>
       <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.date || "TBD"}</td>
       <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.time || "TBD"}</td>
-      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.location || "TBD"}</td>
+      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.location) || "TBD"}</td>
     </tr>
   `).join("");
 
@@ -377,7 +388,8 @@ export function parentScheduleHtml({ playerName, categoryName, orgName, sessions
 // Group-assignment alert: tells a parent which group their athlete is in for a
 // specific session, with the rink/date/time. Sent from the Groups page once the
 // director has set the groups for a session.
-export function groupAssignmentHtml({ playerName, categoryName, orgName, sessionLabel, groupNumber, date, time, location }) {
+export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, groupNumber, date, time, location: _loc }) {
+  const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
   const rows = [
     ["Group", `Group ${groupNumber}`, true],
     ["Session", sessionLabel || "—"],
@@ -397,7 +409,8 @@ export function groupAssignmentHtml({ playerName, categoryName, orgName, session
 
 // ── Parent paywall delivery: "your child's report is ready" + preview/buy CTA ──
 // fromLine reads "<SP> on behalf of <Association>" when an SP name is provided.
-export function parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr }) {
+export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _sp, reportUrl, priceStr }) {
+  const playerName = esc(_pn), orgName = esc(_on), spName = _sp ? esc(_sp) : _sp;
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
     <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0b5cd6;font-weight:700;margin-bottom:8px;">${fromLine}</div>

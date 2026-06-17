@@ -19,7 +19,9 @@ const EVENT_STATUS = {
 // secret is configured (best-effort in that case).
 function verify(rawBody, headers) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (!secret) return true; // not configured — accept (set the secret to enforce)
+  // Fail closed in production: an unconfigured secret must not let anyone POST
+  // forged delivery/bounce events. Dev is lenient so local testing works.
+  if (!secret) return process.env.NODE_ENV !== "production";
   try {
     const id = headers.get("svix-id");
     const ts = headers.get("svix-timestamp");

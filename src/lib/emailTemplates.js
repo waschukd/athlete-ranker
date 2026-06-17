@@ -33,8 +33,3 @@ export async function setEmailTemplate(orgId, key, subject, bodyHtml) {
 export function renderTemplate(str, vars) {
   return (str || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : ""));
 }
-
-// Merge fields available to association-authored templates.
-export const TEMPLATE_FIELDS = {
-  welcome: ["player_name", "org_name", "category_name", "sp_name"],
-};
