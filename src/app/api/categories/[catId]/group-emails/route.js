@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, groupAssignmentHtml } from "@/lib/email";
+import { sendEmail, groupAssignmentHtml, parentEmails } from "@/lib/email";
 import { generateICS } from "@/lib/calendar";
 
 // Per-recipient delivery log for group-assignment emails. Auto-creates so no
@@ -61,7 +61,7 @@ async function buildPlan(catId, sessionNumber) {
     ORDER BY sg.group_number
   `;
   const assigns = await sql`
-    SELECT pga.athlete_id, pga.session_group_id, a.first_name, a.last_name, a.parent_email
+    SELECT pga.athlete_id, pga.session_group_id, a.first_name, a.last_name, a.parent_email, a.parent_email_2
     FROM player_group_assignments pga
     JOIN session_groups sg ON sg.id = pga.session_group_id
     JOIN athletes a ON a.id = pga.athlete_id AND a.is_active = true
@@ -92,8 +92,8 @@ export async function GET(request, { params }) {
         time: g.start_time ? `${fmtTime(g.start_time)}${g.end_time ? ` – ${fmtTime(g.end_time)}` : ""}` : "",
         location: g.location || "",
         scheduled: !!(g.scheduled_date && g.start_time),
-        recipients: members.filter(m => m.parent_email).length,
-        missing: members.filter(m => !m.parent_email).map(m => `${m.first_name} ${m.last_name}`),
+        recipients: members.reduce((n, m) => n + parentEmails(m).length, 0),
+        missing: members.filter(m => parentEmails(m).length === 0).map(m => `${m.first_name} ${m.last_name}`),
         total: members.length,
       };
     });
@@ -146,7 +146,8 @@ export async function POST(request, { params }) {
       const time = g.start_time ? `${fmtTime(g.start_time)}${g.end_time ? ` – ${fmtTime(g.end_time)}` : ""}` : "";
       for (const m of members) {
         const name = `${m.first_name} ${m.last_name}`;
-        if (!m.parent_email) {
+        const emails = parentEmails(m);
+        if (!emails.length) {
           skipped++;
           await sql`INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
           continue;
@@ -164,12 +165,15 @@ export async function POST(request, { params }) {
           });
           attachments = [{ filename: "session.ics", content: Buffer.from(ics).toString("base64") }];
         }
-        const res = await sendEmail(m.parent_email, `${name} — Group ${g.group_number} · ${plan.category_name} (${plan.org_name})`, html, attachments);
-        if (res.ok) sent++; else failed++;
-        await sql`
-          INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
-          VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${m.parent_email}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
-        `;
+        // Email each household on file (separated parents); each is logged separately.
+        for (const to of emails) {
+          const res = await sendEmail(to, `${name} — Group ${g.group_number} · ${plan.category_name} (${plan.org_name})`, html, attachments);
+          if (res.ok) sent++; else failed++;
+          await sql`
+            INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
+            VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
+          `;
+        }
       }
     }
 

@@ -34,6 +34,15 @@ export async function sendEmail(to, subject, html, attachments) {
   }
 }
 
+// Both parent emails for an athlete (separated households) — deduped, valid only.
+// Use everywhere we notify or sell to a parent so both households are reached.
+export function parentEmails(athlete) {
+  const seen = new Set();
+  return [athlete?.parent_email, athlete?.parent_email_2]
+    .map(e => (e || "").trim())
+    .filter(e => e && e.includes("@") && !seen.has(e.toLowerCase()) && seen.add(e.toLowerCase()));
+}
+
 const BODY_FONT = "'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 const DISPLAY_FONT = "'Archivo','Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 

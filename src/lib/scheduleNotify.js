@@ -1,5 +1,5 @@
 import sql from "@/lib/db";
-import { sendEmail, emailWrapper } from "@/lib/email";
+import { sendEmail, emailWrapper, parentEmails } from "@/lib/email";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -217,14 +217,14 @@ export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }
     if (!(hoursUntil <= 48) || hoursUntil < -24) return { notified: 0, skipped: "not_imminent" };
 
     const parents = await sql`
-      SELECT DISTINCT a.parent_email, a.first_name, a.last_name
+      SELECT DISTINCT a.id, a.parent_email, a.parent_email_2, a.first_name, a.last_name
       FROM player_group_assignments pga
       JOIN session_groups sg ON sg.id = pga.session_group_id
       JOIN athletes a ON a.id = pga.athlete_id
       WHERE sg.age_category_id = ${catId}
         AND sg.session_number = ${r.session_number}
         AND sg.group_number = ${r.group_number}
-        AND a.parent_email IS NOT NULL AND a.parent_email <> ''
+        AND ((a.parent_email IS NOT NULL AND a.parent_email <> '') OR (a.parent_email_2 IS NOT NULL AND a.parent_email_2 <> ''))
     `;
     if (!parents.length) return { notified: 0 };
 
@@ -251,7 +251,7 @@ export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }
         </div>
         <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive 15 minutes early for check-in."}</p>
       `);
-      await sendEmail(p.parent_email, `${headline} — ${category_name}`, html);
+      for (const to of parentEmails(p)) await sendEmail(to, `${headline} — ${category_name}`, html);
     }
     return { notified: parents.length };
   } catch (err) {

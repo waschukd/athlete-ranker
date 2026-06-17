@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendParentReportEmail } from "@/lib/email";
+import { sendParentReportEmail, parentEmails } from "@/lib/email";
 
 const PRICE_CENTS = parseInt(process.env.REPORT_PRICE_CENTS || "2499", 10);
 
@@ -26,7 +26,8 @@ export async function GET(request, { params }) {
   const rows = await sql`
     SELECT COUNT(*)::int AS with_email
     FROM athletes
-    WHERE age_category_id = ${params.catId} AND is_active = true AND parent_email IS NOT NULL AND parent_email != ''
+    WHERE age_category_id = ${params.catId} AND is_active = true
+      AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
   `;
   return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: PRICE_CENTS });
 }
@@ -45,9 +46,10 @@ export async function POST(request, { params }) {
   const userId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id;
 
   const athletes = await sql`
-    SELECT id, first_name, last_name, parent_email
+    SELECT id, first_name, last_name, parent_email, parent_email_2
     FROM athletes
-    WHERE age_category_id = ${params.catId} AND is_active = true AND parent_email IS NOT NULL AND parent_email != ''
+    WHERE age_category_id = ${params.catId} AND is_active = true
+      AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
   `;
 
   let sent = 0, skipped = 0, failed = 0;
@@ -63,14 +65,18 @@ export async function POST(request, { params }) {
       `;
       token = r[0].token;
     }
-    const res = await sendParentReportEmail({
-      to: a.parent_email,
-      playerName: `${a.first_name} ${a.last_name}`.trim(),
-      orgName: c.orgName, spName,
-      reportUrl: `${baseUrl}/report/${token}`,
-      priceStr,
-    });
-    if (res?.ok) sent++; else if (res?.skipped) skipped++; else failed++;
+    // Email both households (if a second parent email is on file); they share
+    // the one report link — a purchase by either unlocks it for both.
+    for (const to of parentEmails(a)) {
+      const res = await sendParentReportEmail({
+        to,
+        playerName: `${a.first_name} ${a.last_name}`.trim(),
+        orgName: c.orgName, spName,
+        reportUrl: `${baseUrl}/report/${token}`,
+        priceStr,
+      });
+      if (res?.ok) sent++; else if (res?.skipped) skipped++; else failed++;
+    }
   }
   return NextResponse.json({ success: true, total: athletes.length, sent, skipped, failed });
 }

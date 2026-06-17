@@ -152,6 +152,7 @@ export default function RosterImport({ catId, categoryName, onImported }) {
           <HeaderSelect label="Position" k="position" />
           <HeaderSelect label="HC # / ID" k="externalId" />
           <HeaderSelect label="Parent email" k="parentEmail" />
+          <HeaderSelect label="Parent email 2 (optional)" k="parentEmail2" />
           <HeaderSelect label="Division / group" k="division" />
         </div>
       </div>

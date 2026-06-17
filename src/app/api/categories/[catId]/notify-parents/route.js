@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails } from "@/lib/email";
 import { generateICS } from "@/lib/calendar";
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
@@ -29,9 +29,10 @@ export async function POST(request, { params }) {
 
     // Get all athletes with parent emails
     const athletes = await sql`
-      SELECT id, first_name, last_name, parent_email
+      SELECT id, first_name, last_name, parent_email, parent_email_2
       FROM athletes
-      WHERE age_category_id = ${catId} AND is_active = true AND parent_email IS NOT NULL AND parent_email != ''
+      WHERE age_category_id = ${catId} AND is_active = true
+        AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
     `;
 
     if (!athletes.length) {
@@ -57,7 +58,7 @@ export async function POST(request, { params }) {
           } else {
             html = parentOnboardingHtml({ playerName, categoryName: category_name, orgName: org_name });
           }
-          await sendEmail(a.parent_email, subject, html);
+          for (const to of parentEmails(a)) await sendEmail(to, subject, html);
           sent++;
         } catch (e) {
           console.error("Failed to send onboarding to athlete " + a.id + ":", e?.message || e);
@@ -122,25 +123,27 @@ export async function POST(request, { params }) {
             org_name,
           })));
 
-          // Send with .ics attachment
+          // Send with .ics attachment — one per household (both parent emails).
           if (process.env.RESEND_API_KEY) {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              },
-              body: JSON.stringify({
-                from: process.env.EMAIL_FROM || "updates@sidelinestar.com",
-                to: athlete.parent_email,
-                subject: `Evaluation Schedule — ${athlete.first_name} ${athlete.last_name} · ${category_name}`,
-                html,
-                attachments: [{
-                  filename: "evaluation-schedule.ics",
-                  content: Buffer.from(icsContent).toString("base64"),
-                }],
-              }),
-            });
+            for (const to of parentEmails(athlete)) {
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  from: process.env.EMAIL_FROM || "updates@sidelinestar.com",
+                  to,
+                  subject: `Evaluation Schedule — ${athlete.first_name} ${athlete.last_name} · ${category_name}`,
+                  html,
+                  attachments: [{
+                    filename: "evaluation-schedule.ics",
+                    content: Buffer.from(icsContent).toString("base64"),
+                  }],
+                }),
+              });
+            }
             sent++;
           }
         } catch (e) {

@@ -51,7 +51,8 @@ const SYN = {
   birthdate: ["birthdate", "birth date", "date of birth", "dob", "birthday", "d.o.b"],
   position: ["players position", "player position", "hockey canada position", "position", "pos"],
   externalId: ["hockey canada registration number", "hockey canada #", "hockey canada number", "hc number", "hc #", "hc#", "hcr #", "hcr", "usa hockey #", "usa hockey number", "member id", "registration id", "external id", "player id"],
-  parentEmail: ["parent email", "guardian parent 1 email", "guardian email", "parent 1 email", "registrant email", "primary email", "email", "parent 2 email", "contact email"],
+  parentEmail: ["parent email", "guardian parent 1 email", "guardian email", "parent 1 email", "registrant email", "primary email", "email", "contact email"],
+  parentEmail2: ["parent 2 email", "guardian parent 2 email", "guardian 2 email", "second parent email", "other parent email", "secondary email", "parent email 2"],
   division: ["participant group", "hockey canada division", "division", "age group", "team", "group", "category", "level"],
 };
 
@@ -89,6 +90,11 @@ export function detectMapping(headers) {
     position: pickHeader(headers, "position"),
     externalId: pickHeader(headers, "externalId"),
     parentEmail: pickHeader(headers, "parentEmail", { excludeNameish: false }),
+    parentEmail2: (() => {
+      const primary = pickHeader(headers, "parentEmail", { excludeNameish: false });
+      const second = pickHeader(headers, "parentEmail2", { excludeNameish: false });
+      return second && second !== primary ? second : null;
+    })(),
     division: pickHeader(headers, "division"),
   };
 }
@@ -146,6 +152,7 @@ export function toAthlete(row, mapping) {
     position: mapping.position ? normalizePosition(row[mapping.position]) : null,
     birth_year,
     parent_email: mapping.parentEmail ? (row[mapping.parentEmail] || "").trim() : "",
+    parent_email_2: mapping.parentEmail2 ? (row[mapping.parentEmail2] || "").trim() : "",
     _division: mapping.division ? (row[mapping.division] || "").trim() : "",
   };
 }
