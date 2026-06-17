@@ -88,3 +88,41 @@ export async function resolveSpContext(session, orgParam) {
   if (goalieId) return { orgId: goalieId, isGoalie: true, type: "goalie_service_provider" };
   return { orgId: null, isGoalie: false, type: null };
 }
+
+// Every role a user can act as, derived from what they already hold — so one
+// login can operate in multiple capacities (e.g. SP admin AND evaluator). Keyed
+// by email and resolved to the APP users.id (the role tables reference that, not
+// auth_users.id which the token carries).
+export async function getUserRoles(email) {
+  if (!email) return [];
+  const users = await sql`SELECT id, role FROM users WHERE email = ${email}`;
+  if (!users.length) return [];
+  const userId = users[0].id;
+  const roles = new Set();
+  if (users[0].role) roles.add(users[0].role);
+  const orgRoles = await sql`SELECT role FROM user_organization_roles WHERE user_id = ${userId}`;
+  for (const r of orgRoles) if (r.role) roles.add(r.role);
+  const memberships = await sql`
+    SELECT DISTINCT o.type FROM evaluator_memberships em
+    JOIN organizations o ON o.id = em.organization_id
+    WHERE em.user_id = ${userId} AND em.status = 'active'`;
+  for (const m of memberships) {
+    roles.add(m.type === "service_provider" || m.type === "goalie_service_provider" ? "service_provider_evaluator" : "association_evaluator");
+  }
+  const dir = await sql`SELECT 1 FROM director_assignments WHERE user_id = ${userId} AND status = 'active' LIMIT 1`;
+  if (dir.length) roles.add("director");
+  return [...roles].filter(Boolean);
+}
+
+// Default landing path for a role (shared by login + role switch).
+export function roleRedirect(role, orgId) {
+  switch (role) {
+    case "super_admin": return "/admin/god-mode";
+    case "service_provider_admin":
+    case "goalie_service_provider_admin": return orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
+    case "association_admin": return orgId ? `/association/dashboard?org=${orgId}` : "/association/dashboard";
+    case "director": return "/director/dashboard";
+    case "volunteer": return "/checkin";
+    default: return "/evaluator/dashboard";
+  }
+}
