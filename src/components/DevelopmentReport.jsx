@@ -114,7 +114,7 @@ export default function DevelopmentReport({ data }) {
     if (isGoalie) {
       if (G_MOVE(n)) return "the foundation of goaltending — efficient crease movement gets him square and set for every shot, which makes positioning, clean saves and rebound control all easier; improving it first tends to lift the other scores with it";
       if (G_POS(n)) return "where being square and at the right depth makes every save simpler — good position takes away the net before the shot, so the hands have less to do";
-      if (G_SAVE(n)) return "the payoff skill — once movement and positioning are reliable, clean saves and controlled rebounds follow, and loose pucks stop turning into second chances";
+      if (G_SAVE(n)) return "the difference between a save and a second chance — settling pucks into the body and steering rebounds to the corners keeps the slot clean and loose pucks from becoming goals";
       return "the highest-leverage gap to close first; the areas below get easier once it's in place";
     }
     if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
@@ -125,16 +125,21 @@ export default function DevelopmentReport({ data }) {
       return "where reads make every physical tool more effective — being in the right place beats raw speed";
     return "the highest-leverage gap to close first; the areas below get easier once it's in place";
   };
+  // Development order = biggest gap to the top first ("attack first"), with the
+  // foundation order as a tiebreak only — so a skill that's already a strength is
+  // never put at the top of the plan just because it's foundational.
   const skillFocus = skillProfile
     .filter(s => s.player != null && s.top != null).map(s => ({ ...s, gap: Math.round((s.top - s.player) * 10) / 10 }))
     .filter(s => s.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 4)
-    .sort((a, b) => foundationRank(a.name) - foundationRank(b.name) || b.gap - a.gap);
+    .sort((a, b) => (b.gap - a.gap) || (foundationRank(a.name) - foundationRank(b.name)));
   const testFocus = testingProfile
     .filter(t => t.player_best != null && t.group_best != null).map(t => ({ ...t, gap: Math.round((t.player_best - t.group_best) * 1000) / 1000 }))
     .filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 2);
-  // Standout strength (highest grade) + the focus area, for the notes synthesis.
+  // Highest- and lowest-graded skills, for the synthesis. Kept distinct so the
+  // same skill can never be named as both the strength and the area to attack.
   const gradedSkills = skillProfile.filter(s => s.player != null);
   const strengthSkill = gradedSkills.slice().sort((a, b) => b.player - a.player)[0];
+  const weaknessSkill = gradedSkills.slice().sort((a, b) => a.player - b.player)[0];
   const focusSkill = skillFocus[0];
 
   const skillPill = (p, g, top) => {
@@ -368,7 +373,7 @@ export default function DevelopmentReport({ data }) {
               <div style={{ marginTop: 16, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 14, padding: "14px 18px", breakInside: "avoid" }}>
                 <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 7 }}>What it adds up to</div>
                 <div style={{ fontSize: 12.5, color: "#dfe1e4", lineHeight: 1.6 }}>
-                  Read together, the evaluators tell a consistent story.{strengthSkill ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> is the standout — the trait that came up most as a genuine asset</> : ""}{focusSkill ? <>, while <b style={{ color: "#fff" }}>{focusSkill.name.toLowerCase()}</b> is the area they kept flagging to attack first</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} {cohortWord}. The development plan on the next page lays out the order to climb.</> : ""}
+                  Read together, the scores tell a consistent story.{strengthSkill && weaknessSkill && strengthSkill.scoring_category_id !== weaknessSkill.scoring_category_id ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> ({strengthSkill.player.toFixed(1)}) grades out as the relative strength, while <b style={{ color: "#fff" }}>{weaknessSkill.name.toLowerCase()}</b> ({weaknessSkill.player.toFixed(1)}) is the area to attack first</> : strengthSkill ? <> {firstName}'s scores sit close together, with <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> grading highest</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} {cohortWord}. The development plan on the next page lays out the order to climb.</> : ""}
                 </div>
               </div>
             )}
@@ -400,7 +405,7 @@ export default function DevelopmentReport({ data }) {
               {skillFocus.length > 0 && (
                 <>
                   <div style={{ background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 12, padding: "11px 15px", margin: "9px 0", breakInside: "avoid" }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>Start here — the foundation</div>
+                    <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>{isGoalie ? "Start here — the priority" : "Start here — the foundation"}</div>
                     <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 4 }}>1. {skillFocus[0].name}</div>
                     <div style={{ color: "#c7cbd2" }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
                     <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${GOLD_LINE}`, color: "#c7cbd2" }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
