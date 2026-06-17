@@ -34,10 +34,27 @@ function testInfo(name) {
 }
 const fmt = (v) => (v == null ? "—" : v.toFixed(2));
 
-// What each graded skill actually measures (typical four: Skating, Puck Skills,
-// Hockey IQ, Effort & Compete) — keyword-matched so custom category names still resolve.
-function skillInfo(name) {
+// Goalie skill keyword groups — the standard four goalie categories
+// (Skating/Balance/Agility, Positioning/Angles/Net Coverage,
+// Feet/Hands/Stick/Rebounds, Anticipation/Reading the Play). Checked first so a
+// goalie's "Positioning" resolves to net coverage, not skater hockey-sense copy.
+const G_MOVE = (n) => n.includes("skat") || n.includes("move") || n.includes("crease") || n.includes("balance") || n.includes("agil") || n.includes("edge") || n.includes("push") || n.includes("recover");
+const G_POS = (n) => n.includes("position") || n.includes("angle") || n.includes("net") || n.includes("depth") || n.includes("cover") || n.includes("square");
+const G_SAVE = (n) => n.includes("save") || n.includes("rebound") || n.includes("glove") || n.includes("blocker") || n.includes("hand") || n.includes("stick") || n.includes("feet") || n.includes("foot");
+const G_READ = (n) => n.includes("anticip") || n.includes("read") || n.includes("track") || n.includes("iq") || n.includes("sense") || n.includes("compete");
+
+// What each graded skill actually measures (skater four: Skating, Puck Skills,
+// Hockey IQ, Effort & Compete; goalie four above) — keyword-matched so custom
+// category names still resolve.
+function skillInfo(name, isGoalie) {
   const n = (name || "").toLowerCase();
+  if (isGoalie) {
+    if (G_MOVE(n)) return "Crease movement, push power, edges and recovery — how efficiently he gets across the net and resets square for the next shot.";
+    if (G_POS(n)) return "Angles, depth and net coverage — taking away shooting lanes by being square and set before the puck is released.";
+    if (G_SAVE(n)) return "Save execution — glove, blocker, feet and stick, plus how cleanly he controls or steers rebounds away from danger.";
+    if (G_READ(n)) return "Reading the play — tracking the puck through traffic and anticipating passes a beat before they happen.";
+    return "";
+  }
   if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "Edges, speed, balance and explosiveness on the ice.";
   if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "Control, protection and hands at game speed.";
   if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "Reads, positioning and decisions with and without the puck.";
@@ -49,8 +66,15 @@ function skillInfo(name) {
 
 // What the SKILL looks like operating at the top of the group — the target state
 // behind each recommendation.
-function skillElite(name) {
+function skillElite(name, isGoalie) {
   const n = (name || "").toLowerCase();
+  if (isGoalie) {
+    if (G_MOVE(n)) return "quick, controlled pushes that arrive square and set, with the edges to hold the post and the recovery to be ready for the second shot";
+    if (G_POS(n)) return "always square and at the right depth — taking away the net before the shot so saves look routine instead of desperate";
+    if (G_SAVE(n)) return "quiet, controlled hands and feet that swallow pucks clean and steer rebounds to the corners, never back into the slot";
+    if (G_READ(n)) return "reading plays a beat early — tracking the puck through screens and traffic and set before the shot ever arrives";
+    return "calm, repeatable execution when the game speeds up and traffic builds in front";
+  }
   if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "explosive first three steps, edges that hold through hard turns, and the speed to separate with the puck on the stick";
   if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "clean hands at full speed, pucks protected through contact, and the right play made under pressure instead of forced";
   if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "a step ahead of the play — reading it before it develops, supporting the puck, and in the right spot away from it";
@@ -69,8 +93,17 @@ export default function DevelopmentReport({ data }) {
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
+  // Goalies are graded on goalie categories and ranked against goalies only;
+  // the copy below adapts so the report reads as a goaltending report, not a skater one.
+  const isGoalie = (athlete?.position || "").toLowerCase().includes("goal");
+  const cohortWord = isGoalie ? "goalies" : "skaters";
 
-  const FOUNDATION = ["power skat", "skat", "edge", "balance", "puck", "stick", "hand", "iq", "sense", "position", "compete", "battle", "shot", "shoot", "pass"];
+  // Foundation ordering = the sequence a development plan should attack skills in.
+  // Goalies: movement → positioning → save execution → reading. Skaters: skating
+  // → hands → sense → compete.
+  const FOUNDATION = isGoalie
+    ? ["skat", "move", "crease", "balance", "agil", "edge", "push", "recover", "position", "angle", "net", "depth", "cover", "save", "rebound", "glove", "blocker", "feet", "foot", "hand", "stick", "anticip", "read", "track"]
+    : ["power skat", "skat", "edge", "balance", "puck", "stick", "hand", "iq", "sense", "position", "compete", "battle", "shot", "shoot", "pass"];
   const foundationRank = (name) => {
     const n = (name || "").toLowerCase();
     const i = FOUNDATION.findIndex(f => n.includes(f));
@@ -78,6 +111,12 @@ export default function DevelopmentReport({ data }) {
   };
   const cascadeFor = (name) => {
     const n = (name || "").toLowerCase();
+    if (isGoalie) {
+      if (G_MOVE(n)) return "the foundation of goaltending — efficient crease movement gets him square and set for every shot, which makes positioning, clean saves and rebound control all easier; improving it first tends to lift the other scores with it";
+      if (G_POS(n)) return "where being square and at the right depth makes every save simpler — good position takes away the net before the shot, so the hands have less to do";
+      if (G_SAVE(n)) return "the payoff skill — once movement and positioning are reliable, clean saves and controlled rebounds follow, and loose pucks stop turning into second chances";
+      return "the highest-leverage gap to close first; the areas below get easier once it's in place";
+    }
     if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
       return "the foundation everything else is built on — stronger edges, balance and top speed make puck control, shooting and compete battles all easier, so improving it first tends to lift the other scores with it";
     if (n.includes("puck") || n.includes("stick") || n.includes("hand"))
@@ -194,7 +233,7 @@ export default function DevelopmentReport({ data }) {
         {skillProfile.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Evaluator scores vs the group" title="Skill profile" />
-            <div style={leadStyle}>Beyond the clock, evaluators graded each skill by eye over the sessions. Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
+            <div style={leadStyle}>{isGoalie ? "Evaluators graded each goaltending skill by eye across the sessions." : "Beyond the clock, evaluators graded each skill by eye over the sessions."} Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
             {skillProfile.map(s => {
               const p = skillPill(s.player, s.group, s.top);
               // Data-driven interpretation, scaled to where the player sits.
@@ -206,7 +245,7 @@ export default function DevelopmentReport({ data }) {
                 else if (s.group != null && s.player >= s.group - 0.6) interp = `Right around the group average (${f(s.group)}). This is the kind of gap that closes fast with a focused block of reps.`;
                 else interp = `The clearest area to attack — ${f(s.player)} against a group average of ${f(s.group)} and a top of ${f(s.top)}. The single biggest opportunity to climb.`;
               }
-              const sub = skillInfo(s.name);
+              const sub = skillInfo(s.name, isGoalie);
               const brow = (k, val, color, strong) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
@@ -329,7 +368,7 @@ export default function DevelopmentReport({ data }) {
               <div style={{ marginTop: 16, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 14, padding: "14px 18px", breakInside: "avoid" }}>
                 <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 7 }}>What it adds up to</div>
                 <div style={{ fontSize: 12.5, color: "#dfe1e4", lineHeight: 1.6 }}>
-                  Read together, the evaluators tell a consistent story.{strengthSkill ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> is the standout — the trait that came up most as a genuine asset</> : ""}{focusSkill ? <>, while <b style={{ color: "#fff" }}>{focusSkill.name.toLowerCase()}</b> is the area they kept flagging to attack first</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} skaters. The development plan on the next page lays out the order to climb.</> : ""}
+                  Read together, the evaluators tell a consistent story.{strengthSkill ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> is the standout — the trait that came up most as a genuine asset</> : ""}{focusSkill ? <>, while <b style={{ color: "#fff" }}>{focusSkill.name.toLowerCase()}</b> is the area they kept flagging to attack first</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} {cohortWord}. The development plan on the next page lays out the order to climb.</> : ""}
                 </div>
               </div>
             )}
@@ -349,7 +388,7 @@ export default function DevelopmentReport({ data }) {
                 <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
                 <div>
                   <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 21, color: "#fff" }}>{standing.tier}</div>
-                  <div style={{ color: "#b8bcc4", lineHeight: 1.55, marginTop: 4, fontSize: 12 }}>Across testing and evaluator scores, {firstName} graded out in the <b style={{ color: "#fff" }}>{standing.band.toLowerCase()}</b> of {standing.total} skaters evaluated. Here's exactly what to chase to climb.</div>
+                  <div style={{ color: "#b8bcc4", lineHeight: 1.55, marginTop: 4, fontSize: 12 }}>Across {isGoalie ? "the evaluators' scores" : "testing and evaluator scores"}, {firstName} graded out in the <b style={{ color: "#fff" }}>{standing.band.toLowerCase()}</b> of {standing.total} {cohortWord} evaluated. Here's exactly what to chase to climb.</div>
                 </div>
               </div>
             )}
@@ -364,7 +403,7 @@ export default function DevelopmentReport({ data }) {
                     <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>Start here — the foundation</div>
                     <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 4 }}>1. {skillFocus[0].name}</div>
                     <div style={{ color: "#c7cbd2" }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${GOLD_LINE}`, color: "#c7cbd2" }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name)}.</div>
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${GOLD_LINE}`, color: "#c7cbd2" }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
                   </div>
                   {skillFocus.length > 1 && (
                     <>
@@ -409,7 +448,7 @@ export default function DevelopmentReport({ data }) {
 
             <div style={{ borderTop: `1px solid ${LINE}`, padding: "11px 0 40px", marginTop: 16, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>
-              <span>{category?.name} · {fullName} · Player Development Report</span>
+              <span>{category?.name} · {fullName} · {isGoalie ? "Goaltending" : "Player"} Development Report</span>
             </div>
           </div>
         )}
