@@ -25,7 +25,25 @@ export async function getSession() {
   const cookieStore = cookies();
   const token = cookieStore.get("auth-token")?.value;
   if (!token) return null;
-  return verifyToken(token);
+  const payload = await verifyToken(token);
+  if (!payload?.email) return payload;
+  // Re-validate against the live DB so revocation takes effect before the 7-day
+  // token expires: a suspended (or deleted) user is cut off immediately, and the
+  // token's active role must still be one the user actually holds (catches an
+  // admin demotion / role removal). Fail-open on a DB hiccup so a transient
+  // outage can't lock everyone out.
+  try {
+    const rows = await sql`SELECT is_suspended, role FROM users WHERE email = ${payload.email}`;
+    if (!rows.length || rows[0].is_suspended) return null;
+    const baseRole = rows[0].role;
+    if (payload.role && payload.role !== baseRole && payload.role !== "super_admin") {
+      const held = await getUserRoles(payload.email);
+      if (!held.includes(payload.role)) return null;
+    }
+  } catch {
+    // DB unreachable — trust the verified token rather than lock everyone out.
+  }
+  return payload;
 }
 
 async function getCurrentUser() {

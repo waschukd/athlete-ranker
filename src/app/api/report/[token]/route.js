@@ -82,9 +82,13 @@ export async function GET(request, { params }) {
       });
     }
 
-    // Free preview: standing + a skill-profile teaser; the rest is paywalled.
+    // Free preview: mask identity to first name + last initial so a leaked link
+    // never exposes a minor's full name (and drop external_id). Standing + a
+    // skill-profile teaser stay to convey value; the rest is paywalled.
+    const lastInitial = base.athlete.last_name ? `${String(base.athlete.last_name)[0]}.` : "";
     return NextResponse.json({
       ...base,
+      athlete: { first_name: base.athlete.first_name, last_name: lastInitial, position: base.athlete.position },
       skillProfile: report.skillProfile,
       locked: ["testing", "progress", "notes", "plan"],
     });

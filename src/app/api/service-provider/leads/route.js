@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession, resolveSpContext } from "@/lib/auth";
+import { getSession, resolveSpOrgId } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { emailWelcomeAssociation } from "@/lib/email";
 
@@ -19,7 +19,9 @@ async function spContext(request) {
   const session = await getSession();
   if (!session) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   const { searchParams } = new URL(request.url);
-  const { orgId: sp_id } = await resolveSpContext(session, searchParams.get("org"));
+  // SKATER SPs only. Leads grants association_admin (full skater access), so a
+  // goalie SP must never reach this — resolveSpOrgId only matches type='service_provider'.
+  const sp_id = await resolveSpOrgId(session, searchParams.get("org"));
   if (!sp_id) return { error: NextResponse.json({ error: "Not a service provider" }, { status: 403 }) };
   const adminRes = await sql`SELECT id FROM users WHERE email = ${session.email} LIMIT 1`;
   return { session, sp_id, admin_id: adminRes[0]?.id, searchParams };
