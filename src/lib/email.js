@@ -118,6 +118,22 @@ function credBox(rows) {
   </div>`;
 }
 
+// Centered premium intro: gold eyebrow + hairline rule + serif headline.
+function emailHeader(eyebrow, title) {
+  return `<div style="text-align:center;margin-bottom:6px;">
+      <div style="font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;">${eyebrow}</div>
+      <div style="width:34px;height:2px;background:${GOLD};margin:14px auto 0;border-radius:2px;"></div>
+    </div>
+    <h1 style="margin:18px 0 0;font-family:${SERIF_FONT};font-size:24px;font-weight:900;color:${INK};letter-spacing:-0.2px;text-align:center;line-height:1.25;">${title}</h1>`;
+}
+// Gold-tinted info section with a small uppercase eyebrow.
+function infoCard(eyebrow, innerHtml) {
+  return `<div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:14px;padding:18px 22px;margin:0 0 16px;">
+      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:12px;">${eyebrow}</div>
+      ${innerHtml}
+    </div>`;
+}
+
 // Parent "next session" update — congratulates on the completed session and gives
 // the date/time/location for the next one. Sender stays "Sideline Star"; the body
 // leads with the association name + "Evaluation Update" so parents recognize it.
@@ -353,76 +369,50 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
 export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgName: _on }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
   return emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to ${categoryName} Evaluations</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
-      <strong style="color:#111827;">${playerName}</strong> is registered for evaluations with <strong style="color:#111827;">${orgName}</strong>. Here's what you need to know.
-    </p>
-
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin-bottom:12px;">What to Expect</div>
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">📋 <strong>Multiple evaluation sessions</strong> — athletes are scored by professional evaluators across several sessions</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">👥 <strong>Group assignments</strong> — players are organized into groups. You'll receive your child's specific schedule before sessions begin</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">⭐ <strong>Live scoring</strong> — evaluators score each player in real-time on key skill categories</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#374151;">📊 <strong>Rankings update automatically</strong> — scores are compiled and rankings adjust after each session</td></tr>
-      </table>
-    </div>
-
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#92400e;margin-bottom:12px;">Tips for Parents</div>
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Arrive at least 15 minutes early for check-in</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Ensure proper equipment is ready (helmet stickers or jersey numbers will be assigned)</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Hydration and nutrition — make sure your athlete is fueled and hydrated</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#78350f;">• Trust the process — evaluators are trained professionals looking at the full picture</td></tr>
-      </table>
-    </div>
-
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px 24px;margin:0 0 24px;">
-      <div style="font-size:14px;font-weight:600;color:#166534;margin-bottom:6px;">📄 Player Reports Available After Evaluations</div>
-      <p style="margin:0;font-size:13px;color:#15803d;line-height:1.6;">
-        At the end of the evaluation process, you'll have the option to purchase a comprehensive player report. It includes the collective feedback from all evaluators, an AI-compiled scouting analysis, and personalized development suggestions for your athlete.
-      </p>
-    </div>
-
-    <p style="font-size:12px;color:#9ca3af;margin:0;">You'll receive another email with ${playerName}'s specific schedule once groups are assigned.</p>
+    ${emailHeader(`${orgName} &middot; Evaluations`, `Welcome to ${categoryName} Evaluations`)}
+    <p style="margin:14px auto 26px;max-width:430px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;"><strong style="color:${INK};">${playerName}</strong> is registered for evaluations with <strong style="color:${INK};">${orgName}</strong>. Here's what to expect.</p>
+    ${infoCard("What to expect", `<table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Multiple sessions</strong> — scored by professional evaluators across several sessions.</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Group assignments</strong> — players are organized into groups; you'll get the exact schedule before each session.</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Live scoring</strong> — evaluators score each player in real time on key skill categories.</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Rankings update automatically</strong> — compiled after each session.</td></tr>
+      </table>`)}
+    ${infoCard("Before you arrive", `<table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Arrive at least 15 minutes early for check-in.</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Have full equipment ready; jersey numbers are assigned at check-in.</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure your athlete is fuelled and hydrated.</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Trust the process — evaluators assess the full picture across sessions.</td></tr>
+      </table>`)}
+    ${infoCard("After evaluations", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">A comprehensive Development Report will be available — collective evaluator feedback, an AI-compiled scouting analysis, and a personalized plan for ${playerName}.</p>`)}
+    <p style="margin:6px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">You'll receive another email with ${playerName}'s specific schedule once groups are assigned.</p>
   `);
 }
 
 export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessions }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
+  const th = `padding:11px 16px;font-size:10px;color:${GOLD_DEEP};text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;`;
   const rows = sessions.map(s => `
-    <tr style="border-bottom:1px solid #f3f4f6;">
-      <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">S${s.session_number}</td>
-      <td style="padding:10px 0;font-size:13px;color:#111827;">Group ${s.group_number}</td>
-      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.date || "TBD"}</td>
-      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.time || "TBD"}</td>
-      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.location) || "TBD"}</td>
+    <tr style="border-top:1px solid ${GOLD_LINE};">
+      <td style="padding:11px 16px;font-size:13px;color:${INK};font-weight:700;">S${s.session_number}</td>
+      <td style="padding:11px 16px;font-size:13px;color:${INK};">Group ${s.group_number}</td>
+      <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${s.date || "TBD"}</td>
+      <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${s.time || "TBD"}</td>
+      <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${esc(s.location) || "TBD"}</td>
     </tr>
   `).join("");
 
   return emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Evaluation Schedule</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
-      Here's <strong style="color:#111827;">${playerName}</strong>'s upcoming evaluation schedule for <strong style="color:#111827;">${categoryName}</strong> at <strong style="color:#111827;">${orgName}</strong>.
-    </p>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f3f4f6;">
-      <tr style="background:#f9fafb;">
-        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Session</th>
-        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Group</th>
-        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Date</th>
-        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Time</th>
-        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Location</th>
-      </tr>
-      ${rows}
-    </table>
-
-    <div style="margin-top:24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;">
-      <p style="margin:0;font-size:13px;color:#374151;">📎 A calendar invite is attached to this email. Open it to add these sessions to your calendar.</p>
+    ${emailHeader(`${orgName} &middot; ${categoryName}`, "Evaluation Schedule")}
+    <p style="margin:14px auto 24px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is <strong style="color:${INK};">${playerName}</strong>'s upcoming evaluation schedule.</p>
+    <div style="border:1px solid ${GOLD_LINE};border-radius:14px;overflow:hidden;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr style="background:${GOLD_SOFT};">
+          <th style="${th}">Session</th><th style="${th}">Group</th><th style="${th}">Date</th><th style="${th}">Time</th><th style="${th}">Location</th>
+        </tr>
+        ${rows}
+      </table>
     </div>
-
-    <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Please arrive 15 minutes early for check-in. Check-in details will be provided at the venue.</p>
+    <p style="margin:18px 0 0;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">A calendar invite is attached — open it to add these sessions to your calendar. Please arrive 15 minutes early for check-in.</p>
   `);
 }
 
@@ -431,20 +421,20 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
 // director has set the groups for a session.
 export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, groupNumber, date, time, location: _loc }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
-  const rows = [
-    ["Group", `Group ${groupNumber}`, true],
-    ["Session", sessionLabel || "—"],
-    ["Date", date || "TBD"],
-    ["Time", time || "TBD"],
-    ["Location", location || "TBD"],
-  ];
   return emailWrapper(`
-    <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:22px;font-weight:800;letter-spacing:-0.4px;color:#101113;">${playerName}'s group assignment</h2>
-    <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Here is <strong style="color:#101113;">${playerName}</strong>'s group and ice time for <strong style="color:#101113;">${categoryName}</strong> evaluations with <strong style="color:#101113;">${orgName}</strong>. Please arrive at least 15 minutes early for check-in.</p>
-    ${credBox(rows)}
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin:4px 0 0;">
-      <p style="margin:0;font-size:13px;color:#374151;">📎 A calendar invite is attached — open it to add this session to your calendar.</p>
+    ${emailHeader(`${orgName} &middot; ${categoryName}`, `${playerName}'s Group Assignment`)}
+    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${playerName}'s group and ice time. Please arrive at least 15 minutes early for check-in.</p>
+    <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
+      <div style="padding:30px 28px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${sessionLabel || "Evaluation Session"}</div>
+        <div style="font-family:${SERIF_FONT};font-size:26px;font-weight:800;color:#ffffff;margin:12px 0 0;">Group ${groupNumber}</div>
+        <div style="width:30px;height:1px;background:rgba(200,161,58,0.55);margin:18px auto;"></div>
+        <div style="font-size:15px;color:#e9e5dc;font-weight:600;">${date || "Date to be confirmed"}</div>
+        ${time ? `<div style="font-size:14px;color:#e9e5dc;margin-top:4px;">${time}</div>` : ""}
+        <div style="font-size:13.5px;color:#a7abb4;margin-top:6px;">${location || "Location to be confirmed"}</div>
+      </div>
     </div>
+    <p style="margin:24px auto 0;max-width:400px;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">A calendar invite is attached — open it to add this session to your calendar.</p>
   `);
 }
 
@@ -454,17 +444,15 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   const playerName = esc(_pn), orgName = esc(_on), spName = _sp ? esc(_sp) : _sp;
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
-    <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:8px;">${fromLine}</div>
-    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;font-family:${DISPLAY_FONT};">${playerName}'s Development Report is ready</h2>
-    <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">${playerName}'s evaluation is complete. Their personalized Development Report shows where they stand against the group across objective testing and evaluator scoring, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
-    <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:12px;padding:16px 20px;margin:0 0 22px;font-size:13px;color:#5b606b;line-height:1.9;">
-      <b style="color:#111827;">Inside the full report</b><br/>
-      ✓ Objective testing vs the group &nbsp; ✓ Skill profile with interpretation<br/>
-      ✓ Session-by-session progress &nbsp; ✓ Every evaluator note<br/>
-      ✓ A personalized development plan &nbsp; ✓ Downloadable PDF
-    </div>
-    ${btn(reportUrl, "View the report →")}
-    <p style="margin:18px 0 0;font-size:12px;color:#9aa0aa;">Open a free preview now; unlock the full report for ${priceStr}. Secure payment via Stripe, no account needed.</p>
+    ${emailHeader(fromLine, `${playerName}'s Development Report is ready`)}
+    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${playerName}'s evaluation is complete. The Development Report shows where they stand against the group, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
+    ${infoCard("Inside the full report", `<div style="font-size:13px;color:#4a4f57;line-height:1.95;">
+        Objective testing vs the group &nbsp;·&nbsp; Skill profile with interpretation<br/>
+        Session-by-session progress &nbsp;·&nbsp; Every evaluator note<br/>
+        A personalized development plan &nbsp;·&nbsp; Downloadable PDF
+      </div>`)}
+    <div style="text-align:center;margin:8px 0 0;">${btn(reportUrl, "View the report")}</div>
+    <p style="margin:18px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">Open a free preview now; unlock the full report for ${priceStr}. Secure payment via Stripe — no account needed.</p>
   `);
 }
 
