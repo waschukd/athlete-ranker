@@ -30,6 +30,7 @@ export async function GET(request) {
         o.id as org_id, o.name as org_name,
         cs.session_type, cs.name as session_name,
         COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+        COALESCE(es.goalie_evaluators_required, 0) as goalie_evaluators_required,
         COUNT(DISTINCT ess.id) as evaluators_signed_up,
         COUNT(DISTINCT pc.id) FILTER (WHERE pc.checked_in = true) as checked_in_count
       FROM sp_association_links sal

@@ -185,7 +185,10 @@ function ScheduleFormModal({ title, subtitle, form, setForm, showSessionGroup, b
             <div><label className={labelCls}>End time</label><input type="time" value={form.end_time || ""} onChange={set("end_time")} className={inputCls} /></div>
           </div>
           <div><label className={labelCls}>Location</label><input type="text" placeholder="Arena / rink" value={form.location || ""} onChange={set("location")} className={inputCls} /></div>
-          <div><label className={labelCls}>Evaluators required</label><input type="number" min="0" value={form.evaluators_required} onChange={set("evaluators_required")} className={inputCls} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={labelCls}>Player evaluators</label><input type="number" min="0" value={form.evaluators_required} onChange={set("evaluators_required")} className={inputCls} /></div>
+            <div><label className={labelCls}>Goalie evaluators</label><input type="number" min="0" value={form.goalie_evaluators_required ?? 0} onChange={set("goalie_evaluators_required")} className={inputCls} /></div>
+          </div>
           {error && <p className="text-xs font-medium text-red-500">{error}</p>}
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} disabled={busy} className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-50">Cancel</button>
@@ -218,6 +221,7 @@ function ScheduleRowControls({ entry, onSaved }) {
       end_time: toTime(entry.end_time),
       location: entry.location || "",
       evaluators_required: entry.evaluators_required ?? 4,
+      goalie_evaluators_required: entry.goalie_evaluators_required ?? 0,
     });
     setShowEdit(true);
   };
@@ -234,6 +238,7 @@ function ScheduleRowControls({ entry, onSaved }) {
         end_time: form.end_time || null,
         location: form.location || null,
         evaluators_required: form.evaluators_required,
+        goalie_evaluators_required: form.goalie_evaluators_required,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -306,7 +311,7 @@ function AddSessionButton({ category, onSaved }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const blank = { session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" };
+  const blank = { session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4", goalie_evaluators_required: "0" };
   const [form, setForm] = useState(blank);
 
   const submit = async () => {
@@ -324,6 +329,7 @@ function AddSessionButton({ category, onSaved }) {
           end_time: form.end_time || null,
           location: form.location || null,
           evaluators_required: form.evaluators_required,
+          goalie_evaluators_required: form.goalie_evaluators_required,
         },
       }),
     });
@@ -1515,8 +1521,14 @@ function SPDashboard() {
                                   <>
                                     <div className="text-center">
                                       <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                                      <div className="text-xs text-gray-400">evaluators</div>
+                                      <div className="text-xs text-gray-400">player eval</div>
                                     </div>
+                                    {parseInt(entry.goalie_evaluators_required) > 0 && (
+                                      <div className="text-center">
+                                        <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
+                                        <div className="text-xs text-gray-400">goalie eval</div>
+                                      </div>
+                                    )}
                                     {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
                                     <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}

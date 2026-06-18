@@ -428,7 +428,9 @@ function ScoringInterface() {
   // goalie categories. Identify the current session's type from the setup config.
   const currentSessionType = (catData?.sessions || []).find(s => Number(s.session_number) === Number(scheduleData?.session_number))?.session_type;
   const hasGoalieSkillsCats = (catData?.scoringCategories || []).some(c => c.applies_to === "goalie_skills");
-  const isGoalieSkillsSession = currentSessionType === "goalie_skills" && hasGoalieSkillsCats;
+  // Goalies do their skills drills in the session-1 slot — whether it's typed
+  // 'goalie_skills' or the players' 'testing' session (goalies don't run timed testing).
+  const isGoalieSkillsSession = (currentSessionType === "goalie_skills" || currentSessionType === "testing") && hasGoalieSkillsCats;
   const scoringCats = (catData?.scoringCategories || []).filter(c => {
     if (activeIsGoalie) {
       // Skills session → the four drills; scrimmages → standard goalie categories

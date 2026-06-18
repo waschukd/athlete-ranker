@@ -82,15 +82,18 @@ export async function POST(request, { params }) {
         WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1
       `;
       const isTesting = typeLookup[0]?.session_type === "testing";
+      // Player evaluators (0 for a testing session — players self-test). Goalie
+      // evaluators are independent: goalies are scored even in a testing slot.
       const evaluators_required = isTesting ? 0 : (parseInt(a.evaluators_required ?? 4) || 4);
+      const goalie_evaluators_required = parseInt(a.goalie_evaluators_required ?? 0) || 0;
       const code = await uniqueCheckinCode(session_number, group_number);
       const [row] = await sql`
         INSERT INTO evaluation_schedule (
           age_category_id, session_number, group_number, scheduled_date, day_of_week,
-          start_time, end_time, location, checkin_code, evaluators_required, status
+          start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status
         ) VALUES (
           ${catId}, ${session_number}, ${group_number}, ${a.scheduled_date}, ${a.day_of_week || null},
-          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, 'scheduled'
+          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, 'scheduled'
         ) RETURNING *
       `;
       await ensureSessionGroup(catId, session_number, group_number);
@@ -123,7 +126,8 @@ export async function POST(request, { params }) {
         WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1
       `;
       const isTesting = typeLookup[0]?.session_type === "testing";
-      const evaluators_required = isTesting ? 0 : (parseInt(entry.evaluators_required || entry["Evaluators Required"] || 4) || 4);
+      const evaluators_required = isTesting ? 0 : (parseInt(entry.evaluators_required || entry["Evaluators Required"] || entry["Player Evaluators"] || 4) || 4);
+      const goalie_evaluators_required = parseInt(entry.goalie_evaluators_required || entry["Goalie Evaluators"] || 0) || 0;
 
       const existingEntry = await sql`
         SELECT id FROM evaluation_schedule
@@ -134,7 +138,8 @@ export async function POST(request, { params }) {
           UPDATE evaluation_schedule SET
             scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
             start_time = ${start_time}, end_time = ${end_time},
-            location = ${location}, evaluators_required = ${evaluators_required}
+            location = ${location}, evaluators_required = ${evaluators_required},
+            goalie_evaluators_required = ${goalie_evaluators_required}
           WHERE id = ${existingEntry[0].id}
         `;
         updated++;
@@ -143,10 +148,10 @@ export async function POST(request, { params }) {
         await sql`
           INSERT INTO evaluation_schedule (
             age_category_id, session_number, group_number, scheduled_date, day_of_week,
-            start_time, end_time, location, checkin_code, evaluators_required, status
+            start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status
           ) VALUES (
             ${catId}, ${session_number}, ${group_number}, ${scheduled_date}, ${day_of_week},
-            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, 'scheduled'
+            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, 'scheduled'
           )
         `;
         inserted++;
@@ -193,6 +198,7 @@ export async function PATCH(request, { params }) {
     const end_time = body.end_time ?? prev.end_time;
     const location = body.location ?? prev.location;
     const evaluators_required = body.evaluators_required != null ? parseInt(body.evaluators_required) : prev.evaluators_required;
+    const goalie_evaluators_required = body.goalie_evaluators_required != null ? parseInt(body.goalie_evaluators_required) : prev.goalie_evaluators_required;
     const reinstating = body.status === "scheduled" && prev.status === "cancelled";
     const status = body.status ?? prev.status;
 
@@ -200,7 +206,8 @@ export async function PATCH(request, { params }) {
       UPDATE evaluation_schedule SET
         scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
         start_time = ${start_time}, end_time = ${end_time},
-        location = ${location}, evaluators_required = ${evaluators_required}, status = ${status}
+        location = ${location}, evaluators_required = ${evaluators_required},
+        goalie_evaluators_required = ${goalie_evaluators_required}, status = ${status}
       WHERE id = ${id} RETURNING *
     `;
 
