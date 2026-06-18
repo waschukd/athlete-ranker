@@ -30,6 +30,20 @@ export async function resolveEvaluatorKind(catId, userId, email) {
       SELECT kind FROM category_evaluators
       WHERE age_category_id = ${catId} AND user_id = ${userId} LIMIT 1
     `;
-    return rows[0]?.kind || "standard";
+    if (rows[0]?.kind) return rows[0].kind;
+    // Fallback: a member of a goalie service provider that's linked to this
+    // category's association is implicitly a GOALIE evaluator — so a goalie SP can
+    // bring its own evaluators without the association hand-designating each one.
+    // This only ever scopes them TO goalies (more restrictive), never to skaters.
+    const g = await sql`
+      SELECT 1 FROM evaluator_memberships em
+      JOIN organizations o ON o.id = em.organization_id AND o.type = 'goalie_service_provider'
+      JOIN sp_association_links sal ON sal.service_provider_id = o.id AND sal.status = 'active'
+      JOIN age_categories ac ON ac.organization_id = sal.association_id
+      WHERE em.user_id = ${userId} AND em.status = 'active' AND ac.id = ${catId}
+      LIMIT 1
+    `;
+    if (g.length) return "goalie";
+    return "standard";
   } catch { return "standard"; }
 }
