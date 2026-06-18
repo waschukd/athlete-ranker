@@ -110,6 +110,26 @@ function credBox(rows) {
   </div>`;
 }
 
+// Parent "next session" update — congratulates on the completed session and gives
+// the date/time/location for the next one. Sender stays "Sideline Star"; the body
+// leads with the association name + "Evaluation Update" so parents recognize it.
+export function parentSessionUpdateHtml({ playerName, orgName, completedLabel, next }) {
+  const pn = esc(playerName), on = esc(orgName);
+  const nx = next || {};
+  const dateLine = [esc(nx.day), esc(nx.date)].filter(Boolean).join(", ");
+  return emailWrapper(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0b5cd6;font-weight:700;">${on}</div>
+      <div style="font-family:${DISPLAY_FONT};font-size:22px;font-weight:800;color:#101113;margin-top:2px;">Evaluation Update</div>
+    </div>
+    <h2 style="margin:0 0 10px;font-size:18px;font-weight:700;color:#101113;">Congratulations on completing ${esc(completedLabel)}, ${pn}! 🎉</h2>
+    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6;">Nice work out there. Here are the details for the next session:</p>
+    <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#0b5cd6;font-weight:700;margin:18px 0 -8px;">${esc(nx.label) || "Next session"}</div>
+    ${credBox([["Date", dateLine || "TBD"], ["Time", esc(nx.time) || "TBD"], ["Location", esc(nx.location) || "TBD"]])}
+    <p style="margin:0;font-size:13px;color:#5b606b;line-height:1.6;">See you on the ice. Questions? Just reply to ${on}.</p>
+  `);
+}
+
 // ── Welcome emails ────────────────────────────────────────────────────────────
 
 export async function emailWelcomeAssociation({ name, email, tempPassword, orgName }) {
