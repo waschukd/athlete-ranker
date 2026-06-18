@@ -11,10 +11,10 @@ const sql = neon(process.env.DATABASE_URL);
 
 const CAT = 29;
 const GCATS = [
-  "Mobility",
-  "Rebound Control",
-  "Positioning & Awareness",
-  "Battle & Compete",
+  "Skating / Balance / Agility",
+  "Positioning / Angles / Net Coverage",
+  "Feet / Hands / Stick / Rebounds",
+  "Anticipation / Reading the Play",
 ];
 const GEVALS = [27, 33]; // goalie evaluator user ids (Danny Boy, Payton Basterash)
 const SESSIONS = [1, 2, 3, 4]; // S1 = goalie-only ice session (stations); S2-4 = goalies in scrimmages

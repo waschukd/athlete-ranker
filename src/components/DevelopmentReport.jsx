@@ -34,15 +34,14 @@ function testInfo(name) {
 }
 const fmt = (v) => (v == null ? "—" : v.toFixed(2));
 
-// Goalie skill keyword groups — the standard four goalie drills/categories:
-// Mobility, Rebound Control, Positioning & Awareness, Battle & Compete (older
-// names like "Skating / Balance / Agility" still resolve via the keywords).
-// Checked first so a goalie's "Positioning" resolves to net coverage, not skater
-// hockey-sense copy.
-const G_MOVE = (n) => n.includes("mobil") || n.includes("skat") || n.includes("move") || n.includes("crease") || n.includes("balance") || n.includes("agil") || n.includes("edge") || n.includes("push") || n.includes("recover");
-const G_SAVE = (n) => n.includes("rebound") || n.includes("save") || n.includes("glove") || n.includes("blocker") || n.includes("hand") || n.includes("stick") || n.includes("feet") || n.includes("foot");
-const G_POS = (n) => n.includes("position") || n.includes("aware") || n.includes("angle") || n.includes("net") || n.includes("depth") || n.includes("cover") || n.includes("square");
-const G_READ = (n) => n.includes("battle") || n.includes("compete") || n.includes("anticip") || n.includes("read") || n.includes("track") || n.includes("iq") || n.includes("sense");
+// Goalie skill keyword groups — the standard four goalie categories
+// (Skating/Balance/Agility, Positioning/Angles/Net Coverage,
+// Feet/Hands/Stick/Rebounds, Anticipation/Reading the Play). Checked first so a
+// goalie's "Positioning" resolves to net coverage, not skater hockey-sense copy.
+const G_MOVE = (n) => n.includes("skat") || n.includes("move") || n.includes("crease") || n.includes("balance") || n.includes("agil") || n.includes("edge") || n.includes("push") || n.includes("recover");
+const G_POS = (n) => n.includes("position") || n.includes("angle") || n.includes("net") || n.includes("depth") || n.includes("cover") || n.includes("square");
+const G_SAVE = (n) => n.includes("save") || n.includes("rebound") || n.includes("glove") || n.includes("blocker") || n.includes("hand") || n.includes("stick") || n.includes("feet") || n.includes("foot");
+const G_READ = (n) => n.includes("anticip") || n.includes("read") || n.includes("track") || n.includes("iq") || n.includes("sense") || n.includes("compete");
 
 // What each graded skill actually measures (skater four: Skating, Puck Skills,
 // Hockey IQ, Effort & Compete; goalie four above) — keyword-matched so custom
@@ -52,8 +51,8 @@ function skillInfo(name, isGoalie) {
   if (isGoalie) {
     if (G_MOVE(n)) return "Crease movement, push power, edges and recovery — how efficiently he gets across the net and resets square for the next shot.";
     if (G_POS(n)) return "Angles, depth and net coverage — taking away shooting lanes by being square and set before the puck is released.";
-    if (G_SAVE(n)) return "Rebound control — glove, blocker, feet and stick, plus how cleanly he swallows pucks or steers rebounds to the corners instead of the slot.";
-    if (G_READ(n)) return "Compete level — battling through traffic and screens, second and third saves in scrambles, and refusing to give up on loose pucks and broken plays.";
+    if (G_SAVE(n)) return "Save execution — glove, blocker, feet and stick, plus how cleanly he controls or steers rebounds away from danger.";
+    if (G_READ(n)) return "Reading the play — tracking the puck through traffic and anticipating passes a beat before they happen.";
     return "";
   }
   if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "Edges, speed, balance and explosiveness on the ice.";
@@ -73,7 +72,7 @@ function skillElite(name, isGoalie) {
     if (G_MOVE(n)) return "quick, controlled pushes that arrive square and set, with the edges to hold the post and the recovery to be ready for the second shot";
     if (G_POS(n)) return "always square and at the right depth — taking away the net before the shot so saves look routine instead of desperate";
     if (G_SAVE(n)) return "quiet, controlled hands and feet that swallow pucks clean and steer rebounds to the corners, never back into the slot";
-    if (G_READ(n)) return "first to every loose puck and still battling on the second and third chance, holding his net through traffic with the same intensity late as early";
+    if (G_READ(n)) return "reading plays a beat early — tracking the puck through screens and traffic and set before the shot ever arrives";
     return "calm, repeatable execution when the game speeds up and traffic builds in front";
   }
   if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "explosive first three steps, edges that hold through hard turns, and the speed to separate with the puck on the stick";
@@ -83,17 +82,6 @@ function skillElite(name, isGoalie) {
   if (n.includes("shot") || n.includes("shoot")) return "a quick, deceptive release he can get off in traffic and off the rush";
   if (n.includes("pass")) return "crisp, accurate puck movement that hits teammates in stride";
   return "consistent, high-level execution when the game speeds up";
-}
-
-// What evaluators watch for in each goalie drill — pairs the skills-session
-// explainer with the same four scored categories so the two always line up.
-function drillBlurb(name) {
-  const n = (name || "").toLowerCase();
-  if (G_MOVE(n)) return "Lateral pushes and shuffles post-to-post — evaluators watch for explosive, controlled movement, balance through scrambles, and a fast recovery back to square.";
-  if (G_SAVE(n)) return "Shots to the body, glove and blocker — evaluators watch for clean hands and feet that swallow pucks, and rebounds steered to the corners, not back into the slot.";
-  if (G_POS(n)) return "Tracking the puck around the zone — evaluators watch for squaring up early, the right depth in the crease, and taking away the net before the shot.";
-  if (G_READ(n)) return "Scrambles, second and third saves and traffic in front — evaluators watch for second-effort, tracking pucks through screens, and never giving up on a broken play.";
-  return "";
 }
 
 export function ReportFonts() {
@@ -127,7 +115,6 @@ export default function DevelopmentReport({ data }) {
       if (G_MOVE(n)) return "the foundation of goaltending — efficient crease movement gets him square and set for every shot, which makes positioning, clean saves and rebound control all easier; improving it first tends to lift the other scores with it";
       if (G_POS(n)) return "where being square and at the right depth makes every save simpler — good position takes away the net before the shot, so the hands have less to do";
       if (G_SAVE(n)) return "the difference between a save and a second chance — settling pucks into the body and steering rebounds to the corners keeps the slot clean and loose pucks from becoming goals";
-      if (G_READ(n)) return "the trait that turns a save into a stop — the second and third effort that keeps scrambles and broken plays out of the net even when position breaks down";
       return "the highest-leverage gap to close first; the areas below get easier once it's in place";
     }
     if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
@@ -201,29 +188,6 @@ export default function DevelopmentReport({ data }) {
       </div>
 
       <div style={{ padding: "24px 34px 0" }}>
-
-        {/* The skills session — what evaluators look for (goalies only) */}
-        {isGoalie && skillProfile.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <Shead kicker="How goalies are evaluated" title="The skills session" />
-            <div style={leadStyle}>Goaltenders are evaluated on their own ice, separately from skaters, on four areas. <b style={{ color: "#cfd2d7" }}>Session 1 is the skills session</b> — every goalie runs the same four drills under the same conditions, so evaluators can grade technique cleanly. In the <b style={{ color: "#cfd2d7" }}>scrimmage sessions that follow</b>, evaluators grade those same four areas in live game play. It's the same four criteria throughout — not just whether the puck went in. The score on the next page combines them across every session.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {skillProfile.map((s, i) => {
-                const blurb = drillBlurb(s.name);
-                if (!blurb) return null;
-                return (
-                  <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 12, background: "#101014", padding: "11px 15px", breakInside: "avoid" }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 9 }}>
-                      <span style={{ fontFamily: NUM, fontSize: 12, fontWeight: 800, color: GOLD }}>{i + 1}</span>
-                      <span style={{ fontSize: 13.5, fontWeight: 700, color: "#fff" }}>{s.name}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "#b8bcc4", lineHeight: 1.5, marginTop: 4 }}>{blurb}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Objective testing */}
         {testingProfile.length > 0 && (
