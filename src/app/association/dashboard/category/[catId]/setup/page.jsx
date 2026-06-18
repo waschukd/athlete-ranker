@@ -35,12 +35,21 @@ const DEFAULT_SCORING_CATS = [
   { name: "Hockey IQ", applies_to: "all" },
 ];
 
-// Goalie evaluation standard template (separate from skaters).
+// Goalie evaluation standard template (separate from skaters). Scrimmage categories
+// (sessions 2-4) are graded by eye in live play.
 const DEFAULT_GOALIE_CATS = [
   { name: "Skating / Balance / Agility" },
   { name: "Positioning / Angles / Net Coverage" },
   { name: "Feet / Hands / Stick / Rebounds" },
   { name: "Anticipation / Reading the Play" },
+];
+// Goalie skills-session drills (session 1) — the goalie equivalent of skater
+// testing: four drills marked on points, higher is better.
+const DEFAULT_GOALIE_SKILLS_CATS = [
+  { name: "Mobility" },
+  { name: "Rebound Control" },
+  { name: "Positioning & Awareness" },
+  { name: "Battle & Compete" },
 ];
 const DEFAULT_GOALIE_SESSIONS = [
   { session_number: 1, name: "Goalie Session 1", session_type: "goalie_skills", weight_percentage: 40 },
@@ -251,11 +260,15 @@ function ScoringStep({ scoring, setScoring }) {
     evaluates_goalies: on,
     // seed the standard template the first time it's switched on
     goalie_categories: on && (!prev.goalie_categories || prev.goalie_categories.length === 0) ? DEFAULT_GOALIE_CATS : prev.goalie_categories,
+    goalie_skills_categories: on && (!prev.goalie_skills_categories || prev.goalie_skills_categories.length === 0) ? DEFAULT_GOALIE_SKILLS_CATS : prev.goalie_skills_categories,
     goalie_sessions: on && (!prev.goalie_sessions || prev.goalie_sessions.length === 0) ? DEFAULT_GOALIE_SESSIONS : prev.goalie_sessions,
   }));
   const addGoalieCategory = () => setScoring(prev => ({ ...prev, goalie_categories: [...(prev.goalie_categories || []), { name: "" }] }));
   const removeGoalieCategory = (i) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.filter((_, idx) => idx !== i) }));
   const updateGoalieCategory = (i, value) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.map((c, idx) => idx === i ? { ...c, name: value } : c) }));
+  const addGoalieSkillCat = () => setScoring(prev => ({ ...prev, goalie_skills_categories: [...(prev.goalie_skills_categories || []), { name: "" }] }));
+  const removeGoalieSkillCat = (i) => setScoring(prev => ({ ...prev, goalie_skills_categories: prev.goalie_skills_categories.filter((_, idx) => idx !== i) }));
+  const updateGoalieSkillCat = (i, value) => setScoring(prev => ({ ...prev, goalie_skills_categories: prev.goalie_skills_categories.map((c, idx) => idx === i ? { ...c, name: value } : c) }));
   const addGoalieSession = () => setScoring(prev => {
     const n = (prev.goalie_sessions?.length || 0) + 1;
     return { ...prev, goalie_sessions: [...(prev.goalie_sessions || []), { session_number: n, name: `Goalie Session ${n}`, session_type: "scrimmage", weight_percentage: 0 }] };
@@ -385,10 +398,28 @@ function ScoringStep({ scoring, setScoring }) {
                 </div>
               </div>
 
-              {/* Goalie categories */}
+              {/* Goalie skills-session drills (session 1) — the goalie equivalent of testing */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Goalie categories</label>
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Goalie skills drills · session 1</label>
+                  <button onClick={addGoalieSkillCat} className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-70 font-medium"><Plus size={12} /> Add drill</button>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">The goalie skills session — like testing for skaters. Drills marked on points (higher is better). Used when you run a <b>Goalie Skills</b> session; otherwise goalies are scored on the scrimmage categories below throughout.</p>
+                <div className="space-y-2">
+                  {(scoring.goalie_skills_categories || []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
+                      <input type="text" value={c.name} onChange={e => updateGoalieSkillCat(i, e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white" placeholder="Drill name" />
+                      <button onClick={() => removeGoalieSkillCat(i)} className="p-1.5 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Goalie scrimmage categories (sessions 2-4) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Goalie scrimmage categories · sessions 2–4</label>
                   <button onClick={addGoalieCategory} className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-70 font-medium"><Plus size={12} /> Add category</button>
                 </div>
                 <div className="space-y-2">
@@ -800,6 +831,7 @@ function SetupWizard() {
     goalie_increment: 0.5,
     goalie_sessions: DEFAULT_GOALIE_SESSIONS,
     goalie_categories: DEFAULT_GOALIE_CATS,
+    goalie_skills_categories: DEFAULT_GOALIE_SKILLS_CATS,
   });
 
   useEffect(() => {
@@ -825,11 +857,13 @@ function SetupWizard() {
         }
         if (data.scoringCategories?.length) {
           const gcats = data.scoringCategories.filter(c => c.applies_to === "goalies");
-          const scats = data.scoringCategories.filter(c => c.applies_to !== "goalies");
+          const gskill = data.scoringCategories.filter(c => c.applies_to === "goalie_skills");
+          const scats = data.scoringCategories.filter(c => c.applies_to !== "goalies" && c.applies_to !== "goalie_skills");
           setScoring(prev => ({
             ...prev,
             categories: scats.length ? scats : prev.categories,
             goalie_categories: gcats.length ? gcats : prev.goalie_categories,
+            goalie_skills_categories: gskill.length ? gskill : prev.goalie_skills_categories,
           }));
         }
       });

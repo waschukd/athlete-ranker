@@ -104,6 +104,17 @@ export async function POST(request, { params }) {
             `;
           }
         }
+        // Goalie skills-session drills (the goalie equivalent of testing) — scored
+        // in the goalie_skills session; higher mark is better.
+        if (data.evaluates_goalies && Array.isArray(data.goalie_skills_categories)) {
+          for (let i = 0; i < data.goalie_skills_categories.length; i++) {
+            if (!data.goalie_skills_categories[i]?.name) continue;
+            await sql`
+              INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
+              VALUES (${catId}, ${data.goalie_skills_categories[i].name}, ${120 + i}, 'goalie_skills')
+            `;
+          }
+        }
         return NextResponse.json({ success: true });
       }
 

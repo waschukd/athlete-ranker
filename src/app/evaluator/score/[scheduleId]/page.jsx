@@ -423,9 +423,21 @@ function ScoringInterface() {
   const activeIsGoalie = selected
     ? (selected.position || "").toLowerCase() === "goalie"
     : isGoalieEvaluator || (athletes.length > 0 && athletes.every(a => (a.position || "").toLowerCase() === "goalie"));
-  const scoringCats = (catData?.scoringCategories || []).filter(c =>
-    activeIsGoalie ? (c.applies_to === "goalies" || c.applies_to === "all") : c.applies_to !== "goalies"
-  );
+  // The goalie skills session (the goalie equivalent of testing) is scored on its
+  // own drill categories (applies_to='goalie_skills'); scrimmages use the standard
+  // goalie categories. Identify the current session's type from the setup config.
+  const currentSessionType = (catData?.sessions || []).find(s => Number(s.session_number) === Number(scheduleData?.session_number))?.session_type;
+  const hasGoalieSkillsCats = (catData?.scoringCategories || []).some(c => c.applies_to === "goalie_skills");
+  const isGoalieSkillsSession = currentSessionType === "goalie_skills" && hasGoalieSkillsCats;
+  const scoringCats = (catData?.scoringCategories || []).filter(c => {
+    if (activeIsGoalie) {
+      // Skills session → the four drills; scrimmages → standard goalie categories
+      // (falling back to shared 'all' categories when no goalie set is defined).
+      return isGoalieSkillsSession ? c.applies_to === "goalie_skills" : (c.applies_to === "goalies" || c.applies_to === "all");
+    }
+    // Skaters never see the goalie or goalie-skills sets.
+    return c.applies_to !== "goalies" && c.applies_to !== "goalie_skills";
+  });
   const scale = catData?.category?.scoring_scale || 10;
   const increment = catData?.category?.scoring_increment || 1;
   const totalCats = scoringCats.length;

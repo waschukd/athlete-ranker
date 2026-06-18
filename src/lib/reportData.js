@@ -91,17 +91,24 @@ export async function buildAthleteReport(catId, athleteId) {
     playerSum[k] = (playerSum[k] || 0) + parseFloat(s.score);
     playerCnt[k] = (playerCnt[k] || 0) + 1;
   }
+  const mapRow = (r) => ({
+    scoring_category_id: r.scoring_category_id,
+    name: r.category_name,
+    display_order: r.display_order,
+    player: playerCnt[r.scoring_category_id] ? round1(playerSum[r.scoring_category_id] / playerCnt[r.scoring_category_id]) : null,
+    group: round1(r.avg),
+    top: round1(topMap[r.scoring_category_id]),
+  });
+  // Skill profile = the scrimmage categories. Goalies see only 'goalies' categories;
+  // skaters see skater/all (never the goalie or goalie-skills sets).
   const skillProfile = groupAvg
-    // Goalies see only goalie categories; skaters see skater/all categories.
-    .filter(r => athleteIsGoalie ? r.applies_to === "goalies" : r.applies_to !== "goalies")
-    .map(r => ({
-      scoring_category_id: r.scoring_category_id,
-      name: r.category_name,
-      display_order: r.display_order,
-      player: playerCnt[r.scoring_category_id] ? round1(playerSum[r.scoring_category_id] / playerCnt[r.scoring_category_id]) : null,
-      group: round1(r.avg),
-      top: round1(topMap[r.scoring_category_id]),
-    }));
+    .filter(r => athleteIsGoalie ? r.applies_to === "goalies" : (r.applies_to !== "goalies" && r.applies_to !== "goalie_skills"))
+    .map(mapRow);
+  // Goalie skills session — the four session-1 drills (the goalie equivalent of
+  // testing). Higher is better, like a graded mark. Skaters never have these.
+  const goalieSkillsProfile = athleteIsGoalie
+    ? groupAvg.filter(r => r.applies_to === "goalie_skills").map(mapRow)
+    : [];
 
   // ── Objective testing: best per test vs group avg / group best (lower = better) ──
   let testingProfile = [];
@@ -185,6 +192,7 @@ export async function buildAthleteReport(catId, athleteId) {
     org_name: athleteRes[0].org_name || null,
     standing,
     skillProfile,
+    goalieSkillsProfile,
     testingProfile,
     progress,
     notes,

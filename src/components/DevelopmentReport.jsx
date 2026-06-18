@@ -38,7 +38,7 @@ const fmt = (v) => (v == null ? "—" : v.toFixed(2));
 // (Skating/Balance/Agility, Positioning/Angles/Net Coverage,
 // Feet/Hands/Stick/Rebounds, Anticipation/Reading the Play). Checked first so a
 // goalie's "Positioning" resolves to net coverage, not skater hockey-sense copy.
-const G_MOVE = (n) => n.includes("skat") || n.includes("move") || n.includes("crease") || n.includes("balance") || n.includes("agil") || n.includes("edge") || n.includes("push") || n.includes("recover");
+const G_MOVE = (n) => n.includes("mobil") || n.includes("skat") || n.includes("move") || n.includes("crease") || n.includes("balance") || n.includes("agil") || n.includes("edge") || n.includes("push") || n.includes("recover");
 const G_POS = (n) => n.includes("position") || n.includes("angle") || n.includes("net") || n.includes("depth") || n.includes("cover") || n.includes("square");
 const G_SAVE = (n) => n.includes("save") || n.includes("rebound") || n.includes("glove") || n.includes("blocker") || n.includes("hand") || n.includes("stick") || n.includes("feet") || n.includes("foot");
 const G_READ = (n) => n.includes("anticip") || n.includes("read") || n.includes("track") || n.includes("iq") || n.includes("sense") || n.includes("compete");
@@ -84,12 +84,22 @@ function skillElite(name, isGoalie) {
   return "consistent, high-level execution when the game speeds up";
 }
 
+// What evaluators watch for in each goalie skills-session drill.
+function drillBlurb(name) {
+  const n = (name || "").toLowerCase();
+  if (G_MOVE(n)) return "Lateral pushes and shuffles post-to-post — explosive, controlled movement, balance through scrambles, and a fast recovery back to square.";
+  if (G_SAVE(n)) return "Shots to the body, glove and blocker — clean hands and feet that swallow pucks, with rebounds steered to the corners, not back into the slot.";
+  if (G_POS(n)) return "Tracking the puck around the zone — squaring up early, the right depth in the crease, and taking away the net before the shot.";
+  if (G_READ(n)) return "Scrambles, second and third saves and traffic — second-effort, tracking pucks through screens, and never giving up on a broken play.";
+  return "";
+}
+
 export function ReportFonts() {
   return <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
 }
 
 export default function DevelopmentReport({ data }) {
-  const { athlete, category, notes = [], standing, skillProfile = [], testingProfile = [], progress = [], trainingProviders = [], org_name } = data;
+  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], trainingProviders = [], org_name } = data;
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -189,6 +199,38 @@ export default function DevelopmentReport({ data }) {
 
       <div style={{ padding: "24px 34px 0" }}>
 
+        {/* Goalie skills session — the goalie equivalent of testing (four drills, higher is better) */}
+        {isGoalie && goalieSkillsProfile.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <Shead kicker="The skills session" title="Goalie skills" />
+            <div style={leadStyle}>Goalies run their own skills session — four drills, scored by eye, where <b style={{ color: "#cfd2d7" }}>a higher mark is better</b> (out of {scale}). Each card shows where {firstName} landed against the group average and the top of the group, with what evaluators were watching for.</div>
+            {goalieSkillsProfile.map(s => {
+              const p = skillPill(s.player, s.group, s.top);
+              const blurb = drillBlurb(s.name);
+              const brow = (k, val, color, strong) => (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
+                  <div style={{ flex: 1, height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
+                  <span style={{ width: 36, textAlign: "right", fontFamily: NUM, fontSize: 13, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
+                </div>
+              );
+              return (
+                <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 18px", marginBottom: 10, background: "#101014", breakInside: "avoid" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 11px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
+                  </div>
+                  {blurb && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 11px" }}>{blurb}</div>}
+                  {!blurb && <div style={{ height: 8 }} />}
+                  {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
+                  {brow("Group avg", s.group, "#5f636c", false)}
+                  {brow("Top of group", s.top, "#d8dade", false)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Objective testing */}
         {testingProfile.length > 0 && (
           <div style={{ marginBottom: 10 }}>
@@ -237,8 +279,8 @@ export default function DevelopmentReport({ data }) {
         {/* Skill profile + progress trend */}
         {skillProfile.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
-            <Shead kicker="Evaluator scores vs the group" title="Skill profile" />
-            <div style={leadStyle}>{isGoalie ? "Evaluators graded each goaltending skill by eye across the sessions." : "Beyond the clock, evaluators graded each skill by eye over the sessions."} Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
+            <Shead kicker={isGoalie ? "Evaluator scores from the scrimmages" : "Evaluator scores vs the group"} title={isGoalie ? "Scrimmage evaluation" : "Skill profile"} />
+            <div style={leadStyle}>{isGoalie ? "In the scrimmages, evaluators graded each area by eye watching live game play." : "Beyond the clock, evaluators graded each skill by eye over the sessions."} Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
             {skillProfile.map(s => {
               const p = skillPill(s.player, s.group, s.top);
               // Data-driven interpretation, scaled to where the player sits.
