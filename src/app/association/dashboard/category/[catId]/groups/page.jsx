@@ -298,6 +298,8 @@ function GroupsManagerInner() {
 
   const rankMap = {};
   rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
+  // Goalies carry their own (goalie-pool) ranking too — shown on their names like skaters.
+  (rankingsData?.goalies || []).forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total, goalie: true }; });
 
   return (
     <div data-theme={theme} className="min-h-screen bg-gray-50">
@@ -646,7 +648,10 @@ function GroupsManagerInner() {
             <div className="flex flex-wrap gap-3">
               {goalies.map(g => (
                 <div key={g.id} className="bg-white border border-amber-200 rounded-xl px-3 py-2">
-                  <div className="text-sm font-medium text-gray-900">{g.last_name}, {g.first_name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900">{g.last_name}, {g.first_name}</div>
+                    {(() => { const rm = rankMap[String(g.id)]; return rm ? <span className="text-xs font-bold text-[#0b5cd6]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
+                  </div>
                   <div className="flex gap-1 mt-1.5 flex-wrap">
                     {groups.map(group => (
                       <button

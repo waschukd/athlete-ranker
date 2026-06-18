@@ -188,6 +188,12 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
             </button>
             {expandedSections.has("overview") && (
               <div className="px-6 pb-5 overflow-x-auto">
+                {(() => {
+                  const pos = new Set(players.map(p => (p.athlete?.position || "").toLowerCase() === "goalie" ? "g" : "s"));
+                  return pos.size > 1 ? (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">Heads up: goalies and skaters are ranked in <b>separate pools</b>, so their ranks aren't directly comparable — a top skater in a deep pool can sit below a goalie ranked within a smaller goalie pool.</p>
+                  ) : null;
+                })()}
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
@@ -198,7 +204,15 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
                   <tbody>
                     <tr className="border-b border-gray-50">
                       <td className="py-2.5 pr-4 text-xs text-gray-500 font-medium">Rank</td>
-                      {players.map(p => <td key={p.athlete.id} className="text-center py-2.5 px-3 text-lg font-bold text-gray-900">#{p.ranking?.rank || "—"}</td>)}
+                      {players.map(p => {
+                        const isG = (p.athlete?.position || "").toLowerCase() === "goalie";
+                        return (
+                          <td key={p.athlete.id} className="text-center py-2.5 px-3">
+                            <div className="text-lg font-bold text-gray-900">#{p.ranking?.rank || "—"}</div>
+                            {p.total_athletes ? <div className="text-[10px] text-gray-400 font-medium">of {p.total_athletes} {isG ? "goalies" : "skaters"}</div> : null}
+                          </td>
+                        );
+                      })}
                     </tr>
                     <tr className="border-b border-gray-50">
                       <td className="py-2.5 pr-4 text-xs text-gray-500 font-medium">Total Score</td>
