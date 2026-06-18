@@ -20,6 +20,7 @@ function AgreementBadge({ pct }) {
 
 export default function PlayerComparison({ catId, initialPlayerIds = [], onClose }) {
   const [playerIds, setPlayerIds] = useState(initialPlayerIds);
+  const [posFilter, setPosFilter] = useState("skaters");
   const [expandedSections, setExpandedSections] = useState(new Set(["overview", "scores", "evaluators"]));
 
   // Fetch report data for all selected players in one query
@@ -33,10 +34,21 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
     enabled: !!catId,
   });
   const roster = useMemo(() => {
-    const sk = (rosterData?.athletes || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "skater" }));
-    const go = (rosterData?.goalies || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "goalie" }));
+    const sk = (rosterData?.athletes || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "skater", position: (x.position || "").toLowerCase() }));
+    const go = (rosterData?.goalies || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "goalie", position: "goalie" }));
     return [...sk, ...go];
   }, [rosterData]);
+
+  const FILTERS = [
+    { key: "skaters", label: "All Skaters", match: (r) => r.pool === "skater" },
+    { key: "forward", label: "Forwards", match: (r) => r.position === "forward" },
+    { key: "defense", label: "Defense", match: (r) => r.position === "defense" },
+    { key: "goalie", label: "Goalies", match: (r) => r.pool === "goalie" },
+  ];
+  const filteredRoster = useMemo(() => {
+    const f = FILTERS.find(x => x.key === posFilter) || FILTERS[0];
+    return roster.filter(r => f.match(r) && !playerIds.includes(r.id)).sort((a, b) => (a.rank || 999) - (b.rank || 999));
+  }, [roster, posFilter, playerIds]); // eslint-disable-line
 
   useEffect(() => {
     if (!playerIds.length || !catId) return;
@@ -129,23 +141,24 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
       {/* Search to add players */}
       <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
         <div className="max-w-sm">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {FILTERS.map(f => (
+              <button key={f.key} onClick={() => setPosFilter(f.key)}
+                className={`text-xs px-2.5 py-1 rounded-full border font-medium ${posFilter === f.key ? "bg-[#0b5cd6] text-white border-[#0b5cd6]" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
           <select
             value=""
             onChange={e => { const id = Number(e.target.value); if (id) { addPlayer(id); e.target.value = ""; } }}
             disabled={playerIds.length >= 6}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] disabled:opacity-50"
           >
-            <option value="">{playerIds.length >= 6 ? "Maximum of 6 players" : "Add a player…"}</option>
-            {["skater", "goalie"].map(pool => {
-              const list = roster.filter(r => r.pool === pool && !playerIds.includes(r.id)).sort((a, b) => (a.rank || 999) - (b.rank || 999));
-              if (!list.length) return null;
-              return (
-                <optgroup key={pool} label={pool === "goalie" ? "Goalies" : "Skaters"}>
-                  {list.map(r => <option key={r.id} value={r.id}>{r.name}{r.rank ? ` · #${r.rank}` : ""}</option>)}
-                </optgroup>
-              );
-            })}
+            <option value="">{playerIds.length >= 6 ? "Maximum of 6 players" : `Add a ${posFilter === "goalie" ? "goalie" : posFilter === "skaters" ? "skater" : posFilter}…`}</option>
+            {filteredRoster.map(r => <option key={r.id} value={r.id}>{r.name}{r.rank ? ` · #${r.rank}` : ""}</option>)}
           </select>
+          {filteredRoster.length === 0 && <p className="text-xs text-gray-400 mt-1.5">No more players in this group.</p>}
         </div>
         {/* Selected player chips */}
         {playerIds.length > 0 && (
