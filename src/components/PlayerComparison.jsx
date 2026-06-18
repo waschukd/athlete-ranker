@@ -2,7 +2,15 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+
+// Render the AI read: paragraphs + **bold** labels (text is ours; escape first).
+function renderAnalysis(text) {
+  return String(text).split("\n").filter(l => l.trim()).map((line, i) => {
+    const html = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\*\*(.+?)\*\*/g, '<strong style="color:#101113">$1</strong>');
+    return <p key={i} className="text-sm text-gray-700 leading-relaxed mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: html }} />;
+  });
+}
 
 function StatBar({ value, max = 100, color = "#0b5cd6" }) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
@@ -22,6 +30,22 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
   const [playerIds, setPlayerIds] = useState(initialPlayerIds);
   const [posFilter, setPosFilter] = useState("skaters");
   const [expandedSections, setExpandedSections] = useState(new Set(["overview", "scores", "evaluators"]));
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  // Stale read once the selection changes.
+  useEffect(() => { setAiAnalysis(""); setAiError(""); }, [playerIds]);
+
+  const runAnalysis = async () => {
+    setAiLoading(true); setAiError("");
+    try {
+      const res = await fetch(`/api/categories/${catId}/compare-analysis`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athlete_ids: playerIds }) });
+      const d = await res.json();
+      if (res.ok) setAiAnalysis(d.analysis); else setAiError(d.error || "Couldn't generate the read.");
+    } catch { setAiError("Couldn't generate the read."); }
+    setAiLoading(false);
+  };
 
   // Fetch report data for all selected players in one query
   const [playerData, setPlayerData] = useState({});
@@ -177,6 +201,23 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
 
       {players.length >= 2 && !isLoading && (
         <div className="divide-y divide-gray-100">
+
+          {/* ─── Coach's Read (AI interpretation) ──────────── */}
+          <div className="px-6 py-4" style={{ background: "linear-gradient(180deg,#fffdf6,#ffffff)" }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Sparkles size={15} className="text-amber-500" />
+                <span className="text-sm font-semibold text-gray-900">Coach's Read</span>
+              </div>
+              <button onClick={runAnalysis} disabled={aiLoading} className="text-xs px-3 py-1.5 rounded-lg bg-[#0b5cd6] text-white font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5">
+                {aiLoading ? <><Loader2 size={12} className="animate-spin" /> Reading…</> : (aiAnalysis ? "Regenerate" : "Interpret these players")}
+              </button>
+            </div>
+            {!aiAnalysis && !aiLoading && !aiError && <p className="text-xs text-gray-500 mt-2">A plain-English read on these scores — strengths, gaps, and a lean on who to choose.</p>}
+            {aiLoading && <p className="text-xs text-gray-400 mt-2">Reading the scores, rankings and notes…</p>}
+            {aiError && <p className="text-xs text-red-500 mt-2">{aiError}</p>}
+            {aiAnalysis && <div className="mt-3 rounded-xl border border-amber-200 bg-white p-4">{renderAnalysis(aiAnalysis)}</div>}
+          </div>
 
           {/* ─── Overview ──────────────────────────────────── */}
           <div>
