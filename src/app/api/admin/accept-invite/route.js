@@ -88,7 +88,13 @@ export async function POST(request) {
     const existingAppUser = await sql`SELECT * FROM users WHERE email = ${invite.email}`;
     let appUser;
     if (existingAppUser.length) {
-      await sql`UPDATE users SET name = ${invite.name || invite.email} WHERE email = ${invite.email}`;
+      // Also set the role to match the invited org — an existing user accepting an
+      // org invite should get that org's admin role, not keep a stale one (this is
+      // what left goalie SP admins stuck as association_admin). Super admins are
+      // never downgraded.
+      await sql`UPDATE users SET name = ${invite.name || invite.email},
+        role = CASE WHEN role = 'super_admin' THEN role ELSE ${targetRole} END
+        WHERE email = ${invite.email}`;
       appUser = existingAppUser[0];
     } else {
       const [created] = await sql`
