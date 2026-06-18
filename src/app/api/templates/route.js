@@ -22,12 +22,12 @@ export async function GET(request) {
 
   if (type === "schedule") {
     const csv = [
-      "Session Number,Group Number,Date (YYYY-MM-DD),Start Time (HH:MM),End Time (HH:MM),Location,Evaluators Required",
-      "1,1,2026-04-01,09:00,10:00,Rink A,4",
-      "1,2,2026-04-01,10:15,11:15,Rink A,4",
-      "1,3,2026-04-01,11:30,12:30,Rink A,4",
-      "2,1,2026-04-08,09:00,10:00,Rink B,4",
-      "2,2,2026-04-08,10:15,11:15,Rink B,4",
+      "Session #,Group #,Type,Date,Day,Start Time,End Time,Location,Player Evaluators,Goalie Evaluators",
+      "1,1,Testing,2026-04-01,Tuesday,09:00,10:00,Rink A,0,0",
+      "1,2,Testing,2026-04-01,Tuesday,10:15,11:15,Rink A,0,0",
+      "1,3,Goalie Skills,2026-04-01,Tuesday,11:30,12:30,Rink B,0,4",
+      "2,1,Scrimmage,2026-04-08,Tuesday,09:00,10:15,Rink A,2,1",
+      "2,2,Scrimmage,2026-04-08,Tuesday,10:15,11:30,Rink A,2,1",
     ].join("\n");
 
     return new NextResponse(csv, {

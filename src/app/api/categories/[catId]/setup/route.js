@@ -70,49 +70,64 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: true });
       }
 
+      // Goalie sessions live in goalie_config.sessions (separate from the skater
+      // category_sessions). The client sends the full goalie_config.
+      case "goalie_sessions": {
+        await sql`
+          UPDATE age_categories SET
+            evaluates_goalies = true,
+            goalie_config = ${data.goalie_config ? JSON.stringify(data.goalie_config) : null}::jsonb
+          WHERE id = ${catId}`;
+        return NextResponse.json({ success: true });
+      }
+
       case "scoring": {
-        // Update category scoring config. evaluators_anonymous defaults to
-        // true at the column level so older clients that don't send it
-        // still leave the flag on (which is the safe / typical default).
+        // SKATER scoring only. Goalie config/categories are handled in goalie_scoring.
         await sql`
           UPDATE age_categories SET
             scoring_scale = ${data.scoring_scale},
             scoring_increment = ${data.scoring_increment},
             position_tagging = ${data.position_tagging},
             director_can_edit_scores = ${data.director_can_edit_scores || false},
-            evaluators_anonymous = ${data.evaluators_anonymous ?? true},
-            players_eval_goalies = ${data.players_eval_goalies ?? false},
-            evaluates_goalies = ${data.evaluates_goalies ?? false},
-            goalie_config = ${data.evaluates_goalies && data.goalie_config ? JSON.stringify(data.goalie_config) : null}::jsonb
+            evaluators_anonymous = ${data.evaluators_anonymous ?? true}
           WHERE id = ${catId}
         `;
-
-        // Recreate scoring categories — skater (applies_to all/skaters) + goalie.
-        await sql`DELETE FROM scoring_categories WHERE age_category_id = ${catId}`;
+        // Recreate SKATER categories (all/skaters); leave goalie sets untouched.
+        await sql`DELETE FROM scoring_categories WHERE age_category_id = ${catId} AND applies_to NOT IN ('goalies','goalie_skills')`;
         for (let i = 0; i < data.categories.length; i++) {
+          if (!data.categories[i]?.name) continue;
           await sql`
             INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
             VALUES (${catId}, ${data.categories[i].name}, ${i}, ${data.categories[i].applies_to || 'all'})
           `;
         }
-        if (data.evaluates_goalies && Array.isArray(data.goalie_categories)) {
+        return NextResponse.json({ success: true });
+      }
+
+      // GOALIE scoring: who evaluates (A association / B service_provider /
+      // C goalie_service_provider), goalie scale/increment, and goalie categories.
+      case "goalie_scoring": {
+        const mode = ["association", "service_provider", "goalie_service_provider"].includes(data.goalie_eval_mode)
+          ? data.goalie_eval_mode : "association";
+        await sql`
+          UPDATE age_categories SET
+            evaluates_goalies = true,
+            goalie_eval_mode = ${mode},
+            players_eval_goalies = ${data.players_eval_goalies ?? false},
+            goalie_config = ${data.goalie_config ? JSON.stringify(data.goalie_config) : null}::jsonb
+          WHERE id = ${catId}`;
+        // Recreate GOALIE categories (goalies + goalie_skills); leave skater sets alone.
+        await sql`DELETE FROM scoring_categories WHERE age_category_id = ${catId} AND applies_to IN ('goalies','goalie_skills')`;
+        if (Array.isArray(data.goalie_categories)) {
           for (let i = 0; i < data.goalie_categories.length; i++) {
             if (!data.goalie_categories[i]?.name) continue;
-            await sql`
-              INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
-              VALUES (${catId}, ${data.goalie_categories[i].name}, ${100 + i}, 'goalies')
-            `;
+            await sql`INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to) VALUES (${catId}, ${data.goalie_categories[i].name}, ${100 + i}, 'goalies')`;
           }
         }
-        // Goalie skills-session drills (the goalie equivalent of testing) — scored
-        // in the goalie_skills session; higher mark is better.
-        if (data.evaluates_goalies && Array.isArray(data.goalie_skills_categories)) {
+        if (Array.isArray(data.goalie_skills_categories)) {
           for (let i = 0; i < data.goalie_skills_categories.length; i++) {
             if (!data.goalie_skills_categories[i]?.name) continue;
-            await sql`
-              INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
-              VALUES (${catId}, ${data.goalie_skills_categories[i].name}, ${120 + i}, 'goalie_skills')
-            `;
+            await sql`INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to) VALUES (${catId}, ${data.goalie_skills_categories[i].name}, ${120 + i}, 'goalie_skills')`;
           }
         }
         return NextResponse.json({ success: true });
