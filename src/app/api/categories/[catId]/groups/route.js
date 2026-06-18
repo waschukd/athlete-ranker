@@ -102,19 +102,33 @@ export async function POST(request, { params }) {
       const { session_number, method, position_balanced } = body;
 
       const groups = await sql`
-        SELECT * FROM session_groups
-        WHERE age_category_id = ${catId} AND session_number = ${session_number}
-        ORDER BY group_number`;
+        SELECT sg.*, COALESCE(es.goalie_evaluators_required, 0) AS goalie_eval_req
+        FROM session_groups sg
+        LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId}
+          AND es.session_number = sg.session_number AND es.group_number = sg.group_number
+        WHERE sg.age_category_id = ${catId} AND sg.session_number = ${session_number}
+        ORDER BY sg.group_number`;
 
       if (!groups.length) return NextResponse.json({ error: "No groups found. Upload a schedule first." }, { status: 400 });
 
-      const numGroups = groups.length;
+      // Session 1 keeps goalies in their own goalie-skills group, separate from the
+      // skater testing groups; scrimmage/skills sessions mix goalies INTO the groups.
+      const sessTypeRow = await sql`SELECT session_type FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1`;
+      const sType = sessTypeRow[0]?.session_type;
+      const mixGoalies = sType !== "testing" && sType !== "goalie_skills";
+      // Skaters fill all groups in a scrimmage; in a testing session they fill only
+      // the non-goalie (testing) groups, never the goalie-skills group.
+      const skaterGroups = mixGoalies ? groups : groups.filter(g => Number(g.goalie_eval_req) === 0);
+      const numGroups = skaterGroups.length || groups.length;
 
-      // Get live rankings directly from DB (no HTTP call — works in production)
+      // Get live rankings directly from DB (no HTTP call — works in production).
+      // scoreMap/sessionsList are hoisted so goalie ranking can reuse them.
       let rankedAthletes = [];
+      let scoreMap = {};
+      let sessionsList = [];
       try {
         const scale = 10;
-        const sessionsList = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
+        sessionsList = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
         const allAthletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name, first_name`;
 
         const sessionScores = await sql`
@@ -130,7 +144,6 @@ export async function POST(request, { params }) {
         `;
 
         const N = allAthletes.length;
-        const scoreMap = {};
         for (const s of sessionScores) {
           if (!scoreMap[s.athlete_id]) scoreMap[s.athlete_id] = {};
           scoreMap[s.athlete_id][s.session_number] = (parseFloat(s.avg_score) / scale) * 100;
@@ -157,14 +170,21 @@ export async function POST(request, { params }) {
         });
       } catch (e) { console.error('Ranking error in groups:', e); }
 
-      // Clear existing assignments
+      // Clear skater assignments for this session (always). Clear goalies only when
+      // we're going to redistribute them (scrimmage) — a testing session keeps its
+      // goalie-skills group intact.
       await sql`
         DELETE FROM player_group_assignments
-        WHERE session_group_id IN (
-          SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${session_number}
-        )`;
+        WHERE session_group_id IN (SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${session_number})
+          AND athlete_id IN (SELECT id FROM athletes WHERE age_category_id = ${catId} AND (position <> 'goalie' OR position IS NULL))`;
+      if (mixGoalies) {
+        await sql`
+          DELETE FROM player_group_assignments
+          WHERE session_group_id IN (SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${session_number})
+            AND athlete_id IN (SELECT id FROM athletes WHERE age_category_id = ${catId} AND position = 'goalie')`;
+      }
 
-      let assignments = []; // [{ athlete_id, group_index }]
+      let assignments = []; // [{ athlete_id, group_index }] — index into skaterGroups
 
       if (method === "alphabetical") {
         const athletes = await sql`
@@ -219,22 +239,19 @@ export async function POST(request, { params }) {
         const dIds = defense.map(a => a.id || a.athlete_id);
         const otherIds = others.map(a => a.id || a.athlete_id);
 
-        // Distribute forwards sequentially
         const fAssign = distributeSequential(fIds, numGroups, fPerGroup);
-        // Distribute defense sequentially
         const dAssign = distributeSequential(dIds, numGroups, dPerGroup);
-        // Distribute remaining/unpositioned sequentially
         const otherAssign = distributeSequential(otherIds, numGroups);
 
         assignments = [...fAssign, ...dAssign, ...otherAssign];
       }
 
-      // Insert assignments
+      // Insert skater assignments into the skater groups
       const validAssignments = assignments
-        .filter(({ group_index }) => groups[group_index])
+        .filter(({ group_index }) => skaterGroups[group_index])
         .map(({ athlete_id, group_index }) => ({
           athlete_id,
-          session_group_id: groups[group_index].id,
+          session_group_id: skaterGroups[group_index].id,
         }));
 
       for (const va of validAssignments) {
@@ -242,6 +259,32 @@ export async function POST(request, { params }) {
           INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
           VALUES (${va.athlete_id}, ${va.session_group_id}, 0)
           ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+      }
+
+      // Scrimmage/skills sessions: auto-load goalies evenly across ALL groups,
+      // ordered by goalie ranking (round-robin → counts equal ±1). The director can
+      // drag a goalie up/down afterwards. Session 1 (testing/goalie skills) is skipped
+      // here — goalies stay in their own goalie-skills group.
+      let goaliesAssigned = 0;
+      if (mixGoalies) {
+        const goalieAthletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND position = 'goalie' ORDER BY last_name, first_name`;
+        const gTotals = goalieAthletes.map(a => {
+          let total = 0;
+          for (const sess of sessionsList) {
+            const s = (scoreMap[a.id] || {})[sess.session_number];
+            if (s != null) total += s * (parseFloat(sess.weight_percentage) / 100);
+          }
+          return { ...a, weighted_total: Math.round(total * 10) / 10 };
+        });
+        gTotals.sort((a, b) => b.weighted_total !== a.weighted_total ? b.weighted_total - a.weighted_total : a.last_name.localeCompare(b.last_name));
+        for (let i = 0; i < gTotals.length; i++) {
+          const grp = groups[i % groups.length];
+          await sql`
+            INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
+            VALUES (${gTotals[i].id}, ${grp.id}, 99)
+            ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+        }
+        goaliesAssigned = gTotals.length;
       }
 
       // Apply snake draft colors
@@ -253,10 +296,10 @@ export async function POST(request, { params }) {
 
       await sql`
         INSERT INTO audit_log (age_category_id, user_id, action, entity_type, new_value)
-        VALUES (${catId}, ${userId}, 'auto_assign_groups', 'session', 
-          ${JSON.stringify({ session_number, method, position_balanced, count: assignments.length })})`;
+        VALUES (${catId}, ${userId}, 'auto_assign_groups', 'session',
+          ${JSON.stringify({ session_number, method, position_balanced, count: assignments.length, goalies_assigned: goaliesAssigned })})`;
 
-      return NextResponse.json({ success: true, assigned: assignments.length, groups: numGroups });
+      return NextResponse.json({ success: true, assigned: assignments.length, goalies_assigned: goaliesAssigned, groups: numGroups });
     }
 
     if (action === "move_player") {

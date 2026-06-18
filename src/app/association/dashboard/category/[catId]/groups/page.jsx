@@ -612,7 +612,7 @@ function GroupsManagerInner() {
             <h3 className="text-sm font-semibold text-amber-800 mb-1">
               🥅 Unassigned Goalies ({goalies.length})
             </h3>
-            <p className="text-xs text-amber-600 mb-4">Goalies are not included in auto-assign. Drag them into a group or use the buttons below.</p>
+            <p className="text-xs text-amber-600 mb-4">In scrimmage sessions, auto-assign spreads goalies evenly across the groups by ranking. Any left here (or in the goalie skills session) can be dragged into a group or assigned with the buttons below.</p>
             <div className="flex flex-wrap gap-3">
               {goalies.map(g => (
                 <div key={g.id} className="bg-white border border-amber-200 rounded-xl px-3 py-2">
