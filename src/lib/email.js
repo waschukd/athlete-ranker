@@ -60,6 +60,14 @@ export function parentEmails(athlete) {
 
 const BODY_FONT = "'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 const DISPLAY_FONT = "'Archivo','Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const SERIF_FONT = "'Playfair Display',Georgia,'Times New Roman',serif";
+// Premium "Minimal Athletic / gold" palette — matches the Development Report.
+const GOLD = "#c8a13a";        // accents, buttons, on-dark
+const GOLD_DEEP = "#9a7616";   // small uppercase labels on light backgrounds (readable)
+const GOLD_SOFT = "#faf6ea";   // tinted fill
+const GOLD_LINE = "#ece1c2";   // tinted border
+const INK = "#101113";         // primary text
+const MUTED = "#8b8f99";       // secondary text
 
 export function emailWrapper(content) {
   return `<!DOCTYPE html>
@@ -67,22 +75,22 @@ export function emailWrapper(content) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body style="margin:0;padding:0;background:#fbfbf9;font-family:${BODY_FONT};-webkit-font-smoothing:antialiased;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbfbf9;padding:40px 20px;">
       <tr><td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #ededeb;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -34px rgba(10,12,16,0.3);">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #ece9e2;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px -34px rgba(10,12,16,0.4);">
           <tr>
-            <td style="background:#0b5cd6;padding:30px 40px;text-align:center;">
-              <div style="font-family:${DISPLAY_FONT};font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.6px;">Sideline Star</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.82);margin-top:4px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;">Athlete Evaluation Platform</div>
+            <td style="background:#0f0f12;background-image:radial-gradient(135% 160% at 86% 0%, #221f17 0%, #141416 46%, #0c0c0e 100%);padding:36px 40px;text-align:center;border-bottom:1px solid rgba(200,161,58,0.30);">
+              <div style="font-family:${SERIF_FONT};font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.2px;">Sideline Star</div>
+              <div style="font-size:10px;color:${GOLD};margin-top:8px;letter-spacing:0.3em;text-transform:uppercase;font-weight:700;">Athlete Evaluation Platform</div>
             </td>
           </tr>
-          <tr><td style="padding:36px 40px;">${content}</td></tr>
+          <tr><td style="padding:38px 40px;">${content}</td></tr>
           <tr>
-            <td style="padding:16px 40px;border-top:1px solid #ededeb;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#9aa0aa;">© Sideline Star · sidelinestar.com</p>
+            <td style="padding:18px 40px;border-top:1px solid #ece9e2;text-align:center;background:#fbfaf7;">
+              <p style="margin:0;font-size:11px;color:#9aa0aa;">© <span style="font-family:${SERIF_FONT};color:${GOLD_DEEP};font-weight:700;">Sideline Star</span> · sidelinestar.com</p>
             </td>
           </tr>
         </table>
@@ -93,7 +101,7 @@ export function emailWrapper(content) {
 }
 
 function btn(url, label) {
-  return `<a href="${url}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:14px 30px;background:#0b5cd6;color:#ffffff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;letter-spacing:0.01em;">${label}</a>`;
+  return `<a href="${url}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:14px 32px;background:${GOLD};color:#1b1505;text-decoration:none;border-radius:99px;font-size:14px;font-weight:800;letter-spacing:0.01em;">${label}</a>`;
 }
 
 function credBox(rows) {
@@ -101,11 +109,11 @@ function credBox(rows) {
     `<tr>
       <td style="padding:6px 0;font-size:13px;color:#5b606b;width:140px;">${label}</td>
       <td style="padding:6px 0;font-size:13px;font-weight:600;color:#101113;">
-        ${highlight ? `<code style="background:#eaf1fe;border:1px solid #c7dcfb;padding:2px 8px;border-radius:6px;color:#0b5cd6;font-weight:700;">${value}</code>` : value}
+        ${highlight ? `<code style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};padding:2px 8px;border-radius:6px;color:${GOLD_DEEP};font-weight:700;">${value}</code>` : value}
       </td>
     </tr>`
   ).join("");
-  return `<div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:20px 0;">
+  return `<div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:12px;padding:16px 20px;margin:20px 0;">
     <table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
   </div>`;
 }
@@ -117,16 +125,31 @@ export function parentSessionUpdateHtml({ playerName, orgName, completedLabel, n
   const pn = esc(playerName), on = esc(orgName);
   const nx = next || {};
   const dateLine = [esc(nx.day), esc(nx.date)].filter(Boolean).join(", ");
+  const row = (label, value) => `<tr>
+      <td style="padding:9px 0;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED};font-weight:700;width:96px;vertical-align:top;">${label}</td>
+      <td style="padding:9px 0;font-size:14.5px;font-weight:700;color:${INK};">${value}</td>
+    </tr>`;
   return emailWrapper(`
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0b5cd6;font-weight:700;">${on}</div>
-      <div style="font-family:${DISPLAY_FONT};font-size:22px;font-weight:800;color:#101113;margin-top:2px;">Evaluation Update</div>
+    <div style="text-align:center;margin-bottom:26px;">
+      <div style="font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;">${on}</div>
+      <div style="font-family:${SERIF_FONT};font-size:25px;font-weight:900;color:${INK};margin-top:5px;">Evaluation Update</div>
+      <div style="width:40px;height:2px;background:${GOLD};margin:14px auto 0;border-radius:2px;"></div>
     </div>
-    <h2 style="margin:0 0 10px;font-size:18px;font-weight:700;color:#101113;">Congratulations on completing ${esc(completedLabel)}, ${pn}! 🎉</h2>
-    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.6;">Nice work out there. Here are the details for the next session:</p>
-    <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#0b5cd6;font-weight:700;margin:18px 0 -8px;">${esc(nx.label) || "Next session"}</div>
-    ${credBox([["Date", dateLine || "TBD"], ["Time", esc(nx.time) || "TBD"], ["Location", esc(nx.location) || "TBD"]])}
-    <p style="margin:0;font-size:13px;color:#5b606b;line-height:1.6;">See you on the ice. Questions? Just reply to ${on}.</p>
+    <h2 style="margin:0 0 8px;font-family:${SERIF_FONT};font-size:21px;font-weight:800;color:${INK};text-align:center;">${esc(completedLabel)} complete 🎉</h2>
+    <p style="margin:0 0 24px;font-size:14.5px;color:#4a4f57;line-height:1.6;text-align:center;">Great work, ${pn}. Here's everything you need for the next session.</p>
+    <div style="border:1px solid ${GOLD_LINE};border-radius:16px;overflow:hidden;box-shadow:0 16px 40px -30px rgba(10,12,16,0.55);">
+      <div style="background:#0f0f12;background-image:radial-gradient(150% 240% at 90% 0%, #221f17 0%, #141416 60%);padding:14px 22px;border-bottom:1px solid rgba(200,161,58,0.28);">
+        <span style="font-family:${SERIF_FONT};font-size:16px;font-weight:800;color:#ffffff;">${esc(nx.label) || "Next session"}</span>
+      </div>
+      <div style="padding:6px 22px 12px;background:#ffffff;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          ${row("Date", dateLine || "TBD")}
+          ${row("Time", esc(nx.time) || "TBD")}
+          ${row("Location", esc(nx.location) || "TBD")}
+        </table>
+      </div>
+    </div>
+    <p style="margin:24px 0 0;font-size:12.5px;color:${MUTED};line-height:1.6;text-align:center;">See you on the ice. Questions? Just reply to ${on}.</p>
   `);
 }
 
@@ -439,7 +462,7 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   const playerName = esc(_pn), orgName = esc(_on), spName = _sp ? esc(_sp) : _sp;
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
-    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#0b5cd6;font-weight:700;margin-bottom:8px;">${fromLine}</div>
+    <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:8px;">${fromLine}</div>
     <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;font-family:${DISPLAY_FONT};">${playerName}'s Development Report is ready</h2>
     <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">${playerName}'s evaluation is complete. Their personalized Development Report shows where they stand against the group across objective testing and evaluator scoring, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
     <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:12px;padding:16px 20px;margin:0 0 22px;font-size:13px;color:#5b606b;line-height:1.9;">
