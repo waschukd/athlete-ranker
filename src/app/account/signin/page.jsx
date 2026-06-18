@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { Mail, Lock, LogIn, AlertCircle } from "lucide-react";
-import { useTheme } from "@/lib/useTheme";
-import ThemeToggle from "@/components/ThemeToggle";
+
+const GOLD = "#d4af37";
 
 export default function SignInPage() {
-  const [theme, toggleTheme] = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,82 +34,50 @@ export default function SignInPage() {
     }
   };
 
+  const inputWrap = { background: "#0e0e10", border: "1px solid rgba(255,255,255,0.12)" };
+
   return (
-    <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="fixed top-4 right-4 z-50"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-md">
-        <div className="mb-6 text-center">
-          <img
-            src="/s-mark-dark.svg"
-            style={{ width: 48, height: 48, objectFit: "contain" }}
-            alt="Sideline Star"
-            className="mx-auto mb-4"
-          />
-          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl text-center">
-            Sign in
-          </h1>
-          <p className="text-sm text-gray-500 text-center mt-1">
-            Access your admin and evaluator tools
-          </p>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "radial-gradient(130% 130% at 80% 0%, #211f17 0%, #121214 42%, #0a0a0c 100%)" }}>
+      <div className="w-full max-w-md rounded-2xl p-8" style={{ background: "#121214", border: "1px solid rgba(212,175,55,0.28)", boxShadow: "0 34px 80px -44px rgba(0,0,0,0.9)" }}>
+        <div className="mb-7 text-center">
+          <img src="/mark-gold.svg" alt="Sideline Star" style={{ width: 52, height: 52, objectFit: "contain", margin: "0 auto 16px" }} />
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "#ffffff", fontFamily: "'Archivo',-apple-system,sans-serif" }}>Sign in</h1>
+          <p className="text-sm mt-1" style={{ color: "#8b8f99" }}>Access your admin and evaluator tools</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)" }}>
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#f87171" }} />
+            <p className="text-sm" style={{ color: "#fca5a5" }}>{error}</p>
           </div>
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
-              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full outline-none text-sm bg-transparent text-ink"
-                placeholder="your@email.com"
-                required
-                disabled={loading}
-              />
+            <label className="block text-sm font-medium mb-1" style={{ color: "#cfd2d7" }}>Email</label>
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={inputWrap}>
+              <Mail className="w-4 h-4 flex-shrink-0" style={{ color: "#6b7078" }} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full outline-none text-sm bg-transparent" style={{ color: "#ffffff" }} placeholder="your@email.com" required disabled={loading} />
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <a href="/account/forgot-password" className="text-xs text-accent hover:underline">
-                Forgot password?
-              </a>
+              <label className="block text-sm font-medium" style={{ color: "#cfd2d7" }}>Password</label>
+              <a href="/account/forgot-password" className="text-xs hover:underline" style={{ color: GOLD }}>Forgot password?</a>
             </div>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent">
-              <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full outline-none text-sm bg-transparent text-ink"
-                placeholder="••••••••"
-                required
-                disabled={loading}
-              />
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={inputWrap}>
+              <Lock className="w-4 h-4 flex-shrink-0" style={{ color: "#6b7078" }} />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full outline-none text-sm bg-transparent" style={{ color: "#ffffff" }} placeholder="••••••••" required disabled={loading} />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-lg py-2.5 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 font-bold rounded-lg py-2.5 transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: GOLD, color: "#141414" }}>
             <LogIn className="w-4 h-4" />
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <a href="/account/signup" className="text-sm text-accent hover:underline">
-            New association? Request an account →
-          </a>
+          <a href="/account/signup" className="text-sm hover:underline" style={{ color: GOLD }}>New association? Request an account →</a>
         </div>
       </div>
     </div>

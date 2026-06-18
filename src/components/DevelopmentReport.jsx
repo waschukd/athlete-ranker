@@ -99,7 +99,7 @@ export function ReportFonts() {
 }
 
 export default function DevelopmentReport({ data }) {
-  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], trainingProviders = [], org_name } = data;
+  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name } = data;
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -187,6 +187,10 @@ export default function DevelopmentReport({ data }) {
       <div style={{ background: "radial-gradient(120% 140% at 80% 0%, #23211a 0%, #121214 40%, #0a0a0c 100%)", padding: "32px 34px", borderBottom: `1px solid ${GOLD_LINE}`, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -90, right: -60, width: 320, height: 320, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.16)" }} />
         <div style={{ position: "absolute", top: -40, right: -10, width: 230, height: 230, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.1)" }} />
+        {serviceProvider?.logo_url && (
+          <img src={serviceProvider.logo_url} alt={serviceProvider.name || "Service provider"}
+            style={{ position: "absolute", top: 28, right: 30, maxWidth: 116, maxHeight: 54, objectFit: "contain", filter: "brightness(0) invert(1)", opacity: 0.95 }} />
+        )}
         <div style={{ fontSize: 9.5, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
         <div style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 900, lineHeight: 1.05, marginTop: 10, color: "#fff" }}>{fullName}</div>
         <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
@@ -469,29 +473,6 @@ export default function DevelopmentReport({ data }) {
               )}
             </div>
 
-            {trainingProviders.length > 0 && (
-              <div style={{ marginTop: 16, breakInside: "avoid" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 3 }}>Where to put in the work</div>
-                <div style={{ fontSize: 11, color: GRAY, marginBottom: 10 }}>Local programs {org_name ? `${org_name}'s coaches` : "our coaches"} recommend for these development areas.</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {trainingProviders.map((a, i) => (
-                    <div key={i} style={{ border: `1px solid ${LINE}`, borderRadius: 12, background: "#101014", padding: "11px 15px", breakInside: "avoid" }}>
-                      <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 6 }}>{a.area}</div>
-                      {(a.providers || []).map((p, j) => (
-                        <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: j < a.providers.length - 1 ? 6 : 0 }}>
-                          <div>
-                            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#fff" }}>{p.name}</span>
-                            {p.blurb && <span style={{ fontSize: 11.5, color: "#b8bcc4" }}> — {p.blurb}</span>}
-                          </div>
-                          {p.contact && <span style={{ fontSize: 11, color: GOLD, whiteSpace: "nowrap", flexShrink: 0 }}>{p.contact}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 8, fontStyle: "italic" }}>Listed at the association's recommendation. Sideline Star does not endorse or vet these providers.</div>
-              </div>
-            )}
 
             <div style={{ borderTop: `1px solid ${LINE}`, padding: "11px 0 40px", marginTop: 16, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>

@@ -47,6 +47,19 @@ export async function buildAthleteReport(catId, athleteId) {
   const athleteRanking = rankPool.find(a => String(a.id) === String(athleteId));
   const totalAthletes = rankPool.length || 0;
 
+  // The service provider attached to this athlete's evaluation (a goalie SP for a
+  // goalie, the skater SP otherwise) — its logo brands the report cover.
+  let serviceProvider = null;
+  try {
+    const spType = athleteIsGoalie ? "goalie_service_provider" : "service_provider";
+    const spRows = await sql`
+      SELECT o.name, o.logo_url FROM sp_association_links sal
+      JOIN organizations o ON o.id = sal.service_provider_id AND o.type = ${spType}
+      WHERE sal.association_id = ${athleteRes[0].organization_id} AND sal.status = 'active'
+      ORDER BY sal.linked_at DESC NULLS LAST LIMIT 1`;
+    if (spRows[0]) serviceProvider = { name: spRows[0].name, logo_url: spRows[0].logo_url || null };
+  } catch { serviceProvider = null; }
+
   // ── Standing: tier + coarse band, deliberately NOT an exact rank ──
   const rank = athleteRanking?.rank || null;
   let standing = null;
@@ -190,6 +203,7 @@ export async function buildAthleteReport(catId, athleteId) {
     athlete: athleteRes[0],
     category: category[0] || null,
     org_name: athleteRes[0].org_name || null,
+    serviceProvider,
     standing,
     skillProfile,
     goalieSkillsProfile,

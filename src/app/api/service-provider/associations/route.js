@@ -12,7 +12,7 @@ export async function GET(request) {
     const { orgId: spId, isGoalie } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "No service provider found for this user" }, { status: 403 });
 
-    const spInfo = await sql`SELECT id, name, type FROM organizations WHERE id = ${spId} LIMIT 1`;
+    const spInfo = await sql`SELECT id, name, type, logo_url FROM organizations WHERE id = ${spId} LIMIT 1`;
 
     const associations = await sql`
       SELECT
