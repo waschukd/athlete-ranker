@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Loader2, Trophy, Users, BarChart3, FileText, ChevronDown, ChevronRight } from "lucide-react";
 
 function StatBar({ value, max = 100, color = "#0b5cd6" }) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
@@ -20,14 +20,23 @@ function AgreementBadge({ pct }) {
 
 export default function PlayerComparison({ catId, initialPlayerIds = [], onClose }) {
   const [playerIds, setPlayerIds] = useState(initialPlayerIds);
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [expandedSections, setExpandedSections] = useState(new Set(["overview", "scores", "evaluators"]));
 
   // Fetch report data for all selected players in one query
   const [playerData, setPlayerData] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Full roster (with rank + pool) for the add-player dropdown.
+  const { data: rosterData } = useQuery({
+    queryKey: ["comparison-roster", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/rankings`); return res.json(); },
+    enabled: !!catId,
+  });
+  const roster = useMemo(() => {
+    const sk = (rosterData?.athletes || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "skater" }));
+    const go = (rosterData?.goalies || []).map(x => ({ id: x.id, name: `${x.first_name} ${x.last_name}`, rank: x.rank, pool: "goalie" }));
+    return [...sk, ...go];
+  }, [rosterData]);
 
   useEffect(() => {
     if (!playerIds.length || !catId) return;
@@ -63,30 +72,9 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
 
   const players = playerIds.map(id => playerData[id]).filter(Boolean);
 
-  // Search for athletes to add
-  const handleSearch = async (val) => {
-    setSearch(val);
-    if (val.length < 2) { setSearchResults([]); return; }
-    setSearching(true);
-    try {
-      const res = await fetch(`/api/categories/${catId}/scores?search=${encodeURIComponent(val)}`);
-      const data = await res.json();
-      // Deduplicate by athlete_id
-      const seen = new Set();
-      const unique = (data.scores || []).reduce((acc, s) => {
-        if (!seen.has(s.athlete_id)) { seen.add(s.athlete_id); acc.push({ id: s.athlete_id, name: `${s.first_name} ${s.last_name}`, jersey: s.jersey_number }); }
-        return acc;
-      }, []);
-      setSearchResults(unique.filter(a => !playerIds.includes(a.id)));
-    } catch { setSearchResults([]); }
-    setSearching(false);
-  };
-
   const addPlayer = (id) => {
     if (playerIds.length >= 6) return; // max 6 players
-    setPlayerIds(prev => [...prev, id]);
-    setSearch("");
-    setSearchResults([]);
+    setPlayerIds(prev => prev.includes(id) ? prev : [...prev, id]);
   };
 
   const removePlayer = (id) => {
@@ -140,27 +128,25 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
 
       {/* Search to add players */}
       <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-        <div className="relative max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => handleSearch(e.target.value)}
-            placeholder="Add player by name or jersey..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] focus:border-transparent"
-          />
-          {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />}
+        <div className="max-w-sm">
+          <select
+            value=""
+            onChange={e => { const id = Number(e.target.value); if (id) { addPlayer(id); e.target.value = ""; } }}
+            disabled={playerIds.length >= 6}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] disabled:opacity-50"
+          >
+            <option value="">{playerIds.length >= 6 ? "Maximum of 6 players" : "Add a player…"}</option>
+            {["skater", "goalie"].map(pool => {
+              const list = roster.filter(r => r.pool === pool && !playerIds.includes(r.id)).sort((a, b) => (a.rank || 999) - (b.rank || 999));
+              if (!list.length) return null;
+              return (
+                <optgroup key={pool} label={pool === "goalie" ? "Goalies" : "Skaters"}>
+                  {list.map(r => <option key={r.id} value={r.id}>{r.name}{r.rank ? ` · #${r.rank}` : ""}</option>)}
+                </optgroup>
+              );
+            })}
+          </select>
         </div>
-        {searchResults.length > 0 && (
-          <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-sm max-h-40 overflow-y-auto">
-            {searchResults.map(a => (
-              <button key={a.id} onClick={() => addPlayer(a.id)} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-blue-50 text-left text-sm">
-                <span className="font-medium text-gray-900">{a.name}</span>
-                {a.jersey && <span className="text-xs font-mono text-gray-400">#{a.jersey}</span>}
-              </button>
-            ))}
-          </div>
-        )}
         {/* Selected player chips */}
         {playerIds.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
