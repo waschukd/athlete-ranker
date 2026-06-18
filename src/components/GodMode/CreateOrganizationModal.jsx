@@ -11,6 +11,8 @@ export function CreateOrganizationModal({ onClose }) {
     contact_name: "",
     contact_phone: "",
   });
+  const [created, setCreated] = useState(null); // { organization, invite } after success
+  const [copied, setCopied] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -23,11 +25,50 @@ export function CreateOrganizationModal({ onClose }) {
       if (!res.ok) throw new Error(responseData.error || "Failed to create organization");
       return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries(["organizations"]);
-      onClose();
+      // Hold the modal open and show the invite link so it can be copied/forwarded
+      // even if the email didn't send.
+      setCreated(data);
     },
   });
+
+  // ── Success view: show the accept-invite link to copy/forward ──
+  if (created) {
+    const url = created.invite?.url;
+    return (
+      <div className="gm-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="gm-modal">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h2 className="gm-modal-title" style={{ margin: 0 }}>{created.organization?.name} created</h2>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gm-muted)", padding: 4 }}><X size={16} /></button>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--gm-muted)", marginBottom: 12 }}>
+            {created.invite?.message || "Send the contact this link to set their password and finish setup."}
+          </p>
+          {url ? (
+            <>
+              <div className="gm-form-group">
+                <label className="gm-label">Accept-invite link</label>
+                <input className="gm-input" readOnly value={url} onFocus={(e) => e.target.select()} />
+              </div>
+              <button
+                type="button"
+                className="gm-btn-primary"
+                style={{ width: "100%", justifyContent: "center" }}
+                onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked — link is selectable above */ } }}
+              >
+                {copied ? "Copied ✓" : "Copy link"}
+              </button>
+            </>
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--gm-red)" }}>No invite link was generated. Re-issue it from the org's Invite Admin action.</p>
+          )}
+          <button type="button" onClick={onClose} className="gm-btn-ghost" style={{ width: "100%", justifyContent: "center", marginTop: 10 }}>Done</button>
+        </div>
+      </div>
+    );
+  }
 
   const field = (label, key, type = "text", required = false) => (
     <div className="gm-form-group">
