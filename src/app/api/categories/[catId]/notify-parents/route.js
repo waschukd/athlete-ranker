@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc, FROM } from "@/lib/email";
 import { generateICS } from "@/lib/calendar";
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
@@ -135,7 +135,7 @@ export async function POST(request, { params }) {
                   Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
                 },
                 body: JSON.stringify({
-                  from: process.env.EMAIL_FROM || "updates@sidelinestar.com",
+                  from: FROM,
                   to,
                   subject: `Evaluation Schedule — ${athlete.first_name} ${athlete.last_name} · ${category_name}`,
                   html,

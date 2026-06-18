@@ -1,4 +1,10 @@
-const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
+// Always send with a recognizable sender NAME ("Sideline Star <addr>") so the
+// inbox shows the brand, not just the mailbox ("updates"). If EMAIL_FROM already
+// carries a display name (contains "<"), it's used as-is. Exported so the few
+// routes that send via raw fetch can share the exact same From.
+const SENDER_NAME = process.env.EMAIL_FROM_NAME || "Sideline Star";
+const RAW_FROM = process.env.EMAIL_FROM || "updates@sidelinestar.com";
+export const FROM = RAW_FROM.includes("<") ? RAW_FROM : `${SENDER_NAME} <${RAW_FROM}>`;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 // Escape user-controlled values before interpolating into email HTML. Names,

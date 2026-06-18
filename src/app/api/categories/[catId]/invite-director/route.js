@@ -3,13 +3,14 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { hashPassword } from "@/lib/password";
+import { FROM } from "@/lib/email";
 
 async function sendEmail(to, subject, html) {
   if (!process.env.RESEND_API_KEY) return;
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
+    body: JSON.stringify({ from: FROM, to, subject, html }),
   });
 }
 
