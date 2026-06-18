@@ -15,7 +15,7 @@ export async function GET(request) {
     const to = searchParams.get("to") || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     // Resolve SP org (contact_email, additional-admin role, or membership)
-    const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
+    const { orgId: spId, isGoalie } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
 
     // Get all sessions across all client associations
@@ -43,6 +43,12 @@ export async function GET(request) {
       WHERE sal.service_provider_id = ${spId}
         AND sal.status = 'active'
         AND es.scheduled_date BETWEEN ${from} AND ${to}
+        -- A goalie SP only sees goalie-relevant slots: the goalie skills group
+        -- (goalie_evaluators_required > 0) and the scrimmages. Player-only testing
+        -- groups are hidden, so session 1 shows just the single goalie group.
+        AND (NOT ${isGoalie}::boolean
+             OR COALESCE(es.goalie_evaluators_required, 0) > 0
+             OR COALESCE(cs.session_type, '') <> 'testing')
       GROUP BY es.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required, ac.evaluators_required
       ORDER BY es.scheduled_date, es.start_time, o.name
     `;
@@ -52,10 +58,12 @@ export async function GET(request) {
     for (const entry of schedule) {
       const date = entry.scheduled_date?.toString().split("T")[0];
       if (!byDate[date]) byDate[date] = [];
-      byDate[date].push({
-        ...entry,
-        spots_open: entry.session_type === 'testing' ? 0 : parseInt(entry.evaluators_required) - parseInt(entry.evaluators_signed_up || 0),
-      });
+      // For a goalie SP, "spots" track goalie evaluators; check-in is the
+      // association's responsibility, so the dashboard hides it (is_goalie_sp).
+      const spots_open = entry.session_type === 'testing' && !isGoalie ? 0
+        : isGoalie ? Math.max(0, parseInt(entry.goalie_evaluators_required || 0) - parseInt(entry.evaluators_signed_up || 0))
+        : parseInt(entry.evaluators_required) - parseInt(entry.evaluators_signed_up || 0);
+      byDate[date].push({ ...entry, spots_open, is_goalie_sp: isGoalie });
     }
 
     return NextResponse.json({ schedule, byDate });

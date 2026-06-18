@@ -54,7 +54,7 @@ function SessionRow({ s, showDate }) {
       {spots > 0
         ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{spots} spot{spots === 1 ? "" : "s"} open</span>
         : <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium flex-shrink-0">Staffed</span>}
-      <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>
+      {!s.is_goalie_sp && <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>}
     </div>
   );
 }
@@ -1519,18 +1519,27 @@ function SPDashboard() {
                               <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                                 {entry.status !== "cancelled" && (
                                   <>
-                                    <div className="text-center">
-                                      <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                                      <div className="text-xs text-gray-400">player eval</div>
-                                    </div>
-                                    {parseInt(entry.goalie_evaluators_required) > 0 && (
+                                    {entry.is_goalie_sp ? (
                                       <div className="text-center">
-                                        <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
+                                        <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.goalie_evaluators_required}</div>
                                         <div className="text-xs text-gray-400">goalie eval</div>
                                       </div>
+                                    ) : (
+                                      <>
+                                        <div className="text-center">
+                                          <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
+                                          <div className="text-xs text-gray-400">player eval</div>
+                                        </div>
+                                        {parseInt(entry.goalie_evaluators_required) > 0 && (
+                                          <div className="text-center">
+                                            <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
+                                            <div className="text-xs text-gray-400">goalie eval</div>
+                                          </div>
+                                        )}
+                                      </>
                                     )}
                                     {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
-                                    <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>
+                                    {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
                                   </>
                                 )}
