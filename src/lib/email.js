@@ -124,32 +124,24 @@ function credBox(rows) {
 export function parentSessionUpdateHtml({ playerName, orgName, completedLabel, next }) {
   const pn = esc(playerName), on = esc(orgName);
   const nx = next || {};
-  const dateLine = [esc(nx.day), esc(nx.date)].filter(Boolean).join(", ");
-  const row = (label, value) => `<tr>
-      <td style="padding:9px 0;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED};font-weight:700;width:96px;vertical-align:top;">${label}</td>
-      <td style="padding:9px 0;font-size:14.5px;font-weight:700;color:${INK};">${value}</td>
-    </tr>`;
+  const dateText = esc(nx.dateText || [nx.day, nx.date].filter(Boolean).join(", "));
   return emailWrapper(`
-    <div style="text-align:center;margin-bottom:26px;">
-      <div style="font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;">${on}</div>
-      <div style="font-family:${SERIF_FONT};font-size:25px;font-weight:900;color:${INK};margin-top:5px;">Evaluation Update</div>
-      <div style="width:40px;height:2px;background:${GOLD};margin:14px auto 0;border-radius:2px;"></div>
+    <div style="text-align:center;">
+      <div style="font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;">${on} &middot; Evaluation Update</div>
+      <div style="width:34px;height:2px;background:${GOLD};margin:16px auto 24px;border-radius:2px;"></div>
+      <h1 style="margin:0;font-family:${SERIF_FONT};font-size:26px;font-weight:900;color:${INK};letter-spacing:-0.2px;line-height:1.15;">${esc(completedLabel)} complete</h1>
+      <p style="margin:14px auto 30px;max-width:384px;font-size:14.5px;color:#5b606b;line-height:1.7;">Thank you, ${pn}. Your group for the next session has been set — here are the details.</p>
     </div>
-    <h2 style="margin:0 0 8px;font-family:${SERIF_FONT};font-size:21px;font-weight:800;color:${INK};text-align:center;">${esc(completedLabel)} complete 🎉</h2>
-    <p style="margin:0 0 24px;font-size:14.5px;color:#4a4f57;line-height:1.6;text-align:center;">Great work, ${pn}. Here's everything you need for the next session.</p>
-    <div style="border:1px solid ${GOLD_LINE};border-radius:16px;overflow:hidden;box-shadow:0 16px 40px -30px rgba(10,12,16,0.55);">
-      <div style="background:#0f0f12;background-image:radial-gradient(150% 240% at 90% 0%, #221f17 0%, #141416 60%);padding:14px 22px;border-bottom:1px solid rgba(200,161,58,0.28);">
-        <span style="font-family:${SERIF_FONT};font-size:16px;font-weight:800;color:#ffffff;">${esc(nx.label) || "Next session"}</span>
-      </div>
-      <div style="padding:6px 22px 12px;background:#ffffff;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          ${row("Date", dateLine || "TBD")}
-          ${row("Time", esc(nx.time) || "TBD")}
-          ${row("Location", esc(nx.location) || "TBD")}
-        </table>
+    <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
+      <div style="padding:32px 28px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${esc(nx.label) || "Next session"}</div>
+        <div style="font-family:${SERIF_FONT};font-size:27px;font-weight:800;color:#ffffff;margin:13px 0 0;line-height:1.15;">${dateText || "Date to be confirmed"}</div>
+        <div style="width:30px;height:1px;background:rgba(200,161,58,0.55);margin:18px auto;"></div>
+        <div style="font-size:15px;color:#e9e5dc;font-weight:600;letter-spacing:0.01em;">${esc(nx.time) || "Time to be confirmed"}</div>
+        <div style="font-size:13.5px;color:#a7abb4;margin-top:6px;">${esc(nx.location) || "Location to be confirmed"}</div>
       </div>
     </div>
-    <p style="margin:24px 0 0;font-size:12.5px;color:${MUTED};line-height:1.6;text-align:center;">See you on the ice. Questions? Just reply to ${on}.</p>
+    <p style="margin:30px auto 0;max-width:400px;font-size:12.5px;color:${MUTED};line-height:1.7;text-align:center;">We look forward to seeing you on the ice. Questions about timing or location? Simply reply to ${on}.</p>
   `);
 }
 

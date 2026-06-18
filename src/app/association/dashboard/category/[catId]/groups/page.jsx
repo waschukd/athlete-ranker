@@ -5,13 +5,40 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ArrowLeft, Users, Shuffle, Check, AlertCircle,
-  GripVertical, ChevronRight, Copy, ExternalLink, RefreshCw, Download, Printer
+  GripVertical, ChevronRight, Copy, ExternalLink, RefreshCw, Download, Printer, Send
 } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import GroupEmailDialog from "@/components/GroupEmailDialog";
 
 const qc = new QueryClient();
+
+// Manually email all parents in a session their group's date/time/location. Sent
+// only when a director/association clicks it — the human is the safeguard.
+function SessionNotifyButton({ catId, sessionNumber, sessionName }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const send = async () => {
+    const label = sessionName || `Session ${sessionNumber}`;
+    if (!confirm(`Email every parent in ${label} their session details (date, time, location)?\n\nSend this only after the groups for ${label} are set.`)) return;
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(`/api/categories/${catId}/notify-parents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "session_update", session_number: sessionNumber }) });
+      const d = await res.json();
+      setMsg(res.ok ? { ok: true, text: `Sent to ${d.sent} athlete${d.sent === 1 ? "" : "s"}' parents${d.skipped ? ` · ${d.skipped} skipped (no email)` : ""}` } : { ok: false, text: d.error || "Failed to send" });
+    } catch { setMsg({ ok: false, text: "Failed to send" }); }
+    setBusy(false);
+    if (msg?.ok !== false) setTimeout(() => setMsg(null), 7000);
+  };
+  return (
+    <span className="relative inline-flex">
+      <button onClick={send} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
+        <Send size={14} /> {busy ? "Sending…" : "Email Parents · Session Details"}
+      </button>
+      {msg && <span className={`absolute left-0 top-full mt-1 text-xs whitespace-nowrap ${msg.ok ? "text-green-600" : "text-red-500"}`}>{msg.text}</span>}
+    </span>
+  );
+}
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -326,6 +353,9 @@ function GroupsManagerInner() {
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
               {groups.length > 0 && assignments.length > 0 && selectedSession && (
                 <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} />
+              )}
+              {groups.length > 0 && assignments.length > 0 && selectedSession && (
+                <SessionNotifyButton catId={catId} sessionNumber={selectedSession} sessionName={currentSession?.name} />
               )}
             </div>
           </div>
