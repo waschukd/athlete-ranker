@@ -107,12 +107,11 @@ export async function POST(request, { params }) {
       // GOALIE scoring: who evaluates (A association / B service_provider /
       // C goalie_service_provider), goalie scale/increment, and goalie categories.
       case "goalie_scoring": {
-        const mode = ["association", "service_provider", "goalie_service_provider"].includes(data.goalie_eval_mode)
-          ? data.goalie_eval_mode : "association";
+        // Who evaluates goalies (goalie_eval_mode) is set org-wide on the
+        // association dashboard and inherited — not stored per category here.
         await sql`
           UPDATE age_categories SET
             evaluates_goalies = true,
-            goalie_eval_mode = ${mode},
             players_eval_goalies = ${data.players_eval_goalies ?? false},
             goalie_config = ${data.goalie_config ? JSON.stringify(data.goalie_config) : null}::jsonb
           WHERE id = ${catId}`;

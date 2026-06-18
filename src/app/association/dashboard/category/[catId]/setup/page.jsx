@@ -226,80 +226,10 @@ function SkaterScoringStep({ scoring, setScoring }) {
   );
 }
 
-// ─── Goalie service-provider picker (option C) ──────────────────────────────
-function GoalieProviderPicker({ catId, scoring, setScoring }) {
-  const [providers, setProviders] = useState([]);
-  const [q, setQ] = useState("");
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
-
-  const load = useCallback(() => {
-    fetch(`/api/categories/${catId}/goalie-provider`).then(r => r.json()).then(d => {
-      setProviders(d.providers || []);
-      if (d.linked && !scoring.goalie_sp_id) setScoring(prev => ({ ...prev, goalie_sp_id: d.linked.id }));
-    }).catch(() => {});
-  }, [catId]); // eslint-disable-line
-  useEffect(() => { load(); }, [load]);
-
-  const link = async (id) => {
-    setBusy(true); setMsg(null);
-    const res = await fetch(`/api/categories/${catId}/goalie-provider`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "link", goalie_sp_id: id }) });
-    const d = await res.json(); setBusy(false);
-    if (res.ok) { setScoring(prev => ({ ...prev, goalie_sp_id: id })); setMsg({ type: "ok", text: "Linked ✓" }); }
-    else setMsg({ type: "err", text: d.error || "Failed to link" });
-  };
-  const invite = async () => {
-    if (!inviteName || !inviteEmail) return;
-    setBusy(true); setMsg(null);
-    const res = await fetch(`/api/categories/${catId}/goalie-provider`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite", name: inviteName, email: inviteEmail }) });
-    const d = await res.json(); setBusy(false);
-    if (res.ok) {
-      setScoring(prev => ({ ...prev, goalie_sp_id: d.goalie_sp_id }));
-      setShowInvite(false); setInviteName(""); setInviteEmail("");
-      setMsg({ type: "ok", text: d.invite?.url ? `Invited ${d.name}. Invite link: ${d.invite.url}` : `Invited ${d.name}.` });
-      load();
-    } else setMsg({ type: "err", text: d.error || "Failed to invite" });
-  };
-
-  const filtered = providers.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
-  return (
-    <div className="mt-4 border-t border-gray-100 pt-4">
-      <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Choose the goalie service provider</label>
-      <div className="relative mt-2 mb-3">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search goalie service providers…" className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
-      </div>
-      <div className="space-y-2 max-h-48 overflow-y-auto">
-        {filtered.length === 0 && <p className="text-xs text-gray-400 px-1">No matches. Invite a new one below.</p>}
-        {filtered.map(p => (
-          <button key={p.id} onClick={() => link(p.id)} disabled={busy} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left text-sm ${scoring.goalie_sp_id === p.id ? "border-accent bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}>
-            <span className="font-medium text-gray-800">{p.name}</span>
-            {scoring.goalie_sp_id === p.id ? <span className="text-xs text-accent font-semibold flex items-center gap-1"><Check size={13} /> Selected</span> : <span className="text-xs text-gray-400">Select</span>}
-          </button>
-        ))}
-      </div>
-      {!showInvite ? (
-        <button onClick={() => setShowInvite(true)} className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent hover:opacity-70 font-medium"><Plus size={13} /> Not listed? Add &amp; invite a goalie SP</button>
-      ) : (
-        <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
-          <input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Company name" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-          <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="Admin email" type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-          <div className="flex gap-2">
-            <button onClick={() => setShowInvite(false)} className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs">Cancel</button>
-            <button onClick={invite} disabled={busy || !inviteName || !inviteEmail} className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-50">{busy ? "Inviting…" : "Create & invite"}</button>
-          </div>
-        </div>
-      )}
-      {msg && <p className={`text-xs mt-2 break-words ${msg.type === "ok" ? "text-green-600" : "text-red-500"}`}>{msg.text}</p>}
-    </div>
-  );
-}
-
 // ─── Goalie scoring (A/B/C + categories) ────────────────────────────────────
-function GoalieScoringStep({ catId, scoring, setScoring }) {
+function GoalieScoringStep({ orgId, scoring, setScoring }) {
+  const [inh, setInh] = useState(null);
+  useEffect(() => { if (!orgId) return; fetch(`/api/organizations/${orgId}/goalie-provider`).then(r => r.json()).then(setInh).catch(() => {}); }, [orgId]);
   const addGoalieCategory = () => setScoring(prev => ({ ...prev, goalie_categories: [...(prev.goalie_categories || []), { name: "" }] }));
   const removeGoalieCategory = (i) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.filter((_, idx) => idx !== i) }));
   const updateGoalieCategory = (i, v) => setScoring(prev => ({ ...prev, goalie_categories: prev.goalie_categories.map((c, idx) => idx === i ? { ...c, name: v } : c) }));
@@ -307,31 +237,24 @@ function GoalieScoringStep({ catId, scoring, setScoring }) {
   const removeGoalieSkillCat = (i) => setScoring(prev => ({ ...prev, goalie_skills_categories: prev.goalie_skills_categories.filter((_, idx) => idx !== i) }));
   const updateGoalieSkillCat = (i, v) => setScoring(prev => ({ ...prev, goalie_skills_categories: prev.goalie_skills_categories.map((c, idx) => idx === i ? { ...c, name: v } : c) }));
 
-  const OPTIONS = [
-    { value: "association", title: "A. Association evaluates in-house", desc: "Your own admins/directors designate the goalie evaluators." },
-    { value: "service_provider", title: "B. The Service Provider evaluates", desc: "The service provider running this evaluation also handles goalies." },
-    { value: "goalie_service_provider", title: "C. A Goalie Service Provider evaluates", desc: "A goalie-only company runs the goalie session with their own evaluators." },
-  ];
+  const mode = inh?.goalie_eval_mode || "association";
+  const MODE_LABEL = { association: "the association, in-house", service_provider: "the service provider", goalie_service_provider: "a goalie service provider" };
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-1">Goalie Scoring Configuration</h2>
-      <p className="text-sm text-gray-500 mb-6">Who evaluates the goalies, and how they're scored.</p>
+      <p className="text-sm text-gray-500 mb-6">How goalies are scored. <b>Who</b> evaluates them is set once on the association dashboard and applies to every category.</p>
 
-      <div className="space-y-2 mb-8">
-        {OPTIONS.map(o => (
-          <button key={o.value} onClick={() => setScoring(prev => ({ ...prev, goalie_eval_mode: o.value }))} className={`w-full text-left p-4 rounded-xl border-2 transition-all ${scoring.goalie_eval_mode === o.value ? "border-accent bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-800">{o.title}</span>
-              {scoring.goalie_eval_mode === o.value && <Check size={16} className="text-accent" />}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{o.desc}</p>
-          </button>
-        ))}
-        {scoring.goalie_eval_mode === "goalie_service_provider" && <GoalieProviderPicker catId={catId} scoring={scoring} setScoring={setScoring} />}
+      <div className="mb-8 rounded-xl border-2 border-accent/30 bg-accent-soft p-4">
+        <div className="flex items-center gap-2 text-sm">
+          <Shield size={15} className="text-accent flex-shrink-0" />
+          <span className="text-gray-800">Goalies are evaluated by <b>{MODE_LABEL[mode]}</b>{inh?.linked ? <> · <b>{inh.linked.name}</b></> : null}.</span>
+        </div>
+        {mode === "goalie_service_provider" && !inh?.linked && <p className="text-xs text-amber-600 mt-1.5">No goalie service provider connected yet — connect one on the association dashboard.</p>}
+        <a href={`/association/dashboard?org=${orgId}`} className="text-xs text-accent hover:underline font-medium mt-1.5 inline-block">Change this on the association dashboard →</a>
       </div>
 
-      {scoring.goalie_eval_mode !== "goalie_service_provider" && (
+      {mode !== "goalie_service_provider" && (
         <div className="flex items-center justify-between gap-3 mb-8 border border-gray-200 rounded-xl p-4">
           <div>
             <label className="text-sm font-semibold text-gray-700">Let skater evaluators also score goalies</label>
@@ -724,7 +647,6 @@ function SetupWizard() {
       }
       if (step === 4) {
         await post({ step: "goalie_scoring", data: {
-          goalie_eval_mode: scoring.goalie_eval_mode,
           players_eval_goalies: scoring.players_eval_goalies,
           goalie_config: goalieConfigPayload(),
           goalie_categories: scoring.goalie_categories,
@@ -761,7 +683,7 @@ function SetupWizard() {
           {step === 1 && <SessionsStep title="Configure Skater Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />}
           {step === 2 && <SessionsStep title="Configure Goalie Sessions" subtitle="Goalies run their own session set. Default is a Goalie Skills session then 3 scrimmages — for rep tryouts, delete Goalie Skills and run scrimmages. Weights must total 100%." sessions={scoring.goalie_sessions} setSessions={setGoalieSessions} typeOptions={GOALIE_SESSION_TYPES} addType="scrimmage" />}
           {step === 3 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
-          {step === 4 && <GoalieScoringStep catId={catId} scoring={scoring} setScoring={setScoring} />}
+          {step === 4 && <GoalieScoringStep orgId={orgId} scoring={scoring} setScoring={setScoring} />}
           {step === 5 && <AthletesStep catId={catId} categoryName={catName} />}
           {step === 6 && <ScheduleStep catId={catId} />}
           {step === 7 && <ReviewStep catName={catName} sessions={sessions} scoring={scoring} />}
