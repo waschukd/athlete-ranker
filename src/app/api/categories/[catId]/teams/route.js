@@ -118,10 +118,11 @@ export async function POST(request, { params }) {
         const defense = skaters.filter(a => a.position === 'defense');
         const other = skaters.filter(a => !a.position || (a.position !== 'forward' && a.position !== 'defense'));
 
-        // Calculate F:D ratio per team (3:2)
+        // Defense per team ≈ 1/3 of the roster, defaulting toward 5 and hard-capped
+        // at 6 (a team of 15 → 5 D + 10 F). Forwards fill whatever's left.
         const totalPerTeam = teamConfig.map(t => t.size);
-        const fPerTeam = totalPerTeam.map(s => Math.round(s * 3 / 5));
-        const dPerTeam = totalPerTeam.map((s, i) => s - fPerTeam[i]);
+        const dPerTeam = totalPerTeam.map(s => Math.min(6, Math.round(s / 3)));
+        const fPerTeam = totalPerTeam.map((s, i) => s - dPerTeam[i]);
 
         // Assign forwards
         const fAssign = assignAthletes(forwards, teamConfig, method, snake_range, fPerTeam);

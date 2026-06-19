@@ -32,8 +32,6 @@ function TeamGeneratorInner() {
     return [{ name: "Team A", size: 16 }, { name: "Team B", size: 16 }];
   });
   const [method, setMethod] = useState("straight");
-  const [useRange, setUseRange] = useState(false);
-  const [snakeRange, setSnakeRange] = useState({ from: 1, to: 32 });
   const [positionBalanced, setPositionBalanced] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -83,7 +81,7 @@ function TeamGeneratorInner() {
         action: "generate",
         teams: teamConfig.map(t => ({ ...t, size: parseInt(t.size) })),
         method,
-        snake_range: useRange ? snakeRange : null,
+        snake_range: null,
         position_balanced: positionBalanced,
       }),
     });
@@ -273,48 +271,11 @@ function TeamGeneratorInner() {
                 </button>
               </div>
 
-              {/* Range selector */}
-              <div className="border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">Apply to specific range only</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {useRange
-                        ? `${method === "snake" ? "Snake" : "Straight cut"} picks ${snakeRange.from}–${snakeRange.to}, remaining players straight cut`
-                        : `${method === "snake" ? "Snake" : "Straight cut"} applies to all ${totalAthletes} skaters`}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setUseRange(!useRange)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${useRange ? "bg-[#0b5cd6]" : "bg-gray-200"}`}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${useRange ? "translate-x-6" : "translate-x-1"}`} />
-                  </button>
-                </div>
-                {useRange && (
-                  <div className="flex items-center gap-3 mt-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">From pick</span>
-                      <input type="number" value={snakeRange.from} min={1} max={totalAthletes}
-                        onChange={e => setSnakeRange(r => ({ ...r, from: parseInt(e.target.value) || 1 }))}
-                        className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">to pick</span>
-                      <input type="number" value={snakeRange.to} min={1} max={totalAthletes}
-                        onChange={e => setSnakeRange(r => ({ ...r, to: parseInt(e.target.value) || totalAthletes }))}
-                        className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
-                    </div>
-                    <span className="text-xs text-gray-400">of {totalAthletes}</span>
-                  </div>
-                )}
-              </div>
-
               {/* Position balancing */}
               <div className="flex items-center justify-between border border-gray-200 rounded-xl p-4">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Position Balanced</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Fill Forward and Defense slots separately using 3:2 F:D ratio. Goalies assigned manually.</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Fill Forward and Defense slots separately — about 5 defense per team (capped at 6), the rest forwards. E.g. a team of 15 → top 10 F + top 5 D. Goalies assigned manually.</div>
                 </div>
                 <button
                   onClick={() => setPositionBalanced(!positionBalanced)}
