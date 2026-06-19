@@ -241,7 +241,10 @@ function Dashboard() {
   // ── Needs-attention items (association-wide, derived from data on hand) ──
   const needSetup = categories.filter(c => !c.setup_complete);
   const understaffed = upcoming.filter(s => (parseInt(s.evaluators_required) || 0) > 0 && (parseInt(s.signups) || 0) < (parseInt(s.evaluators_required) || 0));
+  // Evaluations complete = setup done, has sessions, and every session is marked complete → time to build teams.
+  const readyForTeams = categories.filter(c => c.setup_complete && parseInt(c.cs_total) > 0 && parseInt(c.cs_complete) === parseInt(c.cs_total));
   const attention = [
+    ...readyForTeams.map(c => ({ icon: Trophy, tone: "emerald", text: `${c.name} evaluations are complete — it's time to make teams`, href: `/association/dashboard/category/${c.id}/teams?org=${orgId}` })),
     !serviceProvider && allPending.length > 0 && { icon: UserCheck, tone: "amber", text: `${allPending.length} evaluator${allPending.length === 1 ? "" : "s"} awaiting approval`, anchor: "approvals" },
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
     understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
@@ -639,13 +642,18 @@ function Dashboard() {
                   <div className="divide-y divide-gray-100">
                     {attention.map((a, i) => {
                       const Icon = a.icon;
-                      return (
-                        <button key={i} onClick={() => jumpTo(a.anchor)} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-gray-50 transition-colors">
-                          <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0"><Icon size={14} className="text-amber-600" /></span>
+                      const tone = a.tone === "emerald" ? { box: "bg-emerald-50", icon: "text-emerald-600" } : { box: "bg-amber-50", icon: "text-amber-600" };
+                      const inner = (
+                        <>
+                          <span className={`w-7 h-7 rounded-lg ${tone.box} flex items-center justify-center flex-shrink-0`}><Icon size={14} className={tone.icon} /></span>
                           <span className="flex-1 text-sm text-gray-700">{a.text}</span>
                           <ChevronRight size={15} className="text-gray-300" />
-                        </button>
+                        </>
                       );
+                      const cls = "w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-gray-50 transition-colors";
+                      return a.href
+                        ? <a key={i} href={a.href} className={cls}>{inner}</a>
+                        : <button key={i} onClick={() => jumpTo(a.anchor)} className={cls}>{inner}</button>;
                     })}
                   </div>
                 )}

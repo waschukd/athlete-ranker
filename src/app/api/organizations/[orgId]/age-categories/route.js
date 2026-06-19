@@ -14,6 +14,8 @@ export async function GET(request, { params }) {
       SELECT ac.*,
         COUNT(DISTINCT a.id) as athletes_count,
         COUNT(DISTINCT es.id) as sessions_count,
+        (SELECT COUNT(*) FROM category_sessions cs WHERE cs.age_category_id = ac.id) AS cs_total,
+        (SELECT COUNT(*) FROM category_sessions cs WHERE cs.age_category_id = ac.id AND cs.status = 'complete') AS cs_complete,
         ac.setup_complete
       FROM age_categories ac
       LEFT JOIN athletes a ON a.age_category_id = ac.id AND a.is_active = true
