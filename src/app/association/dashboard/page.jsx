@@ -575,13 +575,17 @@ function Dashboard() {
                             <span className="text-sm font-semibold text-ink truncate">{s.category_name}</span>
                             <span className="text-xs text-gray-400 font-mono whitespace-nowrap">S{s.session_number}{s.group_number ? `·G${s.group_number}` : ""}</span>
                           </div>
-                          {s.session_type && (
-                            <div className="mt-1">
-                              <span className="inline-block text-[11px] font-semibold uppercase tracking-wide text-accent bg-accent-soft rounded px-1.5 py-0.5">
-                                {{ testing: "Testing", scrimmage: "Scrimmage", skills: "Skills", goalie_skills: "Goalie Skills" }[s.session_type] || s.session_type.replace(/_/g, " ")}
-                              </span>
-                            </div>
-                          )}
+                          {(() => {
+                            // A goalie-only slot (goalie evaluators, no player evaluators) is a Goalie Skills session,
+                            // regardless of the skater session type that shares the session number.
+                            const goalieOnly = (parseInt(s.goalie_evaluators_required) || 0) > 0 && (parseInt(s.evaluators_required) || 0) === 0;
+                            const label = goalieOnly ? "Goalie Skills" : ({ testing: "Testing", scrimmage: "Scrimmage", skills: "Skills", goalie_skills: "Goalie Skills" }[s.session_type] || (s.session_type ? s.session_type.replace(/_/g, " ") : null));
+                            return label ? (
+                              <div className="mt-1">
+                                <span className="inline-block text-[11px] font-semibold uppercase tracking-wide text-accent bg-accent-soft rounded px-1.5 py-0.5">{label}</span>
+                              </div>
+                            ) : null;
+                          })()}
                           <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 flex-wrap">
                             <span className="flex items-center gap-1"><Calendar size={11} />{fmtDate(s.scheduled_date)}</span>
                             {s.start_time && <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(s.start_time)}</span>}

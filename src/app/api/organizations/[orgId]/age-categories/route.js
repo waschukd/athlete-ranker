@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
     try {
       upcoming = await sql`
         SELECT es.id, es.scheduled_date, es.start_time, es.end_time, es.location,
-          es.session_number, es.group_number, es.evaluators_required,
+          es.session_number, es.group_number, es.evaluators_required, es.goalie_evaluators_required,
           ac.name AS category_name, cs.session_type,
           COUNT(ess.id) FILTER (WHERE ess.status = 'signed_up') AS signups
         FROM evaluation_schedule es
