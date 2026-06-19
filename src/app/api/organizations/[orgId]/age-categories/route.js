@@ -32,15 +32,16 @@ export async function GET(request, { params }) {
       upcoming = await sql`
         SELECT es.id, es.scheduled_date, es.start_time, es.end_time, es.location,
           es.session_number, es.group_number, es.evaluators_required,
-          ac.name AS category_name,
+          ac.name AS category_name, cs.session_type,
           COUNT(ess.id) FILTER (WHERE ess.status = 'signed_up') AS signups
         FROM evaluation_schedule es
         JOIN age_categories ac ON ac.id = es.age_category_id
+        LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
         LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id
         WHERE ac.organization_id = ${params.orgId}
           AND es.scheduled_date >= CURRENT_DATE
           AND es.status = 'scheduled'
-        GROUP BY es.id, ac.name
+        GROUP BY es.id, ac.name, cs.session_type
         ORDER BY es.scheduled_date ASC, es.start_time ASC
         LIMIT 8
       `;
