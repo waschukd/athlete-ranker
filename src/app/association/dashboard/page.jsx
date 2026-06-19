@@ -221,6 +221,7 @@ function Dashboard() {
   const serviceProvider = orgData?.service_provider || null;
   const categories = categoriesData?.categories || [];
   const upcoming = categoriesData?.upcoming || [];
+  const upcomingTotal = categoriesData?.upcomingTotal ?? upcoming.length;
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
 
@@ -580,7 +581,7 @@ function Dashboard() {
                   <div className="py-8 px-5 text-center text-sm text-gray-400">No upcoming sessions scheduled.</div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {upcoming.map(s => {
+                    {upcoming.slice(0, 3).map(s => {
                       const spotsOpen = (parseInt(s.evaluators_required) || 0) - (parseInt(s.signups) || 0);
                       const understaff = (parseInt(s.evaluators_required) || 0) > 0 && spotsOpen > 0;
                       return (
@@ -598,6 +599,11 @@ function Dashboard() {
                         </div>
                       );
                     })}
+                    {upcomingTotal > 3 && (
+                      <div className="px-5 py-2.5 bg-gray-50 text-center text-xs font-medium text-gray-500">
+                        +{upcomingTotal - 3} more upcoming session{upcomingTotal - 3 === 1 ? "" : "s"}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -152,11 +152,11 @@ body {
 
 /* legibility: small text reads too small/dim on dark — nudge size up a touch.
    Big bold headings (text-base and larger) are intentionally left alone. */
-[data-theme="premium"] .text-xs      { font-size:0.825rem; line-height:1.15rem; }
-[data-theme="premium"] .text-sm      { font-size:0.95rem;  line-height:1.4rem; }
-[data-theme="premium"] .text-\[9px\]  { font-size:10.5px; }
-[data-theme="premium"] .text-\[10px\] { font-size:11.5px; }
-[data-theme="premium"] .text-\[11px\] { font-size:12.5px; }
+[data-theme="premium"] .text-xs,      [data-theme="premium-light"] .text-xs      { font-size:0.825rem; line-height:1.15rem; }
+[data-theme="premium"] .text-sm,      [data-theme="premium-light"] .text-sm      { font-size:0.95rem;  line-height:1.4rem; }
+[data-theme="premium"] .text-\[9px\],  [data-theme="premium-light"] .text-\[9px\]  { font-size:10.5px; }
+[data-theme="premium"] .text-\[10px\], [data-theme="premium-light"] .text-\[10px\] { font-size:11.5px; }
+[data-theme="premium"] .text-\[11px\], [data-theme="premium-light"] .text-\[11px\] { font-size:12.5px; }
 
 /* logo: premium screens use the two-tone gold badge (public/mark-gold.svg)
    directly, so no filter recolor is needed. */

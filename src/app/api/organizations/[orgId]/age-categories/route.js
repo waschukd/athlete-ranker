@@ -46,7 +46,22 @@ export async function GET(request, { params }) {
       `;
     } catch { upcoming = []; }
 
-    return NextResponse.json({ categories, upcoming });
+    // True count of all upcoming sessions (the list above is capped) so the
+    // dashboard can show "next 3" + an accurate "N more" ticker.
+    let upcomingTotal = upcoming.length;
+    try {
+      const [row] = await sql`
+        SELECT COUNT(*)::int AS n
+        FROM evaluation_schedule es
+        JOIN age_categories ac ON ac.id = es.age_category_id
+        WHERE ac.organization_id = ${params.orgId}
+          AND es.scheduled_date >= CURRENT_DATE
+          AND es.status = 'scheduled'
+      `;
+      upcomingTotal = row?.n ?? upcoming.length;
+    } catch { /* keep fallback */ }
+
+    return NextResponse.json({ categories, upcoming, upcomingTotal });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
