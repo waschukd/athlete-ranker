@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sideline Star — Player vs Goalie evaluation</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0b0d; --card:#141417; --card2:#1b1b1f; --line:#2a2a30;
+    --ink:#f4f4f5; --muted:#a1a1aa; --faint:#71717a; --gold:#cda434; --gold-soft:rgba(205,164,52,0.14);
+    --green:#74c25f; --amber:#e0a93f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',sans-serif;-webkit-font-smoothing:antialiased;padding:28px 20px 60px;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  .display{font-family:'Archivo',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  h1{font-family:'Archivo',sans-serif;font-weight:900;letter-spacing:-0.5px;font-size:30px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 26px;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;}
+  .phead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .chip{font-family:'Archivo',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;padding:5px 10px;border-radius:99px;}
+  .chip.player{background:rgba(116,194,95,0.14);color:var(--green);}
+  .chip.goalie{background:var(--gold-soft);color:var(--gold);}
+  .phead .eval{font-size:12px;color:var(--faint);}
+  /* athlete card */
+  .ath{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--card2);}
+  .jersey{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Archivo';font-weight:900;font-size:20px;background:#000;border:1px solid var(--line);}
+  .ath .nm{font-family:'Archivo';font-weight:800;font-size:18px;line-height:1.1;}
+  .ath .pos{font-size:12px;color:var(--muted);margin-top:2px;text-transform:capitalize;}
+  .ath .prog{margin-left:auto;text-align:right;}
+  .ath .prog b{font-family:'Archivo';font-size:20px;color:var(--gold);}
+  .ath .prog span{display:block;font-size:10px;color:var(--faint);letter-spacing:0.12em;text-transform:uppercase;}
+  /* category rows */
+  .cats{padding:8px 18px 4px;}
+  .row{padding:13px 0;border-top:1px solid var(--line);}
+  .row:first-child{border-top:none;}
+  .row .cn{font-family:'Archivo';font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+  .row .cn .dot{width:6px;height:6px;border-radius:99px;background:var(--gold);}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;}
+  .b{flex:1;min-width:30px;height:38px;border-radius:9px;border:1px solid var(--line);background:#000;color:var(--muted);font-family:'JetBrains Mono';font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:default;}
+  .b.sel{background:var(--gold);border-color:var(--gold);color:#141414;box-shadow:0 4px 14px -6px rgba(205,164,52,0.7);}
+  /* notes + footer */
+  .notes{margin:6px 18px 0;}
+  .notes label{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);}
+  .notes .box{margin-top:6px;background:#000;border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:13px;color:var(--muted);line-height:1.5;min-height:54px;}
+  .foot{padding:14px 18px 18px;}
+  .next{width:100%;padding:13px;border-radius:12px;border:none;background:var(--gold);color:#141414;font-family:'Archivo';font-weight:800;font-size:14px;cursor:default;}
+  .note{margin-top:26px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;font-size:13px;color:var(--muted);line-height:1.6;}
+  .note b{color:var(--ink);}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Player vs Goalie evaluation</h1>
+  <p class="sub">Identical scoring mechanics — same screen, same flow. The only differences: a <b style="color:var(--gold)">goalie evaluator</b> only ever sees goalies, and grades the 5 goalie-specific categories instead of the 4 skater skills.</p>
+
+  <div class="cols">
+
+    <!-- PLAYER -->
+    <div class="panel">
+      <div class="phead">
+        <span class="chip player">Player evaluation</span>
+        <span class="eval">Evaluator: skater · Session 3 · Scrimmage</span>
+      </div>
+      <div class="ath">
+        <div class="jersey">14</div>
+        <div>
+          <div class="nm">Connor Olson</div>
+          <div class="pos">Forward</div>
+        </div>
+        <div class="prog"><b>2 / 4</b><span>scored</span></div>
+      </div>
+      <div class="cats">
+        <div class="row"><div class="cn"><span class="dot"></span>Skating</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b sel">8</span><span class="b">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Puck Skills</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b sel">7</span><span class="b">8</span><span class="b">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Effort / Compete</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b">8</span><span class="b">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Hockey IQ</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b">8</span><span class="b">9</span><span class="b">10</span></div></div>
+      </div>
+      <div class="notes"><label>Evaluator note (optional)</label><div class="box">Drives play and wins his share of battles…</div></div>
+      <div class="foot"><button class="next">Next player →</button></div>
+    </div>
+
+    <!-- GOALIE -->
+    <div class="panel">
+      <div class="phead">
+        <span class="chip goalie">Goalie evaluation</span>
+        <span class="eval">Evaluator: goalie · Session 1 · Goalie session</span>
+      </div>
+      <div class="ath">
+        <div class="jersey" style="color:var(--gold)">31</div>
+        <div>
+          <div class="nm">Devon Charest</div>
+          <div class="pos">Goalie</div>
+        </div>
+        <div class="prog"><b>3 / 4</b><span>scored</span></div>
+      </div>
+      <div class="cats">
+        <div class="row"><div class="cn"><span class="dot"></span>Skating / Balance / Agility</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b sel">8</span><span class="b">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Positioning / Angles / Net Coverage</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b">8</span><span class="b sel">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Feet / Hands / Stick / Rebounds</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b sel">7</span><span class="b">8</span><span class="b">9</span><span class="b">10</span></div></div>
+        <div class="row"><div class="cn"><span class="dot"></span>Anticipation / Reading the Play</div><div class="btns"><span class="b">5</span><span class="b">6</span><span class="b">7</span><span class="b">8</span><span class="b">9</span><span class="b">10</span></div></div>
+      </div>
+      <div class="notes"><label>Evaluator note (optional)</label><div class="box">Square to shooters, controls rebounds to the corners…</div></div>
+      <div class="foot"><button class="next">Next goalie →</button></div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <b>What's the same:</b> the scoring screen, the per-category 1–10 buttons (your category scale/increment), notes, jersey check-in, voice/keyboard entry, and the live rankings that result.<br>
+    <b>What's different:</b> a goalie evaluator's roster contains only goalies and shows the 5 goalie categories; a skater evaluator's roster contains only skaters and shows the 4 skater skills. (A category toggle can optionally let skater evaluators score goalies too — off by default.)
+    <div class="legend">
+      <span>● Player categories: Skating · Puck Skills · Effort/Compete · Hockey IQ</span>
+      <span>● Goalie categories (standard template, 4): Skating/Balance/Agility · Positioning/Angles/Net Coverage · Feet/Hands/Stick/Rebounds · Anticipation/Reading the Play</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

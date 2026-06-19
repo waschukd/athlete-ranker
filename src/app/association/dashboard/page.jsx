@@ -138,6 +138,7 @@ function Dashboard() {
   const [inviteName, setInviteName] = useState("");
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [goalieEvalOpen, setGoalieEvalOpen] = useState(false);
   // Goalie service provider invite (goalies are evaluated separately)
   const [gpOpen, setGpOpen] = useState(false);
   const [gpName, setGpName] = useState("");
@@ -326,6 +327,10 @@ function Dashboard() {
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white font-semibold text-sm hover:opacity-90 transition-opacity">
             <Plus size={16} /> Add Category
           </a>
+          <button onClick={() => setGoalieEvalOpen(true)}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
+            <Shield size={15} /> Goalie Evaluation
+          </button>
           <button onClick={() => { setShowInvite(true); setInviteResult(null); }}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
             <Mail size={15} /> Invite Admin
@@ -478,8 +483,7 @@ function Dashboard() {
                 )}
               </section>
 
-              {/* Goalie evaluation — set org-wide, inherited by every category */}
-              <GoalieEvalCard orgId={orgId} />
+              {/* Goalie evaluation lives in the sidebar (Goalie Evaluation button) → modal below */}
 
               {/* Join Codes + Pending Approvals — hidden if association has an SP */}
               {joinCodeData && !serviceProvider && (
@@ -657,6 +661,20 @@ function Dashboard() {
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {goalieEvalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setGoalieEvalOpen(false)}>
+          <div className="w-full max-w-2xl mt-10 mb-10">
+            <div className="bg-white rounded-t-2xl flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Settings</h2>
+              <button onClick={() => setGoalieEvalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="bg-white rounded-b-2xl shadow-xl overflow-hidden">
+              <GoalieEvalCard orgId={orgId} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {showInvite && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowInvite(false)}>
