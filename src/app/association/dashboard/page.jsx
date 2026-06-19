@@ -335,7 +335,6 @@ function Dashboard() {
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
             <Mail size={15} /> Invite Admin
           </button>
-          <ThemeToggle theme={theme} onToggle={toggleTheme} className="w-full" />
           <button onClick={signOut} className="w-full inline-flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1.5">
             <LogOut size={14} /> Sign out
           </button>
@@ -387,6 +386,10 @@ function Dashboard() {
                   <span><b className="text-ink">{totalSessions}</b> sessions</span>
                 </div>
               )}
+            </div>
+            {/* Desktop: theme toggle top-right (consistent with other pages) */}
+            <div className="hidden lg:flex items-center">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
             {/* Mobile-only actions (sidebar holds these on desktop) */}
             <div className="flex lg:hidden items-center gap-2 flex-wrap">
