@@ -5,6 +5,10 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { hashPassword } from "@/lib/password";
 import { FROM } from "@/lib/email";
 
+// Guard against bad route params (e.g. "/api/categories/null/...") reaching an
+// integer column — parse to a positive int or treat as missing.
+const intId = (v) => { const n = parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
+
 async function sendEmail(to, subject, html) {
   if (!process.env.RESEND_API_KEY) return;
   await fetch("https://api.resend.com/emails", {
@@ -16,27 +20,33 @@ async function sendEmail(to, subject, html) {
 
 export async function GET(request, { params }) {
   // Get existing directors for this category
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { catId } = params;
-  const auth = await authorizeCategoryAccess(session, params.catId);
-  if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const directors = await sql`
-    SELECT u.id, u.name, u.email, da.status, da.created_at
-    FROM director_assignments da
-    JOIN users u ON u.id = da.user_id
-    WHERE da.age_category_id = ${catId}
-    ORDER BY da.created_at DESC
-  `;
-  return NextResponse.json({ directors });
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const catId = intId(params.catId);
+    if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const directors = await sql`
+      SELECT u.id, u.name, u.email, da.status, da.created_at
+      FROM director_assignments da
+      JOIN users u ON u.id = da.user_id
+      WHERE da.age_category_id = ${catId}
+      ORDER BY da.created_at DESC
+    `;
+    return NextResponse.json({ directors });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request, { params }) {
   try {
-    const { catId } = params;
+    const catId = intId(params.catId);
+    if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const auth = await authorizeCategoryAccess(session, params.catId);
+    const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { email, name } = await request.json();
@@ -198,9 +208,15 @@ export async function POST(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { catId } = params;
+    const catId = intId(params.catId);
+    if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("user_id");
+    const userId = intId(searchParams.get("user_id"));
+    if (!userId) return NextResponse.json({ error: "Invalid user" }, { status: 400 });
     await sql`DELETE FROM director_assignments WHERE user_id = ${userId} AND age_category_id = ${catId}`;
     return NextResponse.json({ success: true });
   } catch (error) {
