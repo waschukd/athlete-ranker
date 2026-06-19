@@ -80,17 +80,23 @@ export async function buildAthleteReport(catId, athleteId) {
     GROUP BY cs.scoring_category_id, sc.name, sc.display_order, sc.applies_to
     ORDER BY sc.display_order
   `;
-  const topCount = Math.max(1, Math.ceil(totalAthletes * 0.25));
-  const topIds = rankPool.filter(a => a.rank && a.rank <= topCount).map(a => a.id);
+  // Group "best" per category = the single highest individual athlete's average
+  // for that category — NOT the top-quartile average (an individual can beat a
+  // quartile mean, which made a top player's bar exceed "best"). With this, the
+  // player's bar is always ≤ best, and equals it when the player is the best.
   let topMap = {};
-  if (topIds.length) {
-    const topAvg = await sql`
-      SELECT cs.scoring_category_id, AVG(cs.score)::float AS avg
-      FROM category_scores cs
-      WHERE cs.age_category_id = ${catId} AND cs.evaluator_id <> ALL(${coachIds}) AND cs.athlete_id = ANY(${topIds})
-      GROUP BY cs.scoring_category_id
+  {
+    const bestRows = await sql`
+      SELECT scoring_category_id, MAX(athlete_avg)::float AS best
+      FROM (
+        SELECT cs.scoring_category_id, cs.athlete_id, AVG(cs.score) AS athlete_avg
+        FROM category_scores cs
+        WHERE cs.age_category_id = ${catId} AND cs.evaluator_id <> ALL(${coachIds})
+        GROUP BY cs.scoring_category_id, cs.athlete_id
+      ) per_athlete
+      GROUP BY scoring_category_id
     `;
-    topMap = Object.fromEntries(topAvg.map(r => [r.scoring_category_id, r.avg]));
+    topMap = Object.fromEntries(bestRows.map(r => [r.scoring_category_id, r.best]));
   }
   const playerScores = await sql`
     SELECT cs.scoring_category_id, cs.score, cs.evaluator_id, cs.session_number

@@ -115,6 +115,14 @@ export default function RosterImport({ catId, categoryName, onImported }) {
         <Check size={18} className="text-green-600 mt-0.5" />
         <div>
           <div className="font-semibold text-green-800">Imported {result.imported ?? 0} athlete{(result.imported ?? 0) === 1 ? "" : "s"}{result.updated ? `, updated ${result.updated}` : ""}{result.skipped ? `, skipped ${result.skipped}` : ""}.</div>
+          {Array.isArray(result.errors) && result.errors.length > 0 && (
+            <div className="mt-2 text-xs text-amber-700">
+              <div className="font-semibold">{result.errors.length} row{result.errors.length === 1 ? "" : "s"} couldn't be saved:</div>
+              <ul className="list-disc ml-4 mt-0.5 max-h-32 overflow-y-auto">
+                {result.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
           <button onClick={reset} className="mt-2 text-sm text-accent hover:underline font-medium">Import another file</button>
         </div>
       </div>
