@@ -233,7 +233,7 @@ function Dashboard() {
     ...readyForTeams.map(c => ({ icon: Trophy, tone: "emerald", text: `${c.name} evaluations are complete — it's time to make teams`, href: `/association/dashboard/category/${c.id}/teams?org=${orgId}` })),
     !serviceProvider && allPending.length > 0 && { icon: UserCheck, tone: "amber", text: `${allPending.length} evaluator${allPending.length === 1 ? "" : "s"} awaiting approval`, anchor: "approvals" },
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
-    understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
+    !serviceProvider && understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
   ].filter(Boolean);
 
   const jumpTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -580,7 +580,7 @@ function Dashboard() {
                             {s.start_time && <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(s.start_time)}</span>}
                             {s.location && <span className="flex items-center gap-1 truncate"><MapPin size={11} />{s.location}</span>}
                           </div>
-                          {understaff && <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {spotsOpen} evaluator{spotsOpen === 1 ? "" : "s"}</div>}
+                          {!serviceProvider && understaff && <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {spotsOpen} evaluator{spotsOpen === 1 ? "" : "s"}</div>}
                         </div>
                       );
                     })}
