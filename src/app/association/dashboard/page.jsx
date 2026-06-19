@@ -201,7 +201,10 @@ function Dashboard() {
 
   const org = orgData?.organization;
   const serviceProvider = orgData?.service_provider || null;
-  const categories = categoriesData?.categories || [];
+  // Order categories by age group (U9 before U11AA), then by name — so the grid
+  // flows youngest → oldest regardless of when each was created.
+  const ageKey = (name) => { const m = String(name || "").match(/\d+/); return m ? parseInt(m[0], 10) : 999; };
+  const categories = [...(categoriesData?.categories || [])].sort((a, b) => ageKey(a.name) - ageKey(b.name) || String(a.name).localeCompare(String(b.name)));
   const upcoming = categoriesData?.upcoming || [];
   const upcomingTotal = categoriesData?.upcomingTotal ?? upcoming.length;
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
