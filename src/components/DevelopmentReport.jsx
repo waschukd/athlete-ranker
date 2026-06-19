@@ -247,10 +247,14 @@ export default function DevelopmentReport({ data }) {
               const havePos = avg != null && best != null && avg !== best;
               const pos = (v) => havePos ? Math.max(7, Math.min(97, 12 + ((avg - v) / (avg - best)) * 76)) : 50;
               const info = testInfo(t.test_name);
-              const dot = (left, pip, labCol, lab, val, ring) => (
+              // When the player IS the best, the You/Best markers land on the same
+              // spot; when they're very close their labels collide. closeToBest hides
+              // the Best label in that case (the badge already shows the gap).
+              const closeToBest = best != null && !youBest && Math.abs(pos(you) - pos(best)) < 14;
+              const dot = (left, pip, labCol, lab, val, ring, showLabel = true) => (
                 <div style={{ position: "absolute", left: `${left}%`, top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <span style={{ width: 13, height: 13, borderRadius: "50%", background: pip, boxShadow: ring ? `0 0 0 4px ${ring}` : "none" }} />
-                  <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, lineHeight: 1.25, textAlign: "center", whiteSpace: "nowrap", color: labCol }}>{lab}<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(val)}</b></span>
+                  {showLabel && <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, lineHeight: 1.25, textAlign: "center", whiteSpace: "nowrap", color: labCol }}>{lab}<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(val)}</b></span>}
                 </div>
               );
               return (
@@ -270,8 +274,14 @@ export default function DevelopmentReport({ data }) {
                       <div style={{ position: "absolute", left: "2%", right: "2%", top: 6, height: 3, background: "rgba(255,255,255,0.13)", borderRadius: 99 }} />
                       {havePos && <div style={{ position: "absolute", top: 6, left: `${pos(avg)}%`, width: `${Math.max(0, pos(best) - pos(avg))}%`, height: 3, background: `linear-gradient(90deg, rgba(205,164,52,.2), ${GOLD})`, borderRadius: 99 }} />}
                       {avg != null && dot(pos(avg), "#5f636c", GRAY, "Avg", avg)}
-                      {dot(pos(you), "#ffffff", "#ffffff", "You", you, "rgba(255,255,255,.1)")}
-                      {best != null && dot(pos(best), GOLD, GOLD, "Best", best, "rgba(205,164,52,0.13)")}
+                      {youBest ? (
+                        dot(pos(you), GOLD, GOLD, "You", you, "rgba(205,164,52,0.22)")
+                      ) : (
+                        <>
+                          {dot(pos(you), "#ffffff", "#ffffff", "You", you, "rgba(255,255,255,.1)")}
+                          {best != null && dot(pos(best), GOLD, GOLD, "Best", best, "rgba(205,164,52,0.13)", !closeToBest)}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
