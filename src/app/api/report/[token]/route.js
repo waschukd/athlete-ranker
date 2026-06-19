@@ -75,9 +75,11 @@ export async function GET(request, { params }) {
       return NextResponse.json({
         ...base,
         skillProfile: report.skillProfile,
+        goalieSkillsProfile: report.goalieSkillsProfile,
         testingProfile: report.testingProfile,
         progress: report.progress,
         notes: report.notes,
+        serviceProvider: report.serviceProvider,
         trainingProviders: report.trainingProviders,
       });
     }
