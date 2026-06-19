@@ -61,8 +61,8 @@ const DEFAULT_GOALIE_SKILLS_CATS = [
 
 const STEPS = [
   { id: 1, label: "Skater Sessions", icon: Trophy },
-  { id: 2, label: "Goalie Sessions", icon: Shield },
-  { id: 3, label: "Skater Scoring", icon: Settings },
+  { id: 2, label: "Skater Scoring", icon: Settings },
+  { id: 3, label: "Goalie Sessions", icon: Shield },
   { id: 4, label: "Goalie Scoring", icon: Shield },
   { id: 5, label: "Athletes", icon: Users },
   { id: 6, label: "Schedule", icon: Calendar },
@@ -638,12 +638,12 @@ function SetupWizard() {
         await post({ step: "sessions", data: { sessions } });
       }
       if (step === 2) {
+        await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
+      }
+      if (step === 3) {
         const gTotal = scoring.goalie_sessions.reduce((t, s) => t + Number(s.weight_percentage || 0), 0);
         if (Math.round(gTotal) !== 100) { setError("Goalie session weights must total 100%."); setSaving(false); return; }
         await post({ step: "goalie_sessions", data: { goalie_config: goalieConfigPayload() } });
-      }
-      if (step === 3) {
-        await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
       }
       if (step === 4) {
         await post({ step: "goalie_scoring", data: {
@@ -681,8 +681,8 @@ function SetupWizard() {
         <StepIndicator currentStep={step} skaterValid={skaterValid} onJump={setStep} />
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
           {step === 1 && <SessionsStep title="Configure Skater Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />}
-          {step === 2 && <SessionsStep title="Configure Goalie Sessions" subtitle="Goalies run their own session set. Default is a Goalie Skills session then 3 scrimmages — for rep tryouts, delete Goalie Skills and run scrimmages. Weights must total 100%." sessions={scoring.goalie_sessions} setSessions={setGoalieSessions} typeOptions={GOALIE_SESSION_TYPES} addType="scrimmage" />}
-          {step === 3 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
+          {step === 2 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
+          {step === 3 && <SessionsStep title="Configure Goalie Sessions" subtitle="Goalies run their own session set. Default is a Goalie Skills session then 3 scrimmages — for rep tryouts, delete Goalie Skills and run scrimmages. Weights must total 100%." sessions={scoring.goalie_sessions} setSessions={setGoalieSessions} typeOptions={GOALIE_SESSION_TYPES} addType="scrimmage" />}
           {step === 4 && <GoalieScoringStep orgId={orgId} scoring={scoring} setScoring={setScoring} />}
           {step === 5 && <AthletesStep catId={catId} categoryName={catName} />}
           {step === 6 && <ScheduleStep catId={catId} />}
