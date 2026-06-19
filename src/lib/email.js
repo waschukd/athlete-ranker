@@ -374,12 +374,11 @@ export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgNa
     ${infoCard("What to expect", `<table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Multiple sessions</strong> — scored by professional evaluators across several sessions.</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Group assignments</strong> — players are organized into groups; you'll get the exact schedule before each session.</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Live scoring</strong> — evaluators score each player in real time on key skill categories.</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Rankings update automatically</strong> — compiled after each session.</td></tr>
       </table>`)}
     ${infoCard("Before you arrive", `<table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Arrive at least 15 minutes early for check-in.</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Arrive at least 30 minutes prior to your session for check-in.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Have full equipment ready; jersey numbers are assigned at check-in.</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure skates are freshly sharpened.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure your athlete is fuelled and hydrated.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Trust the process — evaluators assess the full picture across sessions.</td></tr>
       </table>`)}
