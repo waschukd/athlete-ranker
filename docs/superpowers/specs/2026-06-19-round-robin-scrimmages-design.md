@@ -2,8 +2,10 @@
 
 **Date:** 2026-06-19
 **Status:** Draft for review
-**Scope:** Opt-in, per-category evaluation mode. Does **not** change the default lockstep
-flow that the vast majority of (house) categories use.
+**Scope:** Two related pieces. (1) An opt-in, per-category **round-robin (matchup) scrimmage
+mode** that does **not** change the default lockstep flow most house categories use. (2) A
+**final-session contention planner** (sit recommendations) that works in **both** modes —
+useful even for a standard 4th session. They share the per-player "dressed/sat" mechanic.
 
 ## Problem
 
@@ -53,6 +55,11 @@ shared by all, and there's no notion of a matchup, a per-team game number, or a 
 6. **No change to scoring units, weighting, ranking, or reports** beyond consuming the
    per-team game number instead of the raw slot number, and normalizing over games actually
    played per player.
+7. **Final-session contention planner** (applies to lockstep *and* round-robin): before the
+   final game(s), use the data to classify players as Locked / Out / Bubble against configured
+   roster targets, and **recommend who to sit** — the math recommends, the director confirms.
+8. **Capture intended roster size(s) at setup** so the cut line(s) exist before the final
+   session (see Setup inputs).
 
 ## Non-Goals
 
@@ -61,6 +68,15 @@ shared by all, and there's no notion of a matchup, a per-team game number, or a 
   hand (it's an occasional, association-specific format).
 - Not building bracket/playoff logic — this is evaluation games, not a tournament.
 - Not exposing *why* a player was rested on parent-facing reports (don't leak the coach's hand).
+
+## Setup inputs
+
+- **Mode flag** (Section A).
+- **Intended roster target(s)** — new setup question capturing how many players "make it"
+  (e.g. a single number "top 17", or per-tier sizes AA 17 / A 17 / BB 15). These define the
+  **cut line(s)** the contention planner classifies against. Stored on the category
+  (e.g. `age_categories.roster_targets` jsonb, or reuse Team Builder team sizes if present).
+  Applies to *both* modes — the planner is useful for the standard 4th session too.
 
 ## Model
 
@@ -114,6 +130,46 @@ When an evaluator opens a matchup:
 - Report shows **"N of M games"** when a player was rested, so the smaller sample reads as
   intentional, not missing — **without** stating the reason.
 
+### G. Final-session contention planner (sit recommendations)
+
+Helps an association decide, before the **final game(s)**, who they still need to evaluate vs.
+who can be rested. Applies to **lockstep and round-robin**. The math **recommends**; the
+director **confirms** (and the confirmation of a "Locked" sit is the "this player made the team"
+declaration).
+
+**Inputs**
+- Configured roster target(s) → cut line(s) at those rank boundaries (from Setup inputs).
+- Each player's current weighted standing from scored sessions (`lib/rankings.js`).
+- Each player's **remaining game(s)** and their weight: lockstep = the 1 final session;
+  round-robin = whatever that player has left on the matchup grid.
+- Observed **movement spread** for this category — the variability of a player's per-session
+  score (we already compute session-to-session movement; the seed script's `moveStats` is the
+  same idea). This is what makes "realistically caught" concrete rather than worst-case.
+
+**Method — probabilistic (chosen):**
+- Monte-Carlo the final game(s): for each player, draw plausible final-session score(s) from a
+  distribution centered on their established level with spread = the category's observed
+  per-session variability; recompute the weighted ranking each run (hundreds–thousands of runs).
+- For each player, compute **P(finishing inside each cut line)** across runs.
+- Classify against a **confidence knob** (default ~5%, director-adjustable):
+  - 🔒 **Locked in** — P(in) ≥ 1 − threshold (can't realistically fall out).
+  - ❌ **Out of contention** — P(in) ≤ threshold (can't realistically climb in).
+  - 🎯 **Bubble** — anything between → **must play.**
+- Absolute/mathematical locks are a strict subset and always shown as locked regardless of knob.
+
+**Output / UX**
+- A "Final Session Planner" view: roster sorted by standing, cut line(s) drawn in, each player
+  badged Locked / Bubble / Out, with the bubble band highlighted as "evaluate these."
+- "Recommend sits" = Locked + Out; one action to apply → sets the dressed/sat markers
+  (Section D) for the final session. Director can override any individual mark.
+- Guardrail: never auto-sit a Bubble player; warn if the director manually does.
+
+**Guards**
+- Needs enough scored data to estimate movement (≥1–2 scored sessions); until then, show
+  "not enough data yet," no recommendations.
+- Show the assumptions plainly (confidence level, games remaining) so it's a decision aid, not a
+  black box.
+
 ## Data flow summary
 
 ```
@@ -122,6 +178,9 @@ setup: mode=round_robin → define persistent teams (seed from testing)
 schedule: author matchup grid (TeamA v TeamB per slot)
    → system stamps home_game_no / away_game_no per slot
    → director marks planned sits (locks/cuts) per slot
+   ↓
+before final game(s): Contention Planner classifies Locked/Bubble/Out vs roster targets
+   → "Recommend sits" (Locked + Out) → director confirms → sets dressed/sat for final session
    ↓
 rink: check-in confirms/adjusts dressed-vs-sat
    ↓
@@ -155,6 +214,14 @@ rank/report: unchanged; weighted avg over games each player actually played; "N 
 4. **Weights**: when game count is 2 (not 3), how are scrimmage weights set — even split auto,
    or director-configurable as today? (Leaning: reuse existing per-session weight UI, seeded to
    an even split across the grid's game count.)
+5. **Roster targets shape**: single "top N" number vs. per-tier sizes (AA/A/BB). (Leaning:
+   support per-tier, since the planner and Team Builder both benefit; allow a single number as
+   the simple case.)
+6. **Movement estimate**: derive the per-session score spread from *this* category's data only,
+   or blend with a global prior when early/sparse? (Leaning: this category's data, with a
+   sensible default spread until ≥2 sessions exist.)
+7. **Confidence default**: starting threshold for Locked/Out (e.g. 5%) and whether it's exposed
+   as a slider in v1 or fixed.
 
 ## Why this stays clean
 
