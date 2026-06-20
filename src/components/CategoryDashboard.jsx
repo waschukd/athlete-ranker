@@ -717,7 +717,8 @@ export default function CategoryDashboard({
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <a href={`/association/dashboard/category/${catId}/planner?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">Final Session Planner</a>
               <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
             </div>
             </>
