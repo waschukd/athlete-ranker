@@ -40,16 +40,22 @@ export async function POST(request) {
     const g = await guard(request);
     if (g.err) return NextResponse.json({ error: "Forbidden" }, { status: g.err });
     const b = await request.json();
-    const client_label = String(b.client_label || "").trim().slice(0, 120);
-    const scheduled_date = b.scheduled_date;
-    if (!client_label || !scheduled_date) return NextResponse.json({ error: "Client and date are required" }, { status: 400 });
-    let dow = b.day_of_week || null;
-    if (!dow) { try { dow = DOW[new Date(`${scheduled_date}T00:00:00`).getDay()]; } catch { dow = null; } }
-    const [row] = await sql`
-      INSERT INTO evaluation_schedule (service_provider_id, client_label, scheduled_date, day_of_week, start_time, end_time, location, testers_required, session_number, group_number, status)
-      VALUES (${g.spId}, ${client_label}, ${scheduled_date}, ${dow}, ${b.start_time || null}, ${b.end_time || null}, ${b.location || null}, ${Math.max(0, parseInt(b.testers_required) || 0)}, 1, 1, 'scheduled')
-      RETURNING id`;
-    return NextResponse.json({ success: true, id: row.id });
+    // Accept a single event OR a batch { events: [...] } (CSV upload).
+    const list = Array.isArray(b.events) ? b.events : [b];
+    let created = 0;
+    for (const e of list) {
+      const client_label = String(e.client_label || "").trim().slice(0, 120);
+      const scheduled_date = (e.scheduled_date || "").trim ? String(e.scheduled_date || "").trim() : e.scheduled_date;
+      if (!client_label || !scheduled_date) continue;
+      let dow = e.day_of_week || null;
+      if (!dow) { try { dow = DOW[new Date(`${scheduled_date}T00:00:00`).getDay()]; } catch { dow = null; } }
+      await sql`
+        INSERT INTO evaluation_schedule (service_provider_id, client_label, scheduled_date, day_of_week, start_time, end_time, location, testers_required, session_number, group_number, status)
+        VALUES (${g.spId}, ${client_label}, ${scheduled_date}, ${dow}, ${e.start_time || null}, ${e.end_time || null}, ${e.location || null}, ${Math.max(0, parseInt(e.testers_required) || 0)}, 1, 1, 'scheduled')`;
+      created++;
+    }
+    if (!created) return NextResponse.json({ error: "No valid sessions — each needs a client and date." }, { status: 400 });
+    return NextResponse.json({ success: true, created, skipped: list.length - created });
   } catch (error) {
     console.error("SP testing-events POST error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

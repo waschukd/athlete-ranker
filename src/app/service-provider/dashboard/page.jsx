@@ -192,6 +192,33 @@ function TestersTab({ spUrl, spName }) {
     setEvBusy(false); setEvForm(blankEv); qc.invalidateQueries(["sp-testing-events"]);
   };
   const delEvent = async (id) => { await fetch(spUrl(`/api/service-provider/testing-events?id=${id}`), { method: "DELETE" }); qc.invalidateQueries(["sp-testing-events"]); };
+  const [uploadMsg, setUploadMsg] = useState(null);
+  const onCsv = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadMsg(null);
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    const idx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
+    const ci = { client: idx(["client"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
+    const events = lines.slice(1).map(l => { const c = l.split(",").map(x => x.trim()); return {
+      client_label: ci.client >= 0 ? c[ci.client] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
+      start_time: ci.start >= 0 ? c[ci.start] : "", end_time: ci.end >= 0 ? c[ci.end] : "",
+      location: ci.loc >= 0 ? c[ci.loc] : "", testers_required: ci.testers >= 0 ? c[ci.testers] : "",
+    }; }).filter(ev => ev.client_label && ev.scheduled_date);
+    e.target.value = "";
+    if (!events.length) { setUploadMsg({ type: "error", text: "No valid rows — the CSV needs Client and Date columns." }); return; }
+    const res = await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events }) });
+    const d = await res.json().catch(() => ({}));
+    if (d.success) { setUploadMsg({ type: "success", text: `Added ${d.created} session${d.created === 1 ? "" : "s"}${d.skipped ? `, skipped ${d.skipped}` : ""}.` }); qc.invalidateQueries(["sp-testing-events"]); }
+    else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
+  };
+  const downloadTemplate = () => {
+    const csv = "Client,Date,Start Time,End Time,Location,Testers Needed\nRingette Assoc – U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a"); a.href = url; a.download = "testing-sessions-template.csv"; a.click();
+  };
 
   return (
     <div className="space-y-6">
@@ -233,7 +260,17 @@ function TestersTab({ spUrl, spName }) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Testing Sessions You Run</h3><p className="text-xs text-gray-400 mt-0.5">Testing you schedule directly for a client (e.g. a Ringette association) — not an association you evaluate for. Only your testers see these; associations never do.</p></div>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Testing Sessions You Run</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Testing you schedule directly for a client (e.g. a Ringette association) — not an association you evaluate for. Only your testers see these; associations never do.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={downloadTemplate} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap">↓ Template</button>
+            <label className="text-xs px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg hover:bg-[#dbe8fc] font-medium cursor-pointer whitespace-nowrap">Upload CSV<input type="file" accept=".csv" onChange={onCsv} className="hidden" /></label>
+          </div>
+        </div>
+        {uploadMsg && <div className={`px-5 pt-3 text-xs font-medium ${uploadMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{uploadMsg.text}</div>}
         <div className="p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input value={evForm.client_label} onChange={e => setEv("client_label", e.target.value)} placeholder="Client (e.g. Ringette Assoc – U12)" className="sm:col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
