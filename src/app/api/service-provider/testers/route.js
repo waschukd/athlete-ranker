@@ -44,7 +44,11 @@ export async function GET(request) {
       WHERE organization_id = ${spId} AND role = 'service_provider_tester'
       ORDER BY created_at DESC
     `;
-    return NextResponse.json({ testers, codes });
+    // Is the calling admin themselves a tester? (SP admins can run testing too.)
+    const meRows = await sql`
+      SELECT is_tester FROM evaluator_memberships
+      WHERE user_id = (SELECT id FROM users WHERE email = ${g.session.email}) AND organization_id = ${spId}`;
+    return NextResponse.json({ testers, codes, me: { is_tester: !!meRows[0]?.is_tester } });
   } catch (error) {
     console.error("Testers GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -73,6 +77,16 @@ export async function POST(request) {
     if (action === "deactivate_code") {
       await sql`UPDATE evaluator_join_codes SET max_uses = uses WHERE id = ${body.code_id} AND organization_id = ${spId} AND role = 'service_provider_tester'`;
       return NextResponse.json({ success: true });
+    }
+
+    // The SP admin adds/removes THEMSELVES as a tester (they run testing too).
+    if (action === "set_self_tester") {
+      const on = !!body.on;
+      await sql`
+        INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, is_tester, is_evaluator)
+        VALUES (${adminId}, ${spId}, 'service_provider_tester', 'active', 'self', ${on}, false)
+        ON CONFLICT (user_id, organization_id) DO UPDATE SET is_tester = ${on}, status = 'active'`;
+      return NextResponse.json({ success: true, is_tester: on });
     }
 
     // Approve a pending tester (signed up via the tester join code).

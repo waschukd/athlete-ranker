@@ -152,6 +152,7 @@ function TestersTab({ spUrl, spName }) {
   const testers = data?.testers || [];
   const codes = data?.codes || [];
   const activeCode = codes.find(c => c.uses < c.max_uses);
+  const meIsTester = !!data?.me?.is_tester;
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -223,8 +224,19 @@ function TestersTab({ spUrl, spName }) {
   return (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Your testing crew</h3>
-        <p className="text-xs text-gray-400 mt-0.5">Testers run your objective testing sessions — a separate pool from evaluators that associations never see. Approve a tester as an evaluator once they're ready; it doesn't work the other way around.</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Your testing crew</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Testers run your objective testing sessions — a separate pool from evaluators that associations never see. Approve a tester as an evaluator once they're ready; it doesn't work the other way around.</p>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer flex-shrink-0">
+            <button onClick={() => act({ action: "set_self_tester", on: !meIsTester })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${meIsTester ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${meIsTester ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+            I'm a tester too
+          </label>
+        </div>
+        {meIsTester && <p className="text-xs text-accent mt-2">You're in the tester pool — head to your <a href="/evaluator/dashboard" className="underline font-medium">tester dashboard</a> to sign up for testing sessions.</p>}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
