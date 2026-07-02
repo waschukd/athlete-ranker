@@ -25,7 +25,7 @@ export async function GET(request) {
       SELECT tss.id as signup_id, tss.status as signup_status, tss.created_at as signed_up_at,
         es.id as schedule_id, es.scheduled_date, es.day_of_week, es.start_time, es.end_time,
         es.location, es.session_number, es.group_number, COALESCE(es.testers_required, 0) as testers_required,
-        COALESCE(ac.name, 'Testing') as category_name, COALESCE(o.name, es.client_label) as org_name,
+        COALESCE(ac.name, es.age_label, 'Testing') as category_name, COALESCE(o.name, es.client_label) as org_name,
         COUNT(DISTINCT t2.id) as testers_signed_up
       FROM tester_session_signups tss
       JOIN evaluation_schedule es ON es.id = tss.schedule_id
@@ -60,7 +60,7 @@ export async function GET(request) {
     const spOwnedAvailable = await sql`
       SELECT es.id as schedule_id, es.scheduled_date, es.day_of_week, es.start_time, es.end_time,
         es.location, es.session_number, es.group_number, COALESCE(es.testers_required, 0) as testers_required,
-        'Testing' as category_name, es.client_label as org_name,
+        COALESCE(es.age_label, 'Testing') as category_name, es.client_label as org_name,
         COUNT(DISTINCT tss.id) as testers_signed_up
       FROM evaluation_schedule es
       LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id AND tss.status = 'signed_up'

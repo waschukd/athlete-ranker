@@ -60,8 +60,8 @@ export async function GET(request) {
     const spEvents = await sql`
       SELECT es.id as schedule_id, es.id as id, es.scheduled_date, es.day_of_week, es.start_time, es.end_time,
         es.location, es.session_number, es.group_number, es.status, es.checkin_code,
-        NULL as category_id, NULL as age_category_id, es.client_label as category_name,
-        ${spId} as org_id, es.client_label as org_name, 'testing' as session_type, 'Testing' as session_name,
+        NULL as category_id, NULL as age_category_id, COALESCE(es.age_label, 'Testing') as category_name,
+        ${spId} as org_id, es.client_label as org_name, 'testing' as session_type, COALESCE(es.age_label, 'Testing') as session_name,
         0 as evaluators_required, 0 as goalie_evaluators_required,
         COALESCE(es.testers_required, 0) as testers_required,
         COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as testers_signed_up,

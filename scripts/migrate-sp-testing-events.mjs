@@ -14,6 +14,7 @@ const has = async (c) => (await sql`SELECT 1 FROM information_schema.columns WHE
 const plan = [];
 if (!(await has("service_provider_id"))) plan.push("evaluation_schedule.service_provider_id");
 if (!(await has("client_label"))) plan.push("evaluation_schedule.client_label");
+if (!(await has("age_label"))) plan.push("evaluation_schedule.age_label");
 
 console.log(plan.length ? "WILL ADD:\n  - " + plan.join("\n  - ") : "Nothing to do — already migrated.");
 if (!plan.length) process.exit(0);
@@ -21,5 +22,6 @@ if (!COMMIT) { console.log("\nDRY RUN — re-run with --commit."); process.exit(
 
 await sql`ALTER TABLE evaluation_schedule ADD COLUMN IF NOT EXISTS service_provider_id integer REFERENCES organizations(id) ON DELETE CASCADE`;
 await sql`ALTER TABLE evaluation_schedule ADD COLUMN IF NOT EXISTS client_label varchar`;
+await sql`ALTER TABLE evaluation_schedule ADD COLUMN IF NOT EXISTS age_label varchar`;
 await sql`CREATE INDEX IF NOT EXISTS idx_eval_schedule_sp ON evaluation_schedule(service_provider_id)`;
 console.log("DONE — SP testing events migrated.");

@@ -181,7 +181,7 @@ function TestersTab({ spUrl, spName }) {
   // ── SP-owned testing sessions (a testing-only client, not an association) ──
   const { data: evData } = useQuery({ queryKey: ["sp-testing-events"], queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/testing-events")); return r.json(); } });
   const events = evData?.events || [];
-  const blankEv = { client_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "6" };
+  const blankEv = { client_label: "", age_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "6" };
   const [evForm, setEvForm] = useState(blankEv);
   const [evBusy, setEvBusy] = useState(false);
   const setEv = (k, v) => setEvForm(f => ({ ...f, [k]: v }));
@@ -201,9 +201,9 @@ function TestersTab({ spUrl, spName }) {
     if (lines.length < 2) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
     const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
     const idx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
-    const ci = { client: idx(["client"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
+    const ci = { client: idx(["client"]), age: idx(["age"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
     const events = lines.slice(1).map(l => { const c = l.split(",").map(x => x.trim()); return {
-      client_label: ci.client >= 0 ? c[ci.client] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
+      client_label: ci.client >= 0 ? c[ci.client] : "", age_label: ci.age >= 0 ? c[ci.age] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
       start_time: ci.start >= 0 ? c[ci.start] : "", end_time: ci.end >= 0 ? c[ci.end] : "",
       location: ci.loc >= 0 ? c[ci.loc] : "", testers_required: ci.testers >= 0 ? c[ci.testers] : "",
     }; }).filter(ev => ev.client_label && ev.scheduled_date);
@@ -215,7 +215,7 @@ function TestersTab({ spUrl, spName }) {
     else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
   };
   const downloadTemplate = () => {
-    const csv = "Client,Date,Start Time,End Time,Location,Testers Needed\nRingette Assoc – U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
+    const csv = "Client,Age Category,Date,Start Time,End Time,Location,Testers Needed\nRingette Association,U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = "testing-sessions-template.csv"; a.click();
   };
@@ -273,7 +273,8 @@ function TestersTab({ spUrl, spName }) {
         {uploadMsg && <div className={`px-5 pt-3 text-xs font-medium ${uploadMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{uploadMsg.text}</div>}
         <div className="p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input value={evForm.client_label} onChange={e => setEv("client_label", e.target.value)} placeholder="Client (e.g. Ringette Assoc – U12)" className="sm:col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+            <input value={evForm.client_label} onChange={e => setEv("client_label", e.target.value)} placeholder="Client (e.g. Ringette Association)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+            <input value={evForm.age_label} onChange={e => setEv("age_label", e.target.value)} placeholder="Age category (e.g. U12)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
             <input type="date" value={evForm.scheduled_date} onChange={e => setEv("scheduled_date", e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
             <input value={evForm.location} onChange={e => setEv("location", e.target.value)} placeholder="Rink / location" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
             <div className="flex items-center gap-2"><span className="text-xs text-gray-400 w-10">Start</span><input type="time" value={evForm.start_time} onChange={e => setEv("start_time", e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
@@ -291,7 +292,7 @@ function TestersTab({ spUrl, spName }) {
               return (
                 <div key={ev.id} className="flex items-center justify-between gap-3 px-5 py-3 flex-wrap">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-ink">{ev.client_label}</div>
+                    <div className="text-sm font-medium text-ink">{ev.client_label}{ev.age_label && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">{ev.age_label}</span>}</div>
                     <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
                       <span>{ev.scheduled_date?.toString().split("T")[0]}</span>
                       {ev.start_time && <span>{formatTime(ev.start_time)}{ev.end_time ? ` - ${formatTime(ev.end_time)}` : ""}</span>}

@@ -20,7 +20,7 @@ export async function GET(request) {
     const g = await guard(request);
     if (g.err) return NextResponse.json({ error: "Forbidden" }, { status: g.err });
     const events = await sql`
-      SELECT es.id, es.client_label, es.scheduled_date, es.day_of_week, es.start_time, es.end_time, es.location,
+      SELECT es.id, es.client_label, es.age_label, es.scheduled_date, es.day_of_week, es.start_time, es.end_time, es.location,
         COALESCE(es.testers_required, 0) as testers_required, es.status,
         COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as testers_signed_up
       FROM evaluation_schedule es
@@ -45,13 +45,14 @@ export async function POST(request) {
     let created = 0;
     for (const e of list) {
       const client_label = String(e.client_label || "").trim().slice(0, 120);
-      const scheduled_date = (e.scheduled_date || "").trim ? String(e.scheduled_date || "").trim() : e.scheduled_date;
+      const scheduled_date = String(e.scheduled_date || "").trim();
+      const age_label = String(e.age_label || "").trim().slice(0, 60) || null;
       if (!client_label || !scheduled_date) continue;
       let dow = e.day_of_week || null;
       if (!dow) { try { dow = DOW[new Date(`${scheduled_date}T00:00:00`).getDay()]; } catch { dow = null; } }
       await sql`
-        INSERT INTO evaluation_schedule (service_provider_id, client_label, scheduled_date, day_of_week, start_time, end_time, location, testers_required, session_number, group_number, status)
-        VALUES (${g.spId}, ${client_label}, ${scheduled_date}, ${dow}, ${e.start_time || null}, ${e.end_time || null}, ${e.location || null}, ${Math.max(0, parseInt(e.testers_required) || 0)}, 1, 1, 'scheduled')`;
+        INSERT INTO evaluation_schedule (service_provider_id, client_label, age_label, scheduled_date, day_of_week, start_time, end_time, location, testers_required, session_number, group_number, status)
+        VALUES (${g.spId}, ${client_label}, ${age_label}, ${scheduled_date}, ${dow}, ${e.start_time || null}, ${e.end_time || null}, ${e.location || null}, ${Math.max(0, parseInt(e.testers_required) || 0)}, 1, 1, 'scheduled')`;
       created++;
     }
     if (!created) return NextResponse.json({ error: "No valid sessions — each needs a client and date." }, { status: 400 });
