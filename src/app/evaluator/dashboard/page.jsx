@@ -1232,6 +1232,79 @@ function MessagesSection() {
   );
 }
 
+// Capability switch shown only when a person is BOTH a tester and an evaluator.
+function CapabilityBar({ active, onEvaluations, onTesting }) {
+  return (
+    <div className="inline-flex rounded-xl bg-gray-100 p-1 mb-4">
+      <button onClick={onEvaluations} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${active === "evaluations" ? "bg-white text-ink shadow-sm" : "text-gray-500"}`}>Evaluations</button>
+      <button onClick={onTesting} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${active === "testing" ? "bg-white text-ink shadow-sm" : "text-gray-500"}`}>Testing</button>
+    </div>
+  );
+}
+
+function TesterTestingCard({ s, mode, onAction, busy }) {
+  const open = Math.max(0, parseInt(s.testers_required || 0) - parseInt(s.testers_signed_up || 0));
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-sm text-ink truncate">{s.org_name}</span>
+          <span className="text-gray-300">·</span>
+          <span className="text-sm text-gray-600 truncate">{s.category_name}</span>
+          <span className="text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold uppercase tracking-wide">Testing</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-400 mt-1 flex-wrap">
+          <span>{formatDate(s.scheduled_date)}</span>
+          {s.start_time && <span>{formatTime(s.start_time)}{s.end_time ? ` — ${formatTime(s.end_time)}` : ""}</span>}
+          {s.location && <span className="truncate">{s.location}</span>}
+          <span className="font-mono">S{s.session_number}{s.group_number ? ` G${s.group_number}` : ""}</span>
+        </div>
+      </div>
+      {mode === "available"
+        ? <button disabled={busy} onClick={() => onAction("signup", s.schedule_id)} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 whitespace-nowrap">Sign up{open ? ` · ${open} left` : ""}</button>
+        : <button disabled={busy} onClick={() => onAction("cancel", s.schedule_id)} className="px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 whitespace-nowrap">Cancel</button>}
+    </div>
+  );
+}
+
+// The tester-side dashboard. A pure tester lands here; a dual-capability person can
+// switch to it from the evaluator dashboard. Only testing sessions — never any
+// evaluation data.
+function TesterDashboardView({ data, theme, toggleTheme, showSwitch, onSwitch, queryClient }) {
+  const [busy, setBusy] = useState(false);
+  const available = data?.available || [];
+  const mine = data?.mine || [];
+  const act = async (action, schedule_id) => {
+    setBusy(true);
+    await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, schedule_id }) });
+    setBusy(false);
+    queryClient.invalidateQueries(["my-capabilities"]);
+  };
+  const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; };
+  return (
+    <div data-theme={theme} className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between py-3">
+          <div className="flex items-center gap-2"><img src="/s-mark-dark.svg" style={{ width: 28, height: 28, objectFit: "contain" }} /><span className="font-display italic font-black text-accent text-sm uppercase tracking-[0.14em]">Sideline Star</span></div>
+          <div className="flex items-center gap-2"><ThemeToggle theme={theme} onToggle={toggleTheme} /><button onClick={signOut} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1"><LogOut size={14} /> Sign out</button></div>
+        </div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-1 pb-5">
+          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Tester</div>
+          <div className="flex items-end gap-4 flex-wrap"><h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Testing</h1></div>
+          <p className="text-sm text-gray-500 mt-3">Sign up for the testing sessions your service provider is running.</p>
+        </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        {showSwitch && <CapabilityBar active="testing" onEvaluations={onSwitch} onTesting={() => {}} />}
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">My testing sessions ({mine.length})</h2>
+        {mine.length === 0 ? <p className="text-sm text-gray-400 mb-8">You're not signed up for any testing sessions yet.</p> : <div className="space-y-2 mb-8">{mine.map(s => <TesterTestingCard key={s.schedule_id} s={s} mode="mine" onAction={act} busy={busy} />)}</div>}
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">Available testing sessions ({available.length})</h2>
+        {available.length === 0 ? <p className="text-sm text-gray-400">No open testing sessions right now.</p> : <div className="space-y-2">{available.map(s => <TesterTestingCard key={s.schedule_id} s={s} mode="available" onAction={act} busy={busy} />)}</div>}
+      </div>
+    </div>
+  );
+}
+
 function EvaluatorDashboard() {
   useTrackPageView("dashboard.evaluator.viewed");
   const queryClient = useQueryClient();
@@ -1242,8 +1315,22 @@ function EvaluatorDashboard() {
   const [signupError, setSignupError] = useState(null);
   const [theme, toggleTheme] = useTheme();
 
+  // Capabilities drive which dashboard(s) this person sees. Also carries the
+  // tester's testing sessions. Evaluator data is gated on isEvaluator so a pure
+  // tester issues ZERO evaluator queries (the hard isolation guarantee).
+  const { data: capData } = useQuery({
+    queryKey: ["my-capabilities"],
+    queryFn: async () => { const res = await fetch("/api/tester/sessions"); return res.json(); },
+  });
+  const capsLoaded = !!capData;
+  const isTester = !!capData?.isTester;
+  const isEvaluator = !!capData?.isEvaluator;
+  const [capView, setCapView] = useState(null); // 'evaluations' | 'testing'
+  useEffect(() => { if (capsLoaded && capView === null) setCapView(capData.isEvaluator ? "evaluations" : "testing"); }, [capsLoaded, capView, capData]);
+
   const { data: statusData } = useQuery({
     queryKey: ["evaluator-status"],
+    enabled: isEvaluator,
     queryFn: async () => {
       const res = await fetch("/api/evaluator/status");
       return res.json();
@@ -1252,6 +1339,7 @@ function EvaluatorDashboard() {
 
   const { data: mineData, isLoading: mineLoading } = useQuery({
     queryKey: ["evaluator-sessions-mine"],
+    enabled: isEvaluator,
     queryFn: async () => {
       const res = await fetch("/api/evaluator/sessions?view=mine");
       return res.json();
@@ -1260,6 +1348,7 @@ function EvaluatorDashboard() {
 
   const { data: availData, isLoading: availLoading } = useQuery({
     queryKey: ["evaluator-sessions-available"],
+    enabled: isEvaluator,
     queryFn: async () => {
       const res = await fetch("/api/evaluator/sessions?view=available");
       return res.json();
@@ -1350,6 +1439,15 @@ function EvaluatorDashboard() {
     else (scored ? grp.done : grp.needs).push(s);
   }
 
+  // Hold render until capabilities resolve, so a pure tester never flashes the
+  // evaluator shell, then route to the tester view when Testing is active.
+  if (!capsLoaded || capView === null) {
+    return <div data-theme={theme} className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" /></div>;
+  }
+  if (capView === "testing") {
+    return <TesterDashboardView data={capData} theme={theme} toggleTheme={toggleTheme} showSwitch={isEvaluator} onSwitch={() => setCapView("evaluations")} queryClient={queryClient} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50" data-theme={theme}>
       <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -1364,6 +1462,7 @@ function EvaluatorDashboard() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-0 pt-1">
           <div className="pb-5">
             <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Evaluator</div>
+            {isTester && isEvaluator && <CapabilityBar active="evaluations" onEvaluations={() => {}} onTesting={() => setCapView("testing")} />}
             <div className="flex items-end gap-4 flex-wrap">
               <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Dashboard</h1>
               <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} />
