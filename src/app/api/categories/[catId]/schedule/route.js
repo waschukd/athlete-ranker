@@ -52,7 +52,9 @@ export async function GET(request, { params }) {
       WHERE age_category_id = ${catId}
       ORDER BY scheduled_date, start_time, group_number
     `;
-    return NextResponse.json({ schedule });
+    // Association wall: never expose SP-private tester staffing on a category
+    // (association-facing) endpoint.
+    return NextResponse.json({ schedule: schedule.map(({ testers_required, ...r }) => r) });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

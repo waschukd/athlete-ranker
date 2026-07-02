@@ -73,6 +73,52 @@ export async function POST(request) {
       if (!linked.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Tester spot-fill: notify ONLY this SP's testers (never evaluators or the
+    // association) who aren't already signed up for this testing session.
+    if (action === "notify_testers") {
+      const testers = await sql`
+        SELECT DISTINCT u.email, u.name
+        FROM evaluator_memberships em
+        JOIN users u ON u.id = em.user_id
+        WHERE em.organization_id = ${sp_id} AND em.status = 'active' AND em.is_tester = true
+          AND u.id NOT IN (SELECT user_id FROM tester_session_signups WHERE schedule_id = ${schedule_id} AND status != 'cancelled')
+      `;
+      const sessionDate = sched.scheduled_date?.toString().split("T")[0];
+      const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard`;
+      let sent = 0;
+      if (process.env.RESEND_API_KEY) {
+        for (const t of testers) {
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+            body: JSON.stringify({
+              from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
+              to: t.email,
+              subject: `Tester needed — ${sched.org_name} ${sessionDate}`,
+              html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <h2 style="color:#111;">A testing spot needs filling</h2>
+                ${message ? `<p style="color:#555;">${message}</p>` : ""}
+                <div style="background:#f9f9f9;border-radius:12px;padding:20px;margin:20px 0;">
+                  <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${sched.org_name} · ${sched.category_name}</p>
+                  <p style="margin:0 0 4px;color:#555;">Testing · Session ${sched.session_number}${sched.group_number ? ` · Group ${sched.group_number}` : ""}</p>
+                  <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
+                  <p style="margin:0;color:#555;">${sched.location || ""}</p>
+                </div>
+                <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
+                <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${admin_name}</p>
+              </div>`,
+            }),
+          });
+          sent++;
+        }
+      }
+      await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value)
+        SELECT id, 'blast_testers', 'evaluation_schedule', ${schedule_id}, ${JSON.stringify({ sent, total_pool: testers.length })}
+        FROM users WHERE email = ${session.email}`;
+      return NextResponse.json({ success: true, sent, total_pool: testers.length,
+        message: process.env.RESEND_API_KEY ? `Notified ${sent} tester${sent === 1 ? "" : "s"}` : `Would notify ${testers.length} testers (configure RESEND_API_KEY to send)` });
+    }
+
     // Get all evaluators in SP pool who aren't already signed up
     const availableEvaluators = await sql`
       SELECT DISTINCT u.email, u.name

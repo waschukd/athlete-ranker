@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 
 export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Isolation guard: a tester-only user (has active memberships, none with
+    // evaluator capability) must never receive evaluation sessions. Admins/
+    // directors with no membership are unaffected.
+    const guardUid = await getAppUserId(session);
+    if (guardUid) {
+      const mems = await sql`SELECT is_evaluator FROM evaluator_memberships WHERE user_id = ${guardUid} AND status = 'active'`;
+      if (mems.length > 0 && !mems.some(m => m.is_evaluator)) return NextResponse.json({ sessions: [] });
+    }
 
     const { searchParams } = new URL(request.url);
     const view = searchParams.get("view") || "mine"; // 'mine' or 'available'

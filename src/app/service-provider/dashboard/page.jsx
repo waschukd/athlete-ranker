@@ -124,12 +124,18 @@ function TesterStaffingControl({ entry, spUrl, onSaved }) {
     setSaving(false);
     onSaved?.();
   };
+  const [notified, setNotified] = useState(false);
+  const notify = async () => {
+    await fetch(spUrl("/api/service-provider/notify"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "notify_testers", schedule_id: entry.schedule_id }) });
+    setNotified(true); setTimeout(() => setNotified(false), 2500);
+  };
   return (
     <div className="text-center">
       <div className={`text-sm font-bold ${short ? "text-amber-600" : signed > 0 ? "text-green-600" : "text-gray-400"}`}>
         {signed}/<input type="number" min="0" value={val} onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} className="w-9 text-center bg-transparent border-b border-gray-200 focus:outline-none focus:border-accent" />
       </div>
       <div className="text-xs text-gray-400">{saving ? "saving…" : "testers"}</div>
+      {short && <button onClick={notify} className="mt-1 text-[11px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full hover:bg-amber-200 font-medium">{notified ? "Notified ✓" : "Notify testers"}</button>}
     </div>
   );
 }
