@@ -107,16 +107,17 @@ export async function POST(request) {
     // itself) before blasting its details out to the SP's evaluator
     // pool.
     const schedInfo = await sql`
-      SELECT es.*, ac.organization_id, ac.name as category_name, o.name as org_name
+      SELECT es.*, ac.organization_id, COALESCE(ac.name, 'Testing') as category_name, COALESCE(o.name, es.client_label) as org_name
       FROM evaluation_schedule es
-      JOIN age_categories ac ON ac.id = es.age_category_id
-      JOIN organizations o ON o.id = ac.organization_id
+      LEFT JOIN age_categories ac ON ac.id = es.age_category_id
+      LEFT JOIN organizations o ON o.id = ac.organization_id
       WHERE es.id = ${schedule_id}
     `;
     if (!schedInfo.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });
     const sched = schedInfo[0];
 
-    if (sched.organization_id !== sp_id) {
+    // Authorize: an SP-owned event, the SP's own org, or a linked association.
+    if (sched.service_provider_id !== sp_id && sched.organization_id !== sp_id) {
       const linked = await sql`
         SELECT 1 FROM sp_association_links
         WHERE service_provider_id = ${sp_id} AND association_id = ${sched.organization_id}

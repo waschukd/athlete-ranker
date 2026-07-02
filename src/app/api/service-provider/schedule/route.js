@@ -56,9 +56,26 @@ export async function GET(request) {
       ORDER BY es.scheduled_date, es.start_time, o.name
     `;
 
+    // SP-owned testing events (a testing-only client, no association) — merged in.
+    const spEvents = await sql`
+      SELECT es.id as schedule_id, es.id as id, es.scheduled_date, es.day_of_week, es.start_time, es.end_time,
+        es.location, es.session_number, es.group_number, es.status, es.checkin_code,
+        NULL as category_id, NULL as age_category_id, es.client_label as category_name,
+        ${spId} as org_id, es.client_label as org_name, 'testing' as session_type, 'Testing' as session_name,
+        0 as evaluators_required, 0 as goalie_evaluators_required,
+        COALESCE(es.testers_required, 0) as testers_required,
+        COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as testers_signed_up,
+        0 as evaluators_signed_up, 0 as checked_in_count, true as sp_owned
+      FROM evaluation_schedule es
+      LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id
+      WHERE es.service_provider_id = ${spId} AND es.scheduled_date BETWEEN ${from} AND ${to}
+      GROUP BY es.id
+      ORDER BY es.scheduled_date, es.start_time`;
+    const combined = [...schedule, ...spEvents];
+
     // Group by date
     const byDate = {};
-    for (const entry of schedule) {
+    for (const entry of combined) {
       const date = entry.scheduled_date?.toString().split("T")[0];
       if (!byDate[date]) byDate[date] = [];
       // Player testing is objective (SportTesting hardware) — it needs NO
@@ -76,7 +93,7 @@ export async function GET(request) {
       byDate[date].push({ ...entry, spots_open, tester_spots_open, is_goalie_sp: isGoalie });
     }
 
-    return NextResponse.json({ schedule, byDate });
+    return NextResponse.json({ schedule: combined, byDate });
   } catch (error) {
     console.error("SP schedule error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -98,12 +115,13 @@ export async function POST(request) {
     const scheduleId = parseInt(body.schedule_id);
     const count = Math.max(0, parseInt(body.testers_required) || 0);
     if (!scheduleId) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
-    // IDOR guard: the schedule row must belong to an association this SP serves.
+    // IDOR guard: the row must belong to an association this SP serves, OR be an
+    // SP-owned testing event.
     const owned = await sql`
       SELECT es.id FROM evaluation_schedule es
-      JOIN age_categories ac ON ac.id = es.age_category_id
-      JOIN sp_association_links sal ON sal.association_id = ac.organization_id
-      WHERE es.id = ${scheduleId} AND sal.service_provider_id = ${spId} AND sal.status = 'active'`;
+      LEFT JOIN age_categories ac ON ac.id = es.age_category_id
+      LEFT JOIN sp_association_links sal ON sal.association_id = ac.organization_id AND sal.status = 'active'
+      WHERE es.id = ${scheduleId} AND (sal.service_provider_id = ${spId} OR es.service_provider_id = ${spId})`;
     if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await sql`UPDATE evaluation_schedule SET testers_required = ${count} WHERE id = ${scheduleId}`;
     return NextResponse.json({ success: true, testers_required: count });
