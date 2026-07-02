@@ -86,6 +86,10 @@ simple. `spots_open = testers_required − signed_up` (SP + tester views only).
   a **Testing** tab (if they hold a tester membership) listing testing sessions to sign up for,
   and an **Evaluations** tab (if they hold an evaluator membership) with the existing evaluator
   sign-ups. Someone with one capability sees one tab (no empty tab).
+  - **Hard guarantee:** a user with **no evaluator membership** issues **zero** evaluator
+    queries and never renders the Evaluations tab — testers who aren't approved to evaluate
+    never see evaluation schedules or availabilities. Capability is checked server-side per
+    request, not just hidden in the UI.
 
 ### G. Notifications
 Parallel to the evaluator "needs evaluators" fan-out: the SP can notify testers when a testing
@@ -103,11 +107,14 @@ tester recipient set and testing-worded copy.
 
 ## Auth / roles
 
-- Testers authenticate like evaluators; their landing dashboard is capability-driven (tabs from
-  memberships), so a new hard role in the JWT may not be needed — capability is derived from
-  `evaluator_memberships`. **Open question:** do we mint a `service_provider_tester` primary
-  role for middleware gating, or gate the shared dashboard purely on membership presence?
-- Middleware: whatever route the tester dashboard lives on must admit tester-capability users.
+- **Decision:** mint a `service_provider_tester` primary role **only** so middleware can admit a
+  pure tester to the dashboard route. What the user actually *sees* is driven by
+  `evaluator_memberships`, not the role — the JWT role controls route **access**, memberships
+  control **content**. A dual-capability person keeps whatever primary role they were first
+  given; their tabs still derive from memberships.
+- Middleware: the tester dashboard route admits `service_provider_tester` plus the evaluator/SP
+  roles. A pure tester lands on the Testing tab only and every evaluator endpoint independently
+  rejects a caller with no evaluator membership.
 
 ## Data flow
 
@@ -132,15 +139,17 @@ Tester signs up (Testing tab) → SP sees signups / spots_open
   omit tester fields defensively.
 - **Goalie testing:** out of scope — goalies run goalie-skills, not SportTesting drills here.
 
-## Open questions
+## Resolved decisions
 
-1. **Tester primary role vs membership-only gating** for middleware (Auth section).
-2. **Invite reuse vs dedicated tester-invite table** — extend `evaluator_invitations` with a
-   `role` column (lean) or a parallel `tester_invitations`.
-3. **Shared dashboard vs dedicated `/tester` route** — one capability-tabbed dashboard (lean,
-   best for dual-role people) or a separate tester dashboard.
-4. **Notifications reuse** — confirm the existing evaluator-notify plumbing can carry a tester
-   recipient set without leaking to association fan-outs.
+1. **Role:** mint `service_provider_tester` for middleware gating; capability/tabs come from
+   `evaluator_memberships` (Auth section). Pure testers never load evaluator data.
+2. **Invites:** extend the existing invite tables (`evaluator_invitations` /
+   `evaluator_join_codes`) with a `role` column — no parallel tester-invite table.
+3. **Dashboard:** one capability-tabbed dashboard. A user with no evaluator membership sees only
+   the Testing tab and issues zero evaluator queries.
+4. **Notifications:** reuse the evaluator-notify plumbing with a **tester-only recipient set**
+   and testing-worded copy; enforced to never fan out to association or evaluator recipients.
+   (Implementation-owned safety check, not a product decision.)
 
 ## Why this stays clean
 
