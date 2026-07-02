@@ -16,17 +16,29 @@ function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const inviteToken = searchParams.get("invite") || "";
+  const invited = !!inviteToken;
   const [codeInfo, setCodeInfo] = useState(null);
 
-  // Detect whether this is a tester or evaluator code so the wording matches.
+  // Direct SP invite (token) — pre-authorized, no code needed. Prefills + locks email.
   useEffect(() => {
+    if (!inviteToken) return;
+    fetch(`/api/evaluator/register?invite=${encodeURIComponent(inviteToken)}`)
+      .then(r => r.json())
+      .then(d => { if (d?.valid) { setCodeInfo({ ...d, invited: true }); if (d.email) setForm(f => ({ ...f, email: d.email })); } })
+      .catch(() => {});
+  }, [inviteToken]);
+
+  // Join-code lookup (self-serve) — only when this isn't an invite.
+  useEffect(() => {
+    if (inviteToken) return;
     const c = form.code.trim();
     if (c.length < 4) { setCodeInfo(null); return; }
     let cancelled = false;
     fetch(`/api/evaluator/register?code=${encodeURIComponent(c)}`)
       .then(r => r.json()).then(d => { if (!cancelled) setCodeInfo(d?.valid ? d : null); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [form.code]);
+  }, [form.code, inviteToken]);
 
   const isTester = !!(result?.is_tester ?? codeInfo?.is_tester);
   const Noun = isTester ? "Tester" : "Evaluator";
@@ -42,7 +54,7 @@ function SignupForm() {
     const res = await fetch("/api/evaluator/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, invite: inviteToken || undefined }),
     });
     const data = await res.json();
     setLoading(false);
@@ -62,7 +74,7 @@ function SignupForm() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl mb-2">You're in the queue!</h1>
+          <h1 className="font-display font-extrabold tracking-tight text-ink text-2xl mb-2">{result.active ? "You're all set!" : "You're in the queue!"}</h1>
           <p className="text-gray-500 mb-6">{result.message}</p>
 
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
@@ -73,11 +85,18 @@ function SignupForm() {
 
           <div className="bg-accent-soft border border-accent/20 rounded-xl p-4 mb-6 text-left">
             <p className="text-sm font-semibold text-ink mb-1">What happens next?</p>
-            <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
-              <li>{result.org_name} will review your application</li>
-              <li>You'll receive an email when approved</li>
-              <li>Sign in and start picking up sessions</li>
-            </ol>
+            {result.active ? (
+              <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                <li>You're active with {result.org_name} — no approval needed</li>
+                <li>Sign in and start signing up for sessions</li>
+              </ol>
+            ) : (
+              <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                <li>{result.org_name} will review your application</li>
+                <li>You'll receive an email when approved</li>
+                <li>Sign in and start picking up sessions</li>
+              </ol>
+            )}
           </div>
 
           <a href="/account/signin"
@@ -103,7 +122,7 @@ function SignupForm() {
         </div>
 
         <h2 className="font-display font-extrabold tracking-tight text-ink text-2xl mb-1">Create your account</h2>
-        <p className="text-sm text-gray-500 mb-6">You'll need a join code from your organization to get started.</p>
+        <p className="text-sm text-gray-500 mb-6">{invited ? `You've been invited to join ${codeInfo?.org_name || "your organization"} as a ${noun} — no code needed. Just set your name and password.` : "You'll need a join code from your organization to get started."}</p>
 
         {error && (
           <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl mb-5">
@@ -113,24 +132,25 @@ function SignupForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Join Code — prominent at top */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Organization Join Code <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={e => set("code", e.target.value.toUpperCase())}
-              placeholder="e.g. ABC-DEF"
-              required
-              maxLength={10}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent uppercase bg-gray-50"
-            />
-            <p className="text-xs text-gray-400 mt-1">Ask your service provider or association admin for this code</p>
-          </div>
+          {!invited && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Organization Join Code <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.code}
+                onChange={e => set("code", e.target.value.toUpperCase())}
+                placeholder="e.g. ABC-DEF"
+                required
+                maxLength={10}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent uppercase bg-gray-50"
+              />
+              <p className="text-xs text-gray-400 mt-1">Ask your service provider or association admin for this code</p>
+            </div>
+          )}
 
-          <div className="border-t border-gray-100 pt-4">
+          <div className={invited ? "" : "border-t border-gray-100 pt-4"}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span className="text-red-400">*</span></label>
               <input
@@ -148,11 +168,13 @@ function SignupForm() {
               <input
                 type="email"
                 value={form.email}
-                onChange={e => set("email", e.target.value)}
+                onChange={e => !invited && set("email", e.target.value)}
                 placeholder="dan@email.com"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
+                readOnly={invited}
+                className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${invited ? "bg-gray-50 text-gray-500" : ""}`}
               />
+              {invited && <p className="text-xs text-gray-400 mt-1">This is the address your invite was sent to.</p>}
             </div>
 
             <div className="mt-4">

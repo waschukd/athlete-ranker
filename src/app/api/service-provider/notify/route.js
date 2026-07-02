@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 
@@ -59,43 +60,38 @@ export async function POST(request) {
     const body = await request.json();
     const { action, schedule_id, message } = body;
 
-    // Evaluator email invite(s) — single (email) or batch (emails[]). Each recipient
-    // gets their own email; invalid addresses are skipped and reported.
-    if (action === "invite_evaluator" || action === "invite_evaluators") {
-      const { signup_url, sp_name } = body;
-      if (!signup_url) return NextResponse.json({ error: "Signup URL required" }, { status: 400 });
+    // Direct email invite(s) — evaluator or tester, single or batch. Each invitee is
+    // PRE-AUTHORIZED: we mint a per-invite token and email a personal link; accepting
+    // it makes them ACTIVE with no approval (the SP already chose them). Shared join
+    // codes remain the self-serve, needs-approval path.
+    if (["invite_evaluator", "invite_evaluators", "invite_tester", "invite_testers"].includes(action)) {
+      const isTesterInvite = action.includes("tester");
+      const role = isTesterInvite ? "service_provider_tester" : "service_provider_evaluator";
+      const { sp_name } = body;
+      const { orgId: sp_id } = await resolveSpContext(session, new URL(request.url).searchParams.get("org"));
+      if (!sp_id) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
       const raw = Array.isArray(body.emails) ? body.emails : (body.email ? [body.email] : []);
       const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
       const valid = [...new Set(raw.map(e => String(e).trim().toLowerCase()).filter(e => emailRe.test(e)))];
       const invalid = raw.length - valid.length;
       if (!valid.length) return NextResponse.json({ error: "No valid email addresses" }, { status: 400 });
-      let sent = 0;
-      for (const email of valid) { if (await sendEvaluatorInvite(email, signup_url, sp_name)) sent++; }
+      const inviterId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id || null;
+      const origin = process.env.NEXT_PUBLIC_BASE_URL || (body.signup_url ? new URL(body.signup_url).origin : "");
+      let sent = 0; const links = [];
+      for (const email of valid) {
+        const token = randomUUID();
+        await sql`INSERT INTO evaluator_invitations (organization_id, email, invited_by_user_id, invite_token, status, role, expires_at)
+          VALUES (${sp_id}, ${email}, ${inviterId}, ${token}, 'pending', ${role}, NOW() + INTERVAL '30 days')`;
+        const link = `${origin}/evaluator/signup?invite=${token}`;
+        links.push({ email, link });
+        if (isTesterInvite ? await sendTesterInvite(email, link, sp_name) : await sendEvaluatorInvite(email, link, sp_name)) sent++;
+      }
       return NextResponse.json({
         success: true, sent, valid: valid.length, invalid,
+        links: process.env.RESEND_API_KEY ? undefined : links,
         message: process.env.RESEND_API_KEY
-          ? `Sent ${sent} invite${sent === 1 ? "" : "s"}${invalid ? `, skipped ${invalid} invalid` : ""}`
-          : `No emails sent — configure RESEND_API_KEY. Share this link manually: ${signup_url}`,
-      });
-    }
-
-    // Tester email invite(s) — single (email) or batch (emails[]). Each recipient
-    // gets their own email; invalid addresses are skipped and reported.
-    if (action === "invite_tester" || action === "invite_testers") {
-      const { signup_url, sp_name } = body;
-      if (!signup_url) return NextResponse.json({ error: "Signup URL required" }, { status: 400 });
-      const raw = Array.isArray(body.emails) ? body.emails : (body.email ? [body.email] : []);
-      const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-      const valid = [...new Set(raw.map(e => String(e).trim().toLowerCase()).filter(e => emailRe.test(e)))];
-      const invalid = raw.length - valid.length;
-      if (!valid.length) return NextResponse.json({ error: "No valid email addresses" }, { status: 400 });
-      let sent = 0;
-      for (const email of valid) { if (await sendTesterInvite(email, signup_url, sp_name)) sent++; }
-      return NextResponse.json({
-        success: true, sent, valid: valid.length, invalid,
-        message: process.env.RESEND_API_KEY
-          ? `Sent ${sent} invite${sent === 1 ? "" : "s"}${invalid ? `, skipped ${invalid} invalid` : ""}`
-          : `No emails sent — configure RESEND_API_KEY. Share this link manually: ${signup_url}`,
+          ? `Sent ${sent} invite${sent === 1 ? "" : "s"}${invalid ? `, skipped ${invalid} invalid` : ""} — they join active, no approval needed.`
+          : `Email isn't configured — copy the invite link${valid.length === 1 ? "" : "s"} below to share manually.`,
       });
     }
 
