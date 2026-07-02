@@ -110,6 +110,86 @@ function JoinCodesPanel({ orgId, data, refetch }) {
   );
 }
 
+// Testing crew management — mirrors the evaluator pool, but a separate pool that
+// associations never see. Testers join via a tester-flavoured code; the SP can
+// approve a tester as an evaluator (one-directional) or remove them.
+function TestersTab({ spUrl, spName }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["sp-testers"],
+    queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/testers")); return r.json(); },
+  });
+  const testers = data?.testers || [];
+  const codes = data?.codes || [];
+  const activeCode = codes.find(c => c.uses < c.max_uses);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const act = async (body) => {
+    setBusy(true);
+    await fetch(spUrl("/api/service-provider/testers"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setBusy(false);
+    qc.invalidateQueries(["sp-testers"]);
+  };
+  const signupUrl = activeCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/evaluator/signup?code=${activeCode.code}` : "";
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900">Your testing crew</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Testers run your objective testing sessions — a separate pool from evaluators that associations never see. Approve a tester as an evaluator once they're ready; it doesn't work the other way around.</p>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">Tester Join Code</h3>
+          <button onClick={() => act({ action: "generate_code" })} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Plus size={15} /> New code</button>
+        </div>
+        <div className="p-5">
+          {!activeCode ? (
+            <p className="text-sm text-gray-400">Generate a code, then share the signup link so your testers can join.</p>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap">
+              <code className="text-lg font-mono font-bold text-[#0b5cd6] bg-[#e8f0fd] px-3 py-1.5 rounded-lg tracking-wider">{activeCode.code}</code>
+              <span className="text-xs text-gray-400">{activeCode.uses}/{activeCode.max_uses} used</span>
+              <button onClick={() => { navigator.clipboard.writeText(signupUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1.5">{copied ? <><CheckCircle size={13} className="text-green-600" /> Copied</> : "Copy signup link"}</button>
+              <button onClick={() => { if (confirm("Deactivate this code?")) act({ action: "deactivate_code", code_id: activeCode.id }); }} className="text-xs px-3 py-1.5 border border-red-100 text-red-400 rounded-lg hover:bg-red-50">Deactivate</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Testers ({testers.length})</h3></div>
+        {testers.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-gray-400">No testers yet — share your join code above.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr><th className="text-left px-5 py-2.5">Name</th><th className="text-left px-4 py-2.5">Email</th><th className="text-left px-4 py-2.5">Upcoming</th><th className="text-right px-5 py-2.5">Actions</th></tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {testers.map(t => (
+                  <tr key={t.id}>
+                    <td className="px-5 py-3 font-medium text-ink">{t.name}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
+                    <td className="px-4 py-3 text-gray-500">{t.email}</td>
+                    <td className="px-4 py-3 text-gray-600 tabular-nums">{t.upcoming_signups || 0}</td>
+                    <td className="px-5 py-3 text-right whitespace-nowrap">
+                      {!t.is_evaluator && <button onClick={() => { if (confirm(`Approve ${t.name} as an evaluator? They'll be able to sign up for evaluation sessions too.`)) act({ action: "promote", tester_id: t.id }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><Star size={12} /> Approve as evaluator</button>}
+                      <button onClick={() => { if (confirm(`Remove ${t.name} from your testers?`)) act({ action: "remove", tester_id: t.id }); }} className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 inline-flex items-center gap-1"><Ban size={12} /> Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BlastButton({ scheduleId, spotsOpen }) {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
@@ -1142,7 +1222,7 @@ function SPDashboard() {
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
-            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Master Schedule" }, { id: "associations", label: "Associations" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
+            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Master Schedule" }, { id: "associations", label: "Associations" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "testers", label: "Testers" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {tab.label}
               </button>
@@ -1152,6 +1232,8 @@ function SPDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {activeTab === "testers" && <TestersTab spUrl={spUrl} spName={sp?.name} />}
 
         {activeTab === "overview" && (
           <div className="space-y-6">
