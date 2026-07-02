@@ -27,7 +27,7 @@ export async function GET(request) {
         AND eh.organization_id IN (SELECT association_id FROM sp_association_links WHERE service_provider_id = ${spId} AND status = 'active')
       LEFT JOIN evaluator_ratings er ON er.evaluator_id = u.id AND er.organization_id = ${spId}
       LEFT JOIN evaluator_flags ef ON ef.evaluator_id = u.id AND ef.organization_id = ${spId}
-      WHERE em.organization_id = ${spId} AND em.status != 'deleted'
+      WHERE em.organization_id = ${spId} AND em.status != 'deleted' AND em.is_evaluator = true
       GROUP BY u.id, em.created_at, em.status, em.hourly_rate ORDER BY u.name
     `;
     const flags = await sql`

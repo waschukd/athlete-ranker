@@ -24,6 +24,11 @@ if (!(await has("evaluation_schedule", "testers_required"))) plan.push("evaluati
 if (!(await has("evaluator_invitations", "role"))) plan.push("evaluator_invitations.role");
 if (!(await has("evaluator_join_codes", "role"))) plan.push("evaluator_join_codes.role");
 if (!(await tableExists("tester_session_signups"))) plan.push("tester_session_signups (table)");
+// Capability flags — a person can hold only ONE membership row per org (unique
+// user_id+organization_id), so tester vs evaluator can't be two rows. Flags on the
+// single row carry both. Existing rows default to evaluator (is_evaluator=true).
+if (!(await has("evaluator_memberships", "is_tester"))) plan.push("evaluator_memberships.is_tester");
+if (!(await has("evaluator_memberships", "is_evaluator"))) plan.push("evaluator_memberships.is_evaluator");
 
 console.log(plan.length ? "WILL ADD:\n  - " + plan.join("\n  - ") : "Nothing to do — already migrated.");
 if (!plan.length) process.exit(0);
@@ -44,5 +49,8 @@ await sql`
   )`;
 await sql`CREATE INDEX IF NOT EXISTS idx_tester_signups_schedule ON tester_session_signups(schedule_id)`;
 await sql`CREATE INDEX IF NOT EXISTS idx_tester_signups_user ON tester_session_signups(user_id)`;
+// Capability flags: existing memberships are evaluators (default true); testers get is_tester=true.
+await sql`ALTER TABLE evaluator_memberships ADD COLUMN IF NOT EXISTS is_tester boolean NOT NULL DEFAULT false`;
+await sql`ALTER TABLE evaluator_memberships ADD COLUMN IF NOT EXISTS is_evaluator boolean NOT NULL DEFAULT true`;
 
 console.log("DONE — testers foundation migrated.");

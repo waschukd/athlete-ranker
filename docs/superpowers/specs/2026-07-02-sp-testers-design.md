@@ -48,12 +48,17 @@ Key real-world rules:
 
 ## Model
 
-### A. Two pools (memberships)
-Reuse `evaluator_memberships (user_id, organization_id, role, status)` with a new role:
-- Evaluators: `role = 'service_provider_evaluator'` (unchanged).
-- Testers: `role = 'service_provider_tester'` (new), under the SP org.
-A person who is both simply has **two membership rows** under the same SP. "Two pools" =
-filter the SP's memberships by role.
+### A. Two pools (memberships) — via capability flags
+`evaluator_memberships` has a **UNIQUE (user_id, organization_id)** constraint, so a person can
+hold only **one** membership row per org — "two rows" for a dual-capability person is impossible
+without changing a constraint that dozens of `ON CONFLICT (user_id, organization_id)` calls
+depend on (too risky). So capability rides on **two flags on the single row**:
+- `is_evaluator boolean default true` — existing memberships stay evaluators.
+- `is_tester boolean default false` — set true for testers.
+A dual-capability person has one row with **both** flags true. "Two pools" = filter by flag
+(`WHERE is_tester` / `WHERE is_evaluator`). Capability is always read from these flags server-side
+(`lib/testers.js` `getSpCapabilities`), never from the JWT role. Join codes carry a `role` so a
+tester code sets `is_tester=true, is_evaluator=false`; re-using a code accumulates (OR) capability.
 
 ### B. Promotion (tester → also evaluator)
 An SP action on a tester: "Approve as evaluator" → inserts the

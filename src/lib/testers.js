@@ -1,10 +1,11 @@
 // SP Testers — capability plumbing (Phase 1 foundation).
 //
-// Testers and evaluators are separate pools, both stored in evaluator_memberships
-// under a service-provider org, distinguished by role. A person can hold either or
-// both. Capability is ALWAYS derived from active memberships here — never from the
-// JWT role alone — so the "no evaluator membership → no evaluator data" guarantee
-// is enforced server-side wherever this is called.
+// Testers and evaluators are separate pools. Because a person can hold only ONE
+// evaluator_memberships row per org (unique user_id+organization_id), capability is
+// carried by two flags on that row: is_tester / is_evaluator (a person can have
+// either or both). Capability is ALWAYS derived from active memberships here —
+// never from the JWT role alone — so the "no evaluator membership → no evaluator
+// data" guarantee is enforced server-side wherever this is called.
 import sql from "@/lib/db";
 import { getAppUserId } from "@/lib/auth";
 
@@ -18,13 +19,13 @@ export async function getSpCapabilities(session) {
   const empty = { userId: null, isTester: false, isEvaluator: false, testerOrgIds: [], evaluatorOrgIds: [], spOrgIds: [] };
   if (!userId) return empty;
   const rows = await sql`
-    SELECT em.organization_id, em.role
+    SELECT em.organization_id, em.is_tester, em.is_evaluator
     FROM evaluator_memberships em
     JOIN organizations o ON o.id = em.organization_id
     WHERE em.user_id = ${userId} AND em.status = 'active'
       AND o.type IN ('service_provider', 'goalie_service_provider')`;
-  const testerOrgIds = [...new Set(rows.filter(r => r.role === TESTER_ROLE).map(r => r.organization_id))];
-  const evaluatorOrgIds = [...new Set(rows.filter(r => r.role === SP_EVALUATOR_ROLE).map(r => r.organization_id))];
+  const testerOrgIds = [...new Set(rows.filter(r => r.is_tester).map(r => r.organization_id))];
+  const evaluatorOrgIds = [...new Set(rows.filter(r => r.is_evaluator).map(r => r.organization_id))];
   return {
     userId,
     isTester: testerOrgIds.length > 0,
