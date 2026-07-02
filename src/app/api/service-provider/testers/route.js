@@ -75,6 +75,16 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // Approve a pending tester (signed up via the tester join code).
+    if (action === "approve") {
+      const tid = parseInt(body.tester_id);
+      const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${tid} AND organization_id = ${spId} AND is_tester = true`;
+      if (!mem.length) return NextResponse.json({ error: "Not a tester of this SP" }, { status: 403 });
+      await sql`UPDATE evaluator_memberships SET status = 'active', pending = false WHERE user_id = ${tid} AND organization_id = ${spId}`;
+      await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${adminId}, 'tester_approved', 'user', ${tid}, 'approved by SP')`;
+      return NextResponse.json({ success: true });
+    }
+
     // Promote a tester to ALSO be an evaluator (one-directional; keeps tester).
     if (action === "promote") {
       const tid = parseInt(body.tester_id);

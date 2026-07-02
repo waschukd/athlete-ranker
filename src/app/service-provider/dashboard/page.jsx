@@ -202,11 +202,12 @@ function TestersTab({ spUrl, spName }) {
               <tbody className="divide-y divide-gray-100">
                 {testers.map(t => (
                   <tr key={t.id}>
-                    <td className="px-5 py-3 font-medium text-ink">{t.name}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
+                    <td className="px-5 py-3 font-medium text-ink">{t.name}{t.status === "pending" && <span className="ml-2 text-[11px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-semibold">Pending</span>}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
                     <td className="px-4 py-3 text-gray-500">{t.email}</td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">{t.upcoming_signups || 0}</td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
-                      {!t.is_evaluator && <button onClick={() => { if (confirm(`Approve ${t.name} as an evaluator? They'll be able to sign up for evaluation sessions too.`)) act({ action: "promote", tester_id: t.id }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><Star size={12} /> Approve as evaluator</button>}
+                      {t.status === "pending" && <button onClick={() => act({ action: "approve", tester_id: t.id })} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><CheckCircle size={12} /> Approve</button>}
+                      {t.status !== "pending" && !t.is_evaluator && <button onClick={() => { if (confirm(`Approve ${t.name} as an evaluator? They'll be able to sign up for evaluation sessions too.`)) act({ action: "promote", tester_id: t.id }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><Star size={12} /> Approve as evaluator</button>}
                       <button onClick={() => { if (confirm(`Remove ${t.name} from your testers?`)) act({ action: "remove", tester_id: t.id }); }} className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 inline-flex items-center gap-1"><Ban size={12} /> Remove</button>
                     </td>
                   </tr>

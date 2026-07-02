@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Check, AlertCircle, Loader } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
@@ -16,6 +16,21 @@ function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [codeInfo, setCodeInfo] = useState(null);
+
+  // Detect whether this is a tester or evaluator code so the wording matches.
+  useEffect(() => {
+    const c = form.code.trim();
+    if (c.length < 4) { setCodeInfo(null); return; }
+    let cancelled = false;
+    fetch(`/api/evaluator/register?code=${encodeURIComponent(c)}`)
+      .then(r => r.json()).then(d => { if (!cancelled) setCodeInfo(d?.valid ? d : null); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [form.code]);
+
+  const isTester = !!(result?.is_tester ?? codeInfo?.is_tester);
+  const Noun = isTester ? "Tester" : "Evaluator";
+  const noun = isTester ? "tester" : "evaluator";
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -51,7 +66,7 @@ function SignupForm() {
           <p className="text-gray-500 mb-6">{result.message}</p>
 
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-            <p className="text-xs text-gray-400 mb-1">Your Evaluator ID</p>
+            <p className="text-xs text-gray-400 mb-1">Your {Noun} ID</p>
             <p className="text-2xl font-mono font-bold text-accent tracking-widest">{result.evaluator_id}</p>
             <p className="text-xs text-gray-400 mt-1">Save this — it uniquely identifies you on the platform</p>
           </div>
@@ -83,7 +98,7 @@ function SignupForm() {
           <img src="/s-mark-dark.svg" style={{width:"40px",height:"40px",objectFit:"contain"}} alt="Sideline Star" />
           <div>
             <h1 className="font-display font-extrabold tracking-tight text-ink text-lg">Sideline Star</h1>
-            <p className="text-xs text-gray-400">Evaluator Sign Up</p>
+            <p className="text-xs text-gray-400">{Noun} Sign Up</p>
           </div>
         </div>
 
