@@ -110,6 +110,30 @@ function JoinCodesPanel({ orgId, data, refetch }) {
   );
 }
 
+// Inline SP-private tester staffing on a testing row: signed-up / needed, editable.
+function TesterStaffingControl({ entry, spUrl, onSaved }) {
+  const [val, setVal] = useState(String(entry.testers_required ?? 0));
+  const [saving, setSaving] = useState(false);
+  const signed = parseInt(entry.testers_signed_up || 0);
+  const req = parseInt(val) || 0;
+  const short = req > 0 && signed < req;
+  const save = async () => {
+    if (req === parseInt(entry.testers_required || 0)) return;
+    setSaving(true);
+    await fetch(spUrl("/api/service-provider/schedule"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set_testers_required", schedule_id: entry.schedule_id, testers_required: req }) });
+    setSaving(false);
+    onSaved?.();
+  };
+  return (
+    <div className="text-center">
+      <div className={`text-sm font-bold ${short ? "text-amber-600" : signed > 0 ? "text-green-600" : "text-gray-400"}`}>
+        {signed}/<input type="number" min="0" value={val} onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} className="w-9 text-center bg-transparent border-b border-gray-200 focus:outline-none focus:border-accent" />
+      </div>
+      <div className="text-xs text-gray-400">{saving ? "saving…" : "testers"}</div>
+    </div>
+  );
+}
+
 // Testing crew management — mirrors the evaluator pool, but a separate pool that
 // associations never see. Testers join via a tester-flavoured code; the SP can
 // approve a tester as an evaluator (one-directional) or remove them.
@@ -1641,10 +1665,9 @@ function SPDashboard() {
                                         <div className="text-xs text-gray-400">goalie eval</div>
                                       </div>
                                     ) : entry.session_type === 'testing' ? (
-                                      <div className="text-center">
-                                        <div className="text-sm font-bold text-gray-400">—</div>
-                                        <div className="text-xs text-gray-400">no evaluators needed</div>
-                                      </div>
+                                      entry.is_goalie_sp
+                                        ? <div className="text-center"><div className="text-sm font-bold text-gray-400">—</div><div className="text-xs text-gray-400">no evaluators needed</div></div>
+                                        : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} />
                                     ) : (
                                       <>
                                         <div className="text-center">
@@ -1659,7 +1682,9 @@ function SPDashboard() {
                                         )}
                                       </>
                                     )}
-                                    {entry.session_type === 'testing' && !entry.is_goalie_sp ? null
+                                    {entry.session_type === 'testing' && !entry.is_goalie_sp
+                                      ? (entry.tester_spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.tester_spots_open} tester{entry.tester_spots_open === 1 ? "" : "s"} needed</span> : parseInt(entry.testers_required || 0) > 0 ? <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Testers set</span> : null)
+                                      : entry.session_type === 'testing' ? null
                                       : entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
                                     {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}

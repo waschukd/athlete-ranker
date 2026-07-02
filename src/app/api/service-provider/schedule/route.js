@@ -31,6 +31,8 @@ export async function GET(request) {
         cs.session_type, cs.name as session_name,
         COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
         COALESCE(es.goalie_evaluators_required, 0) as goalie_evaluators_required,
+        COALESCE(es.testers_required, 0) as testers_required,
+        COUNT(DISTINCT tss.id) as testers_signed_up,
         COUNT(DISTINCT ess.id) as evaluators_signed_up,
         COUNT(DISTINCT pc.id) FILTER (WHERE pc.checked_in = true) as checked_in_count
       FROM sp_association_links sal
@@ -39,6 +41,7 @@ export async function GET(request) {
       JOIN evaluation_schedule es ON es.age_category_id = ac.id
       LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = es.session_number
       LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id AND ess.status != 'cancelled'
+      LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id AND tss.status = 'signed_up'
       LEFT JOIN player_checkins pc ON pc.schedule_id = es.id
       WHERE sal.service_provider_id = ${spId}
         AND sal.status = 'active'
@@ -68,12 +71,44 @@ export async function GET(request) {
       const spots_open = isPlayerTesting ? 0
         : isGoalie ? Math.max(0, parseInt(entry.goalie_evaluators_required || 0) - parseInt(entry.evaluators_signed_up || 0))
         : parseInt(entry.evaluators_required) - parseInt(entry.evaluators_signed_up || 0);
-      byDate[date].push({ ...entry, spots_open, is_goalie_sp: isGoalie });
+      // Tester staffing (SP-private) lives only on testing rows.
+      const tester_spots_open = isPlayerTesting ? Math.max(0, parseInt(entry.testers_required || 0) - parseInt(entry.testers_signed_up || 0)) : 0;
+      byDate[date].push({ ...entry, spots_open, tester_spots_open, is_goalie_sp: isGoalie });
     }
 
     return NextResponse.json({ schedule, byDate });
   } catch (error) {
     console.error("SP schedule error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// Set the SP-private "testers needed" for one of the SP's testing sessions.
+const ADMIN_ROLES = new Set(["service_provider_admin", "goalie_service_provider_admin", "super_admin"]);
+export async function POST(request) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const { searchParams } = new URL(request.url);
+    const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
+    if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
+    const body = await request.json();
+    if (body.action !== "set_testers_required") return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    const scheduleId = parseInt(body.schedule_id);
+    const count = Math.max(0, parseInt(body.testers_required) || 0);
+    if (!scheduleId) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
+    // IDOR guard: the schedule row must belong to an association this SP serves.
+    const owned = await sql`
+      SELECT es.id FROM evaluation_schedule es
+      JOIN age_categories ac ON ac.id = es.age_category_id
+      JOIN sp_association_links sal ON sal.association_id = ac.organization_id
+      WHERE es.id = ${scheduleId} AND sal.service_provider_id = ${spId} AND sal.status = 'active'`;
+    if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await sql`UPDATE evaluation_schedule SET testers_required = ${count} WHERE id = ${scheduleId}`;
+    return NextResponse.json({ success: true, testers_required: count });
+  } catch (error) {
+    console.error("SP set testers error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
