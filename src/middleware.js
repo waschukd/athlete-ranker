@@ -30,6 +30,7 @@ const PUBLIC_PATHS = [
   "/api/evaluator/calendar",
   "/report",
   "/api/report",
+  "/prototype",
   "/api/payments",
   "/api/webhooks",
   "/_next",
