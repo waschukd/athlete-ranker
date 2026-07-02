@@ -154,6 +154,9 @@ function TestersTab({ spUrl, spName }) {
   const activeCode = codes.find(c => c.uses < c.max_uses);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState(null);
 
   const act = async (body) => {
     setBusy(true);
@@ -162,6 +165,16 @@ function TestersTab({ spUrl, spName }) {
     qc.invalidateQueries(["sp-testers"]);
   };
   const signupUrl = activeCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/evaluator/signup?code=${activeCode.code}` : "";
+
+  const sendInvite = async () => {
+    if (!activeCode) { setInviteMsg({ type: "error", text: "Generate a join code first" }); return; }
+    setInviteSending(true); setInviteMsg(null);
+    const res = await fetch(spUrl("/api/service-provider/notify"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_tester", email: inviteEmail, signup_url: signupUrl, sp_name: spName }) });
+    const d = await res.json().catch(() => ({}));
+    setInviteSending(false);
+    if (d.success) { setInviteMsg({ type: "success", text: `Invite sent to ${inviteEmail}` }); setInviteEmail(""); }
+    else setInviteMsg({ type: "error", text: d.error || "Failed to send" });
+  };
 
   return (
     <div className="space-y-6">
@@ -186,6 +199,18 @@ function TestersTab({ spUrl, spName }) {
               <button onClick={() => { if (confirm("Deactivate this code?")) act({ action: "deactivate_code", code_id: activeCode.id }); }} className="text-xs px-3 py-1.5 border border-red-100 text-red-400 rounded-lg hover:bg-red-50">Deactivate</button>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Invite Tester by Email</h3></div>
+        <div className="p-5">
+          <div className="flex items-center gap-3 flex-wrap">
+            <input type="email" placeholder="Tester email address" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 min-w-[200px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+            <button disabled={!inviteEmail || inviteSending} onClick={sendInvite} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">{inviteSending ? "Sending…" : "Send Invite"}</button>
+          </div>
+          {inviteMsg && <p className={`text-xs font-medium mt-2 ${inviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{inviteMsg.text}</p>}
+          {!activeCode && <p className="text-xs text-gray-400 mt-2">Generate a join code above first — invites use it.</p>}
         </div>
       </div>
 
