@@ -1842,25 +1842,29 @@ function SPDashboard() {
 
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Invite Evaluator by Email</h3>
+                <h3 className="text-sm font-semibold text-gray-900">Invite Evaluators by Email</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p>
               </div>
               <div className="p-5">
-                <div className="flex items-center gap-3">
-                  <input type="email" placeholder="Evaluator email address" value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-                  <button disabled={!evalInviteEmail || evalInviteSending}
+                <textarea rows={3} placeholder={"evaluator1@example.com, evaluator2@example.com\nevaluator3@example.com"} value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
+                <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+                  <span className="text-xs text-gray-400">{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
+                  <button disabled={!evalInviteEmail.trim() || evalInviteSending}
                     onClick={async () => {
                       const activeCode = joinCodeData?.codes?.find(c => c.uses < c.max_uses);
                       if (!activeCode) { setEvalInviteMsg({ type: "error", text: "Generate a join code first" }); return; }
-                      setEvalInviteSending(true);
+                      const emails = evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean);
+                      if (!emails.length) { setEvalInviteMsg({ type: "error", text: "Add at least one email" }); return; }
+                      setEvalInviteSending(true); setEvalInviteMsg(null);
                       const signupUrl = `${window.location.origin}/evaluator/signup?code=${activeCode.code}`;
-                      const res = await fetch("/api/service-provider/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_evaluator", email: evalInviteEmail, signup_url: signupUrl, sp_name: sp?.name }) });
+                      const res = await fetch("/api/service-provider/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_evaluators", emails, signup_url: signupUrl, sp_name: sp?.name }) });
                       const data = await res.json();
                       setEvalInviteSending(false);
-                      if (data.success) { setEvalInviteMsg({ type: "success", text: `Invite sent to ${evalInviteEmail}` }); setEvalInviteEmail(""); }
+                      if (data.success) { setEvalInviteMsg({ type: "success", text: data.message || `Sent ${data.sent} invites` }); setEvalInviteEmail(""); }
                       else { setEvalInviteMsg({ type: "error", text: data.error || "Failed" }); }
                     }}
                     className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
-                    {evalInviteSending ? "Sending..." : "Send Invite"}
+                    {evalInviteSending ? "Sending..." : "Send Invites"}
                   </button>
                 </div>
                 {evalInviteMsg && <p className={`text-xs font-medium mt-2 ${evalInviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{evalInviteMsg.text}</p>}

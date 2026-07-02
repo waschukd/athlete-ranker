@@ -26,6 +26,28 @@ async function sendTesterInvite(email, signup_url, sp_name) {
   return true;
 }
 
+// Send one evaluator invite email. Returns true if actually sent (RESEND configured).
+async function sendEvaluatorInvite(email, signup_url, sp_name) {
+  if (!process.env.RESEND_API_KEY) return false;
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
+      to: email,
+      subject: `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
+      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
+        <p style="color: #555; font-size: 15px;">${sp_name || "A hockey organization"} has invited you to join their evaluator pool.</p>
+        <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for sessions.</p>
+        <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
+        <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
+      </div>`,
+    }),
+  });
+  return true;
+}
+
 export async function POST(request) {
   try {
     const session = await getSession();
@@ -37,33 +59,24 @@ export async function POST(request) {
     const body = await request.json();
     const { action, schedule_id, message } = body;
 
-    // Handle evaluator email invite
-    if (action === "invite_evaluator") {
-      const { email, signup_url, sp_name } = body;
-      if (!email || !signup_url) return NextResponse.json({ error: "Email and signup URL required" }, { status: 400 });
-
-      if (process.env.RESEND_API_KEY) {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-          body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-            to: email,
-            subject: `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
-            html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
-              <p style="color: #555; font-size: 15px;">${sp_name || "A hockey organization"} has invited you to join their evaluator pool.</p>
-              <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for sessions.</p>
-              <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">
-                Accept Invitation →
-              </a>
-              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
-            </div>`,
-          }),
-        });
-      }
-
-      return NextResponse.json({ success: true, message: process.env.RESEND_API_KEY ? `Invite sent to ${email}` : `No email sent — configure RESEND_API_KEY. Share this link manually: ${signup_url}` });
+    // Evaluator email invite(s) — single (email) or batch (emails[]). Each recipient
+    // gets their own email; invalid addresses are skipped and reported.
+    if (action === "invite_evaluator" || action === "invite_evaluators") {
+      const { signup_url, sp_name } = body;
+      if (!signup_url) return NextResponse.json({ error: "Signup URL required" }, { status: 400 });
+      const raw = Array.isArray(body.emails) ? body.emails : (body.email ? [body.email] : []);
+      const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+      const valid = [...new Set(raw.map(e => String(e).trim().toLowerCase()).filter(e => emailRe.test(e)))];
+      const invalid = raw.length - valid.length;
+      if (!valid.length) return NextResponse.json({ error: "No valid email addresses" }, { status: 400 });
+      let sent = 0;
+      for (const email of valid) { if (await sendEvaluatorInvite(email, signup_url, sp_name)) sent++; }
+      return NextResponse.json({
+        success: true, sent, valid: valid.length, invalid,
+        message: process.env.RESEND_API_KEY
+          ? `Sent ${sent} invite${sent === 1 ? "" : "s"}${invalid ? `, skipped ${invalid} invalid` : ""}`
+          : `No emails sent — configure RESEND_API_KEY. Share this link manually: ${signup_url}`,
+      });
     }
 
     // Tester email invite(s) — single (email) or batch (emails[]). Each recipient
