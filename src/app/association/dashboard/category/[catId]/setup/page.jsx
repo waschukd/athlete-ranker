@@ -629,23 +629,23 @@ function SetupWizard() {
   const skaterValid = Math.round(sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0)) === 100;
   const goalieConfigPayload = () => ({ scale: scoring.goalie_scale, increment: scoring.goalie_increment, sessions: scoring.goalie_sessions });
 
-  const saveStep = async () => {
+  const post = (body) => fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  // Persist ONLY the current step's data. Returns true on success (or when there's
+  // nothing to save), false when validation blocks it. Does not change the step.
+  const persistStep = async () => {
     setSaving(true); setError("");
-    const post = (body) => fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     try {
       if (step === 1) {
-        if (!skaterValid) { setError("Skater session weights must total 100%."); setSaving(false); return; }
+        if (!skaterValid) { setError("Skater session weights must total 100%."); setSaving(false); return false; }
         await post({ step: "sessions", data: { sessions } });
-      }
-      if (step === 2) {
+      } else if (step === 2) {
         await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
-      }
-      if (step === 3) {
+      } else if (step === 3) {
         const gTotal = scoring.goalie_sessions.reduce((t, s) => t + Number(s.weight_percentage || 0), 0);
-        if (Math.round(gTotal) !== 100) { setError("Goalie session weights must total 100%."); setSaving(false); return; }
+        if (Math.round(gTotal) !== 100) { setError("Goalie session weights must total 100%."); setSaving(false); return false; }
         await post({ step: "goalie_sessions", data: { goalie_config: goalieConfigPayload() } });
-      }
-      if (step === 4) {
+      } else if (step === 4) {
         await post({ step: "goalie_scoring", data: {
           players_eval_goalies: scoring.players_eval_goalies,
           goalie_config: goalieConfigPayload(),
@@ -653,15 +653,31 @@ function SetupWizard() {
           goalie_skills_categories: scoring.goalie_skills_categories,
         } });
       }
-      if (step === 7) {
-        if (!skaterValid) { setError("Fix skater session weights before launching."); setSaving(false); return; }
-        await post({ step: "complete" });
-        window.location.href = `/association/dashboard/category/${catId}?org=${orgId}`;
-        return;
-      }
-      setStep(s => s + 1);
-    } catch (e) { setError(e.message); }
-    setSaving(false);
+      // steps 5 (athletes), 6 (schedule), 7 (review) have nothing to persist here
+      setSaving(false); return true;
+    } catch (e) { setError(e.message); setSaving(false); return false; }
+  };
+
+  // "Save & Continue" / "Launch Category"
+  const saveStep = async () => {
+    if (step === 7) {
+      if (!skaterValid) { setError("Fix skater session weights before launching."); return; }
+      setSaving(true); setError("");
+      try { await post({ step: "complete" }); window.location.href = `/association/dashboard/category/${catId}?org=${orgId}`; }
+      catch (e) { setError(e.message); setSaving(false); }
+      return;
+    }
+    if (await persistStep()) setStep(s => s + 1);
+  };
+
+  // Tab / Back navigation — auto-saves the current step first so edits are never
+  // silently lost. A forward jump is blocked if the current step fails validation
+  // (same as Save & Continue); backward navigation always proceeds.
+  const navigate = async (target) => {
+    if (target === step || saving) return;
+    const ok = await persistStep();
+    if (!ok && target > step) return;
+    setStep(target);
   };
 
   return (
@@ -678,7 +694,7 @@ function SetupWizard() {
         </div>
       </div>
       <div className="max-w-3xl mx-auto px-4 py-10">
-        <StepIndicator currentStep={step} skaterValid={skaterValid} onJump={setStep} />
+        <StepIndicator currentStep={step} skaterValid={skaterValid} onJump={navigate} />
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
           {step === 1 && <SessionsStep title="Configure Skater Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />}
           {step === 2 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
@@ -690,7 +706,7 @@ function SetupWizard() {
         </div>
         {error && <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl mb-4"><AlertCircle size={15} className="text-red-500 flex-shrink-0" /><p className="text-sm text-red-700">{error}</p></div>}
         <div className="flex items-center justify-between">
-          <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"><ArrowLeft size={15} /> Back</button>
+          <button onClick={() => navigate(step - 1)} disabled={step === 1 || saving} className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"><ArrowLeft size={15} /> Back</button>
           <span className="text-xs text-gray-400">Step {step} of {STEPS.length}</span>
           <button onClick={saveStep} disabled={saving} className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg disabled:opacity-50">{saving ? "Saving..." : step === 7 ? "Launch Category" : "Save & Continue"}{!saving && <ArrowRight size={15} />}</button>
         </div>
