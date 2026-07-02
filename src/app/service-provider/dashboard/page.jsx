@@ -1558,6 +1558,11 @@ function SPDashboard() {
                                         <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.goalie_evaluators_required}</div>
                                         <div className="text-xs text-gray-400">goalie eval</div>
                                       </div>
+                                    ) : entry.session_type === 'testing' ? (
+                                      <div className="text-center">
+                                        <div className="text-sm font-bold text-gray-400">—</div>
+                                        <div className="text-xs text-gray-400">no evaluators needed</div>
+                                      </div>
                                     ) : (
                                       <>
                                         <div className="text-center">
@@ -1572,7 +1577,8 @@ function SPDashboard() {
                                         )}
                                       </>
                                     )}
-                                    {entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
+                                    {entry.session_type === 'testing' && !entry.is_goalie_sp ? null
+                                      : entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
                                     {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
                                   </>

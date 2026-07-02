@@ -58,9 +58,14 @@ export async function GET(request) {
     for (const entry of schedule) {
       const date = entry.scheduled_date?.toString().split("T")[0];
       if (!byDate[date]) byDate[date] = [];
+      // Player testing is objective (SportTesting hardware) — it needs NO
+      // evaluators. Zero out the requirement so the SP dashboard matches what
+      // evaluators see (they never sign up for testing) instead of showing "4".
+      const isPlayerTesting = entry.session_type === 'testing' && !isGoalie;
+      if (isPlayerTesting) entry.evaluators_required = 0;
       // For a goalie SP, "spots" track goalie evaluators; check-in is the
       // association's responsibility, so the dashboard hides it (is_goalie_sp).
-      const spots_open = entry.session_type === 'testing' && !isGoalie ? 0
+      const spots_open = isPlayerTesting ? 0
         : isGoalie ? Math.max(0, parseInt(entry.goalie_evaluators_required || 0) - parseInt(entry.evaluators_signed_up || 0))
         : parseInt(entry.evaluators_required) - parseInt(entry.evaluators_signed_up || 0);
       byDate[date].push({ ...entry, spots_open, is_goalie_sp: isGoalie });
