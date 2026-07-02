@@ -168,11 +168,13 @@ function TestersTab({ spUrl, spName }) {
 
   const sendInvite = async () => {
     if (!activeCode) { setInviteMsg({ type: "error", text: "Generate a join code first" }); return; }
+    const emails = inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean);
+    if (!emails.length) { setInviteMsg({ type: "error", text: "Add at least one email" }); return; }
     setInviteSending(true); setInviteMsg(null);
-    const res = await fetch(spUrl("/api/service-provider/notify"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_tester", email: inviteEmail, signup_url: signupUrl, sp_name: spName }) });
+    const res = await fetch(spUrl("/api/service-provider/notify"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_testers", emails, signup_url: signupUrl, sp_name: spName }) });
     const d = await res.json().catch(() => ({}));
     setInviteSending(false);
-    if (d.success) { setInviteMsg({ type: "success", text: `Invite sent to ${inviteEmail}` }); setInviteEmail(""); }
+    if (d.success) { setInviteMsg({ type: "success", text: d.message || `Sent ${d.sent} invites` }); setInviteEmail(""); }
     else setInviteMsg({ type: "error", text: d.error || "Failed to send" });
   };
 
@@ -203,11 +205,12 @@ function TestersTab({ spUrl, spName }) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Invite Tester by Email</h3></div>
+        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Invite Testers by Email</h3><p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p></div>
         <div className="p-5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <input type="email" placeholder="Tester email address" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 min-w-[200px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            <button disabled={!inviteEmail || inviteSending} onClick={sendInvite} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">{inviteSending ? "Sending…" : "Send Invite"}</button>
+          <textarea rows={3} placeholder={"tester1@example.com, tester2@example.com\ntester3@example.com"} value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
+          <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+            <span className="text-xs text-gray-400">{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
+            <button disabled={!inviteEmail.trim() || inviteSending} onClick={sendInvite} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">{inviteSending ? "Sending…" : "Send Invites"}</button>
           </div>
           {inviteMsg && <p className={`text-xs font-medium mt-2 ${inviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{inviteMsg.text}</p>}
           {!activeCode && <p className="text-xs text-gray-400 mt-2">Generate a join code above first — invites use it.</p>}
