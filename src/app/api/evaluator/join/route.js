@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 
 export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // evaluator_memberships.user_id / users.id — NOT the JWT's auth_users id.
+    const appUserId = await getAppUserId(session);
+    if (!appUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { code } = await request.json();
     if (!code) return NextResponse.json({ error: "Code required" }, { status: 400 });
@@ -32,7 +35,7 @@ export async function POST(request) {
     // Re-using a code accumulates capability (OR) rather than overwriting.
     await sql`
       INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, is_tester, is_evaluator)
-      VALUES (${session.userId}, ${joinCode.organization_id}, ${isTesterCode ? "service_provider_tester" : "evaluator"}, 'active', 'join_code', ${isTesterCode}, ${!isTesterCode})
+      VALUES (${appUserId}, ${joinCode.organization_id}, ${isTesterCode ? "service_provider_tester" : "evaluator"}, 'active', 'join_code', ${isTesterCode}, ${!isTesterCode})
       ON CONFLICT (user_id, organization_id) DO UPDATE SET
         status = 'active',
         is_tester = evaluator_memberships.is_tester OR EXCLUDED.is_tester,
@@ -42,7 +45,7 @@ export async function POST(request) {
     // Give a new/association-only user a role that admits the dashboard route.
     await sql`
       UPDATE users SET role = ${isTesterCode ? "service_provider_tester" : "service_provider_evaluator"}
-      WHERE id = ${session.userId} AND (role IS NULL OR role = 'association_evaluator')
+      WHERE id = ${appUserId} AND (role IS NULL OR role = 'association_evaluator')
     `;
 
     // Increment uses
