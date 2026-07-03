@@ -30,14 +30,16 @@ export async function POST(request) {
     const joinCode = codes[0];
     const isTesterCode = joinCode.role === "service_provider_tester";
 
-    // Add membership. Capability rides on flags (one row per person per org). A
-    // tester code grants tester capability; an evaluator code grants evaluator.
-    // Re-using a code accumulates capability (OR) rather than overwriting.
+    // A shared join code is self-serve → the membership is PENDING approval, same
+    // as a new-account code signup (only direct email invites are pre-authorized).
+    // Capability rides on flags (one row per person per org). On re-use, accumulate
+    // capability (OR) and NEVER downgrade an already-active member back to pending.
     await sql`
-      INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, is_tester, is_evaluator)
-      VALUES (${appUserId}, ${joinCode.organization_id}, ${isTesterCode ? "service_provider_tester" : "evaluator"}, 'active', 'join_code', ${isTesterCode}, ${!isTesterCode})
+      INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, pending, is_tester, is_evaluator)
+      VALUES (${appUserId}, ${joinCode.organization_id}, ${isTesterCode ? "service_provider_tester" : "evaluator"}, 'pending', 'join_code', true, ${isTesterCode}, ${!isTesterCode})
       ON CONFLICT (user_id, organization_id) DO UPDATE SET
-        status = 'active',
+        status = CASE WHEN evaluator_memberships.status = 'active' THEN 'active' ELSE 'pending' END,
+        pending = CASE WHEN evaluator_memberships.status = 'active' THEN false ELSE true END,
         is_tester = evaluator_memberships.is_tester OR EXCLUDED.is_tester,
         is_evaluator = evaluator_memberships.is_evaluator OR EXCLUDED.is_evaluator
     `;
@@ -48,12 +50,18 @@ export async function POST(request) {
       WHERE id = ${appUserId} AND (role IS NULL OR role = 'association_evaluator')
     `;
 
-    // Increment uses
+    // Was this member already approved (active) before this join? If so, no wait.
+    const [mem] = await sql`SELECT status FROM evaluator_memberships WHERE user_id = ${appUserId} AND organization_id = ${joinCode.organization_id}`;
+    const nowActive = mem?.status === "active";
+
     await sql`UPDATE evaluator_join_codes SET uses = uses + 1 WHERE id = ${joinCode.id}`;
 
     return NextResponse.json({
       success: true,
-      message: `Joined ${joinCode.org_name} as a ${isTesterCode ? "tester" : "evaluator"}`,
+      pending: !nowActive,
+      message: nowActive
+        ? `Joined ${joinCode.org_name} as a ${isTesterCode ? "tester" : "evaluator"}`
+        : `Request sent to ${joinCode.org_name} — you'll get access once an admin approves you.`,
       organization: { id: joinCode.organization_id, name: joinCode.org_name },
     });
   } catch (error) {

@@ -1415,7 +1415,7 @@ function EvaluatorDashboard() {
       body: JSON.stringify({ code: joinCode }),
     });
     const data = await res.json();
-    setJoinMsg(data.message || data.error);
+    setJoinMsg({ text: data.message || data.error, ok: !!data.success });
     setJoiningOrg(false);
     if (data.success) {
       setJoinCode("");
@@ -1682,9 +1682,9 @@ function EvaluatorDashboard() {
                   placeholder="e.g. ABC123" required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] uppercase"
                   maxLength={10} />
-                {joinMsg && (
-                  <p className={`text-sm text-center font-medium ${joinMsg.includes("Joined") ? "text-green-600" : "text-red-600"}`}>
-                    {joinMsg}
+                {joinMsg?.text && (
+                  <p className={`text-sm text-center font-medium ${joinMsg.ok ? "text-green-600" : "text-red-600"}`}>
+                    {joinMsg.text}
                   </p>
                 )}
                 <button type="submit" disabled={joiningOrg || !joinCode}
