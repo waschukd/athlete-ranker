@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RosterImport from "@/components/RosterImport";
+import SmartScheduleImport from "@/components/SmartScheduleImport";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -406,7 +407,8 @@ function AthletesStep({ catId, categoryName }) {
 }
 
 // ─── Schedule ───────────────────────────────────────────────────────────────
-function ScheduleStep({ catId }) {
+function ScheduleStep({ catId, sessions = [], categoryName }) {
+  const [mode, setMode] = useState("smart"); // 'smart' | 'template'
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -460,21 +462,35 @@ function ScheduleStep({ catId }) {
         <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 mt-0.5">Optional — can add later</span>
       </div>
       <p className="text-sm text-gray-500 mb-6">Upload your evaluation schedule. This creates the full evaluation timeline and is shared with your service provider and evaluators. You can skip this step and add it later.</p>
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-semibold text-blue-700">Required CSV Columns</p>
-          <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200">↓ Download Template</a>
+
+      <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs mb-5">
+        <button onClick={() => setMode("smart")} className={`px-3 py-1.5 rounded-md font-medium ${mode === "smart" ? "bg-white text-ink shadow-sm" : "text-gray-500"}`}>Smart import (any file)</button>
+        <button onClick={() => setMode("template")} className={`px-3 py-1.5 rounded-md font-medium ${mode === "template" ? "bg-white text-ink shadow-sm" : "text-gray-500"}`}>Template CSV</button>
+      </div>
+
+      {mode === "smart" ? (
+        <div className="mb-6">
+          <SmartScheduleImport catId={catId} categoryName={categoryName} sessions={sessions} onImported={loadSchedule} />
         </div>
-        <p className="text-xs text-blue-600 font-mono">Session #, Group #, Type, Date, Day, Start Time, End Time, Location, Player Evaluators, Goalie Evaluators</p>
-        <p className="text-xs text-blue-500 mt-1">Date: YYYY-MM-DD · Times: HH:MM (24hr) · Each row = one group time slot.</p>
-        <p className="text-xs text-blue-500 mt-1"><b>Type</b> = Testing · Goalie Skills · Scrimmage · Skills. Mark the goalies' session-1 slot as <b>Goalie Skills</b>; it carries its own Goalie Evaluators count.</p>
-      </div>
-      <div className="flex items-center gap-3 mb-6">
-        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg">
-          <Upload size={15} />{importing ? "Importing..." : "Upload Schedule CSV"}
-          <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={importing} />
-        </label>
-      </div>
+      ) : (
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-blue-700">Required CSV Columns</p>
+              <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200">↓ Download Template</a>
+            </div>
+            <p className="text-xs text-blue-600 font-mono">Session #, Group #, Type, Date, Day, Start Time, End Time, Location, Player Evaluators, Goalie Evaluators</p>
+            <p className="text-xs text-blue-500 mt-1">Date: YYYY-MM-DD · Times: HH:MM (24hr) · Each row = one group time slot.</p>
+            <p className="text-xs text-blue-500 mt-1"><b>Type</b> = Testing · Goalie Skills · Scrimmage · Skills. Mark the goalies' session-1 slot as <b>Goalie Skills</b>; it carries its own Goalie Evaluators count.</p>
+          </div>
+          <div className="flex items-center gap-3 mb-6">
+            <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-[#3b82f6] text-white rounded-lg text-sm font-semibold cursor-pointer hover:shadow-lg">
+              <Upload size={15} />{importing ? "Importing..." : "Upload Schedule CSV"}
+              <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={importing} />
+            </label>
+          </div>
+        </>
+      )}
       {importResult && <div className="p-4 rounded-xl bg-green-50 border border-green-200 mb-4"><p className="text-sm font-semibold text-green-700">✓ Imported {(importResult.inserted || 0) + (importResult.updated || 0) || importResult.imported || 0} schedule entries</p></div>}
       {loading ? <div className="p-8 text-center text-gray-400 text-sm">Loading...</div>
         : schedule.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">No schedule uploaded yet</div>
@@ -701,7 +717,7 @@ function SetupWizard() {
           {step === 3 && <SessionsStep title="Configure Goalie Sessions" subtitle="Goalies run their own session set. Default is a Goalie Skills session then 3 scrimmages — for rep tryouts, delete Goalie Skills and run scrimmages. Weights must total 100%." sessions={scoring.goalie_sessions} setSessions={setGoalieSessions} typeOptions={GOALIE_SESSION_TYPES} addType="scrimmage" />}
           {step === 4 && <GoalieScoringStep orgId={orgId} scoring={scoring} setScoring={setScoring} />}
           {step === 5 && <AthletesStep catId={catId} categoryName={catName} />}
-          {step === 6 && <ScheduleStep catId={catId} />}
+          {step === 6 && <ScheduleStep catId={catId} sessions={sessions} categoryName={catName} />}
           {step === 7 && <ReviewStep catName={catName} sessions={sessions} scoring={scoring} />}
         </div>
         {error && <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl mb-4"><AlertCircle size={15} className="text-red-500 flex-shrink-0" /><p className="text-sm text-red-700">{error}</p></div>}
