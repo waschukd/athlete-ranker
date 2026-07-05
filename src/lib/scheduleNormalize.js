@@ -82,7 +82,7 @@ export function parseRows(raw) {
   const clean = (v) => (v == null || v === "" ? null : String(v).trim());
   const time = (v) => { const s = clean(v); if (!s) return null; const m = s.match(/^(\d{1,2}):(\d{2})/); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : null; };
   const date = (v) => { const s = clean(v); if (!s) return null; const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[0] : null; };
-  return rows.map(r => ({
+  return rows.filter(r => r && typeof r === "object").map(r => ({
     date: date(r.date),
     start_time: time(r.start_time),
     end_time: time(r.end_time),

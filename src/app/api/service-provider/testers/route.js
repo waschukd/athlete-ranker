@@ -82,10 +82,19 @@ export async function POST(request) {
     // The SP admin adds/removes THEMSELVES as a tester (they run testing too).
     if (action === "set_self_tester") {
       const on = !!body.on;
-      await sql`
-        INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, is_tester, is_evaluator)
-        VALUES (${adminId}, ${spId}, 'service_provider_tester', 'active', 'self', ${on}, false)
-        ON CONFLICT (user_id, organization_id) DO UPDATE SET is_tester = ${on}, status = 'active'`;
+      if (on) {
+        // Create or flag-on. Reactivate only if the row was deleted; otherwise
+        // preserve existing status (never clobber a suspended/pending state).
+        await sql`
+          INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, is_tester, is_evaluator)
+          VALUES (${adminId}, ${spId}, 'service_provider_tester', 'active', 'self', true, false)
+          ON CONFLICT (user_id, organization_id) DO UPDATE SET is_tester = true,
+            status = CASE WHEN evaluator_memberships.status = 'deleted' THEN 'active' ELSE evaluator_memberships.status END`;
+      } else {
+        // Flag-off only — never insert a phantom capability-less row. Free their slots.
+        await sql`UPDATE evaluator_memberships SET is_tester = false WHERE user_id = ${adminId} AND organization_id = ${spId}`;
+        await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE user_id = ${adminId} AND status = 'signed_up'`;
+      }
       return NextResponse.json({ success: true, is_tester: on });
     }
 
@@ -105,7 +114,9 @@ export async function POST(request) {
       const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${tid} AND organization_id = ${spId} AND is_tester = true`;
       if (!mem.length) return NextResponse.json({ error: "Not a tester of this SP" }, { status: 403 });
       await sql`UPDATE evaluator_memberships SET is_evaluator = true WHERE user_id = ${tid} AND organization_id = ${spId}`;
-      await sql`UPDATE users SET role = 'service_provider_evaluator' WHERE id = ${tid} AND role IN ('service_provider_tester', 'association_evaluator')`;
+      // Only upgrade a pure tester's global role — don't clobber an association
+      // evaluator's role (their SP evaluator capability rides on the flag above).
+      await sql`UPDATE users SET role = 'service_provider_evaluator' WHERE id = ${tid} AND role = 'service_provider_tester'`;
       await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${adminId}, 'tester_promoted', 'user', ${tid}, 'promoted to evaluator by SP')`;
       return NextResponse.json({ success: true });
     }
@@ -120,8 +131,9 @@ export async function POST(request) {
         await sql`UPDATE evaluator_memberships SET is_tester = false WHERE user_id = ${tid} AND organization_id = ${spId}`;
       } else {
         await sql`UPDATE evaluator_memberships SET status = 'deleted', is_tester = false WHERE user_id = ${tid} AND organization_id = ${spId}`;
-        await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE user_id = ${tid} AND status = 'signed_up'`;
       }
+      // Either way they're no longer a tester → free any testing slots they held.
+      await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE user_id = ${tid} AND status = 'signed_up'`;
       await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${adminId}, 'tester_removed', 'user', ${tid}, 'removed by SP')`;
       return NextResponse.json({ success: true });
     }

@@ -1326,7 +1326,11 @@ function EvaluatorDashboard() {
   const isTester = !!capData?.isTester;
   const isEvaluator = !!capData?.isEvaluator;
   const [capView, setCapView] = useState(null); // 'evaluations' | 'testing'
-  useEffect(() => { if (capsLoaded && capView === null) setCapView(capData.isEvaluator ? "evaluations" : "testing"); }, [capsLoaded, capView, capData]);
+  // Only a PURE tester (tester capability, no evaluator capability) defaults to the
+  // testing view. Everyone else — including association evaluators, who have no SP
+  // membership so isEvaluator/isTester are both false — lands on the evaluations
+  // dashboard. (Never strand a non-tester on the empty testing screen.)
+  useEffect(() => { if (capsLoaded && capView === null) setCapView(capData.isTester && !capData.isEvaluator ? "testing" : "evaluations"); }, [capsLoaded, capView, capData]);
 
   const { data: statusData } = useQuery({
     queryKey: ["evaluator-status"],

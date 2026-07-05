@@ -128,7 +128,10 @@ export async function POST(request, { params }) {
         WHERE age_category_id = ${catId} AND session_number = ${session_number} LIMIT 1
       `;
       const isTesting = typeLookup[0]?.session_type === "testing";
-      const evaluators_required = isTesting ? 0 : (parseInt(entry.evaluators_required || entry["Evaluators Required"] || entry["Player Evaluators"] || 4) || 4);
+      // Respect an explicit 0 (don't coerce it to the default 4); only default when
+      // the field is genuinely absent.
+      const rawEval = [entry.evaluators_required, entry["Evaluators Required"], entry["Player Evaluators"]].find(v => v != null && v !== "");
+      const evaluators_required = isTesting ? 0 : (rawEval != null ? (parseInt(rawEval) || 0) : 4);
       const goalie_evaluators_required = parseInt(entry.goalie_evaluators_required || entry["Goalie Evaluators"] || 0) || 0;
 
       const existingEntry = await sql`

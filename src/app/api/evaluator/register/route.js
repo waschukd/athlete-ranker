@@ -106,7 +106,9 @@ export async function POST(request) {
     await sql`
       INSERT INTO evaluator_memberships (user_id, organization_id, role, status, joined_via, pending, is_tester, is_evaluator)
       VALUES (${appUser.id}, ${orgId}, ${role}, ${status}, ${viaInvite ? "invite" : "join_code"}, ${!viaInvite}, ${isTester}, ${!isTester})
-      ON CONFLICT (user_id, organization_id) DO UPDATE SET status = ${status}, pending = ${!viaInvite},
+      ON CONFLICT (user_id, organization_id) DO UPDATE SET
+        status = CASE WHEN ${viaInvite} OR evaluator_memberships.status = 'active' THEN 'active' ELSE 'pending' END,
+        pending = CASE WHEN ${viaInvite} OR evaluator_memberships.status = 'active' THEN false ELSE true END,
         is_tester = evaluator_memberships.is_tester OR EXCLUDED.is_tester,
         is_evaluator = evaluator_memberships.is_evaluator OR EXCLUDED.is_evaluator`;
 

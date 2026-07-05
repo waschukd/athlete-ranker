@@ -80,20 +80,24 @@ export default function SmartScheduleImport({ catId, categoryName, sessions = []
     const picks = rows.filter(r => r.selected && r.complete);
     if (!picks.length) return;
     setPhase("importing");
-    // group_number: sequential within (session_number, date) ordered by start_time
-    const byKey = {};
+    // group_number must be unique WITHIN a session across ALL dates — the schedule
+    // upsert keys on (category, session_number, group_number) with no date, so
+    // resetting groups per date would silently overwrite rows on different dates.
+    const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const bySession = {};
     const schedule = picks
       .slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.start_time || "").localeCompare(b.start_time || ""))
       .map(r => {
-        const key = `${r.session_number}|${r.date}`;
-        byKey[key] = (byKey[key] || 0) + 1;
+        bySession[r.session_number] = (bySession[r.session_number] || 0) + 1;
         const sess = sessions.find(s => s.session_number === r.session_number);
         const isTesting = sess?.session_type === "testing";
         const isGoalieSkills = sess?.session_type === "goalie_skills";
+        let dow = null; try { dow = DOW[new Date(`${r.date}T00:00:00`).getDay()]; } catch { dow = null; }
         return {
           session_number: r.session_number,
-          group_number: byKey[key],
+          group_number: bySession[r.session_number],
           scheduled_date: r.date,
+          day_of_week: dow,
           start_time: r.start_time || "",
           end_time: r.end_time || "",
           location: r.location || "",
@@ -106,7 +110,8 @@ export default function SmartScheduleImport({ catId, categoryName, sessions = []
       const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule }) });
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Import failed."); setPhase("review"); return; }
-      setResult({ count: schedule.length }); setPhase("done"); onImported?.();
+      const landed = (d.inserted || 0) + (d.updated || 0) || d.imported || schedule.length;
+      setResult({ count: landed }); setPhase("done"); onImported?.();
     } catch { setError("Import failed."); setPhase("review"); }
   };
 
