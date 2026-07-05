@@ -14,6 +14,7 @@ vi.mock("@/lib/auth", () => ({
   getCurrentUser: vi.fn(),
   getAppUserId: vi.fn(),
   resolveSpOrgId: vi.fn(),
+  resolveSpContext: vi.fn(),
 }));
 vi.mock("next/headers", () => ({
   cookies: () => ({ get: () => undefined }),
@@ -28,7 +29,7 @@ vi.mock("@/lib/email", () => ({
 process.env.AUTH_SECRET = process.env.AUTH_SECRET || "test-secret-for-idor-suite";
 
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpOrgId, resolveSpContext } from "@/lib/auth";
 
 const ORG_A_ADMIN = { email: "admin@orgA.test", role: "association_admin" };
 
@@ -181,7 +182,7 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
 
   // HOLE 2: rate_evaluator on an evaluator_id not in the SP org.
   it("POST /api/service-provider/evaluators rate_evaluator — foreign evaluator → 403, no rating INSERT", async () => {
-    resolveSpOrgId.mockResolvedValue("spA");        // caller's SP org
+    resolveSpContext.mockResolvedValue({ orgId: "spA", isGoalie: false, type: "service_provider" });        // caller's SP org
     sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
     sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
     const { POST } = await import("@/app/api/service-provider/evaluators/route");
@@ -200,7 +201,7 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
 
   // HOLE 2b: reinstate on an evaluator_id not in the SP org.
   it("POST /api/service-provider/evaluators reinstate — foreign evaluator → 403, no flag/signup UPDATE", async () => {
-    resolveSpOrgId.mockResolvedValue("spA");        // caller's SP org
+    resolveSpContext.mockResolvedValue({ orgId: "spA", isGoalie: false, type: "service_provider" });        // caller's SP org
     sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
     sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
     const { POST } = await import("@/app/api/service-provider/evaluators/route");

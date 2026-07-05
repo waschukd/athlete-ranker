@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), resolveSpOrgId: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), resolveSpContext: vi.fn() }));
 
 import sql from "@/lib/db";
-import { getSession, resolveSpOrgId } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 
 function makeReq(body) {
   return new Request("http://test/api/service-provider/evaluators?org=sp1", {
@@ -13,7 +13,7 @@ function makeReq(body) {
 }
 function authOk() {
   getSession.mockResolvedValue({ email: "spadmin@test" });
-  resolveSpOrgId.mockResolvedValue("sp1");
+  resolveSpContext.mockResolvedValue({ orgId: "sp1", isGoalie: false, type: "service_provider" });
   sql.mockResolvedValueOnce([{ id: "admin1" }]); // admin lookup (first sql call in POST)
 }
 const ran = () => sql.mock.calls.map(c => c[0].join("?"));
@@ -22,7 +22,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 describe("SP evaluators bulk POST", () => {
   it("403 when not an SP admin", async () => {
     getSession.mockResolvedValue({ email: "x@test" });
-    resolveSpOrgId.mockResolvedValue(null);
+    resolveSpContext.mockResolvedValue({ orgId: null, isGoalie: false, type: null });
     const { POST } = await import("@/app/api/service-provider/evaluators/route");
     const res = await POST(makeReq({ action: "approve_hours", hours_ids: ["h1"] }));
     expect(res.status).toBe(403);
