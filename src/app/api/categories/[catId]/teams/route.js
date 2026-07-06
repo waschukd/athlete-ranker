@@ -90,8 +90,9 @@ export async function POST(request, { params }) {
 
       const ranked = rankData.athletes.sort((a, b) => (a.rank || 999) - (b.rank || 999));
 
-      // Separate goalies — always manually assigned
-      const goalies = ranked.filter(a => a.position === 'goalie');
+      // Goalies rank in a SEPARATE pool (rankData.goalies) — they're assigned manually,
+      // never auto-drafted. rankData.athletes is skaters only.
+      const goalies = rankData.goalies || [];
       const skaters = ranked.filter(a => a.position !== 'goalie');
 
       // Clear existing teams for this category
@@ -109,29 +110,9 @@ export async function POST(request, { params }) {
         createdTeams.push(team);
       }
 
-      // Build assignment list
-      let assignments = []; // [{ athlete_id, team_index, team_rank }]
-
-      if (position_balanced) {
-        // Separate by position, assign F then D then fill
-        const forwards = skaters.filter(a => a.position === 'forward');
-        const defense = skaters.filter(a => a.position === 'defense');
-        const other = skaters.filter(a => !a.position || (a.position !== 'forward' && a.position !== 'defense'));
-
-        // Defense per team ≈ 1/3 of the roster, defaulting toward 5 and hard-capped
-        // at 6 (a team of 15 → 5 D + 10 F). Forwards fill whatever's left.
-        const totalPerTeam = teamConfig.map(t => t.size);
-        const dPerTeam = totalPerTeam.map(s => Math.min(6, Math.round(s / 3)));
-        const fPerTeam = totalPerTeam.map((s, i) => s - dPerTeam[i]);
-
-        // Assign forwards
-        const fAssign = assignAthletes(forwards, teamConfig, method, snake_range, fPerTeam);
-        const dAssign = assignAthletes(defense, teamConfig, method, snake_range, dPerTeam);
-        const oAssign = assignAthletes(other, teamConfig, method, null, null);
-        assignments = [...fAssign, ...dAssign, ...oAssign];
-      } else {
-        assignments = assignAthletes(skaters, teamConfig, method, snake_range, null);
-      }
+      // Build assignment list — never drops a player who fits within total capacity;
+      // honors per-team size caps and (when balanced) a defense target of ~5 (cap 6).
+      const assignments = buildTeamAssignments(skaters, teamConfig, method, position_balanced);
 
       // Insert rosters
       for (const { athlete_id, team_index, team_rank } of assignments) {
@@ -232,62 +213,57 @@ export async function POST(request, { params }) {
   }
 }
 
-function assignAthletes(athletes, teamConfig, method, snakeRange, perTeamLimits) {
-  const assignments = [];
+// Assign ranked skaters to teams. Guarantees: (1) a real snake draft (1→2→3→3→2→1…)
+// for even teams, or straight-cut tiering; (2) per-team size caps respected; (3) NO
+// player dropped who fits within total capacity — leftovers always backfill; (4) unique
+// team_rank per team (no ON CONFLICT collisions). Balanced mode targets ~5 D (cap 6).
+function buildTeamAssignments(skaters, teamConfig, method, positionBalanced) {
   const numTeams = teamConfig.length;
+  const size = teamConfig.map(t => Math.max(0, parseInt(t.size) || 0));
+  const counts = new Array(numTeams).fill(0);
+  const ranks = new Array(numTeams).fill(0);
+  const assignments = [];
+  const teams012 = Array.from({ length: numTeams }, (_, i) => i);
+  const reversed = [...teams012].reverse();
+  let round = 0;
 
-  if (!athletes.length) return assignments;
+  const place = (id, t) => { ranks[t]++; counts[t]++; assignments.push({ athlete_id: id, team_index: t, team_rank: ranks[t] }); };
 
-  // Determine which players get snake vs straight
-  const fromIdx = snakeRange ? snakeRange.from - 1 : 0;
-  const toIdx = snakeRange ? snakeRange.to : athletes.length;
-
-  const snakePlayers = snakeRange ? athletes.slice(fromIdx, toIdx) : (method === 'snake' ? athletes : []);
-  const straightPlayers = snakeRange
-    ? [...athletes.slice(0, fromIdx), ...athletes.slice(toIdx)]
-    : (method === 'straight' ? athletes : []);
-
-  // Track how many assigned to each team
-  const teamCounts = new Array(numTeams).fill(0);
-  const teamRanks = new Array(numTeams).fill(0);
-
-  const canAdd = (teamIdx) => {
-    if (perTeamLimits) return teamCounts[teamIdx] < perTeamLimits[teamIdx];
-    return teamCounts[teamIdx] < teamConfig[teamIdx].size;
-  };
-
-  // Snake draft
-  let forward = true;
-  for (const athlete of snakePlayers) {
-    const order = forward
-      ? Array.from({ length: numTeams }, (_, i) => i)
-      : Array.from({ length: numTeams }, (_, i) => numTeams - 1 - i);
-
-    for (const teamIdx of order) {
-      if (canAdd(teamIdx)) {
-        teamRanks[teamIdx]++;
-        assignments.push({ athlete_id: athlete.id, team_index: teamIdx, team_rank: teamRanks[teamIdx] });
-        teamCounts[teamIdx]++;
-        break;
+  // Assign `list` in order; team t accepts until counts[t] reaches min(size[t], target[t]).
+  // Snake alternates team order each round (even distribution); straight fills each team
+  // to target before moving on. Returns players that didn't fit this phase.
+  const assignPhase = (list, target) => {
+    const cap = (t) => Math.min(size[t], target[t]);
+    let i = 0;
+    if (method === "straight") {
+      for (let t = 0; t < numTeams && i < list.length; t++) {
+        while (counts[t] < cap(t) && i < list.length) { place(list[i].id, t); i++; }
+      }
+    } else {
+      while (i < list.length) {
+        const order = (round++ % 2 === 0) ? teams012 : reversed;
+        let placed = false;
+        for (const t of order) {
+          if (i >= list.length) break;
+          if (counts[t] < cap(t)) { place(list[i].id, t); i++; placed = true; }
+        }
+        if (!placed) break; // every team is at its cap for this phase
       }
     }
-    // Flip direction after each full round
-    const roundComplete = order.every((_, i) => i === 0 || teamCounts[order[i]] > 0);
-    if (roundComplete) forward = !forward;
-  }
+    return list.slice(i);
+  };
 
-  // Straight cut — sequential blocks
-  let idx = 0;
-  for (let t = 0; t < numTeams && idx < straightPlayers.length; t++) {
-    const limit = perTeamLimits ? perTeamLimits[t] : teamConfig[t].size;
-    for (let p = 0; p < limit && idx < straightPlayers.length; p++) {
-      teamRanks[t]++;
-      assignments.push({ athlete_id: straightPlayers[idx].id, team_index: t, team_rank: teamRanks[t] });
-      teamCounts[t]++;
-      idx++;
-    }
+  if (positionBalanced) {
+    const forwards = skaters.filter(a => a.position === "forward");
+    const defense = skaters.filter(a => a.position === "defense");
+    const other = skaters.filter(a => a.position !== "forward" && a.position !== "defense");
+    const dTarget = size.map(s => Math.min(6, Math.round(s / 3)));   // ~5 D, cap 6
+    const dLeft = assignPhase(defense, dTarget);                      // D up to target
+    const fLeft = assignPhase(forwards, size.slice());               // F fill to full size (uses any empty D slots)
+    assignPhase([...dLeft, ...fLeft, ...other], size.slice());       // backfill everyone else
+  } else {
+    assignPhase(skaters, size.slice());
   }
-
   return assignments;
 }
 
