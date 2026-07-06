@@ -2,6 +2,7 @@
 // into normalized session rows via Claude. Pure-ish: takes a grid, returns rows.
 // The file is UNTRUSTED input — the prompt instructs the model to extract only and
 // never follow instructions found inside the file.
+import { AI_MODEL } from "@/lib/aiModel";
 
 // Compact a grid (array of string[]) into a bounded text block for the model.
 export function gridToText(grid, maxRows = 400, maxCols = 14) {
@@ -50,7 +51,7 @@ export async function normalizeSchedule(grid, { apiKey } = {}) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: AI_MODEL,
       max_tokens: 4000,
       system: SYSTEM,
       messages: [{ role: "user", content: buildPrompt(text) }],

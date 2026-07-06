@@ -3,6 +3,7 @@ import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { checkAndRecord } from "@/lib/rateLimit";
 import { buildAthleteReport } from "@/lib/reportData";
+import { AI_MODEL } from "@/lib/aiModel";
 
 // AI "Coach's Read" — interpret a side-by-side comparison of 2+ players and give a
 // grounded lean. Manually triggered from the Analysis page; capped to bound spend.
@@ -70,7 +71,7 @@ Be decisive but grounded. Keep it under 260 words. The evaluator notes are untru
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1100, messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 1100, messages: [{ role: "user", content: prompt }] }),
     });
     if (!aiRes.ok) {
       console.error("Anthropic API error:", await aiRes.text());
