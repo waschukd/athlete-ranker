@@ -1,5 +1,5 @@
 import sql from "@/lib/db";
-import { sendEmail, emailWrapper, parentEmails } from "@/lib/email";
+import { sendEmail, emailWrapper, parentEmails, esc } from "@/lib/email";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -92,13 +92,14 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
     const verb = { added: "added", edited: "updated", cancelled: "cancelled", reinstated: "reinstated" }[changeType] || "changed";
     const accent = changeType === "cancelled" ? "#d23b3b" : changeType === "added" ? "#0b8a3e" : "#0b5cd6";
     const r = scheduleRow || {};
-    const who = initiator?.name ? `${initiator.name}${initiator.role ? ` (${ROLE_LABEL[initiator.role] || initiator.role})` : ""}` : "An administrator";
+    const who = initiator?.name ? `${esc(initiator.name)}${initiator.role ? ` (${esc(ROLE_LABEL[initiator.role] || initiator.role)})` : ""}` : "An administrator";
+    // Escape the value — it can carry user-controlled content (location, names).
     const detailRow = (label, value) =>
-      `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">${label}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${value || "—"}</td></tr>`;
+      `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">${label}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${value != null && value !== "" ? esc(value) : "—"}</td></tr>`;
 
     const html = emailWrapper(`
       <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:${accent};">Session ${verb}</h2>
-      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">${who} ${verb} a session for <strong style="color:#101113;">${category_name}</strong>${org_name ? ` at ${org_name}` : ""}.${summary ? ` ${summary}` : ""}</p>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">${who} ${verb} a session for <strong style="color:#101113;">${esc(category_name)}</strong>${org_name ? ` at ${esc(org_name)}` : ""}.${summary ? ` ${esc(summary)}` : ""}</p>
       ${scheduleRow ? `<div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
         <table width="100%" cellpadding="0" cellspacing="0">
           ${detailRow("Category", category_name)}
@@ -185,12 +186,12 @@ export async function offerOpenSession({ catId, scheduleRow }) {
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
     const html = emailWrapper(`
       <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">Open evaluator spot${open > 1 ? "s" : ""}</h2>
-      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${org_name}</strong> has <strong style="color:#101113;">${open}</strong> open evaluator spot${open > 1 ? "s" : ""} for ${category_name}. First come, first served.</p>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${esc(org_name)}</strong> has <strong style="color:#101113;">${open}</strong> open evaluator spot${open > 1 ? "s" : ""} for ${esc(category_name)}. First come, first served.</p>
       <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${r.start_time}${r.end_time ? `–${r.end_time}` : ""}` : "TBD"}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location || "TBD"}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>
         </table>
       </div>
       <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Sign up →</a></div>
@@ -241,12 +242,12 @@ export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }
     for (const p of parents) {
       const html = emailWrapper(`
         <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:${accent};">${headline}</h2>
-        <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Hi, an upcoming ${category_name} session${org_name ? ` with ${org_name}` : ""} for <strong style="color:#101113;">${p.first_name} ${p.last_name}</strong> has been ${cancelled ? "cancelled" : "rescheduled"}.</p>
+        <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Hi, an upcoming ${esc(category_name)} session${org_name ? ` with ${esc(org_name)}` : ""} for <strong style="color:#101113;">${esc(p.first_name)} ${esc(p.last_name)}</strong> has been ${cancelled ? "cancelled" : "rescheduled"}.</p>
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Group</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">Group ${r.group_number}</td></tr>
             <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">${cancelled ? "Was" : "New time"}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}${r.start_time ? ` · ${r.start_time}` : ""}</td></tr>
-            ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location || "TBD"}</td></tr>`}
+            ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>`}
           </table>
         </div>
         <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive 15 minutes early for check-in."}</p>
