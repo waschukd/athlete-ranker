@@ -91,7 +91,9 @@ export async function POST(request) {
         price_data: {
           currency: "usd",
           product_data: {
-            name: `Player Report — ${link[0].first_name} ${link[0].last_name}`,
+            // Mask the minor's surname on the (unauthenticated) Stripe page — the
+            // free preview only ever shows "First L." and checkout needs no purchase.
+            name: `Player Report — ${link[0].first_name} ${link[0].last_name ? String(link[0].last_name)[0] + "." : ""}`.trim(),
             description: `${link[0].category_name} — Full evaluation report with scores, notes, and AI scouting analysis`,
           },
           unit_amount: priceCents,

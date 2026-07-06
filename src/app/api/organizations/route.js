@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { getSession, resolveSpContext } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { createAndSendOrgInvite } from "@/lib/invites";
@@ -73,6 +73,20 @@ export async function POST(request) {
       RETURNING *
     `;
     const org = result[0];
+
+    // When an SP creates a client association, link it here (trusted — the SP is
+    // creating their OWN client). This is the ONLY sanctioned SP→association link
+    // path; the standalone link endpoint is super-admin-only so an SP can't link
+    // itself to an association it didn't create.
+    if (type === "association" && session.role === "service_provider_admin") {
+      try {
+        const { orgId: spId } = await resolveSpContext(session, null);
+        if (spId) {
+          const linked = await sql`SELECT id FROM sp_association_links WHERE service_provider_id = ${spId} AND association_id = ${org.id}`;
+          if (!linked.length) await sql`INSERT INTO sp_association_links (service_provider_id, association_id, status) VALUES (${spId}, ${org.id}, 'active')`;
+        }
+      } catch (e) { console.error("SP auto-link error:", e); }
+    }
 
     // Invite the contact to finish setting up their own account (set password via
     // the /accept-invite link). No temp password is created here — the account +

@@ -55,6 +55,10 @@ export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Linking an SP to an ARBITRARY association would grant access to that
+    // association's athletes/scores — so the standalone link is super-admin only.
+    // The sanctioned SP flow (create a client) links atomically in POST /api/organizations.
+    if (session.role !== "super_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { association_id } = await request.json();
     if (!association_id) return NextResponse.json({ error: "association_id required" }, { status: 400 });

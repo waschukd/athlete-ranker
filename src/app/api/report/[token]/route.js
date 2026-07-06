@@ -91,7 +91,9 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       ...base,
       athlete: { first_name: base.athlete.first_name, last_name: lastInitial, position: base.athlete.position },
-      skillProfile: report.skillProfile,
+      // Teaser only — the paid skill profile must not ship in the free-preview
+      // payload (the page shows 3; enforce that server-side, not just client-side).
+      skillProfile: (report.skillProfile || []).slice(0, 3),
       locked: ["testing", "progress", "notes", "plan"],
     });
   } catch (error) {
