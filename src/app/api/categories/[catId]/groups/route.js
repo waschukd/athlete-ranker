@@ -244,6 +244,21 @@ export async function POST(request, { params }) {
         const otherAssign = distributeSequential(otherIds, numGroups);
 
         assignments = [...fAssign, ...dAssign, ...otherAssign];
+
+        // The per-group F/D quotas can leave surplus skaters unassigned (e.g. more
+        // forwards than fPerGroup×numGroups). Never strand a skater — backfill any
+        // leftovers into the least-full groups so everyone is evaluated.
+        const assignedIds = new Set(assignments.map(a => a.athlete_id));
+        const leftover = [...fIds, ...dIds, ...otherIds].filter(id => !assignedIds.has(id));
+        if (leftover.length) {
+          const load = new Array(numGroups).fill(0);
+          for (const a of assignments) load[a.group_index]++;
+          for (const id of leftover) {
+            let g = 0; for (let i = 1; i < numGroups; i++) if (load[i] < load[g]) g = i;
+            assignments.push({ athlete_id: id, group_index: g });
+            load[g]++;
+          }
+        }
       }
 
       // Insert skater assignments into the skater groups
