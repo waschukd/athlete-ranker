@@ -26,10 +26,13 @@ function testOrder(name) {
 // who wrote a note, and this payload is served to paying parents, so we never
 // put real evaluator identities on the wire.
 export async function buildAthleteReport(catId, athleteId) {
+  // Scope the athlete to the authorized category — the caller has proven access
+  // to catId, so an athlete in a DIFFERENT category must not resolve here (closes
+  // a cross-tenant PII leak via /compare-analysis passing arbitrary athlete ids).
   const athleteRes = await sql`
     SELECT a.*, o.name as org_name
     FROM athletes a JOIN organizations o ON o.id = a.organization_id
-    WHERE a.id = ${athleteId}
+    WHERE a.id = ${athleteId} AND a.age_category_id = ${catId}
   `;
   if (!athleteRes.length) return null;
 

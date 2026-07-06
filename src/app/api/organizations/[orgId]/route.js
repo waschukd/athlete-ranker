@@ -24,10 +24,15 @@ export async function GET(request, { params }) {
   }
 }
 
+const ORG_WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function PUT(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Editing org details (esp. contact_email, which is an ownership signal) is
+    // admin-only — authorizeOrgAccess alone also admits evaluators/directors.
+    if (!ORG_WRITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const auth = await authorizeOrgAccess(session, params.orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();

@@ -4,6 +4,10 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+// Roster mutations (bulk import, quick-add, deactivate) are for admins/directors —
+// authorizeCategoryAccess alone also admits plain evaluators, who should only GET.
+const ROSTER_WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin", "director"]);
+
 const positionMap = {
   "f": "forward", "forward": "forward", "fwd": "forward",
   "d": "defense", "defense": "defense", "def": "defense", "defence": "defense",
@@ -16,11 +20,13 @@ function normalizePosition(pos) {
 }
 
 function extractBirthYear(val) {
-  if (!val) return null;
-  // Handle full date like 2012-05-01
-  if (val.includes("-")) return parseInt(val.split("-")[0]);
-  // Handle just year
-  return parseInt(val) || null;
+  if (val == null || val === "") return null;
+  // Importer sends birth_year as a NUMBER; other paths send date strings.
+  // Coerce to string first (calling .includes on a number throws → the whole
+  // row was being skipped, which is what caused "0 of N imported").
+  const s = String(val);
+  const m = s.match(/(19|20)\d{2}/); // first 4-digit year anywhere (handles 05/22/2012, 2012-05-01, 2012)
+  return m ? parseInt(m[0], 10) : null;
 }
 
 export async function GET(request, { params }) {
@@ -45,6 +51,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!ROSTER_WRITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, params.catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -138,6 +145,7 @@ export async function DELETE(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!ROSTER_WRITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, params.catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

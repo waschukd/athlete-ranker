@@ -33,7 +33,11 @@ function pad(n, w = 2) {
 
 // Build a "20260502T090000" style local datetime string from a date and time
 function localDateTime(date, time) {
-  const dStr = date.toString().split("T")[0].replace(/-/g, "");
+  // Neon returns DATE columns as JS Date objects; Date.toString() is "Tue May 05…"
+  // whose first "T" is in "Tue", so splitting on "T" produced garbage and every
+  // DTSTART was invalid. Use ISO (YYYY-MM-DD) for Dates; pass strings through.
+  const iso = (date instanceof Date ? date.toISOString() : String(date)).split("T")[0];
+  const dStr = iso.replace(/-/g, "");
   const parts = (time || "00:00").toString().split(":");
   const hh = pad(parts[0] || 0);
   const mm = pad(parts[1] || 0);
