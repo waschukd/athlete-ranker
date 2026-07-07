@@ -93,7 +93,7 @@ export function UsersTab() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["god-mode-users"]);
+      queryClient.invalidateQueries({ queryKey: ["god-mode-users"] });
       setDeleteConfirm(null);
     },
     onError: (err) => {

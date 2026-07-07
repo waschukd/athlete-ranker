@@ -21,7 +21,7 @@ export function OrganizationCard({ org }) {
   const handleDelete = async () => {
     setDeleting(true);
     await fetch(`/api/organizations?id=${org.id}`, { method: "DELETE" });
-    queryClient.invalidateQueries(["organizations"]);
+    queryClient.invalidateQueries({ queryKey: ["organizations"] });
     setDeleting(false);
     closeConfirm();
   };

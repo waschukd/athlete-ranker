@@ -163,7 +163,7 @@ function TestersTab({ spUrl, spName }) {
     setBusy(true);
     await fetch(spUrl("/api/service-provider/testers"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setBusy(false);
-    qc.invalidateQueries(["sp-testers"]);
+    qc.invalidateQueries({ queryKey: ["sp-testers"] });
   };
   const signupUrl = activeCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/evaluator/signup?code=${activeCode.code}` : "";
 
@@ -190,9 +190,9 @@ function TestersTab({ spUrl, spName }) {
     if (!evForm.client_label.trim() || !evForm.scheduled_date) return;
     setEvBusy(true);
     await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(evForm) });
-    setEvBusy(false); setEvForm(blankEv); qc.invalidateQueries(["sp-testing-events"]);
+    setEvBusy(false); setEvForm(blankEv); qc.invalidateQueries({ queryKey: ["sp-testing-events"] });
   };
-  const delEvent = async (id) => { await fetch(spUrl(`/api/service-provider/testing-events?id=${id}`), { method: "DELETE" }); qc.invalidateQueries(["sp-testing-events"]); };
+  const delEvent = async (id) => { await fetch(spUrl(`/api/service-provider/testing-events?id=${id}`), { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["sp-testing-events"] }); };
   const [uploadMsg, setUploadMsg] = useState(null);
   const onCsv = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -212,7 +212,7 @@ function TestersTab({ spUrl, spName }) {
     if (!events.length) { setUploadMsg({ type: "error", text: "No valid rows — the CSV needs Client and Date columns." }); return; }
     const res = await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events }) });
     const d = await res.json().catch(() => ({}));
-    if (d.success) { setUploadMsg({ type: "success", text: `Added ${d.created} session${d.created === 1 ? "" : "s"}${d.skipped ? `, skipped ${d.skipped}` : ""}.` }); qc.invalidateQueries(["sp-testing-events"]); }
+    if (d.success) { setUploadMsg({ type: "success", text: `Added ${d.created} session${d.created === 1 ? "" : "s"}${d.skipped ? `, skipped ${d.skipped}` : ""}.` }); qc.invalidateQueries({ queryKey: ["sp-testing-events"] }); }
     else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
   };
   const downloadTemplate = () => {
@@ -765,12 +765,12 @@ function LeadsSection({ spUrl, orgParam, associations }) {
     setName("");
     setEmail("");
     setSelectedAssocs([]);
-    queryClient.invalidateQueries(["sp-leads", orgParam]);
+    queryClient.invalidateQueries({ queryKey: ["sp-leads", orgParam] });
   };
 
   const removeAssoc = async (userId, associationId) => {
     await fetch(spUrl(`/api/service-provider/leads?user_id=${userId}&association_id=${associationId}`), { method: "DELETE" });
-    queryClient.invalidateQueries(["sp-leads", orgParam]);
+    queryClient.invalidateQueries({ queryKey: ["sp-leads", orgParam] });
   };
 
   return (
@@ -1055,7 +1055,7 @@ function MessagesSection() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mark_read: id }),
     });
-    queryClient.invalidateQueries(["sp-messages"]);
+    queryClient.invalidateQueries({ queryKey: ["sp-messages"] });
   };
 
   const onRowClick = (m) => {
@@ -1380,7 +1380,7 @@ function SPDashboard() {
                 <span className="text-gray-300">·</span>
                 <span><b className="text-ink">{evaluatorStats.total_evaluators || 0}</b> evaluators in pool</span>
               </div>
-              <SpLogoControl sp={sp} onChange={() => queryClient.invalidateQueries(["sp-associations"])} />
+              <SpLogoControl sp={sp} onChange={() => queryClient.invalidateQueries({ queryKey: ["sp-associations"] })} />
             </div>
           </div>
         </div>
@@ -1564,7 +1564,7 @@ function SPDashboard() {
                           );
                           setNewClientSaving(false);
                           setNewClient({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "" });
-                          queryClient.invalidateQueries(["sp-associations"]);
+                          queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
                           if (inv?.sent) setTimeout(() => setShowNewClient(false), 1800);
                         }}
                         className="flex-1 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
@@ -1592,11 +1592,11 @@ function SPDashboard() {
                     const res = await fetch(`/api/organizations/${assoc.id}/logo`, { method: "POST", body: fd });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || "Upload failed");
-                    queryClient.invalidateQueries(["sp-associations"]);
+                    queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
                   };
                   const removeLogo = async () => {
                     const res = await fetch(`/api/organizations/${assoc.id}/logo`, { method: "DELETE" });
-                    if (res.ok) queryClient.invalidateQueries(["sp-associations"]);
+                    if (res.ok) queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
                   };
                   return (
                     <div key={assoc.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#0b5cd6]/50 hover:shadow-md transition-all">
@@ -1893,7 +1893,7 @@ function SPDashboard() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-red-800">Performance Flags</h3>
                   {selFlags.length > 0 && (
-                    <button onClick={async () => { const data = await bulkAction({ action: "dismiss_flag", flag_ids: selFlags }); if (!data) return; setSelFlags([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Dismiss selected ({selFlags.length})</button>
+                    <button onClick={async () => { const data = await bulkAction({ action: "dismiss_flag", flag_ids: selFlags }); if (!data) return; setSelFlags([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Dismiss selected ({selFlags.length})</button>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -1909,7 +1909,7 @@ function SPDashboard() {
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{flag.flag_type.replace(/_/g, " ")}</span>
                         </div>
                       </div>
-                      <button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss_flag", flag_id: flag.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">Dismiss</button>
+                      <button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss_flag", flag_id: flag.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">Dismiss</button>
                     </div>
                   ))}
                 </div>
@@ -1921,7 +1921,7 @@ function SPDashboard() {
                 <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-amber-800">Pending Hours Approval</h3>
                   {selHours.length > 0 && (
-                    <button onClick={async () => { const data = await bulkAction({ action: "approve_hours", hours_ids: selHours }); if (!data) return; setSelHours([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
+                    <button onClick={async () => { const data = await bulkAction({ action: "approve_hours", hours_ids: selHours }); if (!data) return; setSelHours([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
                   )}
                 </div>
                 <table className="w-full text-sm">
@@ -1933,7 +1933,7 @@ function SPDashboard() {
                         <td className="px-4 py-2.5 font-medium text-gray-900">{h.evaluator_name}</td>
                         <td className="px-4 py-2.5 text-gray-500">{h.org_name} - {h.category_name} S{h.session_number}</td>
                         <td className="px-4 py-2.5 text-center font-bold text-gray-900">{parseFloat(h.hours_worked).toFixed(1)}h</td>
-                        <td className="px-4 py-2.5 text-center"><button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve_hours", hours_id: h.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 font-medium">Approve</button></td>
+                        <td className="px-4 py-2.5 text-center"><button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve_hours", hours_id: h.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 font-medium">Approve</button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -1979,8 +1979,8 @@ function SPDashboard() {
             {selEvals.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-gray-700 mr-1">{selEvals.length} selected</span>
-                <button onClick={async () => { const data = await bulkAction({ action: "approve", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
-                <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { const data = await bulkAction({ action: "suspend", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
+                <button onClick={async () => { const data = await bulkAction({ action: "approve", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
+                <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { const data = await bulkAction({ action: "suspend", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
                 <button onClick={() => setComposeRecipient({ to_user_ids: [...selEvals], label: `To ${selEvals.length} selected evaluator${selEvals.length === 1 ? "" : "s"}` })} className="text-xs px-3 py-1.5 bg-accent-soft text-accent border border-accent/20 rounded-lg hover:opacity-90 font-medium inline-flex items-center gap-1.5"><MessageSquare size={12} /> Message selected ({selEvals.length})</button>
                 <button onClick={() => { setBulkDeleteMsg(null); setShowBulkDelete(true); }} className="text-xs px-3 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100 font-medium">Delete ({selEvals.length})</button>
               </div>
@@ -2051,9 +2051,9 @@ function SPDashboard() {
                       <td className="px-4 py-3 text-center">{parseFloat(ev.avg_rating || 0) > 0 ? `${parseFloat(ev.avg_rating).toFixed(1)} *` : "-"}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {ev.membership_status === "pending" && <button onClick={async (e) => { e.stopPropagation(); await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve", evaluator_id: ev.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200">Approve</button>}
-                          {ev.membership_status !== "suspended" ? <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Suspend ${ev.name}?`)) { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "suspend", evaluator_id: ev.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100">Suspend</button> : <button onClick={async (e) => { e.stopPropagation(); await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reinstate", evaluator_id: ev.id }) }); queryClient.invalidateQueries(["sp-evaluators"]); }} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Reinstate</button>}
-                          <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Delete ${ev.name}?`)) { const res = await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_account", evaluator_id: ev.id }) }); const data = await res.json(); if (data.error) alert(data.error); queryClient.invalidateQueries(["sp-evaluators"]); } }} className="text-xs px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100">Delete</button>
+                          {ev.membership_status === "pending" && <button onClick={async (e) => { e.stopPropagation(); await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve", evaluator_id: ev.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200">Approve</button>}
+                          {ev.membership_status !== "suspended" ? <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Suspend ${ev.name}?`)) { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "suspend", evaluator_id: ev.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); } }} className="text-xs px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100">Suspend</button> : <button onClick={async (e) => { e.stopPropagation(); await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reinstate", evaluator_id: ev.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-2 py-1 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100">Reinstate</button>}
+                          <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Delete ${ev.name}?`)) { const res = await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_account", evaluator_id: ev.id }) }); const data = await res.json(); if (data.error) alert(data.error); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); } }} className="text-xs px-2 py-1 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100">Delete</button>
                         </div>
                       </td>
                     </tr>
@@ -2107,7 +2107,7 @@ function SPDashboard() {
                         if (!data) return;
                         setSelEvals([]); setShowBulkDelete(false); setDeleteConfirm("");
                         setBulkDeleteMsg(`${data.deleted} deleted, ${data.skipped} skipped`);
-                        queryClient.invalidateQueries(["sp-evaluators"]);
+                        queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] });
                       }}
                       className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-40">
                       Delete
@@ -2122,7 +2122,7 @@ function SPDashboard() {
                 evaluators={evaluators.filter(ev => ev.membership_status !== "deleted" && ev.membership_status !== "suspended")}
                 onClose={() => setShowSetRates(false)}
                 onSaved={() => {
-                  queryClient.invalidateQueries(["sp-evaluators", orgParam]);
+                  queryClient.invalidateQueries({ queryKey: ["sp-evaluators", orgParam] });
                   setRatesSavedMsg(true);
                   setTimeout(() => setRatesSavedMsg(false), 4000);
                 }}
@@ -2133,7 +2133,7 @@ function SPDashboard() {
               <ComposeMessageModal
                 recipient={composeRecipient}
                 onClose={() => setComposeRecipient(null)}
-                onSent={() => { setSelEvals([]); queryClient.invalidateQueries(["sp-messages"]); }}
+                onSent={() => { setSelEvals([]); queryClient.invalidateQueries({ queryKey: ["sp-messages"] }); }}
               />
             )}
           </div>

@@ -26,7 +26,7 @@ export function CreateOrganizationModal({ onClose }) {
       return responseData;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries(["organizations"]);
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
       // Hold the modal open and show the invite link so it can be copied/forwarded
       // even if the email didn't send.
       setCreated(data);

@@ -24,7 +24,7 @@ export function SignupRequestsTab() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(["god-mode-signup-requests"]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["god-mode-signup-requests"] }),
   });
 
   const requests = data?.requests || [];

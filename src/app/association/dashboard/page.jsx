@@ -181,7 +181,7 @@ function Dashboard() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries(["categories", orgId]); setDeleteConfirm(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories", orgId] }); setDeleteConfirm(null); },
   });
 
   const sendInvite = async (e) => {
@@ -358,11 +358,11 @@ function Dashboard() {
                     const res = await fetch(`/api/organizations/${orgId}/logo`, { method: "POST", body: fd });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || "Upload failed");
-                    queryClient.invalidateQueries(["org", orgId]);
+                    queryClient.invalidateQueries({ queryKey: ["org", orgId] });
                   }}
                   onRemove={async () => {
                     const res = await fetch(`/api/organizations/${orgId}/logo`, { method: "DELETE" });
-                    if (res.ok) queryClient.invalidateQueries(["org", orgId]);
+                    if (res.ok) queryClient.invalidateQueries({ queryKey: ["org", orgId] });
                   }}
                 />
               </div>

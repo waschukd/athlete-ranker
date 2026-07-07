@@ -31,7 +31,7 @@ export function EvaluatorsTab() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(["god-mode-evaluator-invites"]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["god-mode-evaluator-invites"] }),
   });
 
   const [selectedIds, setSelectedIds] = useState([]);
@@ -45,7 +45,7 @@ export function EvaluatorsTab() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    onSuccess: () => { setSelectedIds([]); queryClient.invalidateQueries(["god-mode-evaluator-invites"]); },
+    onSuccess: () => { setSelectedIds([]); queryClient.invalidateQueries({ queryKey: ["god-mode-evaluator-invites"] }); },
   });
   const toggleId = (id) => setSelectedIds(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
 

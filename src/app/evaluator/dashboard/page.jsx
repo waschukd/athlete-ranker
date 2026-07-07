@@ -1278,7 +1278,7 @@ function TesterDashboardView({ data, theme, toggleTheme, showSwitch, onSwitch, q
     setBusy(true);
     await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, schedule_id }) });
     setBusy(false);
-    queryClient.invalidateQueries(["my-capabilities"]);
+    queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
   };
   const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; };
   return (
@@ -1377,8 +1377,8 @@ function EvaluatorDashboard() {
         return;
       }
       setSignupError(null);
-      queryClient.invalidateQueries(["evaluator-sessions-mine"]);
-      queryClient.invalidateQueries(["evaluator-sessions-available"]);
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
       if (data.ical) {
         const blob = new Blob([data.ical], { type: "text/calendar" });
         const url = URL.createObjectURL(blob);
@@ -1404,8 +1404,8 @@ function EvaluatorDashboard() {
     },
     onSuccess: (data) => {
       if (data?.warning) setCancelWarning(data.warning);
-      queryClient.invalidateQueries(["evaluator-sessions-mine"]);
-      queryClient.invalidateQueries(["evaluator-sessions-available"]);
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
     },
   });
 

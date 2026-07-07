@@ -32,7 +32,7 @@ export function SPLinksTab() {
       setSelectedSP("");
       setSelectedAssoc("");
       setTimeout(() => setSuccess(""), 3000);
-      queryClient.invalidateQueries(["sp-links"]);
+      queryClient.invalidateQueries({ queryKey: ["sp-links"] });
     },
   });
 
@@ -40,7 +40,7 @@ export function SPLinksTab() {
     mutationFn: async ({ id, assoc_id }) => {
       await fetch(`/api/admin/god-mode/sp-links?id=${id}&assoc_id=${assoc_id}`, { method: "DELETE" });
     },
-    onSuccess: () => queryClient.invalidateQueries(["sp-links"]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sp-links"] }),
   });
 
   const links = data?.links || [];

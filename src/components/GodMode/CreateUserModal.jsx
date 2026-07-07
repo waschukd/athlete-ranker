@@ -30,7 +30,7 @@ export function CreateUserModal({ onClose }) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["god-mode-users"]);
+      queryClient.invalidateQueries({ queryKey: ["god-mode-users"] });
       onClose();
     },
   });

@@ -87,7 +87,7 @@ function EvaluatorDetailInner() {
       });
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(["evaluator-detail", evalId]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] }),
   });
 
   const rateMutation = useMutation({
@@ -100,7 +100,7 @@ function EvaluatorDetailInner() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["evaluator-detail", evalId]);
+      queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] });
       setRatingModal(null);
       setRating(0);
       setRatingNotes("");
@@ -116,7 +116,7 @@ function EvaluatorDetailInner() {
       });
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(["evaluator-detail", evalId]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] }),
   });
 
   const setRateMutation = useMutation({
@@ -129,7 +129,7 @@ function EvaluatorDetailInner() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["evaluator-detail", evalId]);
+      queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] });
       setRateEditing(false);
     },
   });
@@ -143,7 +143,7 @@ function EvaluatorDetailInner() {
       });
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(["evaluator-detail", evalId]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] }),
   });
 
   const evaluator = data?.evaluator;
@@ -207,7 +207,7 @@ function EvaluatorDetailInner() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ action: "suspend", evaluator_id: parseInt(evalId) }),
                     });
-                    queryClient.invalidateQueries(["evaluator-detail", evalId]);
+                    queryClient.invalidateQueries({ queryKey: ["evaluator-detail", evalId] });
                   }
                 }}
                 className="px-4 py-2 border border-amber-200 text-amber-600 rounded-lg text-sm font-medium hover:bg-amber-50 transition-colors"

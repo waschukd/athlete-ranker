@@ -75,9 +75,9 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
   const editMutation = useMutation({
     mutationFn: patchScore,
     onSuccess: () => {
-      queryClient.invalidateQueries(["score-search", catId]);
-      queryClient.invalidateQueries(["category-rankings", catId]);
-      queryClient.invalidateQueries(["score-audit", catId]);
+      queryClient.invalidateQueries({ queryKey: ["score-search", catId] });
+      queryClient.invalidateQueries({ queryKey: ["category-rankings", catId] });
+      queryClient.invalidateQueries({ queryKey: ["score-audit", catId] });
       setEditing(null);
       setEditValue("");
       setEditReason("");
@@ -89,8 +89,8 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
   // rapid edits — the cell keeps its own value; rankings/audit still refresh.
   const saveGridCell = async (args) => {
     await patchScore({ ...args, reason: null });
-    queryClient.invalidateQueries(["category-rankings", catId]);
-    queryClient.invalidateQueries(["score-audit", catId]);
+    queryClient.invalidateQueries({ queryKey: ["category-rankings", catId] });
+    queryClient.invalidateQueries({ queryKey: ["score-audit", catId] });
   };
 
   // ── Audit Sub-Tab Data ─────────────────────────────────────
