@@ -123,9 +123,12 @@ export async function POST(request, { params }) {
         const sNum = sessionForRow(r);
         groupCounter[sNum] = (groupCounter[sNum] || 0) + 1;
         let dow = null; try { dow = DOW[new Date(`${r.date}T00:00:00`).getDay()]; } catch { dow = null; }
-        const evalReq = isTesting(r.session_type) ? 0 : 4;
+        // Respect per-row evaluator counts from the template; else sensible defaults.
+        const pe = r.player_evaluators != null && r.player_evaluators !== "" ? (parseInt(r.player_evaluators) || 0) : (isTesting(r.session_type) ? 0 : 4);
+        const ge = r.goalie_evaluators != null && r.goalie_evaluators !== "" ? (parseInt(r.goalie_evaluators) || 0) : 0;
+        const evalReq = isTesting(r.session_type) ? 0 : pe;
         await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status)
-          VALUES (${catId}, ${sNum}, ${groupCounter[sNum]}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, 0, 'scheduled')`;
+          VALUES (${catId}, ${sNum}, ${groupCounter[sNum]}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, 'scheduled')`;
         summary.scheduleImported++;
       }
     }

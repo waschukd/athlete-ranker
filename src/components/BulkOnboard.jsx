@@ -67,7 +67,12 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
         <div className="p-6">
           {(phase === "upload" || phase === "parsing") && (
             <>
-              <p className="text-sm text-gray-500 mb-5">Drop your association's schedule and/or athlete files exactly as you received them. We'll detect every division and create all your categories at once.</p>
+              <p className="text-sm text-gray-500 mb-3">Drop your schedule and/or athlete files. Cleanest is our template (a Division column, read instantly and free); a messy association export also works via AI reading.</p>
+              <div className="flex items-center gap-3 mb-4 text-xs">
+                <span className="text-gray-400">Templates:</span>
+                <a href="/api/templates?type=bulk-schedule" download className="px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg font-medium hover:bg-[#dbe8fc]">↓ Schedule</a>
+                <a href="/api/templates?type=bulk-roster" download className="px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg font-medium hover:bg-[#dbe8fc]">↓ Roster</a>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <label className="flex flex-col items-center gap-1.5 border-2 border-dashed border-gray-300 rounded-xl py-6 px-4 cursor-pointer hover:border-accent/50 text-center">
                   <Calendar size={22} className="text-gray-400" />
