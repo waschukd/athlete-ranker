@@ -46,7 +46,7 @@ export async function POST(request, { params }) {
       d[kind]++; d.sources.add(source);
     };
 
-    let scheduleRows = [], athletes = [];
+    let scheduleRows = [], athletes = [], scheduleDebugRaw = "";
     const unmatched = { schedule: [], athletes: [] };
 
     // ── Schedule (AI-normalized) ──
@@ -61,6 +61,7 @@ export async function POST(request, { params }) {
       let norm;
       try { norm = await normalizeSchedule(grid, { apiKey: process.env.ANTHROPIC_API_KEY }); }
       catch (e) { console.error("Schedule normalize error:", e.message); return NextResponse.json({ error: "Couldn't read the schedule automatically.", detail: String(e.message).slice(0, 400), fallback: true }, { status: 502 }); }
+      scheduleDebugRaw = norm.raw || "";
       for (const r of norm.rows || []) {
         const cd = canonicalDivision({ ageGroup: r.age_group, division: r.division, label: r.raw_label });
         const tagged = { ...r, divisionKey: cd?.key || null };
@@ -93,6 +94,9 @@ export async function POST(request, { params }) {
     // Existing categories so the UI can offer "route into existing" instead of duplicating.
     const existing = await sql`SELECT id, name FROM age_categories WHERE organization_id = ${params.orgId} ORDER BY name`;
 
+    // When nothing was detected, include the raw AI text so we can see why.
+    const debug = divisions.size === 0 ? { aiRaw: (scheduleDebugRaw || "").slice(0, 1200), scheduleRowCount: scheduleRows.length } : undefined;
+
     const divisionList = [...divisions.values()]
       .map(d => ({ key: d.key, age: d.age, tier: d.tier, scheduleCount: d.scheduleCount, athleteCount: d.athleteCount, sources: [...d.sources] }))
       .sort((a, b) => a.key.localeCompare(b.key));
@@ -102,6 +106,7 @@ export async function POST(request, { params }) {
       scheduleRows, athletes,
       unmatched: { schedule: unmatched.schedule.length, athletes: unmatched.athletes.length, scheduleRows: unmatched.schedule, athleteRows: unmatched.athletes },
       existing,
+      debug,
     });
   } catch (error) {
     console.error("Bulk onboard parse error:", error);

@@ -60,7 +60,7 @@ export async function normalizeSchedule(grid, { apiKey } = {}) {
   if (!res.ok) { const body = await res.text().catch(() => ""); throw new Error(`anthropic_${res.status}: ${body.slice(0, 400)}`); }
   const data = await res.json();
   const raw = (data.content || []).map(c => c.text || "").join("");
-  return { rows: parseRows(raw) };
+  return { rows: parseRows(raw), raw };
 }
 
 // Extract + validate the rows array from the model's text (tolerant of stray prose/fences).

@@ -105,6 +105,12 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
                   </tbody>
                 </table>
               </div>
+              {parsed.debug?.aiRaw && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-gray-500">Show raw AI response (for support)</summary>
+                  <pre className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg overflow-x-auto whitespace-pre-wrap text-[11px] text-gray-600">{parsed.debug.aiRaw}</pre>
+                </details>
+              )}
               <button onClick={() => setPhase("upload")} className="text-sm text-accent hover:underline">← Try a different file</button>
             </div>
           )}
