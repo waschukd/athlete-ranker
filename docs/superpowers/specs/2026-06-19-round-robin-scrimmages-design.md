@@ -230,3 +230,70 @@ session."** We replace it with **"a player's score is stamped with their own gam
 everything downstream — scoring categories, weights, rankings, reports — keeps running on
 `session_number` exactly as it does today. The mode is fully opt-in and isolated behind a flag,
 so house categories are untouched.
+
+---
+
+# Addendum (2026-07-07): Elite eval mode + mid-process cuts
+
+Real-world clarification of the two eval shapes and the elite-specific mechanics. Confirmed
+decisions from the association owner.
+
+## The two eval shapes (they are different products)
+
+- **House / lower tier (default, already live):** players in **groups** that can shuffle as the
+  process moves; lockstep sessions. Template = the existing `Division, Session Type, Date, Time,
+  Location…` (one row per group slot).
+- **Elite (AA / AAA / Tier 1–2):** persistent **teams** playing **matchups**. e.g. 60 skaters →
+  4 teams → *Game 1: T1 v T2, Game 1: T3 v T4, Game 2: T1 v T3…*. The schedule unit is a
+  **matchup** (which two teams play), NOT a group slot. This is the round-robin mode above.
+
+## Elite specifics (decisions)
+
+1. **Manual team assignment.** The association assigns who is on Team 1–4 from their own lists —
+   either a **roster with a Team column**, or assign in-app. No auto-seeding required (auto-seed
+   from a pre-skate/testing may be offered later, but manual is the baseline).
+2. **Round-by-round matchup entry.** The matchup schedule is entered/uploaded **round by round**,
+   because later rounds depend on cuts and aren't known up front. The admin **chooses how many
+   rounds to preload** (e.g. all of Phase 1, or Phase 1 + some of Phase 2); more rounds are added
+   as cuts are made. Elite schedule template shape: `Round/Game #, Home Team, Away Team, Date,
+   Day, Start Time, End Time, Rink`.
+3. **Mid-process cuts → re-seed into fewer teams (the phase transition).** The eval runs in
+   **phases**: Phase 1 = 4 teams round-robin; after cuts, **Phase 2 = 2 teams** of the survivors,
+   who play more games. A player's **team can change between phases**; cut players stop. Mechanic:
+   a **"make cuts & re-seed"** action — the admin marks who advances, the system carries the
+   survivors into the new (fewer) teams for the next rounds' matchups.
+4. **Variable games per player — already handled.** Ranking sums over the games a player actually
+   played (survivors have more data; cut players have their Phase 1 games only). No penalty for
+   fewer games; reports annotate "N of M games" and, for cut players, they simply have fewer.
+
+## Model deltas vs the base round-robin design
+
+- **Teams are phase-aware.** A `scrimmage_teams` (or equivalent) record belongs to a phase; a
+  player's team membership is per phase. Cutting = not carried into the next phase; re-seed =
+  new membership rows for survivors in the next phase's teams.
+- **Matchups reference teams within a phase.** `{ phase, game_number, home_team, away_team,
+  date, time, rink }`. Per-team running game number still stamps each player's score (a survivor's
+  game count continues across phases).
+- **Scoring unaffected structurally.** A player's score is still stamped with their own game
+  number; the phase is bookkeeping for team membership, not a new scoring unit.
+
+## Templates (both shapes)
+
+- **Elite roster:** `Division, First Name, Last Name, Position, Birth Year, HC#, Parent Email,
+  Team` (the Team column is the elite addition).
+- **Elite schedule (matchups):** `Round/Game #, Home Team, Away Team, Date, Day, Start Time,
+  End Time, Rink`.
+- **House roster/schedule:** the existing templates (no Team column; group-slot schedule).
+- Category setup detects/selects the mode (elite = round-robin; house = lockstep). Templates and
+  the schedule UI switch with the mode.
+
+## Open questions (elite)
+
+1. **Cut UI** — is "make cuts" a checklist off the current ranking, or drag survivors into the
+   new teams? (Lean: pick survivors off the ranked list, auto-offer a balanced 2-team split they
+   can adjust — reuses the fixed team builder.)
+2. **Phase weighting** — do Phase 2 games weigh more than Phase 1 (later looks matter more), or
+   all games equal? (Lean: equal by default, configurable.)
+3. **Does the elite schedule ever arrive as one messy file** (the AI-import path), or is elite
+   always structured entry / template? (Lean: template + in-app for elite; the AI messy-file
+   import stays a house-tier convenience.)
