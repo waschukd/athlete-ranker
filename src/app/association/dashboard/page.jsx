@@ -3,10 +3,11 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search } from "lucide-react";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import BulkOnboard from "@/components/BulkOnboard";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -139,6 +140,7 @@ function Dashboard() {
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [goalieEvalOpen, setGoalieEvalOpen] = useState(false);
+  const [showBulkOnboard, setShowBulkOnboard] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [approvalSearch, setApprovalSearch] = useState("");
   const [showAllApprovals, setShowAllApprovals] = useState(false);
@@ -312,9 +314,13 @@ function Dashboard() {
         </nav>
 
         <div className="px-4 py-4 border-t border-gray-100 space-y-2">
-          <a href={`/association/dashboard/add-category?org=${orgId}`}
+          <button onClick={() => setShowBulkOnboard(true)}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white font-semibold text-sm hover:opacity-90 transition-opacity">
-            <Plus size={16} /> Add Category
+            <Sparkles size={16} /> Set up season
+          </button>
+          <a href={`/association/dashboard/add-category?org=${orgId}`}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">
+            <Plus size={16} /> Add one category
           </a>
           <button onClick={() => setGoalieEvalOpen(true)}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
@@ -432,8 +438,11 @@ function Dashboard() {
                   <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
                     <Trophy size={48} className="mx-auto text-gray-300 mb-4" />
                     <h3 className="font-display font-black tracking-tight text-ink text-xl mb-2">No age categories yet</h3>
-                    <p className="text-gray-500 mb-6 max-w-sm mx-auto text-sm">Create your first age category to start organizing athletes and evaluations.</p>
-                    <a href={`/association/dashboard/add-category?org=${orgId}`} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:opacity-90 transition-opacity"><Plus size={18} /> Add Age Category</a>
+                    <p className="text-gray-500 mb-6 max-w-sm mx-auto text-sm">Set up your whole season in one go from your schedule and roster files — or add a single category.</p>
+                    <div className="flex items-center justify-center gap-3 flex-wrap">
+                      <button onClick={() => setShowBulkOnboard(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:opacity-90 transition-opacity"><Sparkles size={18} /> Set up your whole season</button>
+                      <a href={`/association/dashboard/add-category?org=${orgId}`} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"><Plus size={18} /> Add one category</a>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -645,6 +654,15 @@ function Dashboard() {
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {showBulkOnboard && (
+        <BulkOnboard
+          orgId={orgId}
+          existingCategories={categories}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ["categories", orgId] })}
+          onClose={() => setShowBulkOnboard(false)}
+        />
+      )}
 
       {goalieEvalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setGoalieEvalOpen(false)}>
