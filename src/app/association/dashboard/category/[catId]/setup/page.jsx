@@ -645,7 +645,14 @@ function SetupWizard() {
   const skaterValid = Math.round(sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0)) === 100;
   const goalieConfigPayload = () => ({ scale: scoring.goalie_scale, increment: scoring.goalie_increment, sessions: scoring.goalie_sessions });
 
-  const post = (body) => fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  // Throw on a non-OK response so a failed save can't be mistaken for success —
+  // fetch only rejects on network errors, not HTTP 4xx/5xx, so persistStep would
+  // otherwise return true and advance the wizard, silently losing the edits.
+  const post = async (body) => {
+    const res = await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Couldn't save (${res.status}). Please try again.`); }
+    return res;
+  };
 
   // Persist ONLY the current step's data. Returns true on success (or when there's
   // nothing to save), false when validation blocks it. Does not change the step.

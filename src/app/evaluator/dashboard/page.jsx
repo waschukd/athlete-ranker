@@ -55,6 +55,14 @@ function formatDate(d) {
   return new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+// Today's date in the viewer's LOCAL timezone as YYYY-MM-DD. Using UTC
+// (toISOString) rolls over at ~5-8pm North American time — exactly when evening
+// evaluations run — making today's session read as "past".
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function generateICal(session) {
   const date = session.scheduled_date?.toString().split("T")[0].replace(/-/g, "");
   const startTime = session.start_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
@@ -204,13 +212,13 @@ function CancelModal({ scheduleId, onClose, onConfirm, isPending }) {
 function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const spotsAfterMe = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 1);
-  const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(new Date().toISOString().split("T")[0]);
+  const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(localToday());
   const [showInvite, setShowInvite] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Status badge (My Sessions only): TODAY / Needs scoring / Scored / Upcoming
   const dateStr = session.scheduled_date?.toString().split("T")[0];
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = localToday();
   const scored = parseInt(session.my_scored_athletes || 0) > 0;
   const isToday = dateStr === todayStr;
   const isPast = dateStr < todayStr;
@@ -1429,11 +1437,11 @@ function EvaluatorDashboard() {
 
   const mineSessions = mineData?.sessions || [];
   const availSessions = availData?.sessions || [];
-  const upcoming = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(new Date().toISOString().split("T")[0]));
-  const past = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(new Date().toISOString().split("T")[0]));
+  const upcoming = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
+  const past = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
 
   // Group My Sessions so unfinished work floats up: Today → Needs scoring → Upcoming → Done
-  const _today = new Date().toISOString().split("T")[0];
+  const _today = localToday();
   const grp = { today: [], needs: [], upcoming: [], done: [] };
   for (const s of mineSessions) {
     const d = s.scheduled_date?.toString().split("T")[0];
@@ -1482,7 +1490,7 @@ function EvaluatorDashboard() {
             {/* ── Score Now widget ── */}
             {(() => {
               if (upcoming.length === 0) return null;
-              const todayStr = new Date().toISOString().split("T")[0];
+              const todayStr = localToday();
               const todaySessions = upcoming.filter(s => s.scheduled_date?.toString().split("T")[0] === todayStr);
               // If no sessions today, find the soonest upcoming date
               let featured = todaySessions;
