@@ -78,6 +78,7 @@ export async function POST(request, { params }) {
     };
 
     let scheduleRows = [], athletes = [], scheduleDebugRaw = "";
+    let rosterDivisions = [], rosterHasDivisionColumn = false, rosterMappingFields = null;
     const unmatched = { schedule: [], athletes: [] };
 
     // ── Schedule ──
@@ -121,12 +122,24 @@ export async function POST(request, { params }) {
         const mapping = detectMapping(headers);
         const { athletes: built } = buildAthletes(rows, mapping, null);
         for (const a of built) {
-          const cd = canonicalDivision({ division: a._division, label: a._division });
-          const tagged = { ...a, divisionKey: cd?.key || null };
+          const raw = (a._division || "").trim();
+          const cd = canonicalDivision({ division: raw, label: raw });
+          const tagged = { ...a, rawDivision: raw, divisionKey: cd?.key || null };
           athletes.push(tagged);
           if (cd) bump(cd.key, cd.age, cd.tier, "athleteCount", "roster");
           else unmatched.athletes.push(tagged);
         }
+        // Distinct source division/team values → the admin maps each to a category.
+        const rd = new Map();
+        for (const a of athletes) {
+          const v = a.rawDivision || "(blank)";
+          if (!rd.has(v)) rd.set(v, { value: v, count: 0, suggestedKey: a.divisionKey || null });
+          rd.get(v).count++;
+        }
+        rosterDivisions = [...rd.values()].sort((x, y) => y.count - x.count);
+        // Whether the file even had a division/team column at all.
+        rosterHasDivisionColumn = !!mapping.division;
+        rosterMappingFields = { division: mapping.division || null, firstName: mapping.firstName || null, lastName: mapping.lastName || null, position: mapping.position || null };
       }
     }
 
@@ -144,6 +157,7 @@ export async function POST(request, { params }) {
       divisions: divisionList,
       scheduleRows, athletes,
       unmatched: { schedule: unmatched.schedule.length, athletes: unmatched.athletes.length, scheduleRows: unmatched.schedule, athleteRows: unmatched.athletes },
+      rosterDivisions, rosterHasDivisionColumn, rosterMappingFields,
       existing,
       debug,
     });

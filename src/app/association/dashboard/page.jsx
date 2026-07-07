@@ -316,7 +316,7 @@ function Dashboard() {
         <div className="px-4 py-4 border-t border-gray-100 space-y-2">
           <button onClick={() => setShowBulkOnboard(true)}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white font-semibold text-sm hover:opacity-90 transition-opacity">
-            <Sparkles size={16} /> Set up season
+            <Sparkles size={16} /> Set up association
           </button>
           <a href={`/association/dashboard/add-category?org=${orgId}`}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">
@@ -438,9 +438,9 @@ function Dashboard() {
                   <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
                     <Trophy size={48} className="mx-auto text-gray-300 mb-4" />
                     <h3 className="font-display font-black tracking-tight text-ink text-xl mb-2">No age categories yet</h3>
-                    <p className="text-gray-500 mb-6 max-w-sm mx-auto text-sm">Set up your whole season in one go from your schedule and roster files — or add a single category.</p>
+                    <p className="text-gray-500 mb-6 max-w-sm mx-auto text-sm">Set up your entire association in one go from your schedule and roster files — or add a single category.</p>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
-                      <button onClick={() => setShowBulkOnboard(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:opacity-90 transition-opacity"><Sparkles size={18} /> Set up your whole season</button>
+                      <button onClick={() => setShowBulkOnboard(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:opacity-90 transition-opacity"><Sparkles size={18} /> Set up entire association</button>
                       <a href={`/association/dashboard/add-category?org=${orgId}`} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"><Plus size={18} /> Add one category</a>
                     </div>
                   </div>

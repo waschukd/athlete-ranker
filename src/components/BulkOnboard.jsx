@@ -12,6 +12,7 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState(null);
   const [decisions, setDecisions] = useState({}); // key → { action, categoryId, name }
+  const [rosterMap, setRosterMap] = useState({});  // source division value → target division key ("" = skip)
   const [summary, setSummary] = useState(null);
 
   const parse = async () => {
@@ -32,6 +33,10 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
         init[div.key] = match ? { action: "existing", categoryId: match.id, name: div.key } : { action: "create", name: div.key };
       }
       setDecisions(init);
+      // Pre-fill roster mapping from each source value's canonical suggestion.
+      const rmap = {};
+      for (const rd of d.rosterDivisions || []) rmap[rd.value] = rd.suggestedKey || "";
+      setRosterMap(rmap);
       setPhase("review");
     } catch { setError("Upload failed. Please try again."); setPhase("upload"); }
   };
@@ -42,9 +47,14 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
     setPhase("committing"); setError("");
     try {
       const decisionList = (parsed.divisions || []).map(d => ({ key: d.key, ...(decisions[d.key] || { action: "skip" }) }));
+      // Apply the admin's roster mapping: each athlete's category = the target chosen
+      // for its source division value (dropped if unmapped/skipped).
+      const athletesMapped = (parsed.athletes || [])
+        .map(a => ({ ...a, divisionKey: (rosterMap[a.rawDivision] ?? a.divisionKey) || null }))
+        .filter(a => a.divisionKey);
       const res = await fetch(`/api/organizations/${orgId}/bulk-onboard/commit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions: decisionList, scheduleRows: parsed.scheduleRows, athletes: parsed.athletes }),
+        body: JSON.stringify({ decisions: decisionList, scheduleRows: parsed.scheduleRows, athletes: athletesMapped }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Import failed."); setPhase("review"); return; }
@@ -60,7 +70,7 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto" onClick={e => e.target === e.currentTarget && onClose?.()}>
       <div className="w-full max-w-3xl my-10 bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2"><Sparkles size={18} className="text-accent" /><h2 className="font-display font-bold text-ink text-lg">Set up your whole season</h2></div>
+          <div className="flex items-center gap-2"><Sparkles size={18} className="text-accent" /><h2 className="font-display font-bold text-ink text-lg">Set up entire association</h2></div>
           <button onClick={() => onClose?.()} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
@@ -154,6 +164,31 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
                   </tbody>
                 </table>
               </div>
+              {(parsed.rosterDivisions || []).length > 0 && (
+                <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
+                  <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                    <p className="text-xs font-semibold text-gray-700">Athletes — map each group in your file to a category</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{parsed.rosterHasDivisionColumn ? "From your file's division/team column." : "No division column found — assign each group to a category."}</p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-white text-xs text-gray-500 uppercase"><tr><th className="text-left px-4 py-2">Your value</th><th className="px-3 py-2">Athletes</th><th className="text-left px-4 py-2">→ Category</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(parsed.rosterDivisions || []).map(rd => (
+                        <tr key={rd.value} className={!rosterMap[rd.value] ? "bg-amber-50/40" : ""}>
+                          <td className="px-4 py-2 text-ink">{rd.value}</td>
+                          <td className="px-3 py-2 text-center text-gray-600 tabular-nums">{rd.count}</td>
+                          <td className="px-4 py-2">
+                            <select value={rosterMap[rd.value] || ""} onChange={e => setRosterMap(m => ({ ...m, [rd.value]: e.target.value }))} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[9rem]">
+                              <option value="">— skip —</option>
+                              {parsed.divisions.map(dv => <option key={dv.key} value={dv.key}>{decisions[dv.key]?.name || dv.key}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {(unmatched.schedule > 0 || unmatched.athletes > 0) && (
                 <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
                   <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
@@ -175,7 +210,7 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
           {phase === "done" && summary && (
             <div className="text-center py-6">
               <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4"><Check size={26} className="text-green-600" /></div>
-              <h3 className="font-display font-bold text-ink text-xl mb-2">Your season is set up</h3>
+              <h3 className="font-display font-bold text-ink text-xl mb-2">Your association is set up</h3>
               <p className="text-sm text-gray-600 mb-5">
                 {summary.categoriesCreated} categor{summary.categoriesCreated === 1 ? "y" : "ies"} created{summary.categoriesReused ? `, ${summary.categoriesReused} filled` : ""} · {summary.athletesImported} athletes · {summary.scheduleImported} schedule slots.
               </p>
