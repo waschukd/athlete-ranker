@@ -166,7 +166,7 @@ export function parentSessionUpdateHtml({ playerName, orgName, completedLabel, n
 export async function emailWelcomeAssociation({ name, email, tempPassword, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Welcome to Sideline Star</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your association account for <strong style="color:#111827;">${orgName}</strong> has been created.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, your association account for <strong style="color:#111827;">${esc(orgName)}</strong> has been created.</p>
     ${credBox([["Email", email], ["Temp Password", tempPassword, true]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
     ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
@@ -181,7 +181,7 @@ export async function emailOrgInvite({ name, email, orgName, orgType, inviteUrl 
   const kind = orgType === "service_provider" ? "service provider" : "association";
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#101113;">You're invited</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${name || "there"}</strong>, you've been invited to manage <strong style="color:#101113;">${orgName}</strong> as a ${kind} on Sideline Star. Click below to set your password and finish setting up your account.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${esc(name || "there")}</strong>, you've been invited to manage <strong style="color:#101113;">${esc(orgName)}</strong> as a ${esc(kind)} on Sideline Star. Click below to set your password and finish setting up your account.</p>
     <div style="text-align:center;margin:28px 0;">${btn(inviteUrl, "Finish setting up →")}</div>
     <p style="font-size:12px;color:#9aa0aa;text-align:center;margin:0;">This link expires in 7 days. If you didn't expect this invitation, you can ignore it.</p>
   `);
@@ -191,7 +191,7 @@ export async function emailOrgInvite({ name, email, orgName, orgType, inviteUrl 
 export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">You've been approved!</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your evaluator application for <strong style="color:#111827;">${orgName}</strong> has been approved.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, your evaluator application for <strong style="color:#111827;">${esc(orgName)}</strong> has been approved.</p>
     ${credBox([["Evaluator ID", evaluatorId], ["Organization", orgName]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in to view your upcoming sessions.</p>
     ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}
@@ -202,7 +202,7 @@ export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId
 export async function emailEvaluatorDenied({ name, email, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Application Update</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, unfortunately your evaluator application for <strong style="color:#111827;">${orgName}</strong> was not approved at this time.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, unfortunately your evaluator application for <strong style="color:#111827;">${esc(orgName)}</strong> was not approved at this time.</p>
     <p style="font-size:13px;color:#6b7280;">If you believe this is an error, please contact the organization directly.</p>
   `);
   await sendEmail(email, `Application Update — ${orgName}`, html);
@@ -211,7 +211,7 @@ export async function emailEvaluatorDenied({ name, email, orgName }) {
 export async function emailEvaluatorPendingApproval({ adminEmail, adminName, evalName, evalEmail, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Evaluator Application</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${adminName}</strong>, a new evaluator has applied to join <strong style="color:#111827;">${orgName}</strong>.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(adminName)}</strong>, a new evaluator has applied to join <strong style="color:#111827;">${esc(orgName)}</strong>.</p>
     ${credBox([["Name", evalName], ["Email", evalEmail]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Review and approve or deny their application.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "Review Application →")}
@@ -222,7 +222,7 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
 export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, spName, assocName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Association Linked</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${spAdminName}</strong>, <strong style="color:#111827;">${assocName}</strong> has been linked to <strong style="color:#111827;">${spName}</strong> on Sideline Star.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${spAdminName}</strong>, <strong style="color:#111827;">${assocName}</strong> has been linked to <strong style="color:#111827;">${esc(spName)}</strong> on Sideline Star.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "View Dashboard →")}
   `);
   await sendEmail(spAdminEmail, `New Association Linked — ${assocName}`, html);
@@ -231,7 +231,7 @@ export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, sp
 export async function emailStrike1({ name, email, orgName, sessionDate }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#f59e0b;">Late Cancellation Warning</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, you have received <strong style="color:#f59e0b;">Strike 1</strong> for cancelling within 24 hours of your session on <strong>${sessionDate}</strong> with <strong>${orgName}</strong>.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, you have received <strong style="color:#f59e0b;">Strike 1</strong> for cancelling within 24 hours of your session on <strong>${sessionDate}</strong> with <strong>${esc(orgName)}</strong>.</p>
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
       <p style="margin:0;font-size:13px;color:#92400e;">⚠️ A second late cancellation will result in automatic suspension from future sessions.</p>
     </div>
@@ -243,9 +243,9 @@ export async function emailStrike1({ name, email, orgName, sessionDate }) {
 export async function emailStrike2Suspended({ name, email, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#dc2626;">Account Suspended</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your evaluator account with <strong style="color:#111827;">${orgName}</strong> has been suspended following a second late cancellation.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, your evaluator account with <strong style="color:#111827;">${esc(orgName)}</strong> has been suspended following a second late cancellation.</p>
     <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
-      <p style="margin:0;font-size:13px;color:#991b1b;">Please contact ${orgName} directly to discuss reinstatement.</p>
+      <p style="margin:0;font-size:13px;color:#991b1b;">Please contact ${esc(orgName)} directly to discuss reinstatement.</p>
     </div>
   `);
   await sendEmail(email, `Account Suspended — ${orgName}`, html);
@@ -256,11 +256,11 @@ export async function emailStrike2Suspended({ name, email, orgName }) {
 export async function emailLateCancel48hr({ adminEmail, adminName, evalName, sessionDate, sessionTime, groupName, orgName, spotsOpen, remainingEvals }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#dc2626;">Evaluator Cancelled — Under 48 Hours</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${adminName}</strong>, an evaluator has cancelled with less than 48 hours notice.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(adminName)}</strong>, an evaluator has cancelled with less than 48 hours notice.</p>
     <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
       <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;width:140px;">Evaluator</td><td style="font-size:13px;font-weight:600;color:#111827;">${evalName}</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Session</td><td style="font-size:13px;font-weight:600;color:#111827;">${groupName} — ${sessionDate} ${sessionTime}</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;width:140px;">Evaluator</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(evalName)}</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Session</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(groupName)} — ${sessionDate} ${sessionTime}</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Spots Now Open</td><td style="font-size:13px;font-weight:700;color:#dc2626;">${spotsOpen}</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Still Signed Up</td><td style="font-size:13px;color:#111827;">${remainingEvals}</td></tr>
       </table>
@@ -289,7 +289,7 @@ export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName
 
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Weekly Staffing Report</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">${orgName} · ${sessions.length} sessions this week</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">${esc(orgName)} · ${sessions.length} sessions this week</p>
     <div style="display:flex;gap:12px;margin:0 0 24px;">
       <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;">
         <div style="font-size:24px;font-weight:800;color:#16a34a;">${fullSessions.length}</div>
@@ -352,10 +352,10 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
 
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Open Sessions Available</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;"><strong style="color:#111827;">${orgName}</strong> has open evaluator spots. Sign up through your dashboard.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;"><strong style="color:#111827;">${esc(orgName)}</strong> has open evaluator spots. Sign up through your dashboard.</p>
     ${rows}
     ${btn(`${BASE_URL}/evaluator/dashboard`, "View & Sign Up →")}
-    <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Sent by ${adminName} · ${orgName}</p>
+    <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Sent by ${esc(adminName)} · ${esc(orgName)}</p>
   `);
 
   // Send to each evaluator
@@ -369,8 +369,8 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
 export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgName: _on }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
   return emailWrapper(`
-    ${emailHeader(`${orgName} &middot; Evaluations`, `Welcome to ${categoryName} Evaluations`)}
-    <p style="margin:14px auto 26px;max-width:430px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;"><strong style="color:${INK};">${playerName}</strong> is registered for evaluations with <strong style="color:${INK};">${orgName}</strong>. Here's what to expect.</p>
+    ${emailHeader(`${esc(orgName)} &middot; Evaluations`, `Welcome to ${esc(categoryName)} Evaluations`)}
+    <p style="margin:14px auto 26px;max-width:430px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;"><strong style="color:${INK};">${esc(playerName)}</strong> is registered for evaluations with <strong style="color:${INK};">${esc(orgName)}</strong>. Here's what to expect.</p>
     ${infoCard("What to expect", `<table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Multiple sessions</strong> — scored by professional evaluators across several sessions.</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Group assignments</strong> — players are organized into groups; you'll get the exact schedule before each session.</td></tr>
@@ -382,8 +382,8 @@ export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgNa
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure your athlete is fuelled and hydrated.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Trust the process — evaluators assess the full picture across sessions.</td></tr>
       </table>`)}
-    ${infoCard("After evaluations", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">A comprehensive Development Report will be available — collective evaluator feedback, an AI-compiled scouting analysis, and a personalized plan for ${playerName}.</p>`)}
-    <p style="margin:6px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">You'll receive another email with ${playerName}'s specific schedule once groups are assigned.</p>
+    ${infoCard("After evaluations", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">A comprehensive Development Report will be available — collective evaluator feedback, an AI-compiled scouting analysis, and a personalized plan for ${esc(playerName)}.</p>`)}
+    <p style="margin:6px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">You'll receive another email with ${esc(playerName)}'s specific schedule once groups are assigned.</p>
   `);
 }
 
@@ -401,8 +401,8 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
   `).join("");
 
   return emailWrapper(`
-    ${emailHeader(`${orgName} &middot; ${categoryName}`, "Evaluation Schedule")}
-    <p style="margin:14px auto 24px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is <strong style="color:${INK};">${playerName}</strong>'s upcoming evaluation schedule.</p>
+    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, "Evaluation Schedule")}
+    <p style="margin:14px auto 24px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is <strong style="color:${INK};">${esc(playerName)}</strong>'s upcoming evaluation schedule.</p>
     <div style="border:1px solid ${GOLD_LINE};border-radius:14px;overflow:hidden;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr style="background:${GOLD_SOFT};">
@@ -421,8 +421,8 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
 export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, groupNumber, date, time, location: _loc }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
   return emailWrapper(`
-    ${emailHeader(`${orgName} &middot; ${categoryName}`, `${playerName}'s Group Assignment`)}
-    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${playerName}'s group and ice time. Please arrive at least 15 minutes early for check-in.</p>
+    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Group Assignment`)}
+    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s group and ice time. Please arrive at least 15 minutes early for check-in.</p>
     <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
       <div style="padding:30px 28px;text-align:center;">
         <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${sessionLabel || "Evaluation Session"}</div>
@@ -443,8 +443,8 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   const playerName = esc(_pn), orgName = esc(_on), spName = _sp ? esc(_sp) : _sp;
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
-    ${emailHeader(fromLine, `${playerName}'s Development Report is ready`)}
-    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${playerName}'s evaluation is complete. The Development Report shows where they stand against the group, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
+    ${emailHeader(fromLine, `${esc(playerName)}'s Development Report is ready`)}
+    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report shows where they stand against the group, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
     ${infoCard("Inside the full report", `<div style="font-size:13px;color:#4a4f57;line-height:1.95;">
         Objective testing vs the group &nbsp;·&nbsp; Skill profile with interpretation<br/>
         Session-by-session progress &nbsp;·&nbsp; Every evaluator note<br/>
