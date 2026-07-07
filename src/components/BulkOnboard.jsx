@@ -89,7 +89,26 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
             </>
           )}
 
-          {phase === "review" && parsed && (
+          {phase === "review" && parsed && parsed.divisions.length === 0 && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
+                <span>No divisions detected. The reader returned <b>{(parsed.scheduleRows || []).length}</b> schedule row{(parsed.scheduleRows || []).length === 1 ? "" : "s"} and <b>{(parsed.athletes || []).length}</b> athlete row{(parsed.athletes || []).length === 1 ? "" : "s"}. Sample below — send it to support if it looks wrong.</span>
+              </div>
+              <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto text-xs">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-gray-500 uppercase"><tr><th className="text-left px-3 py-2">raw_label</th><th className="text-left px-3 py-2">age</th><th className="text-left px-3 py-2">division</th><th className="text-left px-3 py-2">key</th></tr></thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(parsed.scheduleRows || []).slice(0, 12).map((r, i) => (
+                      <tr key={i}><td className="px-3 py-1.5">{r.raw_label || "—"}</td><td className="px-3 py-1.5">{r.age_group || "—"}</td><td className="px-3 py-1.5">{r.division || "—"}</td><td className="px-3 py-1.5">{r.divisionKey || "(none)"}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button onClick={() => setPhase("upload")} className="text-sm text-accent hover:underline">← Try a different file</button>
+            </div>
+          )}
+          {phase === "review" && parsed && parsed.divisions.length > 0 && (
             <>
               <p className="text-sm text-gray-500 mb-4">Found <b className="text-ink">{parsed.divisions.length}</b> division{parsed.divisions.length === 1 ? "" : "s"}. Review below — rename, route into an existing category, or skip. Then create everything.</p>
               <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto mb-3">
