@@ -23,7 +23,7 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
       if (rosterFile) fd.append("roster", rosterFile);
       const res = await fetch(`/api/organizations/${orgId}/bulk-onboard/parse`, { method: "POST", body: fd });
       const d = await res.json();
-      if (!res.ok) { setError(d.error || "Couldn't read those files."); setPhase("upload"); return; }
+      if (!res.ok) { setError((d.error || "Couldn't read those files.") + (d.detail ? ` — ${d.detail}` : "")); setPhase("upload"); return; }
       setParsed(d);
       // Default every detected division to "create", pre-matched to an existing category by name.
       const init = {};

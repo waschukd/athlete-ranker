@@ -57,7 +57,7 @@ export async function normalizeSchedule(grid, { apiKey } = {}) {
       messages: [{ role: "user", content: buildPrompt(text) }],
     }),
   });
-  if (!res.ok) throw new Error(`anthropic_${res.status}`);
+  if (!res.ok) { const body = await res.text().catch(() => ""); throw new Error(`anthropic_${res.status}: ${body.slice(0, 400)}`); }
   const data = await res.json();
   const raw = (data.content || []).map(c => c.text || "").join("");
   return { rows: parseRows(raw) };

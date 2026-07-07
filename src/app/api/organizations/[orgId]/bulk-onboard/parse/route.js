@@ -60,7 +60,7 @@ export async function POST(request, { params }) {
       try { grid = fileToGrid(buf, scheduleFile.name); } catch { return NextResponse.json({ error: "Couldn't read the schedule file." }, { status: 400 }); }
       let norm;
       try { norm = await normalizeSchedule(grid, { apiKey: process.env.ANTHROPIC_API_KEY }); }
-      catch { return NextResponse.json({ error: "Couldn't read the schedule automatically.", fallback: true }, { status: 502 }); }
+      catch (e) { console.error("Schedule normalize error:", e.message); return NextResponse.json({ error: "Couldn't read the schedule automatically.", detail: String(e.message).slice(0, 400), fallback: true }, { status: 502 }); }
       for (const r of norm.rows || []) {
         const cd = canonicalDivision({ ageGroup: r.age_group, division: r.division, label: r.raw_label });
         const tagged = { ...r, divisionKey: cd?.key || null };
