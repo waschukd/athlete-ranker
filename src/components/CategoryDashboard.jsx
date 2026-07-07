@@ -205,7 +205,10 @@ export default function CategoryDashboard({
   const toggleSort = (key) => setSortBy(prev => prev?.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
   const sortIcon = (key) => sortBy?.key === key ? <span className="ml-1 font-bold text-[#0b5cd6]">{sortBy.dir === 'desc' ? '↓' : '↑'}</span> : <span className="ml-1 text-gray-300 opacity-40">↕</span>;
 
-  const upcomingSchedule = schedule.filter(s => s.scheduled_date >= new Date().toISOString().split("T")[0]);
+  // Local-timezone today (UTC toISOString rolls over mid-evening, hiding tonight's session).
+  const _now = new Date();
+  const _todayLocal = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const upcomingSchedule = schedule.filter(s => s.scheduled_date >= _todayLocal);
 
   // Team Insights — runs client-side on already-fetched rankings. Sessions come
   // from setupData (the `sessions` variable), not rankingsData, in this codebase.

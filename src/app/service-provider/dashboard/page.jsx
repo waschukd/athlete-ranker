@@ -29,6 +29,11 @@ function formatTime(t) {
   return `${hr > 12 ? hr - 12 : hr}:${m} ${hr >= 12 ? "PM" : "AM"}`;
 }
 
+// Today in the viewer's LOCAL timezone (UTC toISOString rolls over mid-evening).
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function formatDate(d) {
   if (!d) return "";
   const str = d.toString().split("T")[0];
@@ -1302,7 +1307,7 @@ function SPDashboard() {
     return acc;
   }, {});
   const schedule = Object.values(byDate).flat();
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
   const allDates = Object.keys(byDate).sort();
   const upcomingDates = showPastSessions ? allDates : allDates.filter(d => d >= today);
   const pastCount = allDates.filter(d => d < today).length;
