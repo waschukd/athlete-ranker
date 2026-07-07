@@ -118,7 +118,7 @@ function ScoringInterface() {
   const scaleRef = useRef(10);
   const incrementRef = useRef(1);
   const recRef = useRef(null);
-  const syncTimerRef = useRef(null);
+  const syncTimerRef = useRef({}); // per-athlete debounce timers (keyed by athlete id)
   const aliasLookupRef = useRef({});
   // Dedup ref for parseVoice — Android Chrome's continuous recognizer
   // re-emits the same final transcript when it cycles a session, which
@@ -147,6 +147,10 @@ function ScoringInterface() {
     const { _saved, _scheduleId, ...athleteScores } = saved;
     if (Object.keys(athleteScores).length) {
       setScores(athleteScores);
+      // Treat everything on the device as pending → the flush loop re-syncs it so
+      // a reload can never orphan a score that hadn't reached the server yet
+      // (server upsert is idempotent, so re-syncing already-saved scores is safe).
+      setPending(p => { const n = { ...p }; for (const id of Object.keys(athleteScores)) n[id] = true; return n; });
       setSyncStatus(`Loaded local data from ${_saved ? new Date(_saved).toLocaleTimeString() : "device"}`);
       setTimeout(() => setSyncStatus(""), 3000);
     }
@@ -319,9 +323,11 @@ function ScoringInterface() {
       for (const [aidStr, srv] of Object.entries(serverScores)) {
         const aid = aidStr;
         const local = merged[aid] || { cats: {}, notes: "" };
-        const mergedCats = isInitial
-          ? { ...local.cats, ...srv.cats }   // initial: server wins
-          : { ...srv.cats, ...local.cats };  // refetch: local wins
+        // ALWAYS local-wins on overlap — a score typed on this device must never
+        // be silently overwritten by an older server value (that was a data-loss
+        // path). Server still fills in cells this device hasn't touched (which also
+        // recovers scores made on another device / before a reload).
+        const mergedCats = { ...srv.cats, ...local.cats };
         // Notes: prefer the longer string (typed offline continuations beat
         // a stale short server note; on initial hydrate this also recovers
         // a long note from another device).
@@ -507,17 +513,34 @@ function ScoringInterface() {
     return false;
   }, [sessionData, scheduleId]);
 
-  // Debounced auto-sync — waits 2s after last tap then syncs
+  // Debounced auto-sync — waits 3s after the last tap, PER ATHLETE. A separate
+  // timer per athlete means scoring athlete B never cancels athlete A's pending
+  // sync (the old single shared timer dropped A's scores on the floor). The
+  // periodic flush below is the safety net that guarantees eventual delivery.
   const debouncedSync = useCallback((athleteId, currentScores) => {
     if (!online) return;
-    clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(async () => {
+    clearTimeout(syncTimerRef.current[athleteId]);
+    syncTimerRef.current[athleteId] = setTimeout(async () => {
       setSyncStatus("Syncing...");
       const ok = await syncToServer(athleteId, currentScores);
       setSyncStatus(ok ? "Saved ✓" : "Sync failed — saved locally");
       setTimeout(() => setSyncStatus(""), 2000);
     }, 3000);
   }, [online, syncToServer]);
+
+  // Safety net: while online, retry ANY still-pending athlete every 12s using the
+  // latest local scores. Guarantees a score reaches the server even if its debounce
+  // was cancelled, a single sync failed, or the tab was reloaded (pending is
+  // restored from localStorage on mount). Idempotent upsert on the server.
+  useEffect(() => {
+    if (!online) return;
+    const iv = setInterval(() => {
+      const ids = Object.keys(pending);
+      if (!ids.length) return;
+      ids.forEach(id => syncToServer(parseInt(id), scoresRef.current));
+    }, 12000);
+    return () => clearInterval(iv);
+  }, [online, pending, syncToServer]);
 
   // Sync all pending when coming back online
   useEffect(() => {
