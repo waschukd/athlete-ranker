@@ -11,13 +11,22 @@ export async function GET(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const orgs = await sql`SELECT * FROM organizations WHERE id = ${params.orgId}`;
     if (!orgs.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const spLink = await sql`
-      SELECT o.id as sp_id, o.name as sp_name
-      FROM sp_association_links sal
-      JOIN organizations o ON o.id = sal.service_provider_id
-      WHERE sal.association_id = ${params.orgId} AND sal.status = 'active'
-      LIMIT 1
-    `;
+    let spLink = [];
+    try {
+      spLink = await sql`
+        SELECT o.id as sp_id, o.name as sp_name, COALESCE(sal.allow_association_evaluators, false) as allow_association_evaluators
+        FROM sp_association_links sal
+        JOIN organizations o ON o.id = sal.service_provider_id
+        WHERE sal.association_id = ${params.orgId} AND sal.status = 'active'
+        LIMIT 1
+      `;
+    } catch {
+      // Pre-migration fallback (no allow_association_evaluators column).
+      spLink = await sql`
+        SELECT o.id as sp_id, o.name as sp_name, false as allow_association_evaluators
+        FROM sp_association_links sal JOIN organizations o ON o.id = sal.service_provider_id
+        WHERE sal.association_id = ${params.orgId} AND sal.status = 'active' LIMIT 1`;
+    }
     return NextResponse.json({ organization: orgs[0], service_provider: spLink[0] || null });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

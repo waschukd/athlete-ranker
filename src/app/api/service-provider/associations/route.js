@@ -2,6 +2,33 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 
+const SP_ADMIN = new Set(["service_provider_admin", "goalie_service_provider_admin", "super_admin"]);
+
+// SP grants/revokes an association's ability to add its OWN (coach) evaluators.
+// Scoped to the SP's own links (IDOR-safe).
+export async function PATCH(request) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SP_ADMIN.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const { orgId: spId } = await resolveSpContext(session, new URL(request.url).searchParams.get("org"));
+    if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
+    const body = await request.json();
+    if (body.action !== "set_evaluator_access") return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    const associationId = parseInt(body.association_id);
+    const allow = !!body.allow;
+    if (!associationId) return NextResponse.json({ error: "association_id required" }, { status: 400 });
+    const res = await sql`
+      UPDATE sp_association_links SET allow_association_evaluators = ${allow}
+      WHERE service_provider_id = ${spId} AND association_id = ${associationId} RETURNING id`;
+    if (!res.length) return NextResponse.json({ error: "Not one of your associations" }, { status: 403 });
+    return NextResponse.json({ success: true, allow });
+  } catch (error) {
+    console.error("SP evaluator-access error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function GET(request) {
   try {
     const session = await getSession();
@@ -37,6 +64,15 @@ export async function GET(request) {
       GROUP BY o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url, sal.linked_at, sal.status
       ORDER BY o.name
     `;
+
+    // Per-association "can add their own evaluators" grant — separate + resilient so
+    // the dashboard doesn't break before the column migration is applied.
+    let accessMap = {};
+    try {
+      const grants = await sql`SELECT association_id, allow_association_evaluators FROM sp_association_links WHERE service_provider_id = ${spId}`;
+      for (const g of grants) accessMap[g.association_id] = !!g.allow_association_evaluators;
+    } catch { /* pre-migration */ }
+    for (const a of associations) a.allow_association_evaluators = !!accessMap[a.id];
 
     const evaluatorStats = await sql`
       SELECT COUNT(DISTINCT em.user_id) as total_evaluators

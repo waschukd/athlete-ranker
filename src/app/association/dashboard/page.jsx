@@ -203,6 +203,11 @@ function Dashboard() {
 
   const org = orgData?.organization;
   const serviceProvider = orgData?.service_provider || null;
+  // An SP-served association can add its OWN evaluators only if the SP granted it.
+  // Those evaluators are COACH/comparison-only — their scores never count in the
+  // official (SP) ranking. A self-serve association (no SP) manages evaluators normally.
+  const canManageEvaluators = !serviceProvider || !!serviceProvider.allow_association_evaluators;
+  const spComparisonMode = !!serviceProvider && !!serviceProvider.allow_association_evaluators;
   // Order categories by age group (U9 before U11AA), then by name — so the grid
   // flows youngest → oldest regardless of when each was created.
   const ageKey = (name) => { const m = String(name || "").match(/\d+/); return m ? parseInt(m[0], 10) : 999; };
@@ -233,7 +238,7 @@ function Dashboard() {
   const readyForTeams = categories.filter(c => c.setup_complete && parseInt(c.cs_total) > 0 && parseInt(c.cs_complete) === parseInt(c.cs_total));
   const attention = [
     ...readyForTeams.map(c => ({ icon: Trophy, tone: "emerald", text: `${c.name} evaluations are complete — it's time to make teams`, href: `/association/dashboard/category/${c.id}/teams?org=${orgId}` })),
-    !serviceProvider && allPending.length > 0 && { icon: UserCheck, tone: "amber", text: `${allPending.length} evaluator${allPending.length === 1 ? "" : "s"} awaiting approval`, anchor: "approvals" },
+    canManageEvaluators && allPending.length > 0 && { icon: UserCheck, tone: "amber", text: `${allPending.length} evaluator${allPending.length === 1 ? "" : "s"} awaiting approval`, anchor: "approvals" },
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
     !serviceProvider && understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
   ].filter(Boolean);
@@ -272,7 +277,7 @@ function Dashboard() {
 
   const navItems = [
     { id: "categories", label: "Age Categories", icon: LayoutGrid },
-    ...(!serviceProvider ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null }] : []),
+    ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null }] : []),
   ];
 
   return (
@@ -405,7 +410,7 @@ function Dashboard() {
             <div className="xl:col-span-2 space-y-8">
 
               {/* Org join code banner */}
-              {org?.org_code && !serviceProvider && (
+              {org?.org_code && canManageEvaluators && (
                 <div className="bg-accent-soft border border-accent/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-gray-700">Organization Join Code</p>
@@ -486,9 +491,17 @@ function Dashboard() {
 
               {/* Goalie evaluation lives in the sidebar (Goalie Evaluation button) → modal below */}
 
-              {/* Join Codes + Pending Approvals — hidden if association has an SP */}
-              {joinCodeData && !serviceProvider && (
-                <section id="approvals" className="scroll-mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Join Codes + Pending Approvals — shown for self-serve associations, or
+                  SP-served ones the SP has granted their own (coach/comparison) evaluators. */}
+              {joinCodeData && canManageEvaluators && (
+                <section id="approvals" className="scroll-mt-6 space-y-3">
+                  {spComparisonMode && (
+                    <div className="bg-accent-soft border border-accent/20 rounded-xl p-3 flex items-start gap-2 text-xs text-gray-600">
+                      <UserCheck size={14} className="text-accent mt-0.5 flex-shrink-0" />
+                      <span>{serviceProvider?.sp_name || "Your service provider"} runs the official evaluations. Evaluators you add here are your <b className="text-ink">own coaches</b> — their scores are kept <b className="text-ink">separate (comparison only)</b> and never change the official ranking.</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {/* Join Codes */}
                   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -559,6 +572,7 @@ function Dashboard() {
                         {showAllApprovals && filteredPending.length > APPROVALS_CAP && <button onClick={() => setShowAllApprovals(false)} className="w-full py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-50 transition-colors border-t border-gray-100">Show less</button>}
                       </>
                     )}
+                  </div>
                   </div>
                 </section>
               )}

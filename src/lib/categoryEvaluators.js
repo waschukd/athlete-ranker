@@ -5,13 +5,29 @@ import sql from "@/lib/db";
 // they return safe defaults so nothing breaks pre-migration.
 
 export async function getCoachUserIds(catId) {
+  const ids = new Set();
+  // Explicit per-category coach designations.
   try {
     const rows = await sql`
       SELECT user_id FROM category_evaluators
       WHERE age_category_id = ${catId} AND kind = 'coach' AND user_id IS NOT NULL
     `;
-    return rows.map(r => r.user_id);
-  } catch { return []; }
+    for (const r of rows) ids.add(r.user_id);
+  } catch { /* table not migrated yet */ }
+  // Implicit: for an SP-SERVED association, the association's OWN evaluators (members
+  // of the association org — not the SP's pool) count as COACHES. Their scores blend
+  // into the comparison view but never touch the official (SP) ranking.
+  try {
+    const rows = await sql`
+      SELECT DISTINCT em.user_id
+      FROM age_categories ac
+      JOIN sp_association_links sal ON sal.association_id = ac.organization_id AND sal.status = 'active'
+      JOIN evaluator_memberships em ON em.organization_id = ac.organization_id AND em.status = 'active'
+      WHERE ac.id = ${catId} AND em.user_id IS NOT NULL
+    `;
+    for (const r of rows) ids.add(r.user_id);
+  } catch { /* no link / pre-migration */ }
+  return [...ids];
 }
 
 // Resolve a user's kind for a category. Binds a pending email-only invite to this

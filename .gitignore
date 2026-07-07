@@ -19,3 +19,4 @@ android/app/src/*
 android/app/src/main/*
 !android/app/src/main/AndroidManifest.xml
 .vercel
+test-data/
