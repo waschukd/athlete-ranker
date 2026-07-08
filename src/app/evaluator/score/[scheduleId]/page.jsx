@@ -446,8 +446,11 @@ function ScoringInterface() {
     // Skaters never see the goalie or goalie-skills sets.
     return c.applies_to !== "goalies" && c.applies_to !== "goalie_skills";
   });
-  const scale = catData?.category?.scoring_scale || 10;
-  const increment = catData?.category?.scoring_increment || 1;
+  // Goalies can be graded on their own scale/increment (set in Goalie Scoring);
+  // fall back to the skater scale when no goalie-specific value is configured.
+  const goalieCfg = catData?.category?.goalie_config || null;
+  const scale = (activeIsGoalie && goalieCfg?.scale) || catData?.category?.scoring_scale || 10;
+  const increment = (activeIsGoalie && goalieCfg?.increment) || catData?.category?.scoring_increment || 1;
   const totalCats = scoringCats.length;
 
   useEffect(() => { athletesRef.current = athletes; }, [athletes]);
