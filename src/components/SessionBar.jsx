@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { LogOut, ChevronDown, Check } from "lucide-react";
+import GodJump from "@/components/GodJump";
 
 // Friendly role labels — what the user sees ("am I in as God Mode, SP, etc.?").
 const ROLE_LABEL = {
@@ -93,6 +94,7 @@ export default function SessionBar() {
             )}
           </div>
         ) : chip}
+        <GodJump activeRole={activeRole} />
       </div>
       <button
         onClick={logout}

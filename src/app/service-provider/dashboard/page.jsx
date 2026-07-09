@@ -185,48 +185,6 @@ function TestersTab({ spUrl, spName }) {
     else setInviteMsg({ type: "error", text: d.error || "Failed to send" });
   };
 
-  // ── SP-owned testing sessions (a testing-only client, not an association) ──
-  const { data: evData } = useQuery({ queryKey: ["sp-testing-events"], queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/testing-events")); return r.json(); } });
-  const events = evData?.events || [];
-  const blankEv = { client_label: "", age_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "6" };
-  const [evForm, setEvForm] = useState(blankEv);
-  const [evBusy, setEvBusy] = useState(false);
-  const setEv = (k, v) => setEvForm(f => ({ ...f, [k]: v }));
-  const addEvent = async () => {
-    if (!evForm.client_label.trim() || !evForm.scheduled_date) return;
-    setEvBusy(true);
-    await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(evForm) });
-    setEvBusy(false); setEvForm(blankEv); qc.invalidateQueries({ queryKey: ["sp-testing-events"] });
-  };
-  const delEvent = async (id) => { await fetch(spUrl(`/api/service-provider/testing-events?id=${id}`), { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["sp-testing-events"] }); };
-  const [uploadMsg, setUploadMsg] = useState(null);
-  const onCsv = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setUploadMsg(null);
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    const idx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
-    const ci = { client: idx(["client"]), age: idx(["age"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
-    const events = lines.slice(1).map(l => { const c = l.split(",").map(x => x.trim()); return {
-      client_label: ci.client >= 0 ? c[ci.client] : "", age_label: ci.age >= 0 ? c[ci.age] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
-      start_time: ci.start >= 0 ? c[ci.start] : "", end_time: ci.end >= 0 ? c[ci.end] : "",
-      location: ci.loc >= 0 ? c[ci.loc] : "", testers_required: ci.testers >= 0 ? c[ci.testers] : "",
-    }; }).filter(ev => ev.client_label && ev.scheduled_date);
-    e.target.value = "";
-    if (!events.length) { setUploadMsg({ type: "error", text: "No valid rows — the CSV needs Client and Date columns." }); return; }
-    const res = await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events }) });
-    const d = await res.json().catch(() => ({}));
-    if (d.success) { setUploadMsg({ type: "success", text: `Added ${d.created} session${d.created === 1 ? "" : "s"}${d.skipped ? `, skipped ${d.skipped}` : ""}.` }); qc.invalidateQueries({ queryKey: ["sp-testing-events"] }); }
-    else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
-  };
-  const downloadTemplate = () => {
-    const csv = "Client,Age Category,Date,Start Time,End Time,Location,Testers Needed\nRingette Association,U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a"); a.href = url; a.download = "testing-sessions-template.csv"; a.click();
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -275,57 +233,6 @@ function TestersTab({ spUrl, spName }) {
           {inviteMsg && <p className={`text-xs font-medium mt-2 ${inviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{inviteMsg.text}</p>}
           {!activeCode && <p className="text-xs text-gray-400 mt-2">Generate a join code above first — invites use it.</p>}
         </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Testing Sessions You Run</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Testing you schedule directly for a client (e.g. a Ringette association) — not an association you evaluate for. Only your testers see these; associations never do.</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={downloadTemplate} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap">↓ Template</button>
-            <label className="text-xs px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg hover:bg-[#dbe8fc] font-medium cursor-pointer whitespace-nowrap">Upload CSV<input type="file" accept=".csv" onChange={onCsv} className="hidden" /></label>
-          </div>
-        </div>
-        {uploadMsg && <div className={`px-5 pt-3 text-xs font-medium ${uploadMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{uploadMsg.text}</div>}
-        <div className="p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input value={evForm.client_label} onChange={e => setEv("client_label", e.target.value)} placeholder="Client (e.g. Ringette Association)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            <input value={evForm.age_label} onChange={e => setEv("age_label", e.target.value)} placeholder="Age category (e.g. U12)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            <input type="date" value={evForm.scheduled_date} onChange={e => setEv("scheduled_date", e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            <input value={evForm.location} onChange={e => setEv("location", e.target.value)} placeholder="Rink / location" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            <div className="flex items-center gap-2"><span className="text-xs text-gray-400 w-10">Start</span><input type="time" value={evForm.start_time} onChange={e => setEv("start_time", e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
-            <div className="flex items-center gap-2"><span className="text-xs text-gray-400 w-10">End</span><input type="time" value={evForm.end_time} onChange={e => setEv("end_time", e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
-            <div className="flex items-center gap-2"><span className="text-xs text-gray-400 whitespace-nowrap">Testers needed</span><input type="number" min="0" value={evForm.testers_required} onChange={e => setEv("testers_required", e.target.value)} className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
-          </div>
-          <div className="flex justify-end mt-3">
-            <button onClick={addEvent} disabled={evBusy || !evForm.client_label.trim() || !evForm.scheduled_date} className="inline-flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40"><Plus size={14} /> {evBusy ? "Adding…" : "Add testing session"}</button>
-          </div>
-        </div>
-        {events.length > 0 && (
-          <div className="border-t border-gray-100 divide-y divide-gray-100">
-            {events.map(ev => {
-              const short = parseInt(ev.testers_required || 0) > 0 && parseInt(ev.testers_signed_up || 0) < parseInt(ev.testers_required || 0);
-              return (
-                <div key={ev.id} className="flex items-center justify-between gap-3 px-5 py-3 flex-wrap">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-ink">{ev.client_label}{ev.age_label && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">{ev.age_label}</span>}</div>
-                    <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
-                      <span>{ev.scheduled_date?.toString().split("T")[0]}</span>
-                      {ev.start_time && <span>{formatTime(ev.start_time)}{ev.end_time ? ` - ${formatTime(ev.end_time)}` : ""}</span>}
-                      {ev.location && <span>{ev.location}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${short ? "text-amber-600" : parseInt(ev.testers_signed_up || 0) > 0 ? "text-green-600" : "text-gray-400"}`}>{ev.testers_signed_up || 0}/{ev.testers_required || 0} <span className="text-xs font-normal text-gray-400">testers</span></span>
-                    <button onClick={() => { if (confirm("Delete this testing session?")) delEvent(ev.id); }} className="p-1.5 text-gray-300 hover:text-red-400"><Ban size={14} /></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -686,6 +593,115 @@ function BatchScheduleImport({ categories, org, onSaved }) {
                 org={org || undefined}
                 onImported={() => { onSaved(); }}
               />
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// SP-owned testing sessions (a testing-only client, not an association you
+// evaluate for). Belongs with the schedule, not the tester pool. Add one, bulk
+// upload a CSV, and manage the list. Only the SP's testers ever see these.
+function TestingSessionsControls({ spUrl, onSaved }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const { data: evData } = useQuery({ queryKey: ["sp-testing-events"], queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/testing-events")); return r.json(); } });
+  const events = evData?.events || [];
+  const blankEv = { client_label: "", age_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "6" };
+  const [evForm, setEvForm] = useState(blankEv);
+  const [evBusy, setEvBusy] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState(null);
+  const setEv = (k, v) => setEvForm(f => ({ ...f, [k]: v }));
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["sp-testing-events"] }); onSaved?.(); };
+
+  const addEvent = async () => {
+    if (!evForm.client_label.trim() || !evForm.scheduled_date) return;
+    setEvBusy(true);
+    await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(evForm) });
+    setEvBusy(false); setEvForm(blankEv); refresh();
+  };
+  const delEvent = async (id) => { await fetch(spUrl(`/api/service-provider/testing-events?id=${id}`), { method: "DELETE" }); refresh(); };
+  const onCsv = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadMsg(null);
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    const idx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
+    const ci = { client: idx(["client"]), age: idx(["age"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
+    const evs = lines.slice(1).map(l => { const c = l.split(",").map(x => x.trim()); return {
+      client_label: ci.client >= 0 ? c[ci.client] : "", age_label: ci.age >= 0 ? c[ci.age] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
+      start_time: ci.start >= 0 ? c[ci.start] : "", end_time: ci.end >= 0 ? c[ci.end] : "",
+      location: ci.loc >= 0 ? c[ci.loc] : "", testers_required: ci.testers >= 0 ? c[ci.testers] : "",
+    }; }).filter(ev => ev.client_label && ev.scheduled_date);
+    e.target.value = "";
+    if (!evs.length) { setUploadMsg({ type: "error", text: "No valid rows — the CSV needs Client and Date columns." }); return; }
+    const res = await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events: evs }) });
+    const d = await res.json().catch(() => ({}));
+    if (d.success) { setUploadMsg({ type: "success", text: `Added ${d.created} session${d.created === 1 ? "" : "s"}${d.skipped ? `, skipped ${d.skipped}` : ""}.` }); refresh(); }
+    else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
+  };
+  const downloadTemplate = () => {
+    const csv = "Client,Age Category,Date,Start Time,End Time,Location,Testers Needed\nRingette Association,U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a"); a.href = url; a.download = "testing-sessions-template.csv"; a.click();
+  };
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-ink bg-white rounded-lg text-xs font-semibold hover:bg-gray-50">
+        <Plus size={13} /> Testing session
+      </button>
+      {open && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 mt-10 mb-10">
+            <div className="flex items-start justify-between mb-1">
+              <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Testing sessions you run</h3>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">Testing you schedule directly for a client (e.g. a Ringette association) — not an association you evaluate for. Only your testers see these; associations never do.</p>
+            <div className="flex items-center gap-2 justify-end mb-3">
+              <button onClick={downloadTemplate} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap">↓ Template</button>
+              <label className="text-xs px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg hover:bg-[#dbe8fc] font-medium cursor-pointer whitespace-nowrap">Upload CSV<input type="file" accept=".csv" onChange={onCsv} className="hidden" /></label>
+            </div>
+            {uploadMsg && <div className={`mb-3 text-xs font-medium ${uploadMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{uploadMsg.text}</div>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input value={evForm.client_label} onChange={e => setEv("client_label", e.target.value)} placeholder="Client (e.g. Ringette Association)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+              <input value={evForm.age_label} onChange={e => setEv("age_label", e.target.value)} placeholder="Age category (e.g. U12)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+              <input type="date" value={evForm.scheduled_date} onChange={e => setEv("scheduled_date", e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+              <input value={evForm.location} onChange={e => setEv("location", e.target.value)} placeholder="Rink / location" className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+              <div className="flex items-center gap-2"><span className="text-xs text-gray-400 w-10">Start</span><input type="time" value={evForm.start_time} onChange={e => setEv("start_time", e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
+              <div className="flex items-center gap-2"><span className="text-xs text-gray-400 w-10">End</span><input type="time" value={evForm.end_time} onChange={e => setEv("end_time", e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
+              <div className="flex items-center gap-2"><span className="text-xs text-gray-400 whitespace-nowrap">Testers needed</span><input type="number" min="0" value={evForm.testers_required} onChange={e => setEv("testers_required", e.target.value)} className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" /></div>
+            </div>
+            <div className="flex justify-end mt-3">
+              <button onClick={addEvent} disabled={evBusy || !evForm.client_label.trim() || !evForm.scheduled_date} className="inline-flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40"><Plus size={14} /> {evBusy ? "Adding…" : "Add testing session"}</button>
+            </div>
+            {events.length > 0 && (
+              <div className="mt-5 border border-gray-100 rounded-xl divide-y divide-gray-100">
+                {events.map(ev => {
+                  const short = parseInt(ev.testers_required || 0) > 0 && parseInt(ev.testers_signed_up || 0) < parseInt(ev.testers_required || 0);
+                  return (
+                    <div key={ev.id} className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-ink">{ev.client_label}{ev.age_label && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">{ev.age_label}</span>}</div>
+                        <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
+                          <span>{ev.scheduled_date?.toString().split("T")[0]}</span>
+                          {ev.start_time && <span>{formatTime(ev.start_time)}{ev.end_time ? ` - ${formatTime(ev.end_time)}` : ""}</span>}
+                          {ev.location && <span>{ev.location}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-sm font-bold ${short ? "text-amber-600" : parseInt(ev.testers_signed_up || 0) > 0 ? "text-green-600" : "text-gray-400"}`}>{ev.testers_signed_up || 0}/{ev.testers_required || 0} <span className="text-xs font-normal text-gray-400">testers</span></span>
+                        <button onClick={() => { if (confirm("Delete this testing session?")) delEvent(ev.id); }} className="p-1.5 text-gray-300 hover:text-red-400"><Ban size={14} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1825,6 +1841,8 @@ function SPDashboard() {
                 {scheduleCategories.length > 0 && (
                   <BatchScheduleImport categories={scheduleCategories} org={orgParam} onSaved={onScheduleSaved} />
                 )}
+                {/* SP-owned testing sessions — add / bulk upload (belongs here, not in Testers) */}
+                <TestingSessionsControls spUrl={spUrl} onSaved={onScheduleSaved} />
                 {/* Add session — pick an association/category context first */}
                 {scheduleCategories.length > 0 && (
                   <div className="inline-flex items-center gap-2">
