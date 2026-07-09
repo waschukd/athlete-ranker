@@ -60,6 +60,7 @@ export async function GET(request) {
       AND (NOT ${isGoalie}::boolean
            OR COALESCE(es.goalie_evaluators_required, 0) > 0
            OR COALESCE(cs.session_type, '') <> 'testing')
+      AND (${isGoalie}::boolean OR COALESCE(cs.session_type, '') <> 'goalie_skills')
     ORDER BY es.scheduled_date, es.start_time`;
 
   // SP-owned testing sessions (testing-only clients, no association).

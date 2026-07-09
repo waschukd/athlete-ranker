@@ -8,6 +8,7 @@ import { OrgAvatar } from "@/lib/orgVisuals";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import BulkOnboard from "@/components/BulkOnboard";
+import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -82,6 +83,13 @@ function GoalieEvalCard({ orgId }) {
             </button>
           ))}
         </div>
+
+        {mode !== "goalie_service_provider" && (
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Goalie scoring template</h4>
+            <GoalieTemplateEditor orgId={orgId} context="association" />
+          </div>
+        )}
 
         {mode === "goalie_service_provider" && (
           <div className="border-t border-gray-100 pt-4">

@@ -3,8 +3,9 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
+import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload, Shield } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
+import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
@@ -1291,6 +1292,7 @@ function SPDashboard() {
   const setScheduleView = (v) => { setScheduleViewRaw(v); try { window.localStorage.setItem("sp-schedule-view", v); } catch {} };
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [calLinks, setCalLinks] = useState(null);
+  const [showGoalieTemplate, setShowGoalieTemplate] = useState(false);
   // Persisted so the date selection is retained across tab navigation (and reloads).
   const [scheduleSelectedDate, setScheduleSelectedDateState] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -1627,11 +1629,27 @@ function SPDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Client Associations</h2>
               <div className="flex items-center gap-3">
                 <p className="text-sm text-gray-400">{associations.length} clients</p>
+                <button onClick={() => setShowGoalieTemplate(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
+                  <Shield size={15} /> Goalie template
+                </button>
                 <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <Plus size={15} /> New Client
                 </button>
               </div>
             </div>
+
+            {showGoalieTemplate && sp?.id && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setShowGoalieTemplate(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 mt-10 mb-10">
+                  <div className="flex items-start justify-between mb-1">
+                    <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Goalie template</h3>
+                    <button onClick={() => setShowGoalieTemplate(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4">Your standard goalie scoring setup — scale, skills, sessions. Saving applies it to every association you evaluate goalies for.</p>
+                  <GoalieTemplateEditor orgId={sp.id} context="sp" onSaved={() => queryClient.invalidateQueries({ queryKey: ["sp-schedule", orgParam] })} />
+                </div>
+              </div>
+            )}
 
             {showNewClient && (
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">

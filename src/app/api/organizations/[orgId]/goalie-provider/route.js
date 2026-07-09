@@ -3,6 +3,14 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { createAndSendOrgInvite } from "@/lib/invites";
+import { applyGoalieTemplate } from "@/lib/goalieTemplate";
+
+// Re-materialize this association's goalie categories from whoever now owns the
+// template (in-house / SP). Best-effort — a propagation hiccup never blocks the
+// mode/link change itself.
+async function reapplyGoalie(orgId) {
+  try { await applyGoalieTemplate(orgId); } catch (e) { console.error("goalie reapply:", e?.message); }
+}
 
 // Association-level goalie evaluation setting: who evaluates goalies org-wide
 // (association / service_provider / goalie_service_provider) + the connected
@@ -42,6 +50,7 @@ export async function POST(request, { params }) {
     if (body.action === "set_mode") {
       const mode = ["association", "service_provider", "goalie_service_provider"].includes(body.goalie_eval_mode) ? body.goalie_eval_mode : "association";
       await sql`UPDATE organizations SET goalie_eval_mode = ${mode} WHERE id = ${orgId}`;
+      await reapplyGoalie(orgId);
       return NextResponse.json({ success: true, goalie_eval_mode: mode });
     }
 
@@ -54,12 +63,14 @@ export async function POST(request, { params }) {
       if (!existing.length) await sql`INSERT INTO sp_association_links (service_provider_id, association_id, status) VALUES (${spId}, ${orgId}, 'active')`;
       else await sql`UPDATE sp_association_links SET status = 'active' WHERE id = ${existing[0].id}`;
       await sql`UPDATE organizations SET goalie_eval_mode = 'goalie_service_provider' WHERE id = ${orgId}`;
+      await reapplyGoalie(orgId);
       return NextResponse.json({ success: true, goalie_sp_id: spId });
     }
 
     if (body.action === "unlink") {
       const spId = parseInt(body.goalie_sp_id);
       await sql`UPDATE sp_association_links SET status = 'inactive' WHERE service_provider_id = ${spId} AND association_id = ${orgId}`;
+      await reapplyGoalie(orgId);
       return NextResponse.json({ success: true });
     }
 
@@ -78,6 +89,7 @@ export async function POST(request, { params }) {
       let invite = null;
       try { invite = await createAndSendOrgInvite({ organizationId: created.id, email, name: null, orgName: name, orgType: "goalie_service_provider" }); }
       catch (e) { console.error("org goalie SP invite error:", e); invite = { sent: false, url: null }; }
+      await reapplyGoalie(orgId);
       return NextResponse.json({ success: true, goalie_sp_id: created.id, name: created.name, invite });
     }
 

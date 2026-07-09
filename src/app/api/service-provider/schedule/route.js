@@ -52,6 +52,9 @@ export async function GET(request) {
         AND (NOT ${isGoalie}::boolean
              OR COALESCE(es.goalie_evaluators_required, 0) > 0
              OR COALESCE(cs.session_type, '') <> 'testing')
+        -- Mirror image for a SKATER SP: goalie-only groups (the goalie skills
+        -- session) are not its business, so hide them. Shared scrimmages stay.
+        AND (${isGoalie}::boolean OR COALESCE(cs.session_type, '') <> 'goalie_skills')
       GROUP BY es.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required, ac.evaluators_required
       ORDER BY es.scheduled_date, es.start_time, o.name
     `;

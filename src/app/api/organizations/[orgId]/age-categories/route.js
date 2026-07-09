@@ -83,6 +83,14 @@ export async function POST(request, { params }) {
       VALUES (${params.orgId}, ${name}, ${min_age || null}, ${max_age || null})
       RETURNING *
     `;
+    // New category inherits the org-level goalie template (materialized into its
+    // goalie_config + goalie scoring_categories). Best-effort — never block create.
+    try {
+      const { getEffectiveGoalieTemplate, applyTemplateToCategory } = await import("@/lib/goalieTemplate");
+      const { template } = await getEffectiveGoalieTemplate(params.orgId);
+      await applyTemplateToCategory(result[0].id, template);
+    } catch (e) { console.error("goalie template apply on create:", e?.message); }
+
     logEvent({
       userId: await getAppUserId(session),
       role: session.role || "anonymous",
