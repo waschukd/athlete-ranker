@@ -270,6 +270,21 @@ export async function DELETE(request, { params }) {
     `;
     if (!entry.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Hard remove: actually delete the session (used when fixing/redoing a schedule),
+    // not the soft-cancel below. Releases sign-ups and drops check-ins first so no
+    // orphan rows remain, then notifies everyone the session is gone.
+    if (searchParams.get("hard") === "1") {
+      const prev = entry[0];
+      await sql`DELETE FROM evaluator_session_signups WHERE schedule_id = ${scheduleId}`;
+      try { await sql`DELETE FROM player_checkins WHERE schedule_id = ${scheduleId}`; } catch { /* table optional */ }
+      await sql`DELETE FROM evaluation_schedule WHERE id = ${scheduleId}`;
+      const { notified } = await notifySessionChange({
+        catId, scheduleRow: prev, scheduleId: prev.id, changeType: "cancelled",
+        summary: "This session was removed from the schedule.", initiator: initiatorOf(session),
+      });
+      return NextResponse.json({ success: true, removed: true, notified });
+    }
+
     const [row] = await sql`
       UPDATE evaluation_schedule SET status = 'cancelled' WHERE id = ${scheduleId} RETURNING *
     `;
