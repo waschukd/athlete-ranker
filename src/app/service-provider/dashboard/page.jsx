@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
 import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
-import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
+import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
@@ -1283,7 +1283,14 @@ function SPDashboard() {
   const [theme, toggleTheme] = useTheme();
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
-  const [scheduleView, setScheduleView] = useState("list"); // "list" | "calendar"
+  const [scheduleView, setScheduleViewRaw] = useState("week"); // "week" | "month" | "list"
+  useEffect(() => {
+    const saved = typeof window !== "undefined" && window.localStorage.getItem("sp-schedule-view");
+    if (saved === "week" || saved === "month" || saved === "list") setScheduleViewRaw(saved);
+  }, []);
+  const setScheduleView = (v) => { setScheduleViewRaw(v); try { window.localStorage.setItem("sp-schedule-view", v); } catch {} };
+  const [showSubscribe, setShowSubscribe] = useState(false);
+  const [calLinks, setCalLinks] = useState(null);
   // Persisted so the date selection is retained across tab navigation (and reloads).
   const [scheduleSelectedDate, setScheduleSelectedDateState] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -1815,25 +1822,33 @@ function SPDashboard() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-semibold text-gray-900">Master Schedule</h2>
               <div className="flex items-center gap-2 flex-wrap">
-                {/* List / Calendar toggle — same idiom as evaluator dashboard */}
+                {/* Week / Month / List toggle — Google-style views */}
                 <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
-                  <button
-                    onClick={() => setScheduleView("list")}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                      scheduleView === "list" ? "bg-[#0b5cd6] text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <List size={12} /> List
-                  </button>
-                  <button
-                    onClick={() => setScheduleView("calendar")}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                      scheduleView === "calendar" ? "bg-[#0b5cd6] text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <CalendarDays size={12} /> Calendar
-                  </button>
+                  {[
+                    { id: "week", label: "Week", Icon: CalendarDays },
+                    { id: "month", label: "Month", Icon: Calendar },
+                    { id: "list", label: "List", Icon: List },
+                  ].map(({ id, label, Icon }) => (
+                    <button key={id} onClick={() => setScheduleView(id)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                        scheduleView === id ? "bg-[#0b5cd6] text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}>
+                      <Icon size={12} /> {label}
+                    </button>
+                  ))}
                 </div>
+                {/* Subscribe — add the master schedule to Google/Apple Calendar */}
+                <button
+                  onClick={async () => {
+                    setShowSubscribe(true);
+                    if (!calLinks) {
+                      try { const r = await fetch(spUrl("/api/service-provider/calendar-link")); if (r.ok) setCalLinks(await r.json()); } catch {}
+                    }
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200 inline-flex items-center gap-1"
+                >
+                  <Calendar size={12} /> Subscribe
+                </button>
                 <button onClick={() => setShowPastSessions(!showPastSessions)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
                   {showPastSessions ? "Hide Past" : `Show Past (${pastCount})`}
                 </button>
@@ -1868,6 +1883,38 @@ function SPDashboard() {
               </div>
             )}
 
+            {showSubscribe && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setShowSubscribe(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mt-16">
+                  <div className="flex items-start justify-between mb-1">
+                    <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Add to your calendar</h3>
+                    <button onClick={() => setShowSubscribe(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4">Subscribe once and every session across your client associations shows up in Google, Apple, or Outlook Calendar — and stays in sync as the schedule changes.</p>
+                  {!calLinks ? (
+                    <div className="py-6 text-center text-sm text-gray-400">Generating your calendar link…</div>
+                  ) : (
+                    <div className="space-y-3">
+                      <a href={calLinks.googleUrl} target="_blank" rel="noopener noreferrer" className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md">
+                        <Calendar size={15} /> Add to Google Calendar
+                      </a>
+                      <a href={calLinks.webcalUrl} className="w-full inline-flex items-center justify-center gap-2 py-2.5 border border-gray-300 text-ink rounded-lg text-sm font-semibold hover:bg-gray-50">
+                        Add to Apple Calendar
+                      </a>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 mb-1 block">Or paste this URL into any calendar app (“From URL” / “Subscribe”)</label>
+                        <div className="flex items-center gap-2">
+                          <input readOnly value={calLinks.httpsUrl} className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 font-mono" />
+                          <button onClick={() => navigator.clipboard.writeText(calLinks.httpsUrl)} className="px-2.5 py-1.5 bg-accent text-white rounded text-xs font-semibold hover:opacity-90">Copy</button>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-400">Keep this link private — anyone with it can see your master schedule. Google refreshes subscribed calendars roughly every few hours.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Selected-date chip when a specific date is picked */}
             {scheduleSelectedDate && (
               <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1893,7 +1940,14 @@ function SPDashboard() {
                 <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                 <h3 className="font-semibold text-gray-600">No upcoming sessions</h3>
               </div>
-            ) : scheduleView === "calendar" ? (
+            ) : scheduleView === "week" ? (
+              <WeekGrid
+                sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                paletteFor={scheduleOrgPalette}
+                onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+                onOpen={(s) => { const k = s.scheduled_date?.toString().split("T")[0]; if (k) { setScheduleSelectedDate(k); setScheduleView("list"); } }}
+              />
+            ) : scheduleView === "month" ? (
               <MonthCalendar
                 sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
                 paletteFor={scheduleOrgPalette}

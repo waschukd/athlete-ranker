@@ -40,3 +40,23 @@ export function verifyCalendarToken(token) {
   if (sig !== expected) return null;
   return userId;
 }
+
+// Service-provider master-schedule feed. Signs the SP ORG id, with a DISTINCT key
+// namespace so an evaluator's personal token can never be replayed against the SP
+// feed (which exposes every client session), and vice-versa.
+const SP_KEY = SECRET_BASE + "/sp-calendar-feed";
+
+export function signSpCalendarToken(orgId) {
+  const sig = crypto.createHmac("sha256", SP_KEY).update(String(orgId)).digest("hex").slice(0, 32);
+  return `${orgId}.${sig}`;
+}
+
+export function verifySpCalendarToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const [orgIdStr, sig] = token.split(".");
+  const orgId = parseInt(orgIdStr, 10);
+  if (!orgId || !sig) return null;
+  const expected = signSpCalendarToken(orgId).split(".")[1];
+  if (sig !== expected) return null;
+  return orgId;
+}
