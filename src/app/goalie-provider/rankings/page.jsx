@@ -18,7 +18,7 @@ function Inner() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/goalie-provider/overview").then(r => r.json()).then(d => {
+    fetch(`/api/goalie-provider/overview${orgId ? `?org=${orgId}` : ""}`).then(r => r.json()).then(d => {
       if (d.error) { setError(d.error); setLoading(false); return; }
       const a = (d.associations || []).find(o => String(o.id) === String(orgId));
       setAssoc(a || null);

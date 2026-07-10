@@ -9,7 +9,17 @@ export async function GET(request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const orgParam = new URL(request.url).searchParams.get("org");
-    const spId = await resolveGoalieSpOrgId(session, orgParam);
+    let spId = await resolveGoalieSpOrgId(session, orgParam);
+    // God can view any goalie SP's overview, even when they aren't its admin. The
+    // link from an association card passes the ASSOCIATION id, so for a super_admin
+    // resolve the goalie SP from that association's active link.
+    if (!spId && session.role === "super_admin" && orgParam) {
+      const link = await sql`
+        SELECT sal.service_provider_id FROM sp_association_links sal
+        JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'goalie_service_provider'
+        WHERE sal.association_id = ${orgParam} AND sal.status = 'active' LIMIT 1`;
+      spId = link[0]?.service_provider_id || null;
+    }
     if (!spId) return NextResponse.json({ error: "Not a goalie service provider" }, { status: 403 });
 
     const sp = (await sql`SELECT id, name FROM organizations WHERE id = ${spId}`)[0] || null;
