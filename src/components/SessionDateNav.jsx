@@ -51,8 +51,11 @@ const readableText = (hex) => {
  * Sessions with no start time appear in an "all-day" strip at the top of the day.
  * onSelect(dateKey) fires when a day header is tapped; onOpen(session) on a block.
  */
-export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpen }) {
+export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpen, colorKey, labelFor, subLabelFor }) {
   const paletteFor = paletteForProp || colorForOrg;
+  const cKey = colorKey || ((s) => s.org_name);
+  const label1 = labelFor || ((s) => abbrevOrgName(s.org_name));
+  const label2 = subLabelFor || ((s) => s.category_name);
   const HOUR_PX = 44;
 
   const firstKey = useMemo(() => sessions.map(dateKeyOf).filter(Boolean).sort()[0], [sessions]);
@@ -138,8 +141,8 @@ export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpe
               {dayKeys.map(k => (
                 <div key={k} className="p-0.5 space-y-0.5 border-l border-gray-100">
                   {(byDay[k] || []).filter(s => timeToMin(s.start_time) == null).map((s, idx) => {
-                    const p = paletteFor(s.org_name);
-                    return <button key={idx} onClick={() => onOpen?.(s)} className="w-full text-left text-[10px] font-semibold leading-tight rounded px-1.5 py-0.5 truncate" style={{ background: p.hex, color: readableText(p.hex) }}>{abbrevOrgName(s.org_name)} {s.category_name}</button>;
+                    const p = paletteFor(cKey(s));
+                    return <button key={idx} onClick={() => onOpen?.(s)} className="w-full text-left text-[10px] font-semibold leading-tight rounded px-1.5 py-0.5 truncate" style={{ background: p.hex, color: readableText(p.hex) }}>{label1(s)} {label2(s)}</button>;
                   })}
                 </div>
               ))}
@@ -163,18 +166,18 @@ export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpe
                     <div key={m} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: ((m - startMin) / 60) * HOUR_PX }} />
                   ))}
                   {placed.map(({ s, st, en, lane }, idx) => {
-                    const p = paletteFor(s.org_name);
+                    const p = paletteFor(cKey(s));
                     const fg = readableText(p.hex);
                     const top = ((st - startMin) / 60) * HOUR_PX;
                     const height = Math.max(22, ((en - st) / 60) * HOUR_PX - 2);
                     const width = `calc(${100 / laneCount}% - 2px)`;
                     const left = `calc(${(lane * 100) / laneCount}% + 1px)`;
                     return (
-                      <button key={idx} onClick={() => onOpen?.(s)} title={`${fmtClock(st)} · ${s.org_name} · ${s.category_name}`}
+                      <button key={idx} onClick={() => onOpen?.(s)} title={`${fmtClock(st)} · ${label1(s)} · ${label2(s)}`}
                         className="absolute rounded px-1.5 py-0.5 text-left overflow-hidden hover:z-10 hover:brightness-110 transition-all"
                         style={{ top, height, left, width, background: p.hex, color: fg, boxShadow: "inset 3px 0 0 rgba(0,0,0,0.28)" }}>
-                        <div className="text-[10px] font-bold leading-tight truncate">{fmtClock(st).replace(":00", "")} {abbrevOrgName(s.org_name)}</div>
-                        {height > 30 && <div className="text-[9px] leading-tight truncate" style={{ opacity: 0.85 }}>{s.category_name}</div>}
+                        <div className="text-[10px] font-bold leading-tight truncate">{fmtClock(st).replace(":00", "")} {label1(s)}</div>
+                        {height > 30 && <div className="text-[9px] leading-tight truncate" style={{ opacity: 0.85 }}>{label2(s)}</div>}
                       </button>
                     );
                   })}
@@ -269,8 +272,10 @@ export function DateStripBar({ sessions, selectedDate, onSelect, paletteFor: pal
  * association with sessions). Clicking a day with sessions calls `onSelect`
  * with the YYYY-MM-DD key. Days with no sessions are dimmed and disabled.
  */
-export function MonthCalendar({ sessions, onSelect, paletteFor: paletteForProp }) {
+export function MonthCalendar({ sessions, onSelect, paletteFor: paletteForProp, colorKey, labelFor }) {
   const paletteFor = paletteForProp || colorForOrg;
+  const cKey = colorKey || ((s) => s.org_name);
+  const label1 = labelFor || ((s) => abbrevOrgName(s.org_name));
 
   const byDate = useMemo(() => {
     const map = new Map();
@@ -373,12 +378,12 @@ export function MonthCalendar({ sessions, onSelect, paletteFor: paletteForProp }
               {hasSessions && (
                 <div className="mt-0.5 space-y-0.5 overflow-hidden">
                   {list.slice(0, MAX_CHIPS).map((s, idx) => {
-                    const p = paletteFor(s.org_name);
+                    const p = paletteFor(cKey(s));
                     const t = timeToMin(s.start_time);
                     return (
                       <div key={idx} className="rounded px-1 py-0.5 truncate text-[10px] font-medium leading-tight" style={{ background: p.hex, color: readableText(p.hex) }}>
                         {t != null && <span className="font-bold">{fmtClock(t).replace(":00", "")} </span>}
-                        {abbrevOrgName(s.org_name)}
+                        {label1(s)}
                       </div>
                     );
                   })}
@@ -389,6 +394,69 @@ export function MonthCalendar({ sessions, onSelect, paletteFor: paletteForProp }
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Single-day agenda. A big, scannable date header with prev/next-day nav and
+ * that day's sessions as time-ordered cards. Sparse per-category schedules read
+ * better as an agenda than an empty hour grid. Theme-safe (solid color chips).
+ * Props: sessions, paletteFor, colorKey, labelFor, subLabelFor, onOpen, initialDate.
+ */
+export function DayView({ sessions, paletteFor: paletteForProp, colorKey, labelFor, subLabelFor, onOpen, initialDate }) {
+  const paletteFor = paletteForProp || colorForOrg;
+  const cKey = colorKey || ((s) => s.org_name);
+  const label1 = labelFor || ((s) => abbrevOrgName(s.org_name));
+  const label2 = subLabelFor || ((s) => s.category_name);
+
+  const firstKey = useMemo(() => sessions.map(dateKeyOf).filter(Boolean).sort()[0], [sessions]);
+  const [day, setDay] = useState(() => {
+    const k = initialDate || firstKey;
+    if (k) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }
+    const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  });
+  const dayKey = keyOfDate(day);
+  const todays = useMemo(() => sessions
+    .filter(s => dateKeyOf(s) === dayKey)
+    .sort((a, b) => (timeToMin(a.start_time) ?? 9999) - (timeToMin(b.start_time) ?? 9999)), [sessions, dayKey]);
+  const shift = (n) => { const d = new Date(day); d.setDate(d.getDate() + n); setDay(d); };
+  const isToday = dayKey === keyOfDate(new Date());
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <button onClick={() => shift(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" aria-label="Previous day"><ChevronLeft size={18} /></button>
+        <div className="text-center">
+          <div className="text-[11px] uppercase tracking-wide text-gray-400">{day.toLocaleDateString("en-US", { weekday: "long" })}</div>
+          <div className="font-display text-lg font-extrabold text-ink leading-tight">{day.toLocaleDateString("en-US", { month: "long", day: "numeric" })}{isToday && <span className="ml-2 text-[10px] align-middle px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-bold">TODAY</span>}</div>
+        </div>
+        <button onClick={() => shift(1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" aria-label="Next day"><ChevronRight size={18} /></button>
+      </div>
+      {todays.length === 0 ? (
+        <div className="py-10 text-center text-sm text-gray-400">No sessions this day.</div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {todays.map((s, i) => {
+            const p = paletteFor(cKey(s));
+            const t = timeToMin(s.start_time);
+            const te = timeToMin(s.end_time);
+            return (
+              <button key={i} onClick={() => onOpen?.(s)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50">
+                <span className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{ background: p.hex }} />
+                <div className="w-24 flex-shrink-0">
+                  <div className="text-sm font-bold text-ink">{t != null ? fmtClock(t) : "—"}</div>
+                  {te != null && <div className="text-[11px] text-gray-400">to {fmtClock(te)}</div>}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-ink truncate">{label1(s)}</div>
+                  <div className="text-xs text-gray-500 truncate">{label2(s)}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

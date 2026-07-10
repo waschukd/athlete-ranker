@@ -11,6 +11,7 @@ import {
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
 import CopyCode from "@/components/CopyCode";
+import { WeekGrid, MonthCalendar, DayView } from "@/components/SessionDateNav";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
@@ -26,6 +27,22 @@ const POSITION_COLORS = {
   goalie: "bg-amber-100 text-amber-700",
 };
 const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
+
+// Calendar helpers for the per-category schedule: color by session TYPE (one
+// category, so org color would be flat), label by session/group.
+const SESSION_TYPE_HEX = { testing: "#0b5cd6", scrimmage: "#0b8a3e", game: "#0b8a3e", skills: "#7c3aed", goalie_skills: "#b45309", practice: "#64748b" };
+const typePalette = (t) => ({ hex: SESSION_TYPE_HEX[t] || "#64748b" });
+const calColorKey = (s) => s._type || "scrimmage";
+const calLabel = (s) => `S${s.session_number}${s.group_number ? ` · G${s.group_number}` : ""}`;
+const calSub = (s) => s.location || (s._type ? s._type.replace("_", " ") : "");
+// Bold, scannable date — "Wed · Aug 20".
+function fmtDayLabel(d) {
+  if (!d) return "—";
+  const iso = d.toString().split("T")[0];
+  const [y, m, dd] = iso.split("-").map(Number);
+  if (!y) return iso;
+  return new Date(y, m - 1, dd).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
 
 /**
  * Shared dashboard used by both the association category page and the director
@@ -48,6 +65,8 @@ export default function CategoryDashboard({
 
   const [activeTab, setActiveTab] = useState("rankings");
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
+  const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
+  const [scheduleDay, setScheduleDay] = useState(null); // selected day for Day view
   const [theme, toggleTheme] = useTheme();
   const [scoresOpen, setScoresOpen] = useState(false);
   const [analysisView, setAnalysisView] = useState("insights"); // insights | reports
@@ -168,6 +187,11 @@ export default function CategoryDashboard({
   const goalieAthletes = rankingsData?.goalies || [];
   const athletes = athletesData?.athletes || [];
   const schedule = scheduleData?.schedule || [];
+  // Schedule entries enriched with their session type, for the calendar views.
+  const calSessions = useMemo(() => schedule.map(e => ({
+    ...e,
+    _type: sessions.find(s => String(s.session_number) === String(e.session_number))?.session_type || "scrimmage",
+  })), [schedule, sessions]);
   const hasScores = rankingsData?.has_scores || false;
   const phase = rankingsData?.phase || "pre_session";
   const completedSessions = rankingsData?.completed_sessions || [];
@@ -834,8 +858,31 @@ export default function CategoryDashboard({
             </div>
             {uploadMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{uploadMsg}</div>}
             {scheduleMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{scheduleMsg}</div>}
+
+            {schedule.length > 0 && (
+              <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+                {[
+                  { id: "list", label: "List" },
+                  { id: "day", label: "Day" },
+                  { id: "week", label: "Week" },
+                  { id: "month", label: "Month" },
+                ].map(v => (
+                  <button key={v.id} onClick={() => setScheduleView(v.id)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${scheduleView === v.id ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {schedule.length === 0 ? (
               <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-gray-400"><Calendar size={40} className="mx-auto mb-3 opacity-30" /><p className="text-sm">No schedule yet - upload a CSV above</p></div>
+            ) : scheduleView === "day" ? (
+              <DayView sessions={calSessions} paletteFor={typePalette} colorKey={calColorKey} labelFor={calLabel} subLabelFor={calSub} initialDate={scheduleDay} />
+            ) : scheduleView === "week" ? (
+              <WeekGrid sessions={calSessions} paletteFor={typePalette} colorKey={calColorKey} labelFor={calLabel} subLabelFor={calSub} onSelect={(d) => { setScheduleDay(d); setScheduleView("day"); }} onOpen={(s) => { setScheduleDay(s.scheduled_date?.toString().split("T")[0]); setScheduleView("day"); }} />
+            ) : scheduleView === "month" ? (
+              <MonthCalendar sessions={calSessions} paletteFor={typePalette} colorKey={calColorKey} labelFor={calLabel} onSelect={(d) => { setScheduleDay(d); setScheduleView("day"); }} />
             ) : (
               Object.entries(schedule.reduce((acc, e) => { const k = String(e.session_number); if (!acc[k]) acc[k] = []; acc[k].push(e); return acc; }, {})).sort(([a], [b]) => Number(a) - Number(b)).map(([sessionNum, entries]) => {
                 const sess = sessions.find(s => String(s.session_number) === String(sessionNum));
@@ -910,7 +957,7 @@ export default function CategoryDashboard({
                         {entries.sort((a, b) => (a.group_number || 0) - (b.group_number || 0)).map((e, i) => (
                           <tr key={i} className={`hover:bg-gray-50 ${e.status === "cancelled" ? "opacity-60" : ""}`}>
                             <td className="px-4 py-2.5 font-medium text-gray-700">{e.group_number ? `Group ${e.group_number}` : "-"}</td>
-                            <td className="px-4 py-2.5 text-gray-600">{e.scheduled_date?.toString().split("T")[0]}</td>
+                            <td className="px-4 py-2.5"><span className="inline-block px-2.5 py-1 rounded-lg bg-accent-soft text-accent text-sm font-bold whitespace-nowrap">{fmtDayLabel(e.scheduled_date)}</span></td>
                             <td className="px-4 py-2.5 text-gray-500">{e.day_of_week || "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{e.start_time && e.end_time ? `${e.start_time} – ${e.end_time}` : "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{e.location || "-"}</td>
