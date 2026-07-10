@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
 
+// The SP owns tester volume, not the association. Any testing session in a
+// schedule auto-opens with this many tester slots (adjustable by the SP).
+const DEFAULT_TESTING_TESTERS = 6;
+
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const prefix = `S${session}G${group}`;
@@ -88,14 +92,18 @@ export async function POST(request, { params }) {
       // evaluators are independent: goalies are scored even in a testing slot.
       const evaluators_required = isTesting ? 0 : (parseInt(a.evaluators_required ?? 4) || 4);
       const goalie_evaluators_required = parseInt(a.goalie_evaluators_required ?? 0) || 0;
+      // A testing session in a schedule auto-opens for testers: default the
+      // SP's tester count so it surfaces on the tester dashboard without the
+      // association ever having to think about it. The SP can still adjust it.
+      const testers_required = isTesting ? DEFAULT_TESTING_TESTERS : 0;
       const code = await uniqueCheckinCode(session_number, group_number);
       const [row] = await sql`
         INSERT INTO evaluation_schedule (
           age_category_id, session_number, group_number, scheduled_date, day_of_week,
-          start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status
+          start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, status
         ) VALUES (
           ${catId}, ${session_number}, ${group_number}, ${a.scheduled_date}, ${a.day_of_week || null},
-          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, 'scheduled'
+          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, 'scheduled'
         ) RETURNING *
       `;
       await ensureSessionGroup(catId, session_number, group_number);
@@ -138,13 +146,17 @@ export async function POST(request, { params }) {
         SELECT id FROM evaluation_schedule
         WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number}
       `;
+      const testers_required = isTesting ? DEFAULT_TESTING_TESTERS : 0;
       if (existingEntry.length) {
+        // Preserve any tester count the SP already set; only auto-open a testing
+        // row that's still unstaffed (0) so re-uploads never clobber a choice.
         await sql`
           UPDATE evaluation_schedule SET
             scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
             start_time = ${start_time}, end_time = ${end_time},
             location = ${location}, evaluators_required = ${evaluators_required},
-            goalie_evaluators_required = ${goalie_evaluators_required}
+            goalie_evaluators_required = ${goalie_evaluators_required},
+            testers_required = CASE WHEN ${isTesting} AND COALESCE(testers_required, 0) = 0 THEN ${DEFAULT_TESTING_TESTERS} ELSE testers_required END
           WHERE id = ${existingEntry[0].id}
         `;
         updated++;
@@ -153,10 +165,10 @@ export async function POST(request, { params }) {
         await sql`
           INSERT INTO evaluation_schedule (
             age_category_id, session_number, group_number, scheduled_date, day_of_week,
-            start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status
+            start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, status
           ) VALUES (
             ${catId}, ${session_number}, ${group_number}, ${scheduled_date}, ${day_of_week},
-            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, 'scheduled'
+            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, 'scheduled'
           )
         `;
         inserted++;
