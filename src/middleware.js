@@ -28,6 +28,7 @@ const PUBLIC_PATHS = [
   // Calendar apps (Google, Apple, Outlook) fetch the .ics feed without a
   // session cookie. The route self-auths via HMAC token in the query string.
   "/api/evaluator/calendar",
+  "/api/service-provider/calendar",
   "/report",
   "/api/report",
   "/prototype",
