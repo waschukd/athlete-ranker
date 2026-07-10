@@ -38,10 +38,16 @@ export default function ScheduleBoard({ sessions, renderRow, subscribeEndpoint, 
   const calProps = { colorKey, labelFor, subLabelFor, paletteFor };
   const toDay = (dateKey) => { setDay(dateKey); setView("day"); };
 
-  // List grouped by date, prominent date headers.
+  // List grouped by date, prominent date headers. Agenda order: today/upcoming
+  // first (soonest first), then past dates (most recent first) — sensible whether
+  // the surface is all-future (tester/available) or has history (my sessions).
+  const today = new Date(); const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const byDate = {};
   for (const s of sessions) { const k = dateKeyOf(s); if (!k) continue; (byDate[k] = byDate[k] || []).push(s); }
-  const dates = Object.keys(byDate).sort();
+  const allKeys = Object.keys(byDate);
+  const future = allKeys.filter(k => k >= todayKey).sort();
+  const pastDesc = allKeys.filter(k => k < todayKey).sort().reverse();
+  const dates = [...future, ...pastDesc];
 
   return (
     <div className="space-y-4">

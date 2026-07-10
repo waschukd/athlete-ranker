@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send } from "lucide-react";
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
+import ScheduleBoard from "@/components/ScheduleBoard";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import { useTheme } from "@/lib/useTheme";
@@ -1595,7 +1596,7 @@ function EvaluatorDashboard() {
           <div className="space-y-4">
             {mineLoading ? (
               <div className="py-12 text-center text-gray-400 text-sm">Loading your sessions...</div>
-            ) : upcoming.length === 0 && past.length === 0 ? (
+            ) : mineSessions.length === 0 ? (
               <div className="py-16 text-center">
                 <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                 <h3 className="font-semibold text-gray-700 mb-2">No sessions yet</h3>
@@ -1606,31 +1607,19 @@ function EvaluatorDashboard() {
                 </button>
               </div>
             ) : (
-              <>
-                {[
-                  { key: "today", label: "Today", list: grp.today, cls: "text-accent" },
-                  { key: "needs", label: "Needs scoring", list: grp.needs, cls: "text-amber-600" },
-                  { key: "upcoming", label: "Upcoming", list: grp.upcoming, cls: "text-gray-500" },
-                  { key: "done", label: "Completed", list: grp.done, cls: "text-gray-400", dim: true },
-                ].filter(g => g.list.length > 0).map(g => (
-                  <div key={g.key}>
-                    <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 mt-2 ${g.cls}`}>
-                      {g.label} ({g.list.length})
-                    </h2>
-                    <div className={`space-y-3 ${g.dim ? "opacity-70" : ""}`}>
-                      {g.list.map(s => (
-                        <SessionCard key={s.signup_id} session={s} mode="mine"
-                          onCancel={() => {}}
-                          onCancelWithReason={(id, reason) => cancelMutation.mutate({ schedule_id: id, reason })}
-                          cancelPending={cancelMutation.isPending}
-                          onSignup={() => {}} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
+              <ScheduleBoard
+                sessions={mineSessions}
+                storageKey="eval-mine-view"
+                subscribeEndpoint="/api/evaluator/calendar-link"
+                renderRow={(s) => (
+                  <SessionCard session={s} mode="mine"
+                    onCancel={() => {}}
+                    onCancelWithReason={(id, reason) => cancelMutation.mutate({ schedule_id: id, reason })}
+                    cancelPending={cancelMutation.isPending}
+                    onSignup={() => {}} />
+                )}
+              />
             )}
-            <CalendarSubscribePanel />
           </div>
         )}
 
@@ -1652,12 +1641,20 @@ function EvaluatorDashboard() {
                 </button>
               </div>
             )}
-            <AvailableSessionsView
-              sessions={availSessions}
-              mySessions={mineSessions}
-              isLoading={availLoading}
-              onSignup={id => signupMutation.mutate(id)}
-            />
+            {availLoading ? (
+              <div className="py-12 text-center text-gray-400 text-sm">Loading available sessions...</div>
+            ) : (
+              <ScheduleBoard
+                sessions={availSessions}
+                storageKey="eval-avail-view"
+                emptyText="No available sessions right now. Check back soon or edit your availability."
+                renderRow={(s) => (
+                  <SessionCard session={s} mode="available"
+                    onSignup={(id) => signupMutation.mutate(id)}
+                    onCancel={() => {}} onCancelWithReason={() => {}} />
+                )}
+              />
+            )}
           </>
         )}
 
