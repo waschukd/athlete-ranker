@@ -56,6 +56,24 @@ export async function authorizeCategoryAccess(session, catId) {
     return { authorized: false };
   }
 
+  // Goalie service provider admin — allowed for a category whose association is
+  // actively linked to a goalie SP they administer. The scoring screen scopes
+  // their roster to goalies (kind='goalie'), so this grants goalie-eval access
+  // for their linked associations without touching skater scoping.
+  if (session.role === "goalie_service_provider_admin") {
+    const linked = await sql`
+      SELECT 1 FROM sp_association_links sal
+      JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'goalie_service_provider'
+      WHERE sal.association_id = ${orgId} AND sal.status = 'active'
+        AND (
+          sp.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = sp.id AND uor.user_id = ${userId})
+        )
+    `;
+    if (linked.length) return { authorized: true, orgId };
+    return { authorized: false };
+  }
+
   // Association admin — allowed if they admin this category's organization
   if (session.role === "association_admin") {
     // Check via contact_email

@@ -142,7 +142,7 @@ export async function POST(request) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Verify evaluator is signed up for this schedule (skip for admins)
-    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin"].includes(session.role)) {
+    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
       const signup = await sql`
         SELECT id FROM evaluator_session_signups
         WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
@@ -151,7 +151,7 @@ export async function POST(request) {
     }
 
     // Verify athlete is checked in for this session
-    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin"].includes(session.role)) {
+    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
       const checkin = await sql`
         SELECT id FROM player_checkins
         WHERE athlete_id = ${athlete_id} AND schedule_id = ${schedule_id} AND checked_in = true
