@@ -12,6 +12,7 @@ import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
 import CopyCode from "@/components/CopyCode";
 import { WeekGrid, MonthCalendar, DayView } from "@/components/SessionDateNav";
+import SubscribeCalendar from "@/components/SubscribeCalendar";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
@@ -822,14 +823,7 @@ export default function CategoryDashboard({
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Schedule</h2>
               <div className="flex items-center gap-2">
-                {schedule.length > 0 && (
-                  <button onClick={() => {
-                    const ics = generateICS(schedule.map(s => ({ ...s, category_name: category?.name, org_name: "" })));
-                    downloadICS(ics, `${category?.name || "sessions"}_schedule.ics`);
-                  }} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
-                    <Calendar size={12} /> Add All to Calendar
-                  </button>
-                )}
+                {schedule.length > 0 && <SubscribeCalendar linkEndpoint={`/api/association/calendar-link?cat=${catId}`} label="Subscribe" />}
                 <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 ${importing ? "opacity-50" : ""}`}>
                   Upload / Update CSV

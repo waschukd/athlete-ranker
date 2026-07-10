@@ -60,3 +60,21 @@ export function verifySpCalendarToken(token) {
   if (sig !== expected) return null;
   return orgId;
 }
+
+// Per-category schedule feed (association / director view). Distinct namespace.
+const CAT_KEY = SECRET_BASE + "/schedule-cal-feed";
+
+export function signScheduleToken(catId) {
+  const sig = crypto.createHmac("sha256", CAT_KEY).update(String(catId)).digest("hex").slice(0, 32);
+  return `${catId}.${sig}`;
+}
+
+export function verifyScheduleToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const [catIdStr, sig] = token.split(".");
+  const catId = parseInt(catIdStr, 10);
+  if (!catId || !sig) return null;
+  const expected = signScheduleToken(catId).split(".")[1];
+  if (sig !== expected) return null;
+  return catId;
+}
