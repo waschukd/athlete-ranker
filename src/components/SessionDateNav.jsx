@@ -35,6 +35,15 @@ const fmtClock = (min) => {
 };
 const startOfWeek = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; };
 const keyOfDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// Black or white text for a solid org-color chip — keeps events readable on
+// BOTH the light and dark (premium) themes, since the chip carries its own
+// background rather than relying on theme-flipped Tailwind text classes.
+const readableText = (hex) => {
+  const h = String(hex || "#888888").replace("#", "");
+  if (h.length < 6) return "#ffffff";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "#141414" : "#ffffff";
+};
 
 /**
  * Google-style week view: 7 day columns × hour rows, each session a colored
@@ -127,10 +136,10 @@ export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpe
             <div className="grid border-b border-gray-100" style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
               <div className="text-[9px] text-gray-400 pr-1 py-1 text-right">all-day</div>
               {dayKeys.map(k => (
-                <div key={k} className="p-0.5 space-y-0.5 border-l border-gray-50">
+                <div key={k} className="p-0.5 space-y-0.5 border-l border-gray-100">
                   {(byDay[k] || []).filter(s => timeToMin(s.start_time) == null).map((s, idx) => {
                     const p = paletteFor(s.org_name);
-                    return <button key={idx} onClick={() => onOpen?.(s)} className="w-full text-left text-[10px] leading-tight rounded px-1 py-0.5 truncate" style={{ background: `${p.hex}1a`, color: "#374151", borderLeft: `3px solid ${p.hex}` }}>{abbrevOrgName(s.org_name)} {s.category_name}</button>;
+                    return <button key={idx} onClick={() => onOpen?.(s)} className="w-full text-left text-[10px] font-semibold leading-tight rounded px-1.5 py-0.5 truncate" style={{ background: p.hex, color: readableText(p.hex) }}>{abbrevOrgName(s.org_name)} {s.category_name}</button>;
                   })}
                 </div>
               ))}
@@ -151,21 +160,21 @@ export function WeekGrid({ sessions, paletteFor: paletteForProp, onSelect, onOpe
               return (
                 <div key={k} className="relative border-l border-gray-100" style={{ height: gridHeight }}>
                   {hours.map((m) => (
-                    <div key={m} className="absolute left-0 right-0 border-t border-gray-50" style={{ top: ((m - startMin) / 60) * HOUR_PX }} />
+                    <div key={m} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: ((m - startMin) / 60) * HOUR_PX }} />
                   ))}
                   {placed.map(({ s, st, en, lane }, idx) => {
                     const p = paletteFor(s.org_name);
+                    const fg = readableText(p.hex);
                     const top = ((st - startMin) / 60) * HOUR_PX;
-                    const height = Math.max(16, ((en - st) / 60) * HOUR_PX - 2);
+                    const height = Math.max(22, ((en - st) / 60) * HOUR_PX - 2);
                     const width = `calc(${100 / laneCount}% - 2px)`;
                     const left = `calc(${(lane * 100) / laneCount}% + 1px)`;
                     return (
-                      <button key={idx} onClick={() => onOpen?.(s)} title={`${s.org_name} · ${s.category_name}`}
-                        className="absolute rounded px-1 py-0.5 text-left overflow-hidden hover:z-10 hover:shadow-md transition-shadow"
-                        style={{ top, height, left, width, background: `${p.hex}1f`, borderLeft: `3px solid ${p.hex}` }}>
-                        <div className="text-[9px] font-semibold text-gray-700 leading-tight truncate">{fmtClock(st)}</div>
-                        <div className="text-[10px] text-gray-800 leading-tight truncate font-medium">{abbrevOrgName(s.org_name)}</div>
-                        {height > 34 && <div className="text-[9px] text-gray-500 leading-tight truncate">{s.category_name}</div>}
+                      <button key={idx} onClick={() => onOpen?.(s)} title={`${fmtClock(st)} · ${s.org_name} · ${s.category_name}`}
+                        className="absolute rounded px-1.5 py-0.5 text-left overflow-hidden hover:z-10 hover:brightness-110 transition-all"
+                        style={{ top, height, left, width, background: p.hex, color: fg, boxShadow: "inset 3px 0 0 rgba(0,0,0,0.28)" }}>
+                        <div className="text-[10px] font-bold leading-tight truncate">{fmtClock(st).replace(":00", "")} {abbrevOrgName(s.org_name)}</div>
+                        {height > 30 && <div className="text-[9px] leading-tight truncate" style={{ opacity: 0.85 }}>{s.category_name}</div>}
                       </button>
                     );
                   })}
@@ -367,8 +376,8 @@ export function MonthCalendar({ sessions, onSelect, paletteFor: paletteForProp }
                     const p = paletteFor(s.org_name);
                     const t = timeToMin(s.start_time);
                     return (
-                      <div key={idx} className="rounded px-1 py-0.5 truncate text-[10px] leading-tight" style={{ background: `${p.hex}1a`, color: "#374151", borderLeft: `3px solid ${p.hex}` }}>
-                        {t != null && <span className="font-semibold">{fmtClock(t).replace(":00", "")} </span>}
+                      <div key={idx} className="rounded px-1 py-0.5 truncate text-[10px] font-medium leading-tight" style={{ background: p.hex, color: readableText(p.hex) }}>
+                        {t != null && <span className="font-bold">{fmtClock(t).replace(":00", "")} </span>}
                         {abbrevOrgName(s.org_name)}
                       </div>
                     );
