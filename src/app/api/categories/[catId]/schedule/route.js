@@ -3,6 +3,17 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
+import { resolveMatchupTeams, assignMatchupRoster } from "@/lib/scrimmageTeams";
+
+// Round-robin: if a row carries a matchup label ("A vs B"), populate that game's
+// group with the two teams' players. Best-effort — never blocks the schedule save.
+async function applyMatchup(catId, session_number, group_number, matchup) {
+  if (!matchup) return;
+  try {
+    const teams = await resolveMatchupTeams(catId, matchup);
+    if (teams.length) await assignMatchupRoster(catId, session_number, group_number, teams);
+  } catch (e) { console.error("applyMatchup:", e?.message); }
+}
 
 // The SP owns tester volume, not the association. Any testing session in a
 // schedule auto-opens with this many tester slots (adjustable by the SP).
@@ -107,6 +118,7 @@ export async function POST(request, { params }) {
         ) RETURNING *
       `;
       await ensureSessionGroup(catId, session_number, group_number);
+      await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup);
       const { notified } = await notifySessionChange({
         catId, scheduleRow: row, scheduleId: row.id, changeType: "added",
         summary: "A new session was added to the schedule.", initiator: initiatorOf(session),
@@ -175,6 +187,7 @@ export async function POST(request, { params }) {
       }
       count++;
       await ensureSessionGroup(catId, session_number, group_number);
+      await applyMatchup(catId, session_number, group_number, entry.matchup || entry.Matchup || entry["Matchup"]);
     }
 
     await notifySessionChange({

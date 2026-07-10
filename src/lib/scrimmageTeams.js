@@ -78,3 +78,31 @@ export async function teamIdByLetter(catId, letter) {
   const rows = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} AND name = ${name} LIMIT 1`;
   return rows[0]?.id || null;
 }
+
+// Parse a matchup label ("A vs B", "A/B", "Bubble A/B", "Team A vs Team C") into
+// the two scrimmage-team ids for this category. Returns [] if it can't resolve
+// both (so the caller just leaves the game's roster to be set manually).
+export async function resolveMatchupTeams(catId, matchup) {
+  const letters = String(matchup || "").toUpperCase().match(/\b([A-F])\b/g);
+  if (!letters || letters.length < 2) return [];
+  const a = await teamIdByLetter(catId, letters[0]);
+  const b = await teamIdByLetter(catId, letters[1]);
+  return a && b ? [a, b] : [];
+}
+
+// Populate a game's session group with both teams' players so the existing
+// scoring/check-in screens scope the roster to exactly those two teams. Reuses
+// session_groups/player_group_assignments — no schema change, and directors can
+// still tweak the roster in the Groups UI afterwards.
+export async function assignMatchupRoster(catId, session_number, group_number, teamIds) {
+  if (!Array.isArray(teamIds) || teamIds.length < 2) return;
+  let [grp] = await sql`SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number} LIMIT 1`;
+  if (!grp) {
+    [grp] = await sql`INSERT INTO session_groups (age_category_id, session_number, group_number, name, display_order) VALUES (${catId}, ${session_number}, ${group_number}, ${"Group " + group_number}, ${group_number}) RETURNING id`;
+  }
+  await sql`DELETE FROM player_group_assignments WHERE session_group_id = ${grp.id}`;
+  const members = await sql`SELECT athlete_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamIds})`;
+  for (let i = 0; i < members.length; i++) {
+    await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${members[i].athlete_id}, ${grp.id}, ${i}) ON CONFLICT DO NOTHING`;
+  }
+}

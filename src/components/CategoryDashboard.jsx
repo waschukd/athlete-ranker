@@ -825,7 +825,7 @@ export default function CategoryDashboard({
               <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Schedule</h2>
               <div className="flex items-center gap-2">
                 {schedule.length > 0 && <SubscribeCalendar linkEndpoint={`/api/association/calendar-link?cat=${catId}`} label="Subscribe" />}
-                <a href="/api/templates?type=schedule" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
+                <a href={`/api/templates?type=${category?.eval_format === "round_robin" ? "round-robin-schedule" : "schedule"}`} download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template{category?.eval_format === "round_robin" ? " (matchups)" : ""}</a>
                 <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-50 ${importing ? "opacity-50" : ""}`}>
                   Upload / Update CSV
                   <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async (e) => {
@@ -835,7 +835,7 @@ export default function CategoryDashboard({
                     const lines = text.trim().split("\n").filter(l => l.trim());
                     const hasHeader = lines[0].toLowerCase().includes("session") || lines[0].toLowerCase().includes("date");
                     const dataLines = hasHeader ? lines.slice(1) : lines;
-                    const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); return { session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6] }; }).filter(r => r.session_number && r.scheduled_date);
+                    const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); return { session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6], matchup: cols[7] || null }; }).filter(r => r.session_number && r.scheduled_date);
                     const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
                     const data = await res.json();
                     setUploadMsg(data.success ? `${data.inserted ?? data.count ?? 0} added, ${data.updated ?? 0} updated` : "Error: " + data.error);

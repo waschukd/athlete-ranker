@@ -38,6 +38,23 @@ export async function GET(request) {
     });
   }
 
+  // Round-robin (matchup) schedule: a Matchup column (e.g. "A vs B") so each game
+  // auto-loads those two scrimmage teams' players. Column order matches the
+  // category CSV parser (session, group, date, start, end, location, evals, matchup).
+  if (type === "round-robin-schedule") {
+    const csv = [
+      "Session #,Group #,Date,Start Time,End Time,Location,Player Evaluators,Matchup",
+      "1,1,2026-09-19,17:30,18:30,Sherwood Pk Shell,4,A vs B",
+      "1,2,2026-09-20,18:15,19:15,Millenium Pl Powerade,4,B vs C",
+      "1,3,2026-09-21,19:45,20:45,Sherwood Pk Shell,4,C vs A",
+      "1,4,2026-09-23,20:15,21:15,Sherwood Pk Shell,4,Bubble A/B",
+      "1,5,2026-09-25,19:45,20:45,Sherwood Pk Shell,4,Bubble B/C",
+    ].join("\n");
+    return new NextResponse(csv, {
+      headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=round_robin_schedule_template.csv" },
+    });
+  }
+
   // Bulk-onboard templates carry a Division column so the whole association can be
   // set up from two files — parsed deterministically (no AI) by that column.
   if (type === "bulk-schedule") {
