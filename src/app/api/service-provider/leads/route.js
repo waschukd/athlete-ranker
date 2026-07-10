@@ -68,7 +68,12 @@ export async function POST(request) {
     if (ctx.error) return ctx.error;
     const { sp_id } = ctx;
 
-    const { email, name, association_ids } = await request.json();
+    const body = await request.json();
+    // Normalize the email so an EXISTING user (stored lowercase) is matched even
+    // when the admin types different casing/whitespace — otherwise we'd wrongly
+    // fall into the create-new-account branch for someone who already exists.
+    const email = (body.email || "").trim().toLowerCase();
+    const { name, association_ids } = body;
     if (!email || !Array.isArray(association_ids) || association_ids.length === 0) {
       return NextResponse.json({ error: "email and a non-empty association_ids array are required" }, { status: 400 });
     }
@@ -101,8 +106,8 @@ export async function POST(request) {
         RETURNING id
       `;
       await sql`
-        INSERT INTO auth_accounts ("userId", provider, password, type)
-        VALUES (${newAuth[0].id}, 'credentials', ${hashedPassword}, 'credentials')
+        INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
+        VALUES (${newAuth[0].id}, 'credentials', 'credentials', ${email}, ${hashedPassword})
         ON CONFLICT DO NOTHING
       `;
       const newUser = await sql`
