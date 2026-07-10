@@ -13,6 +13,7 @@ import RankBadge from "@/components/RankBadge";
 import CopyCode from "@/components/CopyCode";
 import { WeekGrid, MonthCalendar, DayView } from "@/components/SessionDateNav";
 import SubscribeCalendar from "@/components/SubscribeCalendar";
+import ScrimmageTeams from "@/components/ScrimmageTeams";
 import ManualScoreUpload from "@/components/ManualScoreUpload";
 import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
@@ -852,6 +853,18 @@ export default function CategoryDashboard({
             </div>
             {uploadMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{uploadMsg}</div>}
             {scheduleMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{scheduleMsg}</div>}
+
+            {category?.eval_format === "round_robin" && (
+              <details className="bg-white border border-gray-200 rounded-xl overflow-hidden" open>
+                <summary className="px-4 py-3 cursor-pointer text-sm font-semibold text-ink flex items-center gap-2 select-none">
+                  <Users size={15} className="text-accent" /> Assign Teams
+                  <span className="text-xs font-normal text-gray-400">— round-robin: seed &amp; drag before Session 1</span>
+                </summary>
+                <div className="px-4 pb-4 border-t border-gray-100 pt-4">
+                  <ScrimmageTeams catId={catId} />
+                </div>
+              </details>
+            )}
 
             {schedule.length > 0 && (
               <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">

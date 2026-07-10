@@ -132,6 +132,14 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: true });
       }
 
+      // Evaluation format: 'standard' (default) or 'round_robin' (team matchups).
+      // Resilient to a pre-migration DB — a missing column just no-ops.
+      case "format": {
+        const fmt = data.eval_format === "round_robin" ? "round_robin" : "standard";
+        try { await sql`UPDATE age_categories SET eval_format = ${fmt} WHERE id = ${catId}`; } catch { /* column not migrated */ }
+        return NextResponse.json({ success: true, eval_format: fmt });
+      }
+
       case "complete": {
         await sql`
           UPDATE age_categories SET setup_complete = true, status = 'active' WHERE id = ${catId}

@@ -490,6 +490,7 @@ function SetupWizard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [theme, toggleTheme] = useTheme();
+  const [evalFormat, setEvalFormat] = useState("standard"); // standard | round_robin
 
   const [sessions, setSessions] = useState(DEFAULT_SESSIONS);
   const [scoring, setScoring] = useState({
@@ -503,6 +504,7 @@ function SetupWizard() {
     if (!catId) return;
     fetch(`/api/categories/${catId}/setup`).then(r => r.json()).then(data => {
       if (data.category) setCatName(data.category.name);
+      if (data.category?.eval_format) setEvalFormat(data.category.eval_format);
       if (data.sessions?.length) setSessions(data.sessions);
       if (data.category?.scoring_scale) {
         setScoring(prev => ({
@@ -537,6 +539,7 @@ function SetupWizard() {
     try {
       if (step === 1) {
         if (!skaterValid) { setError("Session weights must total 100%."); setSaving(false); return false; }
+        await post({ step: "format", data: { eval_format: evalFormat } });
         await post({ step: "sessions", data: { sessions } });
       } else if (step === 2) {
         await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
@@ -584,7 +587,29 @@ function SetupWizard() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         <StepIndicator currentStep={step} skaterValid={skaterValid} onJump={navigate} />
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
-          {step === 1 && <SessionsStep title="Configure Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />}
+          {step === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Evaluation format</h2>
+                <p className="text-sm text-gray-500 mb-4">How is this age group evaluated? Most run Standard. Choose Round-robin only if you split the players into teams that play matchups (any tier — house too, when the numbers call for it).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { v: "standard", t: "Standard rankings", d: "Everyone evaluated together across the sessions; ranked individually." },
+                    { v: "round_robin", t: "Round-robin (teams)", d: "Players split into teams (A/B/C) that play matchup games, plus bubble games. Assign teams before Session 1." },
+                  ].map(o => (
+                    <button key={o.v} type="button" onClick={() => setEvalFormat(o.v)} className={`text-left p-4 rounded-xl border-2 transition-all ${evalFormat === o.v ? "border-accent bg-accent-soft" : "border-gray-200 hover:border-gray-300"}`}>
+                      <div className="flex items-center justify-between mb-1"><span className="font-semibold text-gray-800">{o.t}</span>{evalFormat === o.v && <Check size={16} className="text-accent" />}</div>
+                      <p className="text-xs text-gray-500">{o.d}</p>
+                    </button>
+                  ))}
+                </div>
+                {evalFormat === "round_robin" && (
+                  <p className="text-xs text-accent mt-3">After launch, an <b>Assign Teams</b> panel appears on the category so you can seed teams (alphabetical) and drag to adjust before Session 1.</p>
+                )}
+              </div>
+              <SessionsStep title="Configure Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />
+            </div>
+          )}
           {step === 2 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
           {step === 3 && <AthletesStep catId={catId} categoryName={catName} />}
           {step === 4 && <ScheduleStep catId={catId} sessions={sessions} categoryName={catName} />}
