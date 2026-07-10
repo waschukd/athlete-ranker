@@ -46,6 +46,7 @@ const ROLE_ROUTES = {
   "/association": ["association_admin", "super_admin", "service_provider_admin"],
   "/player": ["association_admin", "super_admin", "service_provider_admin", "director", "association_evaluator", "service_provider_evaluator"],
   "/director/dashboard": ["director", "association_admin", "super_admin"],
+  "/tester": ["service_provider_tester", "service_provider_admin", "goalie_service_provider_admin", "super_admin"],
   "/evaluator": ["association_evaluator", "service_provider_evaluator", "service_provider_tester", "super_admin", "association_admin", "service_provider_admin", "director"],
 };
 

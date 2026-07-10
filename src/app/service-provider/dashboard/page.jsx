@@ -201,7 +201,7 @@ function TestersTab({ spUrl, spName }) {
             I'm a tester too
           </label>
         </div>
-        {meIsTester && <p className="text-xs text-accent mt-2">You're in the tester pool — head to your <a href="/evaluator/dashboard" className="underline font-medium">tester dashboard</a> to sign up for testing sessions.</p>}
+        {meIsTester && <p className="text-xs text-accent mt-2">You're in the tester pool — head to your <a href="/tester/dashboard" className="underline font-medium">tester dashboard</a> to sign up for testing sessions (or use the role switcher in the top bar).</p>}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

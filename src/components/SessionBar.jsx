@@ -13,6 +13,7 @@ const ROLE_LABEL = {
   director: "Director",
   association_evaluator: "Evaluator",
   service_provider_evaluator: "Evaluator",
+  service_provider_tester: "Tester",
   volunteer: "Volunteer",
 };
 const labelFor = (r) => ROLE_LABEL[r] || r || "Signed in";

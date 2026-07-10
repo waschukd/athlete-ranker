@@ -121,11 +121,17 @@ export async function getUserRoles(email) {
   const orgRoles = await sql`SELECT role FROM user_organization_roles WHERE user_id = ${userId}`;
   for (const r of orgRoles) if (r.role) roles.add(r.role);
   const memberships = await sql`
-    SELECT DISTINCT o.type FROM evaluator_memberships em
+    SELECT DISTINCT o.type, em.is_tester, em.is_evaluator FROM evaluator_memberships em
     JOIN organizations o ON o.id = em.organization_id
     WHERE em.user_id = ${userId} AND em.status = 'active'`;
   for (const m of memberships) {
-    roles.add(m.type === "service_provider" || m.type === "goalie_service_provider" ? "service_provider_evaluator" : "association_evaluator");
+    const isSp = m.type === "service_provider" || m.type === "goalie_service_provider";
+    // is_evaluator is null on legacy rows (predates testers) → treat as an
+    // evaluator. Only a row explicitly flagged is_evaluator=false (a pure tester)
+    // is excluded from the evaluator capability.
+    if (m.is_evaluator !== false) roles.add(isSp ? "service_provider_evaluator" : "association_evaluator");
+    // Testers are an SP-scoped capability (they run the SP's testing sessions).
+    if (m.is_tester === true && isSp) roles.add("service_provider_tester");
   }
   const dir = await sql`SELECT 1 FROM director_assignments WHERE user_id = ${userId} AND status = 'active' LIMIT 1`;
   if (dir.length) roles.add("director");
@@ -140,6 +146,7 @@ export function roleRedirect(role, orgId) {
     case "goalie_service_provider_admin": return orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
     case "association_admin": return orgId ? `/association/dashboard?org=${orgId}` : "/association/dashboard";
     case "director": return "/director/dashboard";
+    case "service_provider_tester": return "/tester/dashboard";
     case "volunteer": return "/checkin";
     default: return "/evaluator/dashboard";
   }
