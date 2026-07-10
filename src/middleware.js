@@ -29,6 +29,8 @@ const PUBLIC_PATHS = [
   // session cookie. The route self-auths via HMAC token in the query string.
   "/api/evaluator/calendar",
   "/api/service-provider/calendar",
+  "/api/tester/calendar",
+  "/api/association/calendar",
   "/report",
   "/api/report",
   "/prototype",

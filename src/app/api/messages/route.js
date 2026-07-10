@@ -6,7 +6,7 @@ import { appUserId, createNotification } from "@/lib/notify";
 import { sendEmail, emailWrapper } from "@/lib/email";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin", "director"]);
-const EVAL_ROLES = new Set(["association_evaluator", "service_provider_evaluator"]);
+const EVAL_ROLES = new Set(["association_evaluator", "service_provider_evaluator", "service_provider_tester"]);
 
 // GET: the current user's inbox + sent items.
 export async function GET() {
