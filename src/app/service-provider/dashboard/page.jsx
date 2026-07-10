@@ -2040,6 +2040,12 @@ function SPDashboard() {
                                       : entry.session_type === 'testing' ? null
                                       : entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
                                     {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
+                                    {/* Goalie SP evaluates its own goalies — jump straight into scoring. */}
+                                    {entry.is_goalie_sp && entry.status !== "cancelled" && (
+                                      <a href={`/evaluator/score/${entry.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md inline-flex items-center gap-1.5">
+                                        <Star size={12} /> Start evaluating
+                                      </a>
+                                    )}
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
                                   </>
                                 )}
