@@ -188,8 +188,10 @@ export default function DevelopmentReport({ data }) {
         <div style={{ position: "absolute", top: -90, right: -60, width: 320, height: 320, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.16)" }} />
         <div style={{ position: "absolute", top: -40, right: -10, width: 230, height: 230, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.1)" }} />
         {serviceProvider?.logo_url && (
-          <img src={serviceProvider.logo_url} alt={serviceProvider.name || "Service provider"}
-            style={{ position: "absolute", top: 28, right: 30, maxWidth: 116, maxHeight: 54, objectFit: "contain", filter: "brightness(0) invert(1)", opacity: 0.95 }} />
+          <div style={{ position: "absolute", top: 24, right: 26, background: "#fff", borderRadius: 10, padding: "8px 12px", boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
+            <img src={serviceProvider.logo_url} alt={serviceProvider.name || "Service provider"}
+              style={{ maxWidth: 100, maxHeight: 48, objectFit: "contain", display: "block" }} />
+          </div>
         )}
         <div style={{ fontSize: 9.5, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
         <div style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 900, lineHeight: 1.05, marginTop: 10, color: "#fff" }}>{fullName}</div>

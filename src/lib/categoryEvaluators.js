@@ -68,6 +68,18 @@ export async function resolveEvaluatorKind(catId, userId, email) {
       LIMIT 1
     `;
     if (g.length) return "goalie";
+    // The goalie SP's ADMIN (owns the goalie SP via contact_email or a role row)
+    // is also a goalie evaluator for the associations it serves — so a solo goalie
+    // SP like ATC can score its own trials without a separate evaluator membership.
+    const a = await sql`
+      SELECT 1 FROM organizations o
+      JOIN sp_association_links sal ON sal.service_provider_id = o.id AND sal.status = 'active'
+      JOIN age_categories ac ON ac.organization_id = sal.association_id AND ac.id = ${catId}
+      WHERE o.type = 'goalie_service_provider'
+        AND (o.contact_email = ${email} OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = o.id AND uor.user_id = ${userId}))
+      LIMIT 1
+    `;
+    if (a.length) return "goalie";
     return "standard";
   } catch { return "standard"; }
 }

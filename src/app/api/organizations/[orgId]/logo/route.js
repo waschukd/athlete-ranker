@@ -20,7 +20,7 @@ const ALLOWED_TYPES = new Set([
   "image/svg+xml",
 ]);
 
-const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
+const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 
 async function authorize(session, orgId) {
   if (!session) return { ok: false, status: 401, error: "Unauthorized" };

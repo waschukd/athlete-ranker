@@ -1256,8 +1256,8 @@ function SpLogoControl({ sp, onChange }) {
     <div className="mt-4 flex items-center gap-3 flex-wrap">
       {sp.logo_url ? (
         <>
-          <div className="h-11 w-28 rounded-lg border border-gray-200 flex items-center justify-center px-2" style={{ background: "#0f0f12" }} title="Preview as it appears on reports">
-            <img src={sp.logo_url} alt="Report logo" style={{ maxHeight: "30px", maxWidth: "98px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+          <div className="h-11 w-28 rounded-lg border border-gray-200 flex items-center justify-center px-2" style={{ background: "#fff" }} title="Preview as it appears on reports">
+            <img src={sp.logo_url} alt="Report logo" style={{ maxHeight: "34px", maxWidth: "100px", objectFit: "contain" }} />
           </div>
           <label className="text-xs text-accent hover:underline cursor-pointer font-medium">{busy ? "Saving…" : "Replace report logo"}<input type="file" accept="image/png,image/svg+xml,image/webp" className="hidden" onChange={upload} disabled={busy} /></label>
           <button onClick={remove} disabled={busy} className="text-xs text-gray-400 hover:text-red-500">Remove</button>
