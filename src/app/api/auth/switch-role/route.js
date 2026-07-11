@@ -20,8 +20,34 @@ export async function POST(request) {
       return NextResponse.json({ error: "You don't have that role" }, { status: 403 });
     }
 
-    const orgRow = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} LIMIT 1`;
-    const orgId = orgRow[0]?.id;
+    // Land on an org that MATCHES the target role's type — a user can own both an
+    // association and an SP (e.g. a goalie SP admin who also admins a goalie-only
+    // association), so a blind "first org by email" would drop an Association switch
+    // onto their SP org (not an association) and render an empty dashboard.
+    const userRow = await sql`SELECT id FROM users WHERE email = ${session.email}`;
+    const uid = userRow[0]?.id;
+    let orgId = null;
+    if (role === "association_admin") {
+      const rows = await sql`
+        SELECT o.id FROM organizations o
+        WHERE o.type = 'association' AND (
+          o.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = o.id AND uor.user_id = ${uid})
+        ) ORDER BY o.id LIMIT 1`;
+      orgId = rows[0]?.id;
+    } else if (role === "service_provider_admin" || role === "goalie_service_provider_admin") {
+      const type = role === "goalie_service_provider_admin" ? "goalie_service_provider" : "service_provider";
+      const rows = await sql`
+        SELECT o.id FROM organizations o
+        WHERE o.type = ${type} AND (
+          o.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = o.id AND uor.user_id = ${uid})
+        ) ORDER BY o.id LIMIT 1`;
+      orgId = rows[0]?.id;
+    } else {
+      const orgRow = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email} LIMIT 1`;
+      orgId = orgRow[0]?.id;
+    }
 
     const token = await signToken({
       userId: session.userId,
