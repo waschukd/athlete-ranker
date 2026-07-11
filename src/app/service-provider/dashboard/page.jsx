@@ -1781,13 +1781,14 @@ function SPDashboard() {
                           </span>
                         </label>
                       )}
-                      {sp?.type === "goalie_service_provider" ? (
-                        <a href={`/goalie-provider/rankings?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
-                          <Star size={14} /> View goalie rankings
-                        </a>
-                      ) : (
-                        <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
-                          <ExternalLink size={14} /> Open Dashboard
+                      {/* Both SP types open the FULL association dashboard (a goalie SP
+                          is scoped to goalies). Goalie SPs also get a quick rankings link. */}
+                      <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
+                        <ExternalLink size={14} /> Open Dashboard
+                      </a>
+                      {sp?.type === "goalie_service_provider" && (
+                        <a href={`/goalie-provider/rankings?org=${assoc.id}`} className="w-full mt-2 flex items-center justify-center gap-2 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                          <Star size={14} /> Goalie rankings
                         </a>
                       )}
                     </div>

@@ -47,7 +47,7 @@ export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!["super_admin", "service_provider_admin"].includes(session.role)) {
+    if (!["super_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const body = await request.json();
@@ -78,12 +78,15 @@ export async function POST(request) {
     // creating their OWN client). This is the ONLY sanctioned SP→association link
     // path; the standalone link endpoint is super-admin-only so an SP can't link
     // itself to an association it didn't create.
-    if (type === "association" && session.role === "service_provider_admin") {
+    if (type === "association" && (session.role === "service_provider_admin" || session.role === "goalie_service_provider_admin")) {
       try {
-        const { orgId: spId } = await resolveSpContext(session, null);
+        const { orgId: spId, isGoalie } = await resolveSpContext(session, null);
         if (spId) {
           const linked = await sql`SELECT id FROM sp_association_links WHERE service_provider_id = ${spId} AND association_id = ${org.id}`;
           if (!linked.length) await sql`INSERT INTO sp_association_links (service_provider_id, association_id, status) VALUES (${spId}, ${org.id}, 'active')`;
+          // A goalie SP's new client is goalie-only: mark the association's goalie
+          // eval mode so the goalie template + rankings attribute to this goalie SP.
+          if (isGoalie) await sql`UPDATE organizations SET goalie_eval_mode = 'goalie_service_provider' WHERE id = ${org.id}`;
         }
       } catch (e) { console.error("SP auto-link error:", e); }
     }

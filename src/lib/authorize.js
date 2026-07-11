@@ -173,6 +173,21 @@ export async function authorizeOrgAccess(session, orgId) {
     if (linked.length) return { authorized: true };
   }
 
+  // Goalie SP linked to association — same as a skater SP (org-level access to
+  // their client associations); the view is scoped to goalies downstream.
+  if (session.role === "goalie_service_provider_admin") {
+    const linked = await sql`
+      SELECT 1 FROM sp_association_links sal
+      JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'goalie_service_provider'
+      WHERE sal.association_id = ${orgId} AND sal.status = 'active'
+        AND (
+          sp.contact_email = ${session.email}
+          OR EXISTS (SELECT 1 FROM user_organization_roles uor WHERE uor.organization_id = sp.id AND uor.user_id = ${userId})
+        )
+    `;
+    if (linked.length) return { authorized: true };
+  }
+
   // Evaluator membership
   if (["association_evaluator", "service_provider_evaluator", "director"].includes(session.role)) {
     const membership = await sql`
@@ -211,8 +226,8 @@ export async function getAccessibleOrgIds(session) {
   const memberships = await sql`SELECT organization_id FROM evaluator_memberships WHERE user_id = ${userId} AND status = 'active'`;
   memberships.forEach(m => orgIds.add(m.organization_id));
 
-  // For SP admin, include linked associations
-  if (session.role === "service_provider_admin") {
+  // For either SP type, include linked client associations.
+  if (session.role === "service_provider_admin" || session.role === "goalie_service_provider_admin") {
     const spOrgs = [...orgIds];
     for (const spId of spOrgs) {
       const linked = await sql`SELECT association_id FROM sp_association_links WHERE service_provider_id = ${spId}`;
@@ -252,7 +267,7 @@ export async function canViewEvaluator(session, evalId) {
 
   if (session.role === "super_admin") return true;
 
-  if (!["service_provider_admin", "association_admin"].includes(session.role)) {
+  if (!["service_provider_admin", "goalie_service_provider_admin", "association_admin"].includes(session.role)) {
     return false;
   }
 
