@@ -61,7 +61,9 @@ function SessionRow({ s, showDate }) {
       {spots > 0
         ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{spots} spot{spots === 1 ? "" : "s"} open</span>
         : <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium flex-shrink-0">Staffed</span>}
-      {!s.is_goalie_sp && <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>}
+      {s.is_goalie_sp
+        ? <a href={`/evaluator/score/${s.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md flex-shrink-0 inline-flex items-center gap-1.5"><Star size={12} /> Evaluate</a>
+        : <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>}
     </div>
   );
 }
