@@ -692,8 +692,9 @@ export default function CategoryDashboard({
                         <td className="px-4 py-3"><RankBadge rank={a.rank} tied={sortedAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                         <td className="px-4 py-3"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-medium hover:text-[#0b5cd6]">{a.first_name}</a></td>
                         <td className="px-4 py-3">
-                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="text-gray-900 font-semibold hover:text-[#0b5cd6]">{a.last_name}</a>
+                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className={`font-semibold hover:text-[#0b5cd6] ${a.cut_at ? "text-gray-400 line-through" : "text-gray-900"}`}>{a.last_name}</a>
                           {a.incomplete && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>}
+                          {a.cut_at && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold" title="Cut — not moving forward in this division">Cut</span>}
                         </td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
                         {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
@@ -731,7 +732,7 @@ export default function CategoryDashboard({
                             <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
                               <FileText size={13} /> Report
                             </a>
-                            {category?.eval_format === "round_robin" && canEditSchedule && (
+                            {category?.eval_format === "round_robin" && canEditSchedule && !a.cut_at && (
                               <button onClick={() => openCut(a)} title="Cut player" className="inline-flex items-center justify-center p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-300 transition-colors">
                                 <Scissors size={13} />
                               </button>

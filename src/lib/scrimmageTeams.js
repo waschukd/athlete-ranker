@@ -41,7 +41,7 @@ export async function seedTeams(catId, mode = "alphabetical") {
   if (!teams.length) return getScrimmageTeams(catId);
   const athletes = await sql`
     SELECT id, first_name, last_name, jersey_number, position FROM athletes
-    WHERE age_category_id = ${catId} AND is_active = true AND COALESCE(position,'') <> 'goalie'
+    WHERE age_category_id = ${catId} AND is_active = true AND cut_at IS NULL AND COALESCE(position,'') <> 'goalie'
     ORDER BY last_name, first_name`;
 
   // Clear current membership.

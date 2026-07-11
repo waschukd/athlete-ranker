@@ -162,7 +162,7 @@ export async function GET(request, { params }) {
           pc.checked_in, pc.checked_in_at, 0 as display_order
         FROM athletes a
         LEFT JOIN player_checkins pc ON pc.athlete_id = a.id AND pc.schedule_id = ${scheduleId}
-        WHERE a.age_category_id = ${sched.category_id} AND a.is_active = true
+        WHERE a.age_category_id = ${sched.category_id} AND a.is_active = true AND a.cut_at IS NULL
         ORDER BY a.last_name, a.first_name
       `;
     }
@@ -340,7 +340,7 @@ export async function POST(request, { params }) {
         LEFT JOIN player_group_assignments pga ON pga.athlete_id = a.id
         LEFT JOIN session_groups sg ON sg.id = pga.session_group_id
         WHERE a.age_category_id = ${auth.ageCategoryId}
-          AND a.is_active = true
+          AND a.is_active = true AND a.cut_at IS NULL
           AND (a.first_name ILIKE ${like} ESCAPE '\'
                OR a.last_name ILIKE ${like} ESCAPE '\'
                OR (a.first_name || ' ' || a.last_name) ILIKE ${like} ESCAPE '\')

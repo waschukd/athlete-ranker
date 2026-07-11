@@ -59,13 +59,25 @@ export async function POST(request, { params }) {
 
     const [org] = await sql`SELECT name FROM organizations WHERE id = ${fromCat.organization_id}`;
 
-    // 1) Mark the source athlete cut (deactivate + stamp). Scores stay put.
+    // 1) Stamp the source athlete cut — but keep them ACTIVE so they stay VISIBLE
+    // (flagged "Cut") in this division's ranking with their real scores. cut_at is
+    // what removes them from FUTURE games, not is_active. Scores stay put.
+    await sql`UPDATE athletes SET cut_at = NOW(), cut_to_category_id = ${toCategoryId} WHERE id = ${athleteId}`;
+    // Pull them off any Tournament team so re-seeds / future matchups exclude them.
     try {
-      await sql`UPDATE athletes SET is_active = false, cut_at = NOW(), cut_to_category_id = ${toCategoryId} WHERE id = ${athleteId}`;
-    } catch {
-      // cut_* columns not migrated → still deactivate so they exit AA rosters.
-      await sql`UPDATE athletes SET is_active = false WHERE id = ${athleteId}`;
-    }
+      await sql`DELETE FROM scrimmage_team_members WHERE athlete_id = ${athleteId} AND scrimmage_team_id IN (SELECT id FROM scrimmage_teams WHERE age_category_id = ${params.catId})`;
+    } catch { /* no teams */ }
+    // Remove them from UPCOMING game rosters (past/played games keep them for history).
+    try {
+      await sql`
+        DELETE FROM player_group_assignments
+        WHERE athlete_id = ${athleteId}
+          AND session_group_id IN (
+            SELECT sg.id FROM session_groups sg
+            JOIN evaluation_schedule es ON es.age_category_id = sg.age_category_id AND es.session_number = sg.session_number AND es.group_number = sg.group_number
+            WHERE sg.age_category_id = ${params.catId} AND es.scheduled_date >= CURRENT_DATE
+          )`;
+    } catch { /* best-effort */ }
 
     // 2) Create a fresh athlete in the destination category (clean slate).
     await sql`
