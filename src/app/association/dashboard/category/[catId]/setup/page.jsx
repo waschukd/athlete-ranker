@@ -228,6 +228,65 @@ function SkaterScoringStep({ scoring, setScoring }) {
   );
 }
 
+// Goalie-only setup: how goalies are scored (scale, skills drills, scrimmage
+// categories). No skater options — the whole scoring config for a goalie SP's
+// association.
+function GoalieScoringStep({ goalie, setGoalie }) {
+  const mutate = (keyName, next) => setGoalie(p => ({ ...p, [keyName]: next(p[keyName] || []) }));
+  const CatList = ({ label, hint, keyName }) => {
+    const add = () => mutate(keyName, arr => [...arr, { name: "" }]);
+    const remove = (i) => mutate(keyName, arr => arr.filter((_, idx) => idx !== i));
+    const rename = (i, v) => mutate(keyName, arr => arr.map((c, idx) => (idx === i ? { ...c, name: v } : c)));
+    const list = goalie[keyName] || [];
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-sm font-semibold text-gray-700">{label}</label>
+          <button onClick={add} className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-70 font-medium"><Plus size={12} /> Add</button>
+        </div>
+        {hint && <p className="text-xs text-gray-500 mb-2">{hint}</p>}
+        <div className="space-y-2">
+          {list.map((c, i) => (
+            <div key={i} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <GripVertical size={15} className="text-gray-300 flex-shrink-0" />
+              <input type="text" value={c.name} onChange={e => rename(i, e.target.value)} className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white" placeholder="Name" />
+              <button onClick={() => remove(i)} className="p-1.5 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-gray-900 mb-1">Goalie Scoring</h2>
+      <p className="text-sm text-gray-500 mb-6">How your evaluators score goalies. Goalies only — no skater categories.</p>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Score Scale</label>
+          <div className="flex gap-2">
+            {[5, 10, 100].map(s => (
+              <button key={s} onClick={() => setGoalie(p => ({ ...p, scale: s }))} className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-medium ${goalie.scale === s ? "border-accent bg-orange-50 text-accent" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>{s}</button>
+            ))}
+          </div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Increments</label>
+          <div className="flex gap-2">
+            {[1, 0.5].map(inc => (
+              <button key={inc} onClick={() => setGoalie(p => ({ ...p, increment: inc }))} className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-medium ${goalie.increment === inc ? "border-accent bg-orange-50 text-accent" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>{inc === 1 ? "Whole" : "Half"}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-8">
+        <CatList label="Goalie skills drills · session 1" hint="The goalie skills session — like testing for skaters, marked on points (higher is better)." keyName="skills" />
+        <CatList label="Goalie scrimmage categories" hint="How goalies are graded in live play." keyName="categories" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Athletes ───────────────────────────────────────────────────────────────
 function AthletesStep({ catId, categoryName }) {
   const [athletes, setAthletes] = useState([]);
@@ -439,7 +498,7 @@ function ScheduleStep({ catId, sessions = [], categoryName }) {
 }
 
 // ─── Review ─────────────────────────────────────────────────────────────────
-function ReviewStep({ catName, sessions, scoring, orgId }) {
+function ReviewStep({ catName, sessions, scoring, orgId, goalieOnly, goalie }) {
   const totalWeight = sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0);
   const [goalieBy, setGoalieBy] = useState(null);
   useEffect(() => {
@@ -450,28 +509,44 @@ function ReviewStep({ catName, sessions, scoring, orgId }) {
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-1">Review & Launch</h2>
-      <p className="text-sm text-gray-500 mb-6">Review the session and scoring setup before activating.</p>
+      <p className="text-sm text-gray-500 mb-6">Review the {goalieOnly ? "goalie " : ""}session and scoring setup before activating.</p>
       <div className="space-y-4">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Trophy size={15} className="text-accent" /> Sessions ({sessions.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Trophy size={15} className="text-accent" /> {goalieOnly ? "Goalie Sessions" : "Sessions"} ({sessions.length})</h3>
           <div className="space-y-2">
-            {sessions.map((s, i) => (<div key={i} className="flex items-center justify-between text-sm"><span className="text-gray-700">{s.name} <span className="text-gray-400 capitalize">({s.session_type})</span></span><span className="font-semibold text-accent">{s.weight_percentage}%</span></div>))}
+            {sessions.map((s, i) => (<div key={i} className="flex items-center justify-between text-sm"><span className="text-gray-700">{s.name} <span className="text-gray-400 capitalize">({(s.session_type || "").replace("_", " ")})</span></span><span className="font-semibold text-accent">{s.weight_percentage}%</span></div>))}
             <div className={`flex items-center justify-between text-sm pt-2 border-t border-gray-200 font-semibold ${totalWeight === 100 ? "text-green-600" : "text-red-500"}`}><span>Total</span><span>{totalWeight}%</span></div>
           </div>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Settings size={15} className="text-accent" /> Scoring</h3>
-          <div className="space-y-1.5 text-sm">
-            <div><span className="text-gray-500">Scale:</span> <span className="font-medium">Out of {scoring.scoring_scale}</span></div>
-            <div><span className="text-gray-500">Increments:</span> <span className="font-medium">{scoring.scoring_increment === 0.5 ? "0.5" : "1.0"}</span></div>
-            <div><span className="text-gray-500">Position Tagging:</span> <span className="font-medium">{scoring.position_tagging ? "On" : "Off"}</span></div>
+        {goalieOnly ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Shield size={15} className="text-accent" /> Goalie Scoring</h3>
+            <div className="space-y-1.5 text-sm">
+              <div><span className="text-gray-500">Scale:</span> <span className="font-medium">Out of {goalie?.scale}</span></div>
+              <div><span className="text-gray-500">Increments:</span> <span className="font-medium">{goalie?.increment === 0.5 ? "0.5" : "1.0"}</span></div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {(goalie?.skills || []).map((c, i) => (<span key={`s${i}`} className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-xs font-medium">{c.name}</span>))}
+              {(goalie?.categories || []).map((c, i) => (<span key={`c${i}`} className="px-2 py-0.5 bg-orange-50 text-accent border border-orange-200 rounded-full text-xs font-medium">{c.name}</span>))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1.5 mt-3">{scoring.categories.map((c, i) => (<span key={i} className="px-2 py-0.5 bg-orange-50 text-accent border border-orange-200 rounded-full text-xs font-medium">{c.name}</span>))}</div>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-2.5">
-          <Shield size={15} className="text-blue-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-blue-800">Goalies are evaluated by <strong>{modeLabel}</strong>. Goalie scale, skills, and sessions are set in the <strong>Goalie Evaluation</strong> panel on your dashboard{goalieBy?.goalie_eval_mode && goalieBy.goalie_eval_mode !== "association" ? " and controlled by your provider" : ""} — not here.</p>
-        </div>
+        ) : (
+          <>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><Settings size={15} className="text-accent" /> Scoring</h3>
+              <div className="space-y-1.5 text-sm">
+                <div><span className="text-gray-500">Scale:</span> <span className="font-medium">Out of {scoring.scoring_scale}</span></div>
+                <div><span className="text-gray-500">Increments:</span> <span className="font-medium">{scoring.scoring_increment === 0.5 ? "0.5" : "1.0"}</span></div>
+                <div><span className="text-gray-500">Position Tagging:</span> <span className="font-medium">{scoring.position_tagging ? "On" : "Off"}</span></div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-3">{scoring.categories.map((c, i) => (<span key={i} className="px-2 py-0.5 bg-orange-50 text-accent border border-orange-200 rounded-full text-xs font-medium">{c.name}</span>))}</div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-2.5">
+              <Shield size={15} className="text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-blue-800">Goalies are evaluated by <strong>{modeLabel}</strong>. Goalie scale, skills, and sessions are set in the <strong>Goalie Evaluation</strong> panel on your dashboard{goalieBy?.goalie_eval_mode && goalieBy.goalie_eval_mode !== "association" ? " and controlled by your provider" : ""} — not here.</p>
+            </div>
+          </>
+        )}
         {totalWeight !== 100 && (<div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl"><AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" /><p className="text-sm text-red-700">Session weights must total 100%. Go back to Step 1.</p></div>)}
         {totalWeight === 100 && (<div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-xl"><Check size={16} className="text-green-500 mt-0.5 flex-shrink-0" /><p className="text-sm text-green-700">Looks good! Click <strong>Launch Category</strong> to activate. You can edit settings later.</p></div>)}
       </div>
@@ -491,6 +566,7 @@ function SetupWizard() {
   const [error, setError] = useState("");
   const [theme, toggleTheme] = useTheme();
   const [evalFormat, setEvalFormat] = useState("standard"); // standard | round_robin
+  const [goalieOnly, setGoalieOnly] = useState(false); // goalie-SP association → goalie-only setup
 
   const [sessions, setSessions] = useState(DEFAULT_SESSIONS);
   const [scoring, setScoring] = useState({
@@ -499,12 +575,16 @@ function SetupWizard() {
     position_tagging: true,
     categories: DEFAULT_SCORING_CATS,
   });
+  // Goalie-mode state (used only when goalieOnly).
+  const [goalieSessions, setGoalieSessions] = useState(DEFAULT_GOALIE_SESSIONS);
+  const [goalie, setGoalie] = useState({ scale: 10, increment: 1, categories: DEFAULT_GOALIE_CATS, skills: DEFAULT_GOALIE_SKILLS_CATS });
 
   useEffect(() => {
     if (!catId) return;
     fetch(`/api/categories/${catId}/setup`).then(r => r.json()).then(data => {
       if (data.category) setCatName(data.category.name);
       if (data.category?.eval_format) setEvalFormat(data.category.eval_format);
+      if (data.goalie_only) setGoalieOnly(true);
       if (data.sessions?.length) setSessions(data.sessions);
       if (data.category?.scoring_scale) {
         setScoring(prev => ({
@@ -514,14 +594,24 @@ function SetupWizard() {
           position_tagging: data.category.position_tagging,
         }));
       }
+      // Goalie config + categories (goalie mode).
+      const gc = data.category?.goalie_config;
+      if (gc) setGoalie(prev => ({ ...prev, scale: gc.scale ?? prev.scale, increment: gc.increment ?? prev.increment }));
+      if (Array.isArray(gc?.sessions) && gc.sessions.length) setGoalieSessions(gc.sessions);
       if (data.scoringCategories?.length) {
         const scats = data.scoringCategories.filter(c => c.applies_to !== "goalies" && c.applies_to !== "goalie_skills");
         setScoring(prev => ({ ...prev, categories: scats.length ? scats : prev.categories }));
+        const gcats = data.scoringCategories.filter(c => c.applies_to === "goalies");
+        const gskills = data.scoringCategories.filter(c => c.applies_to === "goalie_skills");
+        setGoalie(prev => ({ ...prev, categories: gcats.length ? gcats : prev.categories, skills: gskills.length ? gskills : prev.skills }));
       }
     });
   }, [catId]);
 
-  const skaterValid = Math.round(sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0)) === 100;
+  const skaterSessionsValid = Math.round(sessions.reduce((s, sess) => s + Number(sess.weight_percentage), 0)) === 100;
+  const goalieSessionsValid = Math.round(goalieSessions.reduce((s, sess) => s + Number(sess.weight_percentage || 0), 0)) === 100;
+  const skaterValid = goalieOnly ? goalieSessionsValid : skaterSessionsValid;
+  const goalieConfigPayload = () => ({ scale: goalie.scale, increment: goalie.increment, sessions: goalieSessions });
 
   // Throw on a non-OK response so a failed save can't be mistaken for success —
   // fetch only rejects on network errors, not HTTP 4xx/5xx, so persistStep would
@@ -539,10 +629,18 @@ function SetupWizard() {
     try {
       if (step === 1) {
         if (!skaterValid) { setError("Session weights must total 100%."); setSaving(false); return false; }
-        await post({ step: "format", data: { eval_format: evalFormat } });
-        await post({ step: "sessions", data: { sessions } });
+        if (goalieOnly) {
+          await post({ step: "goalie_sessions", data: { goalie_config: goalieConfigPayload() } });
+        } else {
+          await post({ step: "format", data: { eval_format: evalFormat } });
+          await post({ step: "sessions", data: { sessions } });
+        }
       } else if (step === 2) {
-        await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
+        if (goalieOnly) {
+          await post({ step: "goalie_scoring", data: { players_eval_goalies: false, goalie_config: goalieConfigPayload(), goalie_categories: goalie.categories, goalie_skills_categories: goalie.skills } });
+        } else {
+          await post({ step: "scoring", data: { scoring_scale: scoring.scoring_scale, scoring_increment: scoring.scoring_increment, position_tagging: scoring.position_tagging, categories: scoring.categories } });
+        }
       }
       // steps 3 (athletes), 4 (schedule), 5 (review) have nothing to persist here
       setSaving(false); return true;
@@ -587,7 +685,11 @@ function SetupWizard() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         <StepIndicator currentStep={step} skaterValid={skaterValid} onJump={navigate} />
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-6">
-          {step === 1 && (
+          {step === 1 && goalieOnly && (
+            <SessionsStep title="Configure Goalie Sessions" subtitle="Goalies run their own session set — a Goalie Skills session (drills, higher is better) then scrimmages. Weights must total 100%." sessions={goalieSessions} setSessions={setGoalieSessions} typeOptions={GOALIE_SESSION_TYPES} addType="scrimmage" />
+          )}
+          {step === 2 && goalieOnly && <GoalieScoringStep goalie={goalie} setGoalie={setGoalie} />}
+          {step === 1 && !goalieOnly && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Evaluation format</h2>
@@ -610,10 +712,10 @@ function SetupWizard() {
               <SessionsStep title="Configure Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />
             </div>
           )}
-          {step === 2 && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
+          {step === 2 && !goalieOnly && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
           {step === 3 && <AthletesStep catId={catId} categoryName={catName} />}
-          {step === 4 && <ScheduleStep catId={catId} sessions={sessions} categoryName={catName} />}
-          {step === 5 && <ReviewStep catName={catName} sessions={sessions} scoring={scoring} orgId={orgId} />}
+          {step === 4 && <ScheduleStep catId={catId} sessions={goalieOnly ? goalieSessions : sessions} categoryName={catName} />}
+          {step === 5 && <ReviewStep catName={catName} sessions={goalieOnly ? goalieSessions : sessions} scoring={scoring} orgId={orgId} goalieOnly={goalieOnly} goalie={goalie} />}
         </div>
         {error && <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl mb-4"><AlertCircle size={15} className="text-red-500 flex-shrink-0" /><p className="text-sm text-red-700">{error}</p></div>}
         <div className="flex items-center justify-between">

@@ -26,7 +26,19 @@ export async function GET(request, { params }) {
       SELECT * FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order
     `;
 
-    return NextResponse.json({ category, sessions, scoringCategories });
+    // A goalie-only association: served by a goalie SP and NOT by a skater SP.
+    // These evaluate goalies only, so the setup wizard runs in goalie mode (no
+    // skater sessions/scoring).
+    let goalie_only = false;
+    try {
+      const [f] = await sql`
+        SELECT
+          EXISTS(SELECT 1 FROM sp_association_links sal JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'goalie_service_provider' WHERE sal.association_id = ${category.organization_id} AND sal.status = 'active') AS has_goalie_sp,
+          EXISTS(SELECT 1 FROM sp_association_links sal JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider' WHERE sal.association_id = ${category.organization_id} AND sal.status = 'active') AS has_skater_sp`;
+      goalie_only = !!f?.has_goalie_sp && !f?.has_skater_sp;
+    } catch { /* best-effort */ }
+
+    return NextResponse.json({ category, sessions, scoringCategories, goalie_only });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
