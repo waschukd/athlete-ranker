@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Users, Shuffle, Loader2, GripVertical } from "lucide-react";
 
-// Pre-Session-1 team assignment for a round-robin category. Seed teams without
-// scores (alphabetical or even), then drag players between teams to adjust —
-// reuses the same drag idiom as the final Team Builder. Only rendered when the
+// Team assignment for a Tournament category. Seed teams without scores
+// (alphabetical or even), then drag players between teams to adjust, and "Apply
+// to schedule" to fill upcoming matchup games. Rendered on the Teams tab when the
 // category's eval_format = 'round_robin'.
 const posShort = (p) => { const s = (p || "").toLowerCase(); return s.startsWith("d") ? "D" : s.startsWith("g") ? "G" : "F"; };
 const nameOf = (a) => `${a.first_name || ""} ${a.last_name || ""}`.trim() || `#${a.jersey_number ?? "?"}`;
@@ -15,6 +15,7 @@ export default function ScrimmageTeams({ catId }) {
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(3);
   const [drag, setDrag] = useState(null); // { athlete_id }
+  const [applied, setApplied] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/categories/${catId}/scrimmage-teams`);
@@ -27,6 +28,15 @@ export default function ScrimmageTeams({ catId }) {
   const post = async (body) => {
     setBusy(true);
     try { await fetch(`/api/categories/${catId}/scrimmage-teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); await load(); } catch {}
+    setBusy(false);
+  };
+
+  const applyMatchups = async () => {
+    setBusy(true); setApplied(null);
+    try {
+      const res = await fetch(`/api/categories/${catId}/scrimmage-teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply_matchups" }) });
+      setApplied(await res.json());
+    } catch {}
     setBusy(false);
   };
 
@@ -65,7 +75,11 @@ export default function ScrimmageTeams({ catId }) {
         <button onClick={() => post({ action: "seed", mode: "even", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
           Even split (by #)
         </button>
-        <span className="text-[11px] text-gray-400">Then drag players between teams to adjust.</span>
+        <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
+          Apply to schedule
+        </button>
+        <span className="text-[11px] text-gray-400">Drag players between teams to adjust, then Apply.</span>
+        {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

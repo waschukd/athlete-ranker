@@ -107,14 +107,15 @@ export async function POST(request, { params }) {
       // SP's tester count so it surfaces on the tester dashboard without the
       // association ever having to think about it. The SP can still adjust it.
       const testers_required = isTesting ? DEFAULT_TESTING_TESTERS : 0;
+      const matchup = a.matchup || a.Matchup || null;
       const code = await uniqueCheckinCode(session_number, group_number);
       const [row] = await sql`
         INSERT INTO evaluation_schedule (
           age_category_id, session_number, group_number, scheduled_date, day_of_week,
-          start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, status
+          start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status
         ) VALUES (
           ${catId}, ${session_number}, ${group_number}, ${a.scheduled_date}, ${a.day_of_week || null},
-          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, 'scheduled'
+          ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, ${matchup}, 'scheduled'
         ) RETURNING *
       `;
       await ensureSessionGroup(catId, session_number, group_number);
@@ -153,6 +154,7 @@ export async function POST(request, { params }) {
       const rawEval = [entry.evaluators_required, entry["Evaluators Required"], entry["Player Evaluators"]].find(v => v != null && v !== "");
       const evaluators_required = isTesting ? 0 : (rawEval != null ? (parseInt(rawEval) || 0) : 4);
       const goalie_evaluators_required = parseInt(entry.goalie_evaluators_required || entry["Goalie Evaluators"] || 0) || 0;
+      const matchup = entry.matchup || entry.Matchup || entry["Matchup"] || null;
 
       const existingEntry = await sql`
         SELECT id FROM evaluation_schedule
@@ -168,6 +170,7 @@ export async function POST(request, { params }) {
             start_time = ${start_time}, end_time = ${end_time},
             location = ${location}, evaluators_required = ${evaluators_required},
             goalie_evaluators_required = ${goalie_evaluators_required},
+            matchup = COALESCE(${matchup}, matchup),
             testers_required = CASE WHEN ${isTesting} AND COALESCE(testers_required, 0) = 0 THEN ${DEFAULT_TESTING_TESTERS} ELSE testers_required END
           WHERE id = ${existingEntry[0].id}
         `;
@@ -177,10 +180,10 @@ export async function POST(request, { params }) {
         await sql`
           INSERT INTO evaluation_schedule (
             age_category_id, session_number, group_number, scheduled_date, day_of_week,
-            start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, status
+            start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status
           ) VALUES (
             ${catId}, ${session_number}, ${group_number}, ${scheduled_date}, ${day_of_week},
-            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, 'scheduled'
+            ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, ${matchup}, 'scheduled'
           )
         `;
         inserted++;

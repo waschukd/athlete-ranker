@@ -459,3 +459,16 @@ export async function sendParentReportEmail({ to, playerName, orgName, spName, r
   const html = parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr });
   return sendEmail(to, `${playerName}'s Development Report — ${orgName}`, html);
 }
+
+// Gentle "not moving forward" note when a player is cut from an elite/tryout
+// division and re-registered at a lower level. `message` (optional) overrides the
+// default wording so an admin can personalize it. Returns the sendEmail status.
+export async function emailPlayerCut({ to, playerName, orgName, fromCategory, toCategory, message }) {
+  const body = message || `Thank you for attending our ${fromCategory} evaluations. After careful consideration, ${playerName} will not be moving forward in this process. Moving forward, ${playerName} will be registered in the ${toCategory} evaluations — we wish them the very best in the process.`;
+  const html = emailWrapper(`
+    ${emailHeader(`${esc(orgName)} &middot; Evaluation Update`, `An update on ${esc(playerName)}`)}
+    <p style="margin:18px auto 0;max-width:430px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(body)}</p>
+    <p style="margin:22px auto 0;max-width:420px;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">Questions? Simply reply to ${esc(orgName)}.</p>
+  `);
+  return sendEmail(to, `Evaluation update — ${esc(orgName)}`, html);
+}

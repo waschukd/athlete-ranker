@@ -82,6 +82,11 @@ export async function POST(request, { params }) {
       const keyRows = scheduleRows.filter(r => r.divisionKey === dec.key);
       const keyAthletes = athletes.filter(a => a.divisionKey === dec.key);
 
+      // Per-division evaluation format from the template's Format column (any
+      // Tournament row ⇒ round_robin). Only applied when the file declared it.
+      const declaredTournament = keyRows.some(r => r.eval_format === "round_robin");
+      const declaredFormat = keyRows.some(r => r.eval_format) ? (declaredTournament ? "round_robin" : "standard") : null;
+
       // Resolve the target category.
       let catId;
       if (dec.action === "existing" && dec.categoryId) {
@@ -97,6 +102,7 @@ export async function POST(request, { params }) {
         await seedConfig(catId, sessions);
         summary.categoriesCreated++;
       }
+      if (declaredFormat) { try { await sql`UPDATE age_categories SET eval_format = ${declaredFormat} WHERE id = ${catId}`; } catch { /* column not migrated */ } }
 
       // Session mapping for this category's schedule.
       const { sessionForRow } = deriveSessions(keyRows);
@@ -120,15 +126,20 @@ export async function POST(request, { params }) {
       const groupCounter = {}; // session_number → next group
       const sorted = keyRows.filter(r => r.date).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.start_time || "").localeCompare(b.start_time || ""));
       for (const r of sorted) {
-        const sNum = sessionForRow(r);
-        groupCounter[sNum] = (groupCounter[sNum] || 0) + 1;
+        // Honor explicit Session #/Group # from the template; else derive.
+        const sNum = (r.session_number != null && r.session_number !== "") ? (parseInt(r.session_number) || sessionForRow(r)) : sessionForRow(r);
+        let grpNum;
+        if (r.group_number != null && r.group_number !== "") { grpNum = parseInt(r.group_number) || 1; }
+        else { groupCounter[sNum] = (groupCounter[sNum] || 0) + 1; grpNum = groupCounter[sNum]; }
         let dow = null; try { dow = DOW[new Date(`${r.date}T00:00:00`).getDay()]; } catch { dow = null; }
         // Respect per-row evaluator counts from the template; else sensible defaults.
         const pe = r.player_evaluators != null && r.player_evaluators !== "" ? (parseInt(r.player_evaluators) || 0) : (isTesting(r.session_type) ? 0 : 4);
         const ge = r.goalie_evaluators != null && r.goalie_evaluators !== "" ? (parseInt(r.goalie_evaluators) || 0) : 0;
         const evalReq = isTesting(r.session_type) ? 0 : pe;
-        await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, status)
-          VALUES (${catId}, ${sNum}, ${groupCounter[sNum]}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, 'scheduled')`;
+        // Tournament matchup label is stored, not resolved — teams are assigned
+        // later in the dashboard Teams tab (no teams exist at bulk load).
+        await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, matchup, status)
+          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${r.matchup || null}, 'scheduled')`;
         summary.scheduleImported++;
       }
     }

@@ -6,7 +6,7 @@ import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsight
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -66,6 +66,34 @@ export default function CategoryDashboard({
   const canManage = role === "association";
 
   const [activeTab, setActiveTab] = useState("rankings");
+  // Cut-player flow (Tournament ranking page)
+  const [cutTarget, setCutTarget] = useState(null); // athlete being cut
+  const [cutCats, setCutCats] = useState([]);        // destination options
+  const [cutDest, setCutDest] = useState("");
+  const [cutNotify, setCutNotify] = useState(true);
+  const [cutMsg, setCutMsg] = useState("");
+  const [cutBusy, setCutBusy] = useState(false);
+  const [cutResult, setCutResult] = useState("");
+
+  const openCut = async (athlete) => {
+    setCutTarget(athlete); setCutDest(""); setCutNotify(true); setCutMsg(""); setCutResult(""); setCutCats([]);
+    try {
+      const res = await fetch(`/api/categories/${catId}/cut`);
+      const d = await res.json();
+      setCutCats(d.categories || []);
+    } catch {}
+  };
+  const submitCut = async () => {
+    if (!cutTarget || !cutDest) return;
+    setCutBusy(true); setCutResult("");
+    try {
+      const res = await fetch(`/api/categories/${catId}/cut`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athleteId: cutTarget.id, toCategoryId: parseInt(cutDest), notify: cutNotify, message: cutMsg || null }) });
+      const d = await res.json();
+      if (d.success) { setCutTarget(null); refetchRankings(); }
+      else setCutResult(d.error || "Couldn't cut player.");
+    } catch { setCutResult("Couldn't cut player."); }
+    setCutBusy(false);
+  };
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
   const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
   const [scheduleDay, setScheduleDay] = useState(null); // selected day for Day view
@@ -313,6 +341,7 @@ export default function CategoryDashboard({
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
     { id: "schedule", label: "Schedule", icon: Calendar },
+    ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
     { id: "athletes", label: "Athletes", icon: Users },
     { id: "settings", label: "Settings", icon: Settings },
@@ -323,7 +352,7 @@ export default function CategoryDashboard({
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
   // Big title tracks the active tab (sample-6 look: group in the kicker, section as the headline)
-  const TAB_TITLES = { rankings: "Rankings", schedule: "Schedule", analysis: "Analysis", athletes: "Athletes", settings: "Settings" };
+  const TAB_TITLES = { rankings: "Rankings", schedule: "Schedule", teams: "Teams", analysis: "Analysis", athletes: "Athletes", settings: "Settings" };
   const activeTitle = TAB_TITLES[activeTab] || "Rankings";
 
   return (
@@ -698,9 +727,16 @@ export default function CategoryDashboard({
                           })()}
                         </td>}
                         <td className="px-4 py-3 text-center">
-                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
-                            <FileText size={13} /> Report
-                          </a>
+                          <div className="inline-flex items-center gap-1.5">
+                            <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
+                              <FileText size={13} /> Report
+                            </a>
+                            {category?.eval_format === "round_robin" && canEditSchedule && (
+                              <button onClick={() => openCut(a)} title="Cut player" className="inline-flex items-center justify-center p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-300 transition-colors">
+                                <Scissors size={13} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -819,6 +855,16 @@ export default function CategoryDashboard({
           </div>
         )}
 
+        {activeTab === "teams" && category?.eval_format === "round_robin" && (
+          <div className="space-y-4">
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-ink flex items-center gap-2"><Users size={18} className="text-accent" /> Teams</h2>
+              <p className="text-sm text-gray-500 mt-1">Assign players to teams (A/B/C/D). Seed then drag to adjust, then <b>Apply to schedule</b> to fill upcoming matchup games. Already-played games are never changed, and moving a player never affects their past scores.</p>
+            </div>
+            <ScrimmageTeams catId={catId} />
+          </div>
+        )}
+
         {activeTab === "schedule" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -853,18 +899,6 @@ export default function CategoryDashboard({
             </div>
             {uploadMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{uploadMsg}</div>}
             {scheduleMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{scheduleMsg}</div>}
-
-            {category?.eval_format === "round_robin" && (
-              <details className="bg-white border border-gray-200 rounded-xl overflow-hidden" open>
-                <summary className="px-4 py-3 cursor-pointer text-sm font-semibold text-ink flex items-center gap-2 select-none">
-                  <Users size={15} className="text-accent" /> Assign Teams
-                  <span className="text-xs font-normal text-gray-400">— round-robin: seed &amp; drag before Session 1</span>
-                </summary>
-                <div className="px-4 pb-4 border-t border-gray-100 pt-4">
-                  <ScrimmageTeams catId={catId} />
-                </div>
-              </details>
-            )}
 
             {schedule.length > 0 && (
               <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
@@ -1751,6 +1785,32 @@ export default function CategoryDashboard({
               </div>
             </div>
           )
+        )}
+
+        {/* Cut player modal */}
+        {cutTarget && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !cutBusy && setCutTarget(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2 mb-1"><Scissors size={18} className="text-red-500" /><h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Cut player</h3></div>
+              <p className="text-sm text-gray-600 mb-4">Cut <b>{cutTarget.first_name} {cutTarget.last_name}</b> from {displayName}? Their scores here are kept; they're removed from remaining games and re-registered in the division you pick.</p>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Move player to</label>
+              <select value={cutDest} onChange={e => setCutDest(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white mb-4">
+                <option value="">Select a division…</option>
+                {cutCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <label className="flex items-center gap-2 mb-3 text-sm text-gray-700">
+                <input type="checkbox" checked={cutNotify} onChange={e => setCutNotify(e.target.checked)} /> Email the parents a gentle note
+              </label>
+              {cutNotify && (
+                <textarea value={cutMsg} onChange={e => setCutMsg(e.target.value)} placeholder="Leave blank to use the default wording." rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3" />
+              )}
+              {cutResult && <p className="text-sm text-red-600 mb-3">{cutResult}</p>}
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={() => setCutTarget(null)} disabled={cutBusy} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50">Cancel</button>
+                <button onClick={submitCut} disabled={cutBusy || !cutDest} className="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">{cutBusy ? "Cutting…" : "Confirm cut"}</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Comparison overlay */}

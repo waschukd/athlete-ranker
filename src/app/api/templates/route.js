@@ -59,12 +59,13 @@ export async function GET(request) {
   // set up from two files — parsed deterministically (no AI) by that column.
   if (type === "bulk-schedule") {
     const csv = [
-      "Division,Session Type,Date,Day,Start Time,End Time,Location,Player Evaluators,Goalie Evaluators",
-      "U11 AA,Testing,2026-09-06,Sunday,09:00,10:00,Rink A,0,0",
-      "U11 AA,Scrimmage,2026-09-08,Tuesday,17:00,18:15,Rink A,4,1",
-      "U11 AA,Scrimmage,2026-09-10,Thursday,17:00,18:15,Rink A,4,1",
-      "U13 House,Scrimmage,2026-09-09,Wednesday,18:00,19:15,Rink B,4,0",
-      "U13 House,Scrimmage,2026-09-11,Friday,18:00,19:15,Rink B,4,0",
+      "# STANDARD (House): one pool; Session # = wave; Group/Matchup = group number (1,2,3); Type = Testing/Scrimmage/Goalie Skills.",
+      "# TOURNAMENT (Elite or House): set teams A/B/C/D play matchups; Session # = game; Group/Matchup = 'A vs B'; leave Type blank. Assign teams later in the dashboard Teams tab.",
+      "Division,Format,Session #,Group/Matchup,Type,Date,Start Time,End Time,Location,Player Evaluators,Goalie Evaluators",
+      "U11 AA,Tournament,1,A vs B,,2026-09-19,17:30,18:30,Rink A,4,1",
+      "U11 AA,Tournament,2,C vs D,,2026-09-20,18:15,19:15,Rink A,4,1",
+      "U13 House,Standard,1,1,Testing,2026-09-09,18:00,19:00,Rink B,0,0",
+      "U13 House,Standard,1,2,Scrimmage,2026-09-09,19:15,20:30,Rink B,4,0",
     ].join("\n");
     return new NextResponse(csv, { headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=bulk_schedule_template.csv" } });
   }

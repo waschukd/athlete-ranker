@@ -106,3 +106,34 @@ export async function assignMatchupRoster(catId, session_number, group_number, t
     await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${members[i].athlete_id}, ${grp.id}, ${i}) ON CONFLICT DO NOTHING`;
   }
 }
+
+// A game is "frozen" once it's been played — its date has passed, or players
+// have checked in. Frozen games are never re-resolved, so moving a player
+// between teams can't disturb a game that already happened. (Scores are anchored
+// to athlete_id + session regardless, so history is safe either way.)
+export function isGameFrozen({ past, hasCheckins }) {
+  return !!(past || hasCheckins);
+}
+
+// Resolve every stored matchup label into that game's roster — but ONLY for
+// un-played games. Backs the Teams tab's "Apply to schedule". Returns
+// { applied, skipped }. Resilient pre-migration.
+export async function applyAllMatchups(catId) {
+  let rows;
+  try {
+    rows = await sql`
+      SELECT id, session_number, group_number, matchup, (scheduled_date < CURRENT_DATE) AS past
+      FROM evaluation_schedule
+      WHERE age_category_id = ${catId} AND matchup IS NOT NULL AND status <> 'cancelled'`;
+  } catch { return { applied: 0, skipped: 0 }; }
+  let applied = 0, skipped = 0;
+  for (const r of rows) {
+    let hasCheckins = false;
+    try { const c = await sql`SELECT 1 FROM player_checkins WHERE schedule_id = ${r.id} LIMIT 1`; hasCheckins = c.length > 0; } catch { /* table optional */ }
+    if (isGameFrozen({ past: r.past, hasCheckins })) { skipped++; continue; }
+    const teams = await resolveMatchupTeams(catId, r.matchup);
+    if (teams.length) { await assignMatchupRoster(catId, r.session_number, r.group_number, teams); applied++; }
+    else skipped++;
+  }
+  return { applied, skipped };
+}

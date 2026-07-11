@@ -692,12 +692,12 @@ function SetupWizard() {
           {step === 1 && !goalieOnly && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Evaluation format</h2>
-                <p className="text-sm text-gray-500 mb-4">How is this age group evaluated? Most run Standard. Choose Round-robin only if you split the players into teams that play matchups (any tier — house too, when the numbers call for it).</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Choose the evaluation format</h2>
+                <p className="text-sm text-gray-500 mb-4">This shapes how {catName || "this age group"} is run. Pick one:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { v: "standard", t: "Standard rankings", d: "Everyone evaluated together across the sessions; ranked individually." },
-                    { v: "round_robin", t: "Round-robin (teams)", d: "Players split into teams (A/B/C) that play matchup games, plus bubble games. Assign teams before Session 1." },
+                    { v: "standard", t: "Standard (House)", d: "One pool per age group. Players skate in groups/waves and move up or down based on performance. Ranking-based." },
+                    { v: "round_robin", t: "Tournament (Elite, or House)", d: "Players split into set teams (A/B/C/D) that play matchup games. Every player is scored every game they skate; missing a game doesn't hurt them. Teams are assigned in the dashboard." },
                   ].map(o => (
                     <button key={o.v} type="button" onClick={() => setEvalFormat(o.v)} className={`text-left p-4 rounded-xl border-2 transition-all ${evalFormat === o.v ? "border-accent bg-accent-soft" : "border-gray-200 hover:border-gray-300"}`}>
                       <div className="flex items-center justify-between mb-1"><span className="font-semibold text-gray-800">{o.t}</span>{evalFormat === o.v && <Check size={16} className="text-accent" />}</div>
@@ -706,7 +706,7 @@ function SetupWizard() {
                   ))}
                 </div>
                 {evalFormat === "round_robin" && (
-                  <p className="text-xs text-accent mt-3">After launch, an <b>Assign Teams</b> panel appears on the category so you can seed teams (alphabetical) and drag to adjust before Session 1.</p>
+                  <p className="text-xs text-accent mt-3">After launch, a <b>Teams</b> tab appears on the category — assign teams (A/B/C/D), drag to adjust, then Apply to fill the matchup games.</p>
                 )}
               </div>
               <SessionsStep title="Configure Sessions" subtitle="How many sessions, their types, and weighting. House-league default is Testing then 3 scrimmages — for rep tryouts, delete Testing and run scrimmages. Weights must total 100%." sessions={sessions} setSessions={setSessions} typeOptions={SESSION_TYPES} addType="scrimmage" />
