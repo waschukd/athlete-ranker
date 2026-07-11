@@ -232,18 +232,24 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true });
     }
 
+    // Upsert so jersey/color can be set even before a check-in record exists
+    // (e.g. a fresh category with no group assignments yet).
     if (action === "update_jersey") {
+      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
-        UPDATE player_checkins SET jersey_number = ${jersey_number}
-        WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number)
+        VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number})
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET jersey_number = ${jersey_number}
       `;
       return NextResponse.json({ success: true });
     }
 
     if (action === "move_team") {
+      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
-        UPDATE player_checkins SET team_color = ${team_color}
-        WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color)
+        VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${team_color})
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = ${team_color}
       `;
       return NextResponse.json({ success: true });
     }
