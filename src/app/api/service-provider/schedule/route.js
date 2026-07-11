@@ -29,7 +29,7 @@ export async function GET(request) {
         ac.id as category_id, ac.id as age_category_id, ac.name as category_name,
         o.id as org_id, o.name as org_name,
         cs.session_type, cs.name as session_name,
-        COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+        COALESCE(es.evaluators_required, cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
         COALESCE(es.goalie_evaluators_required, 0) as goalie_evaluators_required,
         COALESCE(es.testers_required, 0) as testers_required,
         COUNT(DISTINCT tss.id) as testers_signed_up,

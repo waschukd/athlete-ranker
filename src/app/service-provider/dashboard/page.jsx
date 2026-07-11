@@ -1411,11 +1411,16 @@ function SPDashboard() {
     return filteredEvaluators.slice(start, start + EVAL_PAGE_SIZE);
   }, [filteredEvaluators, evalPageSafe, EVAL_PAGE_SIZE]);
   const rawSchedule = schedData?.schedule || [];
+  const isGoalieSp = sp?.type === "goalie_service_provider";
   const byDate = rawSchedule.reduce((acc, entry) => {
     const date = entry.scheduled_date?.toString().split("T")[0];
     if (!date) return acc;
     if (!acc[date]) acc[date] = [];
-    acc[date].push({ ...entry, spots_open: parseInt(entry.evaluators_required) - parseInt(entry.evaluators_signed_up || 0) });
+    // A goalie SP staffs GOALIE evaluators (its rows carry is_goalie_sp so the row
+    // shows "Evaluate", not "Check-in"). Spots track the goalie count, not the
+    // skater one (which defaults to 4 and made no sense here).
+    const req = isGoalieSp ? parseInt(entry.goalie_evaluators_required || 0) : parseInt(entry.evaluators_required || 0);
+    acc[date].push({ ...entry, is_goalie_sp: isGoalieSp, spots_open: Math.max(0, req - parseInt(entry.evaluators_signed_up || 0)) });
     return acc;
   }, {});
   const schedule = Object.values(byDate).flat();
@@ -2044,7 +2049,7 @@ function SPDashboard() {
                                     {/* Goalie SP evaluates its own goalies — jump straight into scoring. */}
                                     {entry.is_goalie_sp && entry.status !== "cancelled" && (
                                       <a href={`/evaluator/score/${entry.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md inline-flex items-center gap-1.5">
-                                        <Star size={12} /> Start evaluating
+                                        <Star size={12} /> Evaluate
                                       </a>
                                     )}
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
