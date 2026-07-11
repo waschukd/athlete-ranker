@@ -144,8 +144,8 @@ export function OrgAvatar({
         <img
           src={logoUrl}
           alt={name || "Organization"}
-          className={`rounded-lg object-cover ${className}`}
-          style={{ width: size, height: size, background: p.bg }}
+          className={`rounded-lg object-contain ${className}`}
+          style={{ width: size, height: size, background: "#fff", padding: 2 }}
         />
       );
     }
@@ -171,8 +171,8 @@ export function OrgAvatar({
         <img
           src={logoUrl}
           alt={name || "Organization"}
-          className="rounded-lg object-cover w-full h-full"
-          style={{ background: p.bg }}
+          className="rounded-lg object-contain w-full h-full"
+          style={{ background: "#fff", padding: 2 }}
         />
       ) : (
         <div

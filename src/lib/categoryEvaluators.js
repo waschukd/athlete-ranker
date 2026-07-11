@@ -80,6 +80,19 @@ export async function resolveEvaluatorKind(catId, userId, email) {
       LIMIT 1
     `;
     if (a.length) return "goalie";
+    // Goalie-only category (evaluates goalies, no skater scoring categories):
+    // there are no skaters, so ANY authorized scorer — including God — grades the
+    // goalies. Without this a super_admin/standard viewer sees an empty roster.
+    const goalieOnly = await sql`
+      SELECT 1 FROM age_categories ac
+      WHERE ac.id = ${catId} AND ac.evaluates_goalies = true
+        AND NOT EXISTS (
+          SELECT 1 FROM scoring_categories sc
+          WHERE sc.age_category_id = ac.id AND sc.applies_to IN ('all', 'skaters')
+        )
+      LIMIT 1
+    `;
+    if (goalieOnly.length) return "goalie";
     return "standard";
   } catch { return "standard"; }
 }
