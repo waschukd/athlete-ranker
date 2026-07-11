@@ -97,7 +97,21 @@ export async function GET(request, { params }) {
 
     let athletes = [];
 
+    // Only scope check-in to the group if this SESSION actually uses group
+    // assignments. A brand-new category has an (empty) group auto-created with the
+    // schedule but no players assigned yet — in that case show the full roster so
+    // everyone can be checked in (otherwise the screen shows 0/0).
+    let useGroup = false;
     if (sessionGroup.length) {
+      const assignedInSession = await sql`
+        SELECT COUNT(*)::int AS n FROM player_group_assignments pga
+        JOIN session_groups sg ON sg.id = pga.session_group_id
+        WHERE sg.age_category_id = ${sched.category_id} AND sg.session_number = ${sched.session_number}
+      `;
+      useGroup = assignedInSession[0].n > 0;
+    }
+
+    if (useGroup) {
       // Only show athletes assigned to this group
       athletes = await sql`
         SELECT
