@@ -24,6 +24,14 @@ export async function getCoachUserIds(catId) {
       JOIN sp_association_links sal ON sal.association_id = ac.organization_id AND sal.status = 'active'
       JOIN evaluator_memberships em ON em.organization_id = ac.organization_id AND em.status = 'active'
       WHERE ac.id = ${catId} AND em.user_id IS NOT NULL
+        -- An explicit per-category designation wins: someone marked as the goalie
+        -- (or standard) evaluator is OFFICIAL, not swept up as an implicit coach.
+        -- This is exactly the goalie-SP case — Jamie is the designated goalie
+        -- evaluator, so his scores must count toward the official ranking.
+        AND em.user_id NOT IN (
+          SELECT user_id FROM category_evaluators
+          WHERE age_category_id = ${catId} AND kind <> 'coach' AND user_id IS NOT NULL
+        )
     `;
     for (const r of rows) ids.add(r.user_id);
   } catch { /* no link / pre-migration */ }
