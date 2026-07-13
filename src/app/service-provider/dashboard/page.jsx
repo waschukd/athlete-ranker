@@ -1493,7 +1493,7 @@ function SPDashboard() {
               <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{sp?.type === "goalie_service_provider" ? "Goalie Service Provider" : "Service Provider"}</div>
               <div className="flex items-end gap-4 flex-wrap">
                 <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{sp?.name || "Service Provider"}</h1>
-                <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
+                <img src={theme === "premium" ? "/mark-gold.svg" : "/s-mark-dark.svg"} style={{width:"48px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
               </div>
               <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
                 <span><b className="text-ink">{associations.length}</b> client association{associations.length === 1 ? "" : "s"}</span>

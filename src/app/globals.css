@@ -94,7 +94,12 @@ body {
 [data-theme="premium"] .hover\:bg-\[\#0a4fc0\]:hover { background:var(--p-gold-hi) !important; }
 [data-theme="premium"] .hover\:bg-\[\#e8f0fd\]:hover { background:var(--p-gold-soft) !important; }
 [data-theme="premium"] .focus\:ring-\[\#0b5cd6\]:focus { --tw-ring-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .focus\:ring-\[\#0b5cd6\]\/30:focus { --tw-ring-color:var(--p-gold-bd) !important; }
 [data-theme="premium"] .focus\:ring-accent:focus { --tw-ring-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .border-\[\#0b5cd6\] { border-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .hover\:border-\[\#0b5cd6\]\/50:hover { border-color:var(--p-gold-bd) !important; }
+[data-theme="premium"] .hover\:text-\[\#0b5cd6\]:hover { color:var(--p-gold) !important; }
+[data-theme="premium"] .hover\:bg-\[\#dbe8fc\]:hover { background:var(--p-gold-soft) !important; }
 
 /* gradient CTAs -> solid gold gradient with dark text */
 [data-theme="premium"] .from-\[\#0b5cd6\] { --tw-gradient-from:var(--p-gold) var(--tw-gradient-from-position); --tw-gradient-to:rgb(212 175 55 / 0) var(--tw-gradient-to-position); --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
@@ -231,6 +236,10 @@ body {
 [data-theme="premium-light"] .focus\:ring-accent:focus,
 [data-theme="premium-light"] .focus\:ring-accent\/30:focus,
 [data-theme="premium-light"] .focus\:ring-\[\#0b5cd6\]:focus { --tw-ring-color:var(--plg-bd) !important; }
+[data-theme="premium-light"] .focus\:ring-\[\#0b5cd6\]\/30:focus { --tw-ring-color:var(--plg-bd) !important; }
+[data-theme="premium-light"] .hover\:border-\[\#0b5cd6\]\/50:hover { border-color:var(--plg-bd) !important; }
+[data-theme="premium-light"] .hover\:text-\[\#0b5cd6\]:hover { color:var(--plg) !important; }
+[data-theme="premium-light"] .hover\:bg-\[\#dbe8fc\]:hover { background:var(--plg-soft) !important; }
 
 /* ── Premium landing: cinematic full-bleed hero ── */
 .ss-hero { position:relative; overflow:hidden; }
