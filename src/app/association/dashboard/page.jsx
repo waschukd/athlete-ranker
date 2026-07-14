@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Users, FileText, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
 import { OrgAvatar, buildOrgColorMap, colorForOrg } from "@/lib/orgVisuals";
 import { WeekGrid, MonthCalendar, DateStripBar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
@@ -152,6 +152,7 @@ function Dashboard() {
   const [showBulkOnboard, setShowBulkOnboard] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [approvalSearch, setApprovalSearch] = useState("");
+  const [athleteSearch, setAthleteSearch] = useState("");
   const [showAllApprovals, setShowAllApprovals] = useState(false);
   const APPROVALS_CAP = 10;
   const [theme, toggleTheme] = useTheme();
@@ -194,6 +195,16 @@ function Dashboard() {
     queryKey: ["assoc-schedule", orgId],
     queryFn: async () => {
       const res = await fetch(`/api/organizations/${orgId}/schedule`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!orgId,
+  });
+
+  const { data: athletesData, isLoading: athletesLoading } = useQuery({
+    queryKey: ["assoc-athletes", orgId],
+    queryFn: async () => {
+      const res = await fetch(`/api/organizations/${orgId}/athletes`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -253,6 +264,12 @@ function Dashboard() {
   const scheduleDatesAll = Object.keys(assocByDate).filter(d => schedulePast || d >= scheduleToday).sort();
   const scheduleListDates = scheduleSelectedDate ? scheduleDatesAll.filter(d => d === scheduleSelectedDate) : scheduleDatesAll;
   const typeLabel = (t) => ({ testing: "Testing", scrimmage: "Scrimmage", skills: "Skills", goalie_skills: "Goalie Skills" }[t] || (t ? String(t).replace(/_/g, " ") : ""));
+
+  // Club-wide athlete directory (search + quick report).
+  const allAthletes = athletesData?.athletes || [];
+  const filteredAthletes = athleteSearch.trim()
+    ? allAthletes.filter(a => `${a.first_name || ""} ${a.last_name || ""} ${a.category_name || ""}`.toLowerCase().includes(athleteSearch.trim().toLowerCase()))
+    : allAthletes;
 
   const filteredCategories = categorySearch.trim()
     ? categories.filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
@@ -315,6 +332,7 @@ function Dashboard() {
   const navItems = [
     { id: "categories", label: "Age Categories", icon: LayoutGrid, tab: "overview", anchor: "categories" },
     { id: "schedule", label: "Schedule", icon: Calendar, tab: "schedule" },
+    { id: "athletes", label: "Athletes", icon: Users, tab: "athletes" },
     ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null, tab: "overview", anchor: "approvals" }] : []),
   ];
   // Nav switches tabs; anchor items also scroll to their section within the tab.
@@ -809,6 +827,54 @@ function Dashboard() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === "athletes" && (
+            <section className="scroll-mt-6">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <h2 className="font-display font-bold text-ink text-xl">Athletes <span className="text-sm font-medium text-gray-400">({filteredAthletes.length})</span></h2>
+                <div className="relative w-full sm:max-w-xs">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input type="text" value={athleteSearch} onChange={e => setAthleteSearch(e.target.value)} placeholder="Search name or category…"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white text-ink placeholder:text-gray-400" />
+                </div>
+              </div>
+
+              {athletesLoading ? (
+                <div className="py-16 text-center text-gray-400 text-sm">Loading athletes…</div>
+              ) : allAthletes.length === 0 ? (
+                <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
+                  <Users size={44} className="mx-auto text-gray-200 mb-3" />
+                  <h3 className="font-semibold text-gray-600">No athletes yet</h3>
+                  <p className="text-sm text-gray-400 mt-1">Athletes appear here once rosters are added to your age categories.</p>
+                </div>
+              ) : filteredAthletes.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 text-sm">No athletes match <span className="font-medium text-ink">&quot;{athleteSearch}&quot;</span></div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                  {filteredAthletes.map(a => (
+                    <div key={`${a.id}-${a.age_category_id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-ink truncate">
+                          {a.first_name} {a.last_name}
+                          {a.cut_at && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold align-middle">Cut</span>}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {a.category_name}
+                          {a.position ? ` · ${a.position}` : ""}
+                          {a.birth_year ? ` · ${a.birth_year}` : ""}
+                          {a.external_id ? ` · ${a.external_id}` : ""}
+                        </div>
+                      </div>
+                      <a href={`/player/report?athlete=${a.id}&cat=${a.age_category_id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors flex-shrink-0">
+                        <FileText size={13} /> Report
+                      </a>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
