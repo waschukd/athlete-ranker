@@ -3,8 +3,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
-import { OrgAvatar } from "@/lib/orgVisuals";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
+import { OrgAvatar, buildOrgColorMap, colorForOrg } from "@/lib/orgVisuals";
+import { WeekGrid, MonthCalendar, DateStripBar } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import BulkOnboard from "@/components/BulkOnboard";
@@ -154,6 +155,9 @@ function Dashboard() {
   const [showAllApprovals, setShowAllApprovals] = useState(false);
   const APPROVALS_CAP = 10;
   const [theme, toggleTheme] = useTheme();
+  const [scheduleView, setScheduleView] = useState("week"); // week | month | list
+  const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null);
+  const [schedulePast, setSchedulePast] = useState(false);
 
   const { data: myOrgsData } = useQuery({
     queryKey: ["my-organizations"],
@@ -179,6 +183,16 @@ function Dashboard() {
     queryKey: ["categories", orgId],
     queryFn: async () => {
       const res = await fetch(`/api/organizations/${orgId}/age-categories`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!orgId,
+  });
+
+  const { data: scheduleData } = useQuery({
+    queryKey: ["assoc-schedule", orgId],
+    queryFn: async () => {
+      const res = await fetch(`/api/organizations/${orgId}/schedule`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -224,6 +238,20 @@ function Dashboard() {
   const upcomingTotal = categoriesData?.upcomingTotal ?? upcoming.length;
   const totalAthletes = categories.reduce((s, c) => s + (parseInt(c.athletes_count) || 0), 0);
   const totalSessions = categories.reduce((s, c) => s + (parseInt(c.sessions_count) || 0), 0);
+
+  // Association-wide schedule (day/week/month), colored by age category.
+  const assocSchedule = scheduleData?.schedule || [];
+  const assocByDate = scheduleData?.byDate || {};
+  const _now = new Date();
+  const scheduleToday = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const catColorMap = buildOrgColorMap(assocSchedule.map(s => s.category_name));
+  const catPalette = (name) => catColorMap.get(name) || colorForOrg(name);
+  const dateOfRow = (s) => s.scheduled_date?.toString().split("T")[0];
+  const scheduleVisible = assocSchedule.filter(s => schedulePast || dateOfRow(s) >= scheduleToday);
+  const schedulePastCount = assocSchedule.filter(s => dateOfRow(s) < scheduleToday).length;
+  const scheduleDatesAll = Object.keys(assocByDate).filter(d => schedulePast || d >= scheduleToday).sort();
+  const scheduleListDates = scheduleSelectedDate ? scheduleDatesAll.filter(d => d === scheduleSelectedDate) : scheduleDatesAll;
+  const typeLabel = (t) => ({ testing: "Testing", scrimmage: "Scrimmage", skills: "Skills", goalie_skills: "Goalie Skills" }[t] || (t ? String(t).replace(/_/g, " ") : ""));
 
   const filteredCategories = categorySearch.trim()
     ? categories.filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
@@ -285,6 +313,7 @@ function Dashboard() {
 
   const navItems = [
     { id: "categories", label: "Age Categories", icon: LayoutGrid },
+    { id: "schedule", label: "Schedule", icon: Calendar },
     ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null }] : []),
   ];
 
@@ -493,6 +522,111 @@ function Dashboard() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </section>
+
+              {/* Association-wide schedule — day/week/month, colored by age category */}
+              <section id="schedule" className="scroll-mt-6">
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                  <h2 className="font-display font-bold text-ink text-xl">Schedule</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+                      {[
+                        { id: "week", label: "Week", Icon: CalendarDays },
+                        { id: "month", label: "Month", Icon: Calendar },
+                        { id: "list", label: "List", Icon: List },
+                      ].map(({ id, label, Icon }) => (
+                        <button key={id} onClick={() => setScheduleView(id)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${scheduleView === id ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                          <Icon size={12} /> {label}
+                        </button>
+                      ))}
+                    </div>
+                    {schedulePastCount > 0 && (
+                      <button onClick={() => setSchedulePast(v => !v)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
+                        {schedulePast ? "Hide Past" : `Show Past (${schedulePastCount})`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {assocSchedule.length === 0 ? (
+                  <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
+                    <Calendar size={44} className="mx-auto text-gray-200 mb-3" />
+                    <h3 className="font-semibold text-gray-600">No sessions scheduled yet</h3>
+                    <p className="text-sm text-gray-400 mt-1">Sessions from every age category show up here once schedules are added.</p>
+                  </div>
+                ) : scheduleView === "week" ? (
+                  <WeekGrid
+                    sessions={scheduleVisible}
+                    paletteFor={catPalette}
+                    colorKey={(s) => s.category_name}
+                    labelFor={(s) => s.category_name}
+                    subLabelFor={(s) => typeLabel(s.session_type)}
+                    onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+                    onOpen={(s) => { const k = dateOfRow(s); if (k) { setScheduleSelectedDate(k); setScheduleView("list"); } }}
+                  />
+                ) : scheduleView === "month" ? (
+                  <MonthCalendar
+                    sessions={scheduleVisible}
+                    paletteFor={catPalette}
+                    colorKey={(s) => s.category_name}
+                    labelFor={(s) => s.category_name}
+                    onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <DateStripBar sessions={scheduleVisible} selectedDate={scheduleSelectedDate} onSelect={setScheduleSelectedDate} paletteFor={catPalette} />
+                    {scheduleSelectedDate && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-accent-soft border border-accent/20 rounded-lg">
+                        <Calendar size={14} className="text-accent" />
+                        <span className="text-sm text-ink">Showing <strong>{fmtDate(scheduleSelectedDate)}</strong></span>
+                        <button onClick={() => setScheduleSelectedDate(null)} className="ml-auto text-accent hover:opacity-70"><X size={14} /></button>
+                      </div>
+                    )}
+                    {scheduleListDates.length === 0 ? (
+                      <div className="py-10 text-center text-sm text-gray-400">No sessions to show.</div>
+                    ) : (
+                      <div className="space-y-6">
+                        {scheduleListDates.map(date => (
+                          <div key={date}>
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="h-px flex-1 bg-gray-200" />
+                              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{fmtDate(date)}</span>
+                              <div className="h-px flex-1 bg-gray-200" />
+                            </div>
+                            <div className="space-y-2">
+                              {(assocByDate[date] || []).map(entry => {
+                                const palette = catPalette(entry.category_name);
+                                return (
+                                  <a key={entry.schedule_id} href={`/association/dashboard/category/${entry.age_category_id}?org=${orgId}`}
+                                    className={`bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap hover:border-accent/40 transition-colors ${entry.status === "cancelled" ? "opacity-60" : ""}`}
+                                    style={{ borderLeft: `4px solid ${palette.hex}` }}>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                                        <span className="text-sm font-semibold text-ink">{entry.category_name}</span>
+                                        {entry.session_type && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent-soft text-accent">{typeLabel(entry.session_type)}</span>}
+                                        {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
+                                      </div>
+                                      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                                        <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(entry.start_time)}{entry.end_time ? ` – ${fmtTime(entry.end_time)}` : ""}</span>
+                                        {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
+                                        <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
+                                      </div>
+                                    </div>
+                                    {!serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {entry.spots_open}</span>
+                                    )}
+                                    <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
