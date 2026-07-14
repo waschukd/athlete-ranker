@@ -83,7 +83,7 @@ export default function GodModeDashboard() {
                 <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">God Mode</div>
                 <div className="flex items-end gap-4 flex-wrap">
                   <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Platform Admin</h1>
-                  <img src="/s-mark-dark.svg" style={{ width: 44, height: 44, objectFit: "contain" }} alt="Sideline Star" />
+                  <img src="/mark-gold.svg" style={{ width: 48, height: 44, objectFit: "contain" }} alt="Sideline Star" />
                 </div>
               </div>
               <div className="flex items-center gap-2">

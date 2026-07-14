@@ -1294,7 +1294,7 @@ function TesterDashboardView({ data, theme, toggleTheme, showSwitch, onSwitch, q
     <div data-theme={theme} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between py-3">
-          <div className="flex items-center gap-2"><img src="/s-mark-dark.svg" style={{ width: 28, height: 28, objectFit: "contain" }} /><span className="font-display italic font-black text-accent text-sm uppercase tracking-[0.14em]">Sideline Star</span></div>
+          <div className="flex items-center gap-2"><img src="/mark-gold.svg" style={{ width: 30, height: 28, objectFit: "contain" }} /><span className="font-display italic font-black text-accent text-sm uppercase tracking-[0.14em]">Sideline Star</span></div>
           <div className="flex items-center gap-2"><ThemeToggle theme={theme} onToggle={toggleTheme} /><button onClick={signOut} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1"><LogOut size={14} /> Sign out</button></div>
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-1 pb-5">
@@ -1478,7 +1478,7 @@ function EvaluatorDashboard() {
             {isTester && isEvaluator && <CapabilityBar active="evaluations" onEvaluations={() => {}} onTesting={() => setCapView("testing")} />}
             <div className="flex items-end gap-4 flex-wrap">
               <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Dashboard</h1>
-              <img src="/s-mark-dark.svg" style={{width:"44px",height:"44px",objectFit:"contain"}} />
+              <img src="/mark-gold.svg" style={{width:"48px",height:"44px",objectFit:"contain"}} />
             </div>
             <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
               <span><b className="text-ink">{upcoming.length}</b> upcoming session{upcoming.length !== 1 ? "s" : ""}</span>

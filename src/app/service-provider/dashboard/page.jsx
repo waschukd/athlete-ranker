@@ -1286,6 +1286,7 @@ function SPDashboard() {
   const [theme, toggleTheme] = useTheme();
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
+  const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all"); // "all" | "testing" | "eval"
   const [scheduleView, setScheduleViewRaw] = useState("week"); // "week" | "month" | "list"
   useEffect(() => {
     const saved = typeof window !== "undefined" && window.localStorage.getItem("sp-schedule-view");
@@ -1473,9 +1474,18 @@ function SPDashboard() {
 
   // Date filter: when a specific date is picked from strip / calendar, show
   // only that day's sessions in the list.
-  const visibleDates = scheduleSelectedDate
+  const visibleDatesRaw = scheduleSelectedDate
     ? upcomingDates.filter(d => d === scheduleSelectedDate)
     : upcomingDates;
+  // Session-type filter for the Master Schedule: all / testing only / evaluation
+  // (anything scored — scrimmage, skills, goalie). Testing rows carry
+  // session_type === "testing".
+  const matchesType = (s) => scheduleTypeFilter === "all"
+    ? true
+    : scheduleTypeFilter === "testing"
+      ? s.session_type === "testing"
+      : s.session_type !== "testing";
+  const visibleDates = visibleDatesRaw.filter(d => (byDate[d] || []).some(matchesType));
 
   return (
     <div className="min-h-screen bg-gray-50" data-theme={theme}>
@@ -1493,7 +1503,7 @@ function SPDashboard() {
               <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{sp?.type === "goalie_service_provider" ? "Goalie Service Provider" : "Service Provider"}</div>
               <div className="flex items-end gap-4 flex-wrap">
                 <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{sp?.name || "Service Provider"}</h1>
-                <img src={theme === "premium" ? "/mark-gold.svg" : "/s-mark-dark.svg"} style={{width:"48px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
+                <img src="/mark-gold.svg" style={{width:"48px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
               </div>
               <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
                 <span><b className="text-ink">{associations.length}</b> client association{associations.length === 1 ? "" : "s"}</span>
@@ -1863,6 +1873,21 @@ function SPDashboard() {
                     </button>
                   ))}
                 </div>
+                {/* Session-type filter — all / testing only / evaluation */}
+                <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+                  {[
+                    { id: "all", label: "All" },
+                    { id: "testing", label: "Testing" },
+                    { id: "eval", label: "Evaluation" },
+                  ].map(({ id, label }) => (
+                    <button key={id} onClick={() => setScheduleTypeFilter(id)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                        scheduleTypeFilter === id ? "bg-[#0b5cd6] text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 {/* Subscribe — add the master schedule to Google/Apple Calendar */}
                 <button
                   onClick={async () => {
@@ -1968,21 +1993,21 @@ function SPDashboard() {
               </div>
             ) : scheduleView === "week" ? (
               <WeekGrid
-                sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                sessions={schedule.filter(s => (showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today) && matchesType(s))}
                 paletteFor={scheduleOrgPalette}
                 onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
                 onOpen={(s) => { const k = s.scheduled_date?.toString().split("T")[0]; if (k) { setScheduleSelectedDate(k); setScheduleView("list"); } }}
               />
             ) : scheduleView === "month" ? (
               <MonthCalendar
-                sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                sessions={schedule.filter(s => (showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today) && matchesType(s))}
                 paletteFor={scheduleOrgPalette}
                 onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
               />
             ) : (
               <>
                 <DateStripBar
-                  sessions={schedule.filter(s => showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today)}
+                  sessions={schedule.filter(s => (showPastSessions || s.scheduled_date?.toString().split("T")[0] >= today) && matchesType(s))}
                   selectedDate={scheduleSelectedDate}
                   onSelect={setScheduleSelectedDate}
                   paletteFor={scheduleOrgPalette}
@@ -1996,7 +2021,7 @@ function SPDashboard() {
                         <div className="h-px flex-1 bg-gray-200" />
                       </div>
                       <div className="space-y-2">
-                        {byDate[date].map(entry => {
+                        {byDate[date].filter(matchesType).map(entry => {
                           const palette = scheduleOrgPalette(entry.org_name);
                           return (
                             <div
