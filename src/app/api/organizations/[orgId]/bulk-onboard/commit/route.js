@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
+import { isTesting, deriveSessions } from "@/lib/bulkSessions";
 
 const ADMIN_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 
@@ -19,35 +20,8 @@ const GOALIE_CONFIG = {
   ],
 };
 const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const isTesting = (t) => t === "testing" || t === "goalie_skills";
 
 function code() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 6; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
-
-// Derive a session structure from a division's schedule rows: one testing session
-// (if any testing rows) then one scrimmage session per distinct scrimmage date.
-// Returns { sessions:[{session_number,type,weight}], sessionForRow(row)->number }.
-function deriveSessions(rows) {
-  const dated = rows.filter(r => r.date);
-  const scrimDates = [...new Set(dated.filter(r => !isTesting(r.session_type)).map(r => r.date))].sort();
-  const hasTesting = dated.some(r => isTesting(r.session_type));
-  const sessions = [];
-  let n = 1;
-  const testingNum = hasTesting ? n++ : null;
-  const scrimNums = new Map();
-  for (const d of scrimDates) scrimNums.set(d, n++);
-  const scrimCount = scrimDates.length;
-  const testingWeight = hasTesting && scrimCount ? 10 : (hasTesting ? 100 : 0);
-  const scrimWeight = scrimCount ? Math.round((100 - testingWeight) / scrimCount) : 0;
-  if (hasTesting) sessions.push({ session_number: testingNum, type: "testing", weight: testingWeight });
-  scrimDates.forEach((d, i) => sessions.push({ session_number: scrimNums.get(d), type: "scrimmage", weight: i === scrimCount - 1 ? (100 - testingWeight - scrimWeight * (scrimCount - 1)) : scrimWeight }));
-  // Fallback: no dated rows at all → the standard 4-session default.
-  if (!sessions.length) return { sessions: [
-    { session_number: 1, type: "testing", weight: 10 }, { session_number: 2, type: "scrimmage", weight: 30 },
-    { session_number: 3, type: "scrimmage", weight: 30 }, { session_number: 4, type: "scrimmage", weight: 30 },
-  ], sessionForRow: (r) => (isTesting(r.session_type) ? 1 : 2) };
-  const sessionForRow = (r) => isTesting(r.session_type) ? (testingNum || 1) : (scrimNums.get(r.date) || sessions.find(s => s.type === "scrimmage")?.session_number || 1);
-  return { sessions, sessionForRow };
-}
 
 async function seedConfig(catId, sessions) {
   for (const s of sessions) {
