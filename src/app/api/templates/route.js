@@ -59,8 +59,6 @@ export async function GET(request) {
   // set up from two files — parsed deterministically (no AI) by that column.
   if (type === "bulk-schedule") {
     const csv = [
-      "# STANDARD (House): one pool; Session # = wave; Group/Matchup = group number (1,2,3); Type = Testing/Scrimmage/Goalie Skills.",
-      "# TOURNAMENT (Elite or House): set teams A/B/C/D play matchups; Session # = game; Group/Matchup = 'A vs B'; leave Type blank. Assign teams later in the dashboard Teams tab.",
       "Division,Format,Session #,Group/Matchup,Type,Date,Start Time,End Time,Location,Player Evaluators,Goalie Evaluators",
       "U11 AA,Tournament,1,A vs B,,2026-09-19,17:30,18:30,Rink A,4,1",
       "U11 AA,Tournament,2,C vs D,,2026-09-20,18:15,19:15,Rink A,4,1",
