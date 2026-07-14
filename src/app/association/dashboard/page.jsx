@@ -155,6 +155,7 @@ function Dashboard() {
   const [showAllApprovals, setShowAllApprovals] = useState(false);
   const APPROVALS_CAP = 10;
   const [theme, toggleTheme] = useTheme();
+  const [activeTab, setActiveTab] = useState("overview"); // overview | schedule
   const [scheduleView, setScheduleView] = useState("week"); // week | month | list
   const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null);
   const [schedulePast, setSchedulePast] = useState(false);
@@ -312,10 +313,12 @@ function Dashboard() {
   }
 
   const navItems = [
-    { id: "categories", label: "Age Categories", icon: LayoutGrid },
-    { id: "schedule", label: "Schedule", icon: Calendar },
-    ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null }] : []),
+    { id: "categories", label: "Age Categories", icon: LayoutGrid, tab: "overview", anchor: "categories" },
+    { id: "schedule", label: "Schedule", icon: Calendar, tab: "schedule" },
+    ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null, tab: "overview", anchor: "approvals" }] : []),
   ];
+  // Nav switches tabs; anchor items also scroll to their section within the tab.
+  const goToNav = (item) => { setActiveTab(item.tab); if (item.anchor) setTimeout(() => document.getElementById(item.anchor)?.scrollIntoView({ behavior: "smooth" }), 60); };
 
   return (
     <div className="min-h-screen bg-gray-50 flex" data-theme={theme}>
@@ -346,8 +349,8 @@ function Dashboard() {
           {navItems.map(item => {
             const Icon = item.icon;
             return (
-              <button key={item.id} onClick={() => jumpTo(item.id)}
-                className="w-full flex items-center gap-3 px-6 py-3 text-gray-500 hover:bg-gray-100 hover:text-ink transition-colors text-sm font-medium">
+              <button key={item.id} onClick={() => goToNav(item)}
+                className={`w-full flex items-center gap-3 px-6 py-3 transition-colors text-sm font-medium ${activeTab === item.tab ? "bg-accent-soft text-accent border-r-2 border-accent" : "text-gray-500 hover:bg-gray-100 hover:text-ink"}`}>
                 <Icon size={18} /> <span className="flex-1 text-left">{item.label}</span>
                 {item.badge ? <span className="text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">{item.badge}</span> : null}
               </button>
@@ -443,6 +446,17 @@ function Dashboard() {
           </div>
 
           {/* Two-column: content + right rail */}
+          {/* Mobile tab switcher (desktop uses the sidebar) */}
+          <div className="lg:hidden mb-6 flex gap-1 overflow-x-auto border-b border-gray-200">
+            {navItems.map(item => { const Icon = item.icon; return (
+              <button key={item.id} onClick={() => setActiveTab(item.tab)}
+                className={`flex items-center gap-1.5 px-3 pb-2.5 pt-1 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${activeTab === item.tab ? "border-accent text-ink" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+                <Icon size={14} /> {item.label}
+              </button>
+            ); })}
+          </div>
+
+          {activeTab === "overview" && (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-8">
 
@@ -522,111 +536,6 @@ function Dashboard() {
                         </div>
                       );
                     })}
-                  </div>
-                )}
-              </section>
-
-              {/* Association-wide schedule — day/week/month, colored by age category */}
-              <section id="schedule" className="scroll-mt-6">
-                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                  <h2 className="font-display font-bold text-ink text-xl">Schedule</h2>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
-                      {[
-                        { id: "week", label: "Week", Icon: CalendarDays },
-                        { id: "month", label: "Month", Icon: Calendar },
-                        { id: "list", label: "List", Icon: List },
-                      ].map(({ id, label, Icon }) => (
-                        <button key={id} onClick={() => setScheduleView(id)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${scheduleView === id ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>
-                          <Icon size={12} /> {label}
-                        </button>
-                      ))}
-                    </div>
-                    {schedulePastCount > 0 && (
-                      <button onClick={() => setSchedulePast(v => !v)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
-                        {schedulePast ? "Hide Past" : `Show Past (${schedulePastCount})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {assocSchedule.length === 0 ? (
-                  <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
-                    <Calendar size={44} className="mx-auto text-gray-200 mb-3" />
-                    <h3 className="font-semibold text-gray-600">No sessions scheduled yet</h3>
-                    <p className="text-sm text-gray-400 mt-1">Sessions from every age category show up here once schedules are added.</p>
-                  </div>
-                ) : scheduleView === "week" ? (
-                  <WeekGrid
-                    sessions={scheduleVisible}
-                    paletteFor={catPalette}
-                    colorKey={(s) => s.category_name}
-                    labelFor={(s) => s.category_name}
-                    subLabelFor={(s) => typeLabel(s.session_type)}
-                    onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
-                    onOpen={(s) => { const k = dateOfRow(s); if (k) { setScheduleSelectedDate(k); setScheduleView("list"); } }}
-                  />
-                ) : scheduleView === "month" ? (
-                  <MonthCalendar
-                    sessions={scheduleVisible}
-                    paletteFor={catPalette}
-                    colorKey={(s) => s.category_name}
-                    labelFor={(s) => s.category_name}
-                    onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    <DateStripBar sessions={scheduleVisible} selectedDate={scheduleSelectedDate} onSelect={setScheduleSelectedDate} paletteFor={catPalette} />
-                    {scheduleSelectedDate && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-accent-soft border border-accent/20 rounded-lg">
-                        <Calendar size={14} className="text-accent" />
-                        <span className="text-sm text-ink">Showing <strong>{fmtDate(scheduleSelectedDate)}</strong></span>
-                        <button onClick={() => setScheduleSelectedDate(null)} className="ml-auto text-accent hover:opacity-70"><X size={14} /></button>
-                      </div>
-                    )}
-                    {scheduleListDates.length === 0 ? (
-                      <div className="py-10 text-center text-sm text-gray-400">No sessions to show.</div>
-                    ) : (
-                      <div className="space-y-6">
-                        {scheduleListDates.map(date => (
-                          <div key={date}>
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="h-px flex-1 bg-gray-200" />
-                              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{fmtDate(date)}</span>
-                              <div className="h-px flex-1 bg-gray-200" />
-                            </div>
-                            <div className="space-y-2">
-                              {(assocByDate[date] || []).map(entry => {
-                                const palette = catPalette(entry.category_name);
-                                return (
-                                  <a key={entry.schedule_id} href={`/association/dashboard/category/${entry.age_category_id}?org=${orgId}`}
-                                    className={`bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap hover:border-accent/40 transition-colors ${entry.status === "cancelled" ? "opacity-60" : ""}`}
-                                    style={{ borderLeft: `4px solid ${palette.hex}` }}>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                                        <span className="text-sm font-semibold text-ink">{entry.category_name}</span>
-                                        {entry.session_type && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent-soft text-accent">{typeLabel(entry.session_type)}</span>}
-                                        {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
-                                      </div>
-                                      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                                        <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(entry.start_time)}{entry.end_time ? ` – ${fmtTime(entry.end_time)}` : ""}</span>
-                                        {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
-                                        <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
-                                      </div>
-                                    </div>
-                                    {!serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {entry.spots_open}</span>
-                                    )}
-                                    <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
-                                  </a>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </section>
@@ -798,6 +707,112 @@ function Dashboard() {
               </div>
             </div>
           </div>
+          )}
+
+          {activeTab === "schedule" && (
+            <section className="scroll-mt-6">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <h2 className="font-display font-bold text-ink text-xl">Schedule</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+                    {[
+                      { id: "week", label: "Week", Icon: CalendarDays },
+                      { id: "month", label: "Month", Icon: Calendar },
+                      { id: "list", label: "List", Icon: List },
+                    ].map(({ id, label, Icon }) => (
+                      <button key={id} onClick={() => setScheduleView(id)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${scheduleView === id ? "bg-accent text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                        <Icon size={12} /> {label}
+                      </button>
+                    ))}
+                  </div>
+                  {schedulePastCount > 0 && (
+                    <button onClick={() => setSchedulePast(v => !v)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200">
+                      {schedulePast ? "Hide Past" : `Show Past (${schedulePastCount})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+              {assocSchedule.length === 0 ? (
+                <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
+                  <Calendar size={44} className="mx-auto text-gray-200 mb-3" />
+                  <h3 className="font-semibold text-gray-600">No sessions scheduled yet</h3>
+                  <p className="text-sm text-gray-400 mt-1">Sessions from every age category show up here once schedules are added.</p>
+                </div>
+              ) : scheduleView === "week" ? (
+                <WeekGrid
+                  sessions={scheduleVisible}
+                  paletteFor={catPalette}
+                  colorKey={(s) => s.category_name}
+                  labelFor={(s) => s.category_name}
+                  subLabelFor={(s) => typeLabel(s.session_type)}
+                  onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+                  onOpen={(s) => { const k = dateOfRow(s); if (k) { setScheduleSelectedDate(k); setScheduleView("list"); } }}
+                />
+              ) : scheduleView === "month" ? (
+                <MonthCalendar
+                  sessions={scheduleVisible}
+                  paletteFor={catPalette}
+                  colorKey={(s) => s.category_name}
+                  labelFor={(s) => s.category_name}
+                  onSelect={(dateKey) => { setScheduleSelectedDate(dateKey); setScheduleView("list"); }}
+                />
+              ) : (
+                <div className="space-y-4">
+                  <DateStripBar sessions={scheduleVisible} selectedDate={scheduleSelectedDate} onSelect={setScheduleSelectedDate} paletteFor={catPalette} />
+                  {scheduleSelectedDate && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-accent-soft border border-accent/20 rounded-lg">
+                      <Calendar size={14} className="text-accent" />
+                      <span className="text-sm text-ink">Showing <strong>{fmtDate(scheduleSelectedDate)}</strong></span>
+                      <button onClick={() => setScheduleSelectedDate(null)} className="ml-auto text-accent hover:opacity-70"><X size={14} /></button>
+                    </div>
+                  )}
+                  {scheduleListDates.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-gray-400">No sessions to show.</div>
+                  ) : (
+                    <div className="space-y-6">
+                      {scheduleListDates.map(date => (
+                        <div key={date}>
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="h-px flex-1 bg-gray-200" />
+                            <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{fmtDate(date)}</span>
+                            <div className="h-px flex-1 bg-gray-200" />
+                          </div>
+                          <div className="space-y-2">
+                            {(assocByDate[date] || []).map(entry => {
+                              const palette = catPalette(entry.category_name);
+                              return (
+                                <a key={entry.schedule_id} href={`/association/dashboard/category/${entry.age_category_id}?org=${orgId}`}
+                                  className={`bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap hover:border-accent/40 transition-colors ${entry.status === "cancelled" ? "opacity-60" : ""}`}
+                                  style={{ borderLeft: `4px solid ${palette.hex}` }}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                      <span className="text-sm font-semibold text-ink">{entry.category_name}</span>
+                                      {entry.session_type && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent-soft text-accent">{typeLabel(entry.session_type)}</span>}
+                                      {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                                      <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(entry.start_time)}{entry.end_time ? ` – ${fmtTime(entry.end_time)}` : ""}</span>
+                                      {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
+                                      <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
+                                    </div>
+                                  </div>
+                                  {!serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {entry.spots_open}</span>
+                                  )}
+                                  <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
 
