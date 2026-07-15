@@ -136,7 +136,7 @@ export default function CategoryDashboard({
   const [volunteerSending, setVolunteerSending] = useState(false);
   const [volunteerMsg, setVolunteerMsg] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
+  const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", helmet_number: "" });
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
   const [showImport, setShowImport] = useState(false);
@@ -1323,7 +1323,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <h3 className="text-sm font-semibold text-gray-900 mb-4">Add Player</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                  {[{ key: "first_name", label: "First Name *" }, { key: "last_name", label: "Last Name *" }, { key: "external_id", label: "HC#" }, { key: "birth_year", label: "Birth Year" }].map(({ key, label }) => (
+                  {[{ key: "first_name", label: "First Name *" }, { key: "last_name", label: "Last Name *" }, { key: "external_id", label: "HC#" }, { key: "birth_year", label: "Birth Year" }, { key: "parent_email", label: "Contact Email" }, { key: "helmet_number", label: "Helmet #" }].map(({ key, label }) => (
                     <div key={key}><label className="block text-xs font-medium text-gray-500 mb-1">{label}</label><input type="text" value={athleteForm[key]} onChange={e => setAthleteForm(f => ({ ...f, [key]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
                   ))}
                   <div><label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
@@ -1339,7 +1339,7 @@ export default function CategoryDashboard({
                     setAthleteSaving(true);
                     await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: [athleteForm] }) });
                     setAthleteMsg(`${athleteForm.first_name} ${athleteForm.last_name} added`);
-                    setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "" });
+                    setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", helmet_number: "" });
                     setShowAdd(false); refetchAthletes(); refetchRankings(); setAthleteSaving(false); setTimeout(() => setAthleteMsg(""), 3000);
                   }} disabled={!athleteForm.first_name || !athleteForm.last_name || athleteSaving} className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{athleteSaving ? "Saving..." : "Add Player"}</button>
                 </div>

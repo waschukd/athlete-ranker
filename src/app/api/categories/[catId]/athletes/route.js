@@ -127,14 +127,15 @@ export async function POST(request, { params }) {
     }
 
     // Single quick-add
-    const { first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2 } = body;
+    const { first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number } = body;
     if (!first_name || !last_name) {
       return NextResponse.json({ error: "First and last name required" }, { status: 400 });
     }
+    const helmet = helmet_number ? String(helmet_number).trim().slice(0, 4) || null : null;
 
     const result = await sql`
-      INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, is_active)
-      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizePosition(position)}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, true)
+      INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizePosition(position)}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet}, true)
       RETURNING *
     `;
     return NextResponse.json({ athlete: result[0] }, { status: 201 });
