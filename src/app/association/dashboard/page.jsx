@@ -297,7 +297,6 @@ function Dashboard() {
   const readyForTeams = categories.filter(c => c.setup_complete && parseInt(c.cs_total) > 0 && parseInt(c.cs_complete) === parseInt(c.cs_total));
   const attention = [
     ...readyForTeams.map(c => ({ icon: Trophy, tone: "emerald", text: `${c.name} evaluations are complete — it's time to make teams`, href: `/association/dashboard/category/${c.id}/teams?org=${orgId}` })),
-    canManageEvaluators && allPending.length > 0 && { icon: UserCheck, tone: "amber", text: `${allPending.length} evaluator${allPending.length === 1 ? "" : "s"} awaiting approval`, anchor: "approvals" },
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
     !serviceProvider && understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
   ].filter(Boolean);
@@ -338,7 +337,6 @@ function Dashboard() {
     { id: "categories", label: "Age Categories", icon: LayoutGrid, tab: "overview", anchor: "categories" },
     { id: "schedule", label: "Schedule", icon: Calendar, tab: "schedule" },
     { id: "athletes", label: "Athletes", icon: Users, tab: "athletes" },
-    ...(canManageEvaluators ? [{ id: "approvals", label: "Join & Approvals", icon: UserCheck, badge: allPending.length || null, tab: "overview", anchor: "approvals" }] : []),
   ];
   // Nav switches tabs; anchor items also scroll to their section within the tab.
   const goToNav = (item) => { setActiveTab(item.tab); if (item.anchor) setTimeout(() => document.getElementById(item.anchor)?.scrollIntoView({ behavior: "smooth" }), 60); };
@@ -483,23 +481,6 @@ function Dashboard() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-8">
 
-              {/* Org join code banner */}
-              {org?.org_code && canManageEvaluators && (
-                <div className="bg-accent-soft border border-accent/20 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700">Organization Join Code</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Share with evaluators to join this association</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white px-5 py-2.5 rounded-lg border-2 border-accent/30 text-xl font-mono font-bold text-ink tracking-widest">{org.org_code}</div>
-                    <button onClick={() => { navigator.clipboard.writeText(org.org_code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                      className="px-4 py-2.5 rounded-lg bg-accent text-white hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium">
-                      {codeCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy</>}
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Helmet-sticker identification (association default) */}
               {canManageEvaluators && (
                 <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start justify-between gap-4">
@@ -578,92 +559,7 @@ function Dashboard() {
               </section>
 
               {/* Goalie evaluation lives in the sidebar (Goalie Evaluation button) → modal below */}
-
-              {/* Join Codes + Pending Approvals — shown for self-serve associations, or
-                  SP-served ones the SP has granted their own (coach/comparison) evaluators. */}
-              {joinCodeData && canManageEvaluators && (
-                <section id="approvals" className="scroll-mt-6 space-y-3">
-                  {spComparisonMode && (
-                    <div className="bg-accent-soft border border-accent/20 rounded-xl p-3 flex items-start gap-2 text-xs text-gray-600">
-                      <UserCheck size={14} className="text-accent mt-0.5 flex-shrink-0" />
-                      <span>{serviceProvider?.sp_name || "Your service provider"} runs the official evaluations. Evaluators you add here are your <b className="text-ink">own coaches</b> — their scores are kept <b className="text-ink">separate (comparison only)</b> and never change the official ranking.</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Join Codes */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900">Evaluator Join Codes</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Share with evaluators to let them sign up</p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          await fetch(`/api/organizations/${orgId}/join-codes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate", max_uses: 100 }) });
-                          refetchCodes();
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-xs font-semibold">+ Generate</button>
-                    </div>
-                    {(joinCodeData.codes || []).filter(c => c.uses < c.max_uses).length === 0 ? (
-                      <div className="py-6 text-center text-sm text-gray-400">No active codes</div>
-                    ) : (joinCodeData.codes || []).filter(c => c.uses < c.max_uses).map(code => (
-                      <div key={code.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
-                        <span className="font-mono font-bold text-gray-900 tracking-widest bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 text-sm">{code.code}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">{code.uses}/{code.max_uses} uses</span>
-                          <button onClick={() => { const url = `${window.location.origin}/evaluator/signup?code=${code.code}`; navigator.clipboard.writeText(url); }}
-                            className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium">Copy Link</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Pending Approvals */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900">Pending Approvals</h3>
-                        <p className="text-xs text-gray-400 mt-0.5">Evaluators waiting for access</p>
-                      </div>
-                      {allPending.length > 0 && <span className="text-xs px-2 py-0.5 bg-accent-soft text-accent rounded-full font-medium">{allPending.length} pending</span>}
-                    </div>
-                    {allPending.length > APPROVALS_CAP && (
-                      <div className="px-5 pt-3 pb-1 relative">
-                        <input type="text" value={approvalSearch} onChange={e => { setApprovalSearch(e.target.value); setShowAllApprovals(false); }} placeholder="Search by name or email…"
-                          className="w-full pl-8 pr-7 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/30 bg-white text-ink placeholder:text-gray-400" />
-                        <svg className="absolute left-7.5 top-1/2 mt-0.5 -translate-y-1/2 text-gray-400 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-                        {approvalSearch && <button onClick={() => setApprovalSearch("")} className="absolute right-7 top-1/2 mt-0.5 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search"><X size={13} /></button>}
-                      </div>
-                    )}
-                    {allPending.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-gray-400">No pending applications</div>
-                    ) : filteredPending.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-gray-400">No results for &quot;{approvalSearch}&quot;</div>
-                    ) : (
-                      <>
-                        {visiblePending.map(p => (
-                          <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{p.name}</div>
-                              <div className="text-xs text-gray-400">{p.email}</div>
-                              {p.evaluator_id && <div className="text-xs font-mono text-accent">{p.evaluator_id}</div>}
-                            </div>
-                            <div className="flex gap-2">
-                              <button onClick={async () => { await fetch(`/api/organizations/${orgId}/join-codes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve", membership_id: p.membership_id, user_id: p.id }) }); refetchCodes(); }}
-                                className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium">Approve</button>
-                              <button onClick={async () => { if (confirm(`Deny ${p.name}?`)) { await fetch(`/api/organizations/${orgId}/join-codes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "deny", membership_id: p.membership_id }) }); refetchCodes(); } }}
-                                className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium">Deny</button>
-                            </div>
-                          </div>
-                        ))}
-                        {hasMorePending && <button onClick={() => setShowAllApprovals(true)} className="w-full py-2.5 text-xs font-semibold text-accent hover:bg-accent-soft transition-colors border-t border-gray-100">Show all {filteredPending.length} pending</button>}
-                        {showAllApprovals && filteredPending.length > APPROVALS_CAP && <button onClick={() => setShowAllApprovals(false)} className="w-full py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-50 transition-colors border-t border-gray-100">Show less</button>}
-                      </>
-                    )}
-                  </div>
-                  </div>
-                </section>
-              )}
+              {/* Evaluator join codes + approvals now live on the Evaluators tab. */}
             </div>
 
             {/* ── Right rail ── */}
