@@ -144,6 +144,27 @@ export async function POST(request, { params }) {
   }
 }
 
+// Inline single-field edit (currently helmet_number) from the athletes table.
+export async function PATCH(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!ROSTER_WRITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const auth = await authorizeCategoryAccess(session, params.catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const body = await request.json();
+    const athleteId = parseInt(body.athlete_id);
+    if (!athleteId) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });
+    if ("helmet_number" in body) {
+      const helmet = body.helmet_number != null && String(body.helmet_number).trim() !== "" ? String(body.helmet_number).trim().slice(0, 4) : null;
+      await sql`UPDATE athletes SET helmet_number = ${helmet} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request, { params }) {
   try {
     const session = await getSession();

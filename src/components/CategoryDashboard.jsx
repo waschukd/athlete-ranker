@@ -94,6 +94,14 @@ export default function CategoryDashboard({
     } catch { setCutResult("Couldn't cut player."); }
     setCutBusy(false);
   };
+  // Inline helmet-# editing on the athletes table (spreadsheet-style, saves on blur).
+  const [helmetDraft, setHelmetDraft] = useState({}); // athlete id → in-progress value
+  const saveHelmet = async (athleteId, val) => {
+    try {
+      await fetch(`/api/categories/${catId}/athletes`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athlete_id: athleteId, helmet_number: val }) });
+      refetchAthletes();
+    } catch {}
+  };
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
   const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
   const [scheduleDay, setScheduleDay] = useState(null); // selected day for Day view
@@ -1366,15 +1374,23 @@ export default function CategoryDashboard({
                 </div>
               )}
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th></tr></thead>
+                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {athletes.length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
+                  {athletes.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{a.last_name}, {a.first_name}</td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{a.external_id || "-"}</td>
                       <td className="px-4 py-3">{a.position ? <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{a.position}</span> : "-"}</td>
                       <td className="px-4 py-3 text-gray-500">{a.birth_year || "-"}</td>
+                      <td className="px-4 py-3">
+                        <input inputMode="numeric" placeholder="—"
+                          value={helmetDraft[a.id] ?? (a.helmet_number || "")}
+                          onChange={e => setHelmetDraft(d => ({ ...d, [a.id]: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+                          onBlur={e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 4); if (v !== (a.helmet_number || "")) saveHelmet(a.id, v); }}
+                          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
