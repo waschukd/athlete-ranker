@@ -241,11 +241,7 @@ function Dashboard() {
   // Those evaluators are COACH/comparison-only — their scores never count in the
   // official (SP) ranking. A self-serve association (no SP) manages evaluators normally.
   const canManageEvaluators = !serviceProvider || !!serviceProvider.allow_association_evaluators;
-  const helmetOn = !!org?.identify_by_helmet;
-  const setHelmet = async (val) => {
-    await fetch(`/api/organizations/${orgId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identify_by_helmet: val }) });
-    queryClient.invalidateQueries({ queryKey: ["org", orgId] });
-  };
+  const helmetOn = !!org?.identify_by_helmet; // current association default (passed into setup)
   const spComparisonMode = !!serviceProvider && !!serviceProvider.allow_association_evaluators;
   // Order categories by age group (U9 before U11AA), then by name — so the grid
   // flows youngest → oldest regardless of when each was created.
@@ -481,19 +477,6 @@ function Dashboard() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-8">
 
-              {/* Helmet-sticker identification (association default) */}
-              {canManageEvaluators && (
-                <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink flex items-center gap-1.5"><Shield size={14} className="text-accent" /> Identify players by helmet sticker</p>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">When on, evaluators see each player's <b>helmet sticker number</b> (assigned on the roster or at check-in) instead of a jersey number. Applies to every age category; a category can override this in its settings.</p>
-                  </div>
-                  <button onClick={() => setHelmet(!helmetOn)} role="switch" aria-checked={helmetOn}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${helmetOn ? "bg-accent" : "bg-gray-300"}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${helmetOn ? "translate-x-6" : "translate-x-1"}`} />
-                  </button>
-                </div>
-              )}
 
               {/* Categories */}
               <section id="categories" className="scroll-mt-6">
@@ -811,8 +794,9 @@ function Dashboard() {
         <BulkOnboard
           orgId={orgId}
           existingCategories={categories}
+          defaultHelmet={helmetOn}
           onDone={() => queryClient.invalidateQueries({ queryKey: ["categories", orgId] })}
-          onClose={() => setShowBulkOnboard(false)}
+          onClose={() => { setShowBulkOnboard(false); queryClient.invalidateQueries({ queryKey: ["org", orgId] }); }}
         />
       )}
 

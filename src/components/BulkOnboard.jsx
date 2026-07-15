@@ -5,10 +5,12 @@ import { Upload, Loader2, Check, X, Sparkles, AlertTriangle, Calendar, Users } f
 
 // Bulk association onboarding: drop the whole-association schedule and/or roster,
 // review the divisions it detected, confirm/map, and create every category at once.
-export default function BulkOnboard({ orgId, existingCategories = [], onDone, onClose }) {
+export default function BulkOnboard({ orgId, existingCategories = [], onDone, onClose, defaultHelmet = false }) {
   const [phase, setPhase] = useState("upload"); // upload | parsing | review | committing | done
   const [schedFile, setSchedFile] = useState(null);
   const [rosterFile, setRosterFile] = useState(null);
+  const [wantAthletes, setWantAthletes] = useState(true); // "add athletes now?" — Yes by default
+  const [helmet, setHelmet] = useState(!!defaultHelmet); // identify players by helmet sticker #
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState(null);
   const [decisions, setDecisions] = useState({}); // key → { action, categoryId, name }
@@ -16,12 +18,12 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
   const [summary, setSummary] = useState(null);
 
   const parse = async () => {
-    if (!schedFile && !rosterFile) { setError("Add a schedule and/or roster file first."); return; }
+    if (!schedFile && !(wantAthletes && rosterFile)) { setError("Add a schedule file first (athletes are optional)."); return; }
     setPhase("parsing"); setError("");
     try {
       const fd = new FormData();
       if (schedFile) fd.append("schedule", schedFile);
-      if (rosterFile) fd.append("roster", rosterFile);
+      if (wantAthletes && rosterFile) fd.append("roster", rosterFile);
       const res = await fetch(`/api/organizations/${orgId}/bulk-onboard/parse`, { method: "POST", body: fd });
       const d = await res.json();
       if (!res.ok) { setError((d.error || "Couldn't read those files.") + (d.detail ? ` — ${d.detail}` : "")); setPhase("upload"); return; }
@@ -46,6 +48,8 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
   const commit = async () => {
     setPhase("committing"); setError("");
     try {
+      // Persist the association's helmet-sticker default chosen during setup.
+      try { await fetch(`/api/organizations/${orgId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identify_by_helmet: helmet }) }); } catch {}
       const decisionList = (parsed.divisions || []).map(d => ({ key: d.key, ...(decisions[d.key] || { action: "skip" }) }));
       // Apply the admin's roster mapping: each athlete's category = the target chosen
       // for its source division value (dropped if unmapped/skipped).
@@ -83,19 +87,46 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
                 <a href="/api/templates?type=bulk-schedule" download className="px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg font-medium hover:bg-[#dbe8fc]">↓ Schedule</a>
                 <a href="/api/templates?type=bulk-roster" download className="px-3 py-1.5 bg-[#e8f0fd] text-[#0b5cd6] rounded-lg font-medium hover:bg-[#dbe8fc]">↓ Roster</a>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                <label className="flex flex-col items-center gap-1.5 border-2 border-dashed border-gray-300 rounded-xl py-6 px-4 cursor-pointer hover:border-accent/50 text-center">
-                  <Calendar size={22} className="text-gray-400" />
-                  <span className="text-sm font-semibold text-ink">{schedFile ? schedFile.name : "Schedule file"}</span>
-                  <span className="text-xs text-gray-400">CSV or Excel — any format</span>
-                  <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => setSchedFile(e.target.files?.[0] || null)} />
-                </label>
-                <label className="flex flex-col items-center gap-1.5 border-2 border-dashed border-gray-300 rounded-xl py-6 px-4 cursor-pointer hover:border-accent/50 text-center">
-                  <Users size={22} className="text-gray-400" />
-                  <span className="text-sm font-semibold text-ink">{rosterFile ? rosterFile.name : "Athlete file"}</span>
-                  <span className="text-xs text-gray-400">CSV with a division column</span>
-                  <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => setRosterFile(e.target.files?.[0] || null)} />
-                </label>
+              {/* 1. Schedule */}
+              <label className="flex flex-col items-center gap-1.5 border-2 border-dashed border-gray-300 rounded-xl py-6 px-4 cursor-pointer hover:border-accent/50 text-center mb-4">
+                <Calendar size={22} className="text-gray-400" />
+                <span className="text-sm font-semibold text-ink">{schedFile ? schedFile.name : "Schedule file"}</span>
+                <span className="text-xs text-gray-400">CSV or Excel — any format</span>
+                <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => setSchedFile(e.target.files?.[0] || null)} />
+              </label>
+
+              {/* 2. Athletes — posed as a question, opt-in */}
+              <div className="border border-gray-200 rounded-xl p-4 mb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Do you want to add your athletes now?</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Optional — you can upload rosters later on each category if you're not ready.</p>
+                  </div>
+                  <button type="button" onClick={() => setWantAthletes(v => !v)} role="switch" aria-checked={wantAthletes}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${wantAthletes ? "bg-accent" : "bg-gray-300"}`}>
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${wantAthletes ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+                {wantAthletes && (
+                  <label className="flex flex-col items-center gap-1.5 border-2 border-dashed border-gray-300 rounded-xl py-5 px-4 cursor-pointer hover:border-accent/50 text-center mt-3">
+                    <Users size={22} className="text-gray-400" />
+                    <span className="text-sm font-semibold text-ink">{rosterFile ? rosterFile.name : "Athlete file"}</span>
+                    <span className="text-xs text-gray-400">CSV with a Division column</span>
+                    <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => setRosterFile(e.target.files?.[0] || null)} />
+                  </label>
+                )}
+              </div>
+
+              {/* 3. Helmet-sticker identification (association default) */}
+              <div className="border border-gray-200 rounded-xl p-4 mb-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">Identify players by helmet sticker number?</p>
+                  <p className="text-xs text-gray-500 mt-0.5">If your evaluators go by helmet-sticker numbers instead of jersey numbers, turn this on. Applies to every category (a category can override it later).</p>
+                </div>
+                <button type="button" onClick={() => setHelmet(v => !v)} role="switch" aria-checked={helmet}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${helmet ? "bg-accent" : "bg-gray-300"}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${helmet ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
               </div>
               {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
               <button onClick={parse} disabled={phase === "parsing" || (!schedFile && !rosterFile)} className="w-full py-3 bg-accent text-white rounded-xl font-semibold text-sm hover:opacity-90 disabled:opacity-40 inline-flex items-center justify-center gap-2">
