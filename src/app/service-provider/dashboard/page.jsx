@@ -363,8 +363,12 @@ function ScheduleFormModal({ title, subtitle, form, setForm, showSessionGroup, b
 // Per-row schedule controls: Edit / Cancel / Reinstate, calling the per-category
 // schedule endpoints. Reports back to the parent via onSaved (which refetches and
 // shows the confirmation line). Self-contained so no existing state changes.
-function ScheduleRowControls({ entry, onSaved }) {
+function ScheduleRowControls({ entry, onSaved, orgParam }) {
   const catId = entry.age_category_id;
+  // SP-owned testing events have no age_category_id — they're edited via the
+  // SP testing-events endpoint, not the (category-keyed) schedule endpoint.
+  const isSpOwned = !catId;
+  const teUrl = `/api/service-provider/testing-events${orgParam ? `?org=${orgParam}` : ""}`;
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showRemove, setShowRemove] = useState(false);
@@ -389,7 +393,8 @@ function ScheduleRowControls({ entry, onSaved }) {
 
   const submitEdit = async () => {
     setBusy(true); setError(null);
-    const res = await fetch(`/api/categories/${catId}/schedule`, {
+    const url = isSpOwned ? teUrl : `/api/categories/${catId}/schedule`;
+    const res = await fetch(url, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: entry.id,
@@ -411,7 +416,9 @@ function ScheduleRowControls({ entry, onSaved }) {
 
   const doCancel = async () => {
     setBusy(true);
-    const res = await fetch(`/api/categories/${catId}/schedule?id=${entry.id}`, { method: "DELETE" });
+    const res = isSpOwned
+      ? await fetch(teUrl, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "cancelled" }) })
+      : await fetch(`/api/categories/${catId}/schedule?id=${entry.id}`, { method: "DELETE" });
     setBusy(false);
     setShowCancel(false);
     if (res.ok) onSaved();
@@ -419,7 +426,9 @@ function ScheduleRowControls({ entry, onSaved }) {
 
   const doRemove = async () => {
     setBusy(true);
-    const res = await fetch(`/api/categories/${catId}/schedule?id=${entry.id}&hard=1`, { method: "DELETE" });
+    const res = isSpOwned
+      ? await fetch(`${teUrl}${orgParam ? "&" : "?"}id=${entry.id}`, { method: "DELETE" })
+      : await fetch(`/api/categories/${catId}/schedule?id=${entry.id}&hard=1`, { method: "DELETE" });
     setBusy(false);
     setShowRemove(false);
     if (res.ok) onSaved();
@@ -427,7 +436,7 @@ function ScheduleRowControls({ entry, onSaved }) {
 
   const doReinstate = async () => {
     setBusy(true);
-    const res = await fetch(`/api/categories/${catId}/schedule`, {
+    const res = await fetch(isSpOwned ? teUrl : `/api/categories/${catId}/schedule`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: entry.id, status: "scheduled" }),
     });
@@ -2082,7 +2091,7 @@ function SPDashboard() {
                                     {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
                                   </>
                                 )}
-                                <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} />
+                                <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} orgParam={orgParam} />
                               </div>
                             </div>
                           );

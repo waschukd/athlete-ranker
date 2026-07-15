@@ -63,6 +63,37 @@ export async function POST(request) {
   }
 }
 
+// Edit one of this SP's own testing events (date/time/location/testers), or
+// cancel/reinstate via status. Mirrors the category schedule PATCH for the rows
+// that have no age_category_id (SP-owned testing-only clients).
+export async function PATCH(request) {
+  try {
+    const g = await guard(request);
+    if (g.err) return NextResponse.json({ error: "Forbidden" }, { status: g.err });
+    const b = await request.json();
+    const id = parseInt(b.id);
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    const status = b.status === "cancelled" || b.status === "scheduled" ? b.status : null;
+    const testers = b.testers_required != null && b.testers_required !== "" ? Math.max(0, parseInt(b.testers_required) || 0) : null;
+    const [row] = await sql`
+      UPDATE evaluation_schedule SET
+        scheduled_date = COALESCE(${b.scheduled_date || null}, scheduled_date),
+        day_of_week = COALESCE(${b.day_of_week ?? null}, day_of_week),
+        start_time = COALESCE(${b.start_time ?? null}, start_time),
+        end_time = COALESCE(${b.end_time ?? null}, end_time),
+        location = COALESCE(${b.location ?? null}, location),
+        testers_required = COALESCE(${testers}, testers_required),
+        status = COALESCE(${status}, status)
+      WHERE id = ${id} AND service_provider_id = ${g.spId}
+      RETURNING id`;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("SP testing-events PATCH error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request) {
   try {
     const g = await guard(request);

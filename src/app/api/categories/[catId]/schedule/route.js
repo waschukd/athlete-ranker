@@ -59,6 +59,7 @@ export async function GET(request, { params }) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
 
+    if (!/^\d+$/.test(String(catId))) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -81,6 +82,7 @@ export async function POST(request, { params }) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
 
+    if (!/^\d+$/.test(String(catId))) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -213,6 +215,7 @@ export async function PATCH(request, { params }) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
 
+    if (!/^\d+$/.test(String(catId))) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -286,6 +289,7 @@ export async function DELETE(request, { params }) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
 
+    if (!/^\d+$/.test(String(catId))) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
