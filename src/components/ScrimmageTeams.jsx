@@ -51,14 +51,28 @@ export default function ScrimmageTeams({ catId }) {
   const teams = data.teams || [];
   const unassigned = data.unassigned || [];
 
-  const Player = ({ a, from }) => (
+  const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
+  // Row is draggable (desktop nicety) AND carries a team dropdown — the dropdown is
+  // the reliable path on touch/tablets, where native HTML5 drag doesn't fire.
+  const Player = ({ a, teamId }) => (
     <div draggable
       onDragStart={(e) => { setDrag({ athlete_id: a.id }); e.dataTransfer.setData("athlete_id", String(a.id)); }}
-      className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm cursor-grab active:cursor-grabbing hover:border-accent/40">
-      <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
+      className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm hover:border-accent/40">
+      <GripVertical size={13} className="text-gray-300 flex-shrink-0 cursor-grab active:cursor-grabbing" />
       <span className="font-mono text-xs text-gray-400 w-6">{a.jersey_number ?? ""}</span>
       <span className="truncate flex-1 text-gray-700">{nameOf(a)}</span>
       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${posShort(a.position) === "D" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{posShort(a.position)}</span>
+      <select
+        value={teamId ?? ""}
+        draggable={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        onChange={(e) => { const v = e.target.value; if (v) post({ action: "move_player", athlete_id: a.id, to_team_id: parseInt(v) }); }}
+        disabled={busy}
+        title="Move to team"
+        className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-50">
+        {teamId == null && <option value="">—</option>}
+        {teams.map(t => <option key={t.id} value={t.id}>{teamLabel(t.name)}</option>)}
+      </select>
     </div>
   );
 
@@ -78,7 +92,7 @@ export default function ScrimmageTeams({ catId }) {
         <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
           Apply to schedule
         </button>
-        <span className="text-[11px] text-gray-400">Drag players between teams to adjust, then Apply.</span>
+        <span className="text-[11px] text-gray-400">Drag players, or use each player's team dropdown, then Apply.</span>
         {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
       </div>
 
@@ -94,7 +108,7 @@ export default function ScrimmageTeams({ catId }) {
                 <span className="text-[11px] text-gray-400">{team.members.length} · {f}F/{d}D</span>
               </div>
               <div className="space-y-1.5">
-                {team.members.map(a => <Player key={a.id} a={a} from={team.id} />)}
+                {team.members.map(a => <Player key={a.id} a={a} teamId={team.id} />)}
                 {team.members.length === 0 && <div className="text-xs text-gray-300 text-center py-4">Drop players here</div>}
               </div>
             </div>
@@ -106,7 +120,7 @@ export default function ScrimmageTeams({ catId }) {
         <div onDragOver={(e) => e.preventDefault()} onDrop={onDropTo(null)} className="bg-amber-50/40 border border-amber-200 rounded-xl p-3">
           <div className="flex items-center gap-2 mb-2"><Users size={14} className="text-amber-600" /><h4 className="text-sm font-semibold text-amber-800">Unassigned ({unassigned.length})</h4></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-            {unassigned.map(a => <Player key={a.id} a={a} from={null} />)}
+            {unassigned.map(a => <Player key={a.id} a={a} teamId={null} />)}
           </div>
         </div>
       )}
