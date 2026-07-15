@@ -31,6 +31,8 @@ function CheckinPageInner() {
   // Inline jersey editing
   const [editingJersey, setEditingJersey] = useState(null); // athlete id
   const [jerseyVal, setJerseyVal] = useState("");
+  const [editingHelmet, setEditingHelmet] = useState(null); // athlete id (helmet-sticker mode)
+  const [helmetVal, setHelmetVal] = useState("");
   // Action failure + offline feedback
   const [actionError, setActionError] = useState("");
   const [online, setOnline] = useState(true);
@@ -116,6 +118,7 @@ function CheckinPageInner() {
   useEffect(() => () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); }, []);
 
   const athletes = data?.athletes || [];
+  const helmetMode = !!data?.helmet_mode; // identify players by helmet sticker, not jersey
   const summary = data?.summary || {};
   const schedule = data?.schedule || {};
   const teamColors = data?.checkinSession?.team_colors || ["White", "Dark"];
@@ -317,8 +320,26 @@ function CheckinPageInner() {
               {/* Name */}
               <span className="text-sm text-ink truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
 
-              {/* Jersey # — tap to edit, stays open until check-in or blur */}
-              {editingJersey === a.id ? (
+              {/* Identifier: helmet sticker # (persists on the athlete) in helmet mode,
+                  otherwise the per-session jersey #. Tap to edit. */}
+              {helmetMode ? (
+                editingHelmet === a.id ? (
+                  <input inputMode="numeric" value={helmetVal} placeholder="####"
+                    onChange={e => setHelmetVal(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+                    onBlur={() => {
+                      if (helmetVal !== (a.helmet_number || "")) doAction("update_helmet", { athlete_id: a.id, helmet_number: helmetVal });
+                      setTimeout(() => setEditingHelmet(null), 200);
+                    }}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (helmetVal !== (a.helmet_number || "")) doAction("update_helmet", { athlete_id: a.id, helmet_number: helmetVal }); setEditingHelmet(null); quickCheckin(a); } }}
+                    className="w-16 bg-white border border-accent rounded px-1 py-1 text-xs text-ink text-center focus:outline-none" autoFocus />
+                ) : (
+                  <button onClick={() => { setEditingHelmet(a.id); setHelmetVal(a.helmet_number || ""); }}
+                    title="Helmet sticker #"
+                    className={`w-16 text-center text-xs font-mono rounded py-1 ${a.helmet_number ? "text-ink hover:opacity-70" : "text-amber-500 hover:text-amber-600"}`}>
+                    {a.helmet_number || "helmet"}
+                  </button>
+                )
+              ) : editingJersey === a.id ? (
                 <input type="number" value={jerseyVal} onChange={e => setJerseyVal(e.target.value)}
                   onBlur={() => {
                     // Save jersey on blur, but only if not checking in (quickCheckin handles it)

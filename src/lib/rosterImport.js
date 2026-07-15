@@ -54,6 +54,7 @@ const SYN = {
   parentEmail: ["parent email", "guardian parent 1 email", "guardian email", "parent 1 email", "registrant email", "primary email", "email", "contact email"],
   parentEmail2: ["parent 2 email", "guardian parent 2 email", "guardian 2 email", "second parent email", "other parent email", "secondary email", "parent email 2"],
   division: ["participant group", "hockey canada division", "division", "age group", "team", "group", "category", "level"],
+  helmet: ["helmet number", "helmet #", "helmet sticker", "helmet", "sticker number", "sticker #", "sticker"],
 };
 
 // Headers that should NOT be picked as the athlete's own name/email even if they
@@ -96,6 +97,7 @@ export function detectMapping(headers) {
       return second && second !== primary ? second : null;
     })(),
     division: pickHeader(headers, "division"),
+    helmet: pickHeader(headers, "helmet"),
   };
 }
 
@@ -153,6 +155,8 @@ export function toAthlete(row, mapping) {
     birth_year,
     parent_email: mapping.parentEmail ? (row[mapping.parentEmail] || "").trim() : "",
     parent_email_2: mapping.parentEmail2 ? (row[mapping.parentEmail2] || "").trim() : "",
+    // Helmet sticker number — kept as text (leading zeros matter), capped to 4 digits.
+    helmet_number: mapping.helmet ? (row[mapping.helmet] || "").trim().slice(0, 4) : "",
     _division: mapping.division ? (row[mapping.division] || "").trim() : "",
   };
 }

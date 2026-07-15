@@ -45,7 +45,8 @@ export async function PUT(request, { params }) {
     const auth = await authorizeOrgAccess(session, params.orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
-    const { name, contact_email, contact_name, contact_phone, address } = body;
+    const { name, contact_email, contact_name, contact_phone, address, identify_by_helmet } = body;
+    const helmet = typeof identify_by_helmet === "boolean" ? identify_by_helmet : null;
     const result = await sql`
       UPDATE organizations SET
         name = COALESCE(${name}, name),
@@ -53,6 +54,7 @@ export async function PUT(request, { params }) {
         contact_name = COALESCE(${contact_name}, contact_name),
         contact_phone = COALESCE(${contact_phone}, contact_phone),
         address = COALESCE(${address}, address),
+        identify_by_helmet = COALESCE(${helmet}, identify_by_helmet),
         updated_at = NOW()
       WHERE id = ${params.orgId} RETURNING *
     `;

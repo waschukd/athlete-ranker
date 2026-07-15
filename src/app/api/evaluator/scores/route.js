@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { logEvent } from "@/lib/analytics";
+import { resolveHelmetMode } from "@/lib/helmetMode";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -76,11 +77,14 @@ export async function GET(request) {
     const flagRows = await sql`
       SELECT evaluators_anonymous FROM age_categories WHERE id = ${catId}
     `;
-    const isAnon = flagRows[0]?.evaluators_anonymous !== false;
+    // Helmet mode is inherently anonymous — evaluators identify by the sticker
+    // number, never the name — so it forces the name-strip regardless of the flag.
+    const helmetMode = await resolveHelmetMode(catId);
+    const isAnon = helmetMode || flagRows[0]?.evaluators_anonymous !== false;
 
     const athletes = await sql`
       SELECT
-        a.id, a.first_name, a.last_name, a.external_id, a.position,
+        a.id, a.first_name, a.last_name, a.external_id, a.position, a.helmet_number,
         pc.jersey_number, pc.team_color, pc.checked_in,
         COALESCE(
           JSON_AGG(
@@ -118,7 +122,7 @@ export async function GET(request) {
       SELECT * FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order
     `;
 
-    return NextResponse.json({ athletes: safeAthletes, scoringCategories: scoringCats });
+    return NextResponse.json({ athletes: safeAthletes, scoringCategories: scoringCats, helmet_mode: helmetMode });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

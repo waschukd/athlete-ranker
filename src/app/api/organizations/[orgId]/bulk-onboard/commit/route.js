@@ -84,14 +84,15 @@ export async function POST(request, { params }) {
       // Athletes (upsert by external_id; else insert).
       for (const a of keyAthletes) {
         if (!a.first_name || !a.last_name) continue;
+        const helmet = a.helmet_number ? String(a.helmet_number).trim().slice(0, 4) || null : null;
         if (a.external_id) {
-          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, is_active)
-            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.external_id}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, true)
+          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.external_id}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)
             ON CONFLICT (age_category_id, external_id) WHERE external_id IS NOT NULL
-            DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), is_active = true`;
+            DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number), is_active = true`;
         } else {
-          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, is_active)
-            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, true)`;
+          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)`;
         }
         summary.athletesImported++;
       }

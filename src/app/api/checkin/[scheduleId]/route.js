@@ -21,6 +21,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
+import { resolveHelmetMode } from "@/lib/helmetMode";
 
 if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
@@ -115,7 +116,7 @@ export async function GET(request, { params }) {
       // Only show athletes assigned to this group
       athletes = await sql`
         SELECT
-          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year,
+          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
           pc.id as checkin_id, pc.jersey_number, pc.team_color,
           pc.checked_in, pc.checked_in_at,
           pga.display_order
@@ -143,7 +144,7 @@ export async function GET(request, { params }) {
       // Re-fetch with updated records
       athletes = await sql`
         SELECT
-          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year,
+          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
           pc.id as checkin_id, pc.jersey_number, pc.team_color,
           pc.checked_in, pc.checked_in_at,
           pga.display_order
@@ -157,7 +158,7 @@ export async function GET(request, { params }) {
       // Fallback — no groups set up yet
       athletes = await sql`
         SELECT
-          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year,
+          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
           pc.id as checkin_id, pc.jersey_number, pc.team_color,
           pc.checked_in, pc.checked_in_at, 0 as display_order
         FROM athletes a
@@ -182,10 +183,13 @@ export async function GET(request, { params }) {
       ? JSON.parse(checkinSession[0].team_colors)
       : (checkinSession[0]?.team_colors || ["White", "Dark"]);
 
+    const helmet_mode = await resolveHelmetMode(sched.category_id);
+
     return NextResponse.json({
       schedule: sched,
       checkinSession: { ...checkinSession[0], team_colors: teamColors },
       athletes,
+      helmet_mode,
       group: sessionGroup[0] || null,
       summary: {
         total: athletes.length,
@@ -251,6 +255,14 @@ export async function POST(request, { params }) {
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${team_color})
         ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = ${team_color}
       `;
+      return NextResponse.json({ success: true });
+    }
+
+    // Helmet sticker number lives ON THE ATHLETE (persists across every session),
+    // not per-session like the jersey. Set once at check-in and it travels along.
+    if (action === "update_helmet") {
+      const helmet = body.helmet_number != null && String(body.helmet_number).trim() !== "" ? String(body.helmet_number).trim().slice(0, 4) : null;
+      await sql`UPDATE athletes SET helmet_number = ${helmet} WHERE id = ${athlete_id}`;
       return NextResponse.json({ success: true });
     }
 

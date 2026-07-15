@@ -242,9 +242,13 @@ function ScoringInterface() {
   // true). Evaluators see jersey color + number, matching the Buttons /
   // Numpad views and removing identity bias from scoring. Default true while
   // catData is still loading so we never accidentally flash names first.
-  const isAnon = catData?.category?.evaluators_anonymous ?? true;
+  const helmetMode = !!sessionData?.helmet_mode;
+  // Helmet mode forces anonymous display — evaluators see the sticker #, never names.
+  const isAnon = helmetMode || (catData?.category?.evaluators_anonymous ?? true);
   const teamLabel = (a) => a?.team_color === "Dark" ? "Dark" : "Light";
-  const anonLabel = (a) => a?.jersey_number ? `${teamLabel(a)} ${a.jersey_number}` : `${teamLabel(a)} ?`;
+  // What the evaluator sees for a player: helmet sticker # in helmet mode, else jersey #.
+  const idOf = (a) => helmetMode ? (a?.helmet_number || "?") : (a?.jersey_number ?? "?");
+  const anonLabel = (a) => `${teamLabel(a)} ${idOf(a)}`;
   const scheduleData = sessionData?.schedule;
 
   // ── Cross-device hydrate ─────────────────────────────────────────────
@@ -464,14 +468,15 @@ function ScoringInterface() {
   const jq = jerseySearch.trim().toLowerCase();
   const matchesSearch = (a) => {
     if (!jq) return true;
-    if (String(a.jersey_number ?? "").includes(jq)) return true;
+    if (String(idOf(a) ?? "").toLowerCase().includes(jq)) return true;
     if (!isAnon) return `${a.first_name || ""} ${a.last_name || ""}`.toLowerCase().includes(jq);
     return false;
   };
+  const sortKey = (a) => (helmetMode ? (parseInt(a.helmet_number) || 9999) : (a.jersey_number || 999));
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter))
     .filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
-    .sort((a,b) => (a.jersey_number||999) - (b.jersey_number||999));
+    .sort((a,b) => sortKey(a) - sortKey(b));
 
   // Score values array
   const scoreValues = React.useMemo(() => {
@@ -831,7 +836,7 @@ function ScoringInterface() {
       const color = colorMap[raw] || "White";
       const jersey = parseInt(playerMatch[2]);
       const a = athletesRef.current.find(
-        x => x.team_color?.toLowerCase() === color.toLowerCase() && x.jersey_number === jersey
+        x => x.team_color?.toLowerCase() === color.toLowerCase() && (x.jersey_number === jersey || String(x.helmet_number) === String(jersey))
       );
       if (a) { setSelected(a); setVoiceStatus(isAnon ? `Selected: ${color} #${jersey}` : `Selected: ${color} #${jersey} — ${a.last_name}`); beepPlayerSelected(); }
       else { setVoiceStatus(`${color} #${jersey} not found`); beepError(); }
@@ -841,7 +846,7 @@ function ScoringInterface() {
     // ── Just a jersey number ──────────────────────────────
     if (/^\d+$/.test(t)) {
       const jersey = parseInt(t);
-      const a = athletesRef.current.find(x => x.jersey_number === jersey);
+      const a = athletesRef.current.find(x => x.jersey_number === jersey || String(x.helmet_number) === String(jersey));
       if (a) { setSelected(a); setVoiceStatus(isAnon ? `Selected: #${jersey}` : `Selected: #${jersey} ${a.last_name}`); beepPlayerSelected(); }
       else { setVoiceStatus(`No player with jersey #${jersey}`); beepError(); }
       return;
@@ -1426,9 +1431,9 @@ function ScoringInterface() {
                 style={{ aspectRatio: "1", minHeight: "64px" }}
               >
                 <div className="relative">
-                  {/* Jersey number in a team-colored circle — White vs Dark at a glance */}
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold text-lg leading-none ${isDark ? "bg-gray-900 text-white" : "bg-white border-2 border-gray-300 text-gray-900"}`}>
-                    {athlete.jersey_number ?? "?"}
+                  {/* Identifier (jersey or helmet #) in a team-colored circle — White vs Dark at a glance */}
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${isDark ? "bg-gray-900 text-white" : "bg-white border-2 border-gray-300 text-gray-900"}`}>
+                    {idOf(athlete)}
                   </div>
                   {/* Done = small green check; partial = amber dot */}
                   {status === "complete" && (
@@ -1461,7 +1466,7 @@ function ScoringInterface() {
             <div className="flex-1 text-center">
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
-                <span className="font-bold font-display text-ink">#{selected.jersey_number ?? "?"}</span>
+                <span className="font-bold font-display text-ink">#{idOf(selected)}</span>
                 {!isAnon && <span className="text-ink font-semibold font-display">{selected.last_name}, {selected.first_name}</span>}
               </div>
               {selected.position && (
@@ -1614,7 +1619,7 @@ function ScoringInterface() {
                 if (theirFilled.length < totalCats) return false; // only fully-rated peers
                 const theirOverall = Math.round((theirFilled.reduce((a, b) => a + b, 0) / theirFilled.length) * 10) / 10;
                 return theirOverall === myOverall;
-              }).map(a => a.jersey_number ? `${a.team_color === "Dark" ? "D" : "L"}${a.jersey_number}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
+              }).map(a => (helmetMode || a.jersey_number) ? `${a.team_color === "Dark" ? "D" : "L"}${idOf(a)}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
 
               return (
                 <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl p-3">
