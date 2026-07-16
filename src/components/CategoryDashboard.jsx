@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsights";
+import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
@@ -74,15 +75,22 @@ export default function CategoryDashboard({
   const [cutMsg, setCutMsg] = useState("");
   const [cutBusy, setCutBusy] = useState(false);
   const [cutResult, setCutResult] = useState("");
+  const [cutTpl, setCutTpl] = useState(null);        // {subject, body, isDefault}
+  const [cutEdited, setCutEdited] = useState(false); // admin typed — stop re-filling
+  const [cutOrgId, setCutOrgId] = useState(null);
 
   const openCut = async (athlete) => {
-    setCutTarget(athlete); setCutDest(""); setCutNotify(true); setCutMsg(""); setCutResult(""); setCutCats([]);
+    setCutTarget(athlete); setCutDest(""); setCutNotify(true); setCutMsg("");
+    setCutResult(""); setCutCats([]); setCutTpl(null); setCutEdited(false);
     try {
       const res = await fetch(`/api/categories/${catId}/cut`);
       const d = await res.json();
       setCutCats(d.categories || []);
+      setCutTpl(d.template || null);
+      setCutOrgId(d.organizationId || null);
     } catch {}
   };
+
   const submitCut = async () => {
     if (!cutTarget || !cutDest) return;
     setCutBusy(true); setCutResult("");
@@ -221,6 +229,24 @@ export default function CategoryDashboard({
   const sessions = setupData?.sessions || [];
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
+
+  // Pre-fill the placement note with the association's template so the admin sees
+  // (and can tweak) the exact wording, rather than a blank box that silently
+  // sends copy they've never read. Re-renders as the destination changes — until
+  // they start typing, at which point the draft is theirs.
+  // Declared here, after `category`: a dep array is evaluated during render, so
+  // referencing it any earlier is a temporal-dead-zone ReferenceError.
+  useEffect(() => {
+    if (!cutTarget || !cutTpl || cutEdited) return;
+    const dest = cutCats.find(c => String(c.id) === String(cutDest));
+    setCutMsg(renderTemplate(cutTpl.body, {
+      player_name: cutTarget.first_name || `${cutTarget.first_name || ""} ${cutTarget.last_name || ""}`.trim(),
+      org_name: orgName || "your association",
+      from_category: category?.name || categoryName || "these",
+      to_category: dest?.name || "…",
+    }));
+  }, [cutTarget, cutTpl, cutDest, cutCats, cutEdited, orgName, category, categoryName]);
+
   const rankedAthletes = rankingsData?.athletes || [];
   const goalieAthletes = rankingsData?.goalies || [];
   const athletes = athletesData?.athletes || [];
@@ -1819,7 +1845,45 @@ export default function CategoryDashboard({
                 <input type="checkbox" checked={cutNotify} onChange={e => setCutNotify(e.target.checked)} /> Email the parents a gentle note
               </label>
               {cutNotify && (
-                <textarea value={cutMsg} onChange={e => setCutMsg(e.target.value)} placeholder="Leave blank to use the default wording." rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3" />
+                <div className="mb-3">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase">
+                      The note they&apos;ll get
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {cutEdited && (
+                        <button
+                          onClick={() => setCutEdited(false)}
+                          className="text-[11px] text-gray-500 hover:text-gray-700 underline"
+                        >
+                          Reset to template
+                        </button>
+                      )}
+                      {cutOrgId && (
+                        <a
+                          href={`/email-templates?org=${cutOrgId}&key=player_cut`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-[11px] text-accent hover:underline"
+                        >
+                          Edit default
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={cutMsg}
+                    onChange={e => { setCutMsg(e.target.value); setCutEdited(true); }}
+                    rows={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm leading-relaxed"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {cutEdited
+                      ? "Your wording — sent as typed, just this once."
+                      : cutTpl?.isDefault
+                        ? "Sideline Star's default wording. Edit here for this player, or change it for every player."
+                        : "Your association's saved wording."}
+                  </p>
+                </div>
               )}
               {cutResult && <p className="text-sm text-red-600 mb-3">{cutResult}</p>}
               <div className="flex items-center justify-end gap-2">

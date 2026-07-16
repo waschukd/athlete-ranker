@@ -11,10 +11,14 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { emailPlayerCut, parentEmails } from "@/lib/email";
+import { resolveTemplate, renderTemplate } from "@/lib/emailTemplates";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
-// Destination options: sibling categories in the same association.
+// Destination options + the placement-email template, so the modal can show the
+// admin exactly what will go out (pre-filled and editable) instead of a blank box.
+// The template is returned unmerged — the modal re-renders it as the destination
+// division changes.
 export async function GET(request, { params }) {
   try {
     const session = await getSession();
@@ -28,7 +32,9 @@ export async function GET(request, { params }) {
       SELECT id, name FROM age_categories
       WHERE organization_id = ${cat.organization_id} AND id <> ${params.catId} AND COALESCE(status,'active') <> 'archived'
       ORDER BY name`;
-    return NextResponse.json({ categories });
+
+    const template = await resolveTemplate(cat.organization_id, "player_cut");
+    return NextResponse.json({ categories, template, organizationId: cat.organization_id });
   } catch (error) {
     console.error("cut GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -88,8 +94,23 @@ export async function POST(request, { params }) {
     let emailSent = false;
     if (body.notify) {
       const playerName = `${athlete.first_name || ""} ${athlete.last_name || ""}`.trim();
+      const orgName = org?.name || "the association";
+
+      // The admin may have edited the copy in the modal. If they didn't, fall
+      // back to the org's saved template, and failing that the built-in wording —
+      // resolved here rather than trusting the client to send it.
+      const tpl = await resolveTemplate(fromCat.organization_id, "player_cut");
+      const vars = {
+        player_name: athlete.first_name || playerName,
+        org_name: orgName,
+        from_category: fromCat.name,
+        to_category: toCat.name,
+      };
+      const message = (body.message && body.message.trim()) || renderTemplate(tpl.body, vars);
+      const subject = renderTemplate(tpl.subject, vars);
+
       for (const to of parentEmails(athlete)) {
-        const r = await emailPlayerCut({ to, playerName, orgName: org?.name || "the association", fromCategory: fromCat.name, toCategory: toCat.name, message: body.message || null });
+        const r = await emailPlayerCut({ to, playerName, orgName, message, subject });
         if (r?.ok) emailSent = true;
       }
     }
