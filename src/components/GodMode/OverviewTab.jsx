@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Calendar, TrendingUp, Timer, Hourglass, ClipboardList, Zap,
+  Building2, LayoutDashboard, FileText, Users,
 } from "lucide-react";
 import { StatTile, compact } from "./StatTile";
 import { PulseChart } from "./PulseChart";
@@ -25,6 +26,14 @@ function prettyEvent(e) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function eventIcon(e = "") {
+  if (e.startsWith("dashboard")) return LayoutDashboard;
+  if (e.startsWith("category")) return Building2;
+  if (e.startsWith("score") || e.startsWith("session")) return TrendingUp;
+  if (e.startsWith("report")) return FileText;
+  return Zap;
+}
+
 export function OverviewTab() {
   const { data, isLoading } = useQuery({
     queryKey: ["god-mode-analytics"],
@@ -47,38 +56,37 @@ export function OverviewTab() {
   const feed = data?.feed || [];
 
   const col = k => series.map(r => r[k]);
+  const maxHours = Math.max(...topOrgs.map(x => x.hours), 1);
 
   const tiles = [
     { label: "Sessions", value: t.sessions, icon: Calendar, key: "sessions" },
-    { label: "Hours on ice", value: t.hours, unit: "h", icon: Timer, key: "hours" },
-    { label: "Testing hours", value: t.testing_hours, unit: "h", icon: Hourglass, key: "testing_hours" },
+    { label: "Ice time", value: t.hours, unit: "h", icon: Timer, key: "hours" },
+    { label: "Testing hours", value: t.testing_hours, unit: "h", icon: Hourglass, key: "testing_hours", tone: "amber" },
     { label: "Scores", value: t.scores, icon: TrendingUp, key: "scores" },
-    { label: "Testing scores", value: t.testing_scores, icon: ClipboardList, key: "testing_scores" },
-    { label: "Active users", value: t.active_users, icon: Zap, key: "active_users" },
+    { label: "Testing scores", value: t.testing_scores, icon: ClipboardList, key: "testing_scores", tone: "amber" },
+    { label: "Active users", value: t.active_users, icon: Zap, key: "active_users", tone: "green" },
   ];
 
   const totals = [
-    { label: "Organizations", value: compact(o.total_organizations), sub: `${o.total_associations} associations` },
+    { label: "Orgs", value: compact(o.total_organizations), sub: `${o.total_associations} associations` },
     { label: "Users", value: compact(o.total_users) },
     { label: "Athletes", value: compact(o.total_athletes) },
-    { label: "Sessions", value: compact(o.total_sessions), sub: `${compact(o.total_hours)}h scheduled` },
+    { label: "Sessions", value: compact(o.total_sessions), sub: `${compact(o.total_hours)}h booked` },
     { label: "Testing", value: `${compact(o.total_testing_hours)}h`, sub: `${o.total_testing_sessions} sessions` },
     { label: "Scores", value: compact(o.total_scores), sub: `${compact(o.total_testing_scores)} testing` },
-    { label: "Reports sold", value: compact(o.total_reports), sub: money(o.total_revenue_cents) },
+    { label: "Revenue", value: money(o.total_revenue_cents), sub: `${o.total_reports} reports` },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       {/* ── Today ─────────────────────────────────────────────── */}
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
-          <div className="gm-section-title" style={{ marginBottom: 0 }}>Today</div>
-          <div style={{ fontSize: 11, color: "var(--gm-dim)" }}>
-            {new Date().toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" })}
-            {" · trend = last 14 days"}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+      <section>
+        <SectionHead
+          kicker="Engine status"
+          title="Today"
+          right={new Date().toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" })}
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(168px, 1fr))", gap: 12 }}>
           {tiles.map(tile => (
             <StatTile
               key={tile.key}
@@ -86,29 +94,29 @@ export function OverviewTab() {
               value={tile.value || 0}
               unit={tile.unit}
               icon={tile.icon}
+              tone={tile.tone}
               trend={col(tile.key)}
               baseline={avg(series, tile.key)}
             />
           ))}
         </div>
-      </div>
+      </section>
 
       {/* ── Pulse ─────────────────────────────────────────────── */}
       <PulseChart data={pulse} />
 
       {/* ── Leaderboards + feed ───────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-          {/* Top organizations */}
-          <div className="gm-card" style={{ padding: 20 }}>
-            <div className="gm-section-title">Top organizations by ice time</div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)", gap: 22, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+          <div className="gm-card" style={{ padding: 22 }}>
+            <SectionHead kicker="Ranked by ice time" title="Top organizations" inline />
             {topOrgs.length === 0 ? (
               <Empty>No organizations yet</Empty>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {topOrgs.map((org, i) => (
-                  <Row key={org.id} rank={i + 1} name={org.name} kind={org.type}>
-                    <Stat val={`${compact(org.hours)}h`} label="Hours" />
+                  <Row key={org.id} rank={i + 1} name={org.name} kind={org.type} meter={org.hours / maxHours}>
+                    <Stat val={`${compact(org.hours)}h`} label="Hours" strong />
                     <Stat val={`${compact(org.testing_hours)}h`} label="Testing" />
                     <Stat val={org.session_count} label="Sessions" />
                     <Stat val={org.athlete_count} label="Athletes" />
@@ -118,30 +126,29 @@ export function OverviewTab() {
             )}
           </div>
 
-          {/* Reports purchased */}
-          <div className="gm-card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14, gap: 10 }}>
-              <div className="gm-section-title" style={{ marginBottom: 0 }}>Reports purchased</div>
-              <div style={{ fontSize: 11, color: "var(--gm-dim)" }}>
-                {o.total_reports || 0} all-time · {money(o.total_revenue_cents || 0)}
-              </div>
-            </div>
+          <div className="gm-card" style={{ padding: 22 }}>
+            <SectionHead
+              kicker="Parent development reports"
+              title="Reports purchased"
+              right={`${o.total_reports || 0} all-time · ${money(o.total_revenue_cents || 0)}`}
+              inline
+            />
             {topBuyers.length === 0 ? (
               <Empty>
                 No reports attributed to an organization yet
                 {o.total_reports > 0 && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: "var(--gm-amber)" }}>
-                    {o.total_reports} purchase{o.total_reports === 1 ? "" : "s"} exist but point at a
-                    deleted athlete/category, so they can&apos;t be attributed.
+                  <div style={{ marginTop: 8, fontSize: 11, color: "var(--gm-amber)", maxWidth: 420, marginInline: "auto", lineHeight: 1.5 }}>
+                    {o.total_reports} purchase{o.total_reports === 1 ? "" : "s"} exist but point at a deleted
+                    athlete/category, so they can&apos;t be attributed to an org.
                   </div>
                 )}
               </Empty>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {topBuyers.map((b, i) => (
                   <Row key={b.id} rank={i + 1} name={b.name} kind={b.type}>
                     <Stat val={b.reports} label="Reports" />
-                    <Stat val={money(b.revenue_cents)} label="Revenue" />
+                    <Stat val={money(b.revenue_cents)} label="Revenue" strong />
                   </Row>
                 ))}
               </div>
@@ -150,101 +157,152 @@ export function OverviewTab() {
         </div>
 
         {/* Live feed */}
-        <div className="gm-card" style={{ padding: 20, minWidth: 0 }}>
-          <div className="gm-section-title">Live activity</div>
+        <div className="gm-card" style={{ padding: 22, minWidth: 0 }}>
+          <SectionHead kicker="Most recent first" title="Live activity" inline />
           {feed.length === 0 ? (
             <Empty>Nothing recorded yet</Empty>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {feed.map((f, i) => (
-                <div key={f.id} style={{
-                  display: "flex", gap: 10, padding: "9px 0",
-                  borderTop: i === 0 ? "none" : "1px solid var(--gm-border)",
-                }}>
-                  <div style={{
-                    width: 6, height: 6, borderRadius: "50%", marginTop: 6, flexShrink: 0,
-                    background: i === 0 ? "var(--gm-accent)" : "var(--gm-border)",
-                  }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {feed.map((f, i) => {
+                const Icon = eventIcon(f.event);
+                const fresh = i === 0;
+                return (
+                  <div
+                    key={f.id}
+                    style={{
+                      display: "flex", gap: 11, padding: "9px 10px", borderRadius: 9,
+                      background: fresh ? "var(--gm-accent-soft)" : "transparent",
+                      border: `1px solid ${fresh ? "var(--gm-accent-bd)" : "transparent"}`,
+                    }}
+                  >
                     <div style={{
-                      fontSize: 12, color: "var(--gm-text)", fontWeight: 500,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: fresh
+                        ? "linear-gradient(135deg, var(--gm-accent-hi), var(--gm-accent))"
+                        : "var(--gm-surface2)",
+                      border: fresh ? "none" : "1px solid var(--gm-border)",
                     }}>
-                      {prettyEvent(f.event)}
+                      <Icon size={13} style={{ color: fresh ? "var(--gm-on-accent)" : "var(--gm-dim)" }} />
                     </div>
-                    <div style={{
-                      fontSize: 11, color: "var(--gm-dim)", marginTop: 1,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>
-                      {f.user_name || "Unknown"}
-                      {f.org_name ? ` · ${f.org_name}` : ""} · {relTime(f.ts)}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontSize: 12.5, color: "var(--gm-text)", fontWeight: 500,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {prettyEvent(f.event)}
+                      </div>
+                      <div className="gm-mono" style={{
+                        fontSize: 8.5, color: "var(--gm-dim)", marginTop: 3,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {f.user_name || "Unknown"}{f.org_name ? ` · ${f.org_name}` : ""} · {relTime(f.ts)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {/* ── All-time ──────────────────────────────────────────── */}
-      <div className="gm-card" style={{ padding: 20 }}>
-        <div className="gm-section-title">All-time</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+      <section>
+        <SectionHead kicker="Since launch" title="All-time" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(126px, 1fr))", gap: 10 }}>
           {totals.map(m => (
-            <div key={m.label} style={{ padding: "10px 12px", background: "var(--gm-surface2)", borderRadius: 9 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--gm-text)", letterSpacing: "-0.5px" }}>{m.value}</div>
-              <div style={{ fontSize: 11, color: "var(--gm-muted)", fontWeight: 500, marginTop: 2 }}>{m.label}</div>
-              {m.sub && <div style={{ fontSize: 10, color: "var(--gm-dim)", marginTop: 1 }}>{m.sub}</div>}
+            <div key={m.label} className="gm-card" style={{ padding: "13px 14px" }}>
+              <div style={{ fontSize: 19, fontWeight: 800, color: "var(--gm-text)", letterSpacing: "-.02em" }}>{m.value}</div>
+              <div className="gm-mono" style={{ fontSize: 8.5, color: "var(--gm-dim)", marginTop: 5 }}>{m.label}</div>
+              {m.sub && <div style={{ fontSize: 10.5, color: "var(--gm-muted)", marginTop: 3 }}>{m.sub}</div>}
             </div>
           ))}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function SectionHead({ kicker, title, right, inline }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+      gap: 12, flexWrap: "wrap", marginBottom: inline ? 16 : 13,
+    }}>
+      <div>
+        {kicker && <div className="gm-mono" style={{ fontSize: 9, color: "var(--gm-accent)", marginBottom: 4 }}>{kicker}</div>}
+        <div style={{ fontSize: inline ? 15 : 17, fontWeight: 700, color: "var(--gm-text)", letterSpacing: "-.01em" }}>{title}</div>
       </div>
+      {right && <div style={{ fontSize: 11, color: "var(--gm-dim)" }}>{right}</div>}
     </div>
   );
 }
 
 function Empty({ children }) {
   return (
-    <div style={{ padding: "28px 0", textAlign: "center", color: "var(--gm-dim)", fontSize: 12 }}>
+    <div style={{ padding: "30px 0", textAlign: "center", color: "var(--gm-dim)", fontSize: 12 }}>
       {children}
     </div>
   );
 }
 
-function Stat({ val, label }) {
+function Stat({ val, label, strong }) {
   return (
-    <div style={{ textAlign: "right", minWidth: 52 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gm-text)", fontVariantNumeric: "tabular-nums" }}>{val}</div>
-      <div style={{ fontSize: 10, color: "var(--gm-dim)", fontWeight: 500 }}>{label}</div>
+    <div style={{ textAlign: "right", minWidth: 54 }}>
+      <div style={{
+        fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+        color: strong ? "var(--gm-accent)" : "var(--gm-text)",
+      }}>
+        {val}
+      </div>
+      <div className="gm-mono" style={{ fontSize: 8, color: "var(--gm-dim)", marginTop: 2 }}>{label}</div>
     </div>
   );
 }
 
-function Row({ rank, name, kind, children }) {
+function Row({ rank, name, kind, meter, children }) {
+  const first = rank === 1;
   return (
     <div
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 12px", borderRadius: 8, gap: 12 }}
-      onMouseEnter={e => (e.currentTarget.style.background = "var(--gm-surface2)")}
-      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "11px 12px", borderRadius: 10, gap: 12, position: "relative",
+        border: `1px solid ${first ? "var(--gm-accent-bd)" : "transparent"}`,
+        background: first ? "var(--gm-accent-soft)" : "transparent",
+        overflow: "hidden",
+      }}
+      onMouseEnter={e => { if (!first) e.currentTarget.style.background = "var(--gm-surface2)"; }}
+      onMouseLeave={e => { if (!first) e.currentTarget.style.background = "transparent"; }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+      {/* Share-of-leader meter: a quiet track behind the row, not a second chart. */}
+      {meter != null && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", left: 0, top: 0, bottom: 0,
+            width: `${Math.max(meter * 100, 0)}%`,
+            background: "var(--gm-accent)", opacity: 0.05, pointerEvents: "none",
+          }}
+        />
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, position: "relative" }}>
         <div style={{
-          width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-          background: rank === 1 ? "var(--gm-accent-soft)" : "var(--gm-surface2)",
-          border: `1px solid ${rank === 1 ? "var(--gm-accent)" : "var(--gm-border)"}`,
+          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+          background: first ? "linear-gradient(135deg, var(--gm-accent-hi), var(--gm-accent))" : "var(--gm-surface2)",
+          border: first ? "none" : "1px solid var(--gm-border)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 700,
-          color: rank === 1 ? "var(--gm-accent)" : "var(--gm-muted)",
+          fontSize: 12, fontWeight: 800,
+          color: first ? "var(--gm-on-accent)" : "var(--gm-muted)",
         }}>
           {rank}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: "var(--gm-text)", fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-          <div style={{ color: "var(--gm-dim)", fontSize: 11, marginTop: 1, textTransform: "capitalize" }}>{kind?.replace(/_/g, " ")}</div>
+          <div style={{ color: "var(--gm-text)", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+          <div className="gm-mono" style={{ color: "var(--gm-dim)", fontSize: 8.5, marginTop: 3 }}>{kind?.replace(/_/g, " ")}</div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 20, flexShrink: 0 }}>{children}</div>
+      <div style={{ display: "flex", gap: 18, flexShrink: 0, position: "relative" }}>{children}</div>
     </div>
   );
 }
