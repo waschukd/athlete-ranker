@@ -51,6 +51,14 @@ async function buildPlan(catId, sessionNumber) {
   `;
   if (!catInfo.length) return null;
   const sess = await sql`SELECT session_number, name, session_type FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sessionNumber}`;
+  // The session that just finished, so sessions 2+ read as progress ("Session 1
+  // is complete — here's your next ice time") rather than a bare time slot.
+  // Session 1 has nothing behind it and gets no such line.
+  let completedLabel = null;
+  if (sessionNumber > 1) {
+    const prev = await sql`SELECT name FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sessionNumber - 1} LIMIT 1`;
+    completedLabel = prev[0]?.name || `Session ${sessionNumber - 1}`;
+  }
   const groups = await sql`
     SELECT sg.id, sg.group_number,
       es.scheduled_date, es.start_time, es.end_time, es.location
@@ -68,7 +76,7 @@ async function buildPlan(catId, sessionNumber) {
     WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sessionNumber}
     ORDER BY a.last_name, a.first_name
   `;
-  return { ...catInfo[0], session: sess[0] || { session_number: sessionNumber, name: `Session ${sessionNumber}`, session_type: null }, groups, assigns };
+  return { ...catInfo[0], session: sess[0] || { session_number: sessionNumber, name: `Session ${sessionNumber}`, session_type: null }, groups, assigns, completedLabel };
 }
 
 export async function GET(request, { params }) {
@@ -166,6 +174,7 @@ export async function POST(request, { params }) {
         const html = groupAssignmentHtml({
           playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
           sessionLabel, date, time, location: g.location || "", calendarUrl,
+          completedLabel: plan.completedLabel,
         });
         // Email each household on file (separated parents); each is logged separately.
         for (const to of emails) {

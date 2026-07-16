@@ -2,23 +2,8 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentSessionUpdateHtml, parentEmails, esc, FROM } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc, FROM } from "@/lib/email";
 
-const cap = (s) => (s || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-function fmtDayDate(date) {
-  if (!date) return "";
-  const s = date.toString().split("T")[0];
-  const [y, m, d] = s.split("-").map(Number);
-  if (!y) return s;
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
-function fmt12(t) {
-  if (!t) return "";
-  const [h, m] = t.toString().split(":");
-  const hr = parseInt(h);
-  return `${hr % 12 === 0 ? 12 : hr % 12}:${m} ${hr >= 12 ? "PM" : "AM"}`;
-}
-const fmtRange = (a, b) => { const A = fmt12(a), B = fmt12(b); return A && B ? `${A} – ${B}` : (A || ""); };
 import { generateICS } from "@/lib/calendar";
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
@@ -177,52 +162,11 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, sent, skipped, total: athletes.length });
     }
 
-    // ── "Next session" update — manually triggered by a director/association
-    // AFTER groups are formed for a session. Each athlete in that session's groups
-    // gets their group's date/time/location. Never auto-sends.
-    if (action === "session_update") {
-      const sNum = parseInt(session_number);
-      if (!sNum) return NextResponse.json({ error: "session_number required" }, { status: 400 });
-
-      const rows = await sql`
-        SELECT a.id, a.first_name, a.last_name, a.parent_email, a.parent_email_2,
-          sg.session_number, sg.group_number,
-          es.scheduled_date, es.start_time, es.end_time, es.location,
-          cs.name AS session_name, cs.session_type
-        FROM player_group_assignments pga
-        JOIN session_groups sg ON sg.id = pga.session_group_id
-        JOIN athletes a ON a.id = pga.athlete_id AND a.is_active = true
-        LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId} AND es.session_number = sg.session_number AND es.group_number = sg.group_number
-        LEFT JOIN category_sessions cs ON cs.age_category_id = ${catId} AND cs.session_number = sg.session_number
-        WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sNum}
-      `;
-      if (!rows.length) return NextResponse.json({ error: "No athletes are in groups for this session yet. Form groups first." }, { status: 400 });
-
-      // Label for the just-completed session (the one before this one).
-      let completedLabel = "Registration";
-      if (sNum > 1) {
-        const prev = await sql`SELECT name FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sNum - 1} LIMIT 1`;
-        completedLabel = prev[0]?.name || `Session ${sNum - 1}`;
-      }
-
-      let sent = 0, skipped = 0;
-      for (const r of rows) {
-        const recipients = parentEmails(r);
-        if (!recipients.length) { skipped++; continue; }
-        const sessName = r.session_name || `Session ${sNum}`;
-        const next = {
-          label: `${sessName}${r.session_type ? ` · ${cap(r.session_type)}` : ""}`,
-          dateText: fmtDayDate(r.scheduled_date),
-          time: fmtRange(r.start_time, r.end_time),
-          location: r.location || "",
-        };
-        const html = parentSessionUpdateHtml({ playerName: `${r.first_name} ${r.last_name}`, orgName: org_name, completedLabel, next });
-        const subject = `${org_name}: ${completedLabel} complete — your ${sessName} details`;
-        try { for (const to of recipients) await sendEmail(to, subject, html); sent++; }
-        catch (e) { console.error("session_update send failed for athlete " + r.id, e?.message || e); skipped++; }
-      }
-      return NextResponse.json({ success: true, sent, skipped, total: rows.length });
-    }
+    // The "session_update" action lived here: a second way to email parents
+    // their session details, duplicating the group email but with no preview,
+    // no delivery log and no calendar link. Removed with its button; the
+    // "previous session complete" line it introduced now lives in
+    // groupAssignmentHtml, sent via /group-emails.
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {

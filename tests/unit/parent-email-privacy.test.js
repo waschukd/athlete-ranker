@@ -9,7 +9,7 @@
 // into the parent's calendar. These pin all three.
 
 import { describe, it, expect } from "vitest";
-import { groupAssignmentHtml, parentScheduleHtml, parentSessionUpdateHtml } from "@/lib/email";
+import { groupAssignmentHtml, parentScheduleHtml } from "@/lib/email";
 import { generateICS, googleCalendarUrl } from "@/lib/calendar";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -109,12 +109,54 @@ describe("parent emails never name the group", () => {
     expect(html).not.toMatch(/<th[^>]*>\s*Group\s*<\/th>/i);
   });
 
-  it("session-update email names no group", () => {
-    const html = parentSessionUpdateHtml({
-      playerName: "Ella Boyd", orgName: "Demo Soci", completedLabel: "Registration",
-      next: { label: "Session 1 · Testing", dateText: "Sunday, September 6", time: "9:00 AM – 10:00 AM", location: "Community Rink" },
-    });
+  it("names no group when carrying the session-complete framing either", () => {
+    const html = groupAssignmentHtml({ ...ICE_TIME, completedLabel: "Session 1" });
     expect(html).not.toMatch(GROUPY);
+  });
+});
+
+describe("session-complete framing", () => {
+  // Folded in from the deleted "Email Parents · Session Details" button, which
+  // duplicated this email with no preview and no delivery tracking.
+  it("sessions 2+ lead with what just finished", () => {
+    const html = groupAssignmentHtml({ ...ICE_TIME, completedLabel: "Session 1" });
+    expect(html).toContain("Session 1 is complete.");
+    expect(html).toContain("next ice time");
+  });
+
+  it("session 1 says nothing about a completed session", () => {
+    // Nothing has finished yet — the old button announced "Registration complete"
+    // to people who had just registered.
+    const html = groupAssignmentHtml(ICE_TIME);
+    expect(html).not.toMatch(/is complete/i);
+    expect(html).toContain("Here is Ella Boyd's ice time.");
+  });
+
+  it("keeps the 30-minute line in both variants", () => {
+    for (const html of [groupAssignmentHtml(ICE_TIME), groupAssignmentHtml({ ...ICE_TIME, completedLabel: "Session 1" })]) {
+      expect(html).toMatch(/at least 30 minutes early/);
+    }
+  });
+
+  it("escapes the completed label — it comes from an admin-typed session name", () => {
+    const html = groupAssignmentHtml({ ...ICE_TIME, completedLabel: '<script>x</script>' });
+    expect(html).not.toContain("<script>");
+  });
+});
+
+describe("the duplicate send path is gone", () => {
+  it("no session_update action remains", () => {
+    const route = readFileSync("src/app/api/categories/[catId]/notify-parents/route.js", "utf8");
+    // The handler, not the word — a tombstone comment explaining the removal is
+    // exactly what we want to keep.
+    expect(route).not.toMatch(/action\s*===\s*["']session_update["']/);
+    expect(route).not.toMatch(/^\s*[^/]*parentSessionUpdateHtml/m);
+  });
+
+  it("the Groups page has a single send path", () => {
+    const page = readFileSync("src/app/association/dashboard/category/[catId]/groups/page.jsx", "utf8");
+    expect(page).not.toContain("SessionNotifyButton");
+    expect(page).toContain("GroupEmailDialog");
   });
 });
 

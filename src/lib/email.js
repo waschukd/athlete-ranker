@@ -134,33 +134,6 @@ function infoCard(eyebrow, innerHtml) {
     </div>`;
 }
 
-// Parent "next session" update — congratulates on the completed session and gives
-// the date/time/location for the next one. Sender stays "Sideline Star"; the body
-// leads with the association name + "Evaluation Update" so parents recognize it.
-export function parentSessionUpdateHtml({ playerName, orgName, completedLabel, next }) {
-  const pn = esc(playerName), on = esc(orgName);
-  const nx = next || {};
-  const dateText = esc(nx.dateText || [nx.day, nx.date].filter(Boolean).join(", "));
-  return emailWrapper(`
-    <div style="text-align:center;">
-      <div style="font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;">${on} &middot; Evaluation Update</div>
-      <div style="width:34px;height:2px;background:${GOLD};margin:16px auto 24px;border-radius:2px;"></div>
-      <h1 style="margin:0;font-family:${SERIF_FONT};font-size:26px;font-weight:900;color:${INK};letter-spacing:-0.2px;line-height:1.15;">${esc(completedLabel)} complete</h1>
-      <p style="margin:14px auto 30px;max-width:384px;font-size:14.5px;color:#5b606b;line-height:1.7;">Thank you, ${pn}. Your group for the next session has been set — here are the details.</p>
-    </div>
-    <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
-      <div style="padding:32px 28px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${esc(nx.label) || "Next session"}</div>
-        <div style="font-family:${SERIF_FONT};font-size:27px;font-weight:800;color:#ffffff;margin:13px 0 0;line-height:1.15;">${dateText || "Date to be confirmed"}</div>
-        <div style="width:30px;height:1px;background:rgba(200,161,58,0.55);margin:18px auto;"></div>
-        <div style="font-size:15px;color:#e9e5dc;font-weight:600;letter-spacing:0.01em;">${esc(nx.time) || "Time to be confirmed"}</div>
-        <div style="font-size:13.5px;color:#a7abb4;margin-top:6px;">${esc(nx.location) || "Location to be confirmed"}</div>
-      </div>
-    </div>
-    <p style="margin:30px auto 0;max-width:400px;font-size:12.5px;color:${MUTED};line-height:1.7;text-align:center;">We look forward to seeing you on the ice. Questions about timing or location? Simply reply to ${on}.</p>
-  `);
-}
-
 // ── Welcome emails ────────────────────────────────────────────────────────────
 
 export async function emailWelcomeAssociation({ name, email, tempPassword, orgName }) {
@@ -426,7 +399,11 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
 // mid-process. They get the information they need to show up; the grouping stays
 // on the dashboard. The caller still passes groupNumber — it selects WHICH
 // date/time this parent gets — it just never reaches the page.
-export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, date, time, location: _loc, calendarUrl }) {
+// completedLabel (optional) names the session that just finished, so sessions 2+
+// read as progress through the process rather than a bare time slot. Omitted for
+// session 1 — nothing has been completed yet, and announcing "Registration
+// complete" to someone who just registered reads as a non-sequitur.
+export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, date, time, location: _loc, calendarUrl, completedLabel }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
   // A quiet text link, not a big button — the session card is the headline; this
   // is a convenience underneath it. Deliberately NOT an .ics attachment: Gmail
@@ -436,9 +413,12 @@ export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgNam
          <a href="${esc(calendarUrl)}" style="display:inline-block;font-size:12.5px;font-weight:600;color:${GOLD_DEEP};text-decoration:none;border-bottom:1px solid ${GOLD_LINE};padding-bottom:2px;">+ Add to calendar</a>
        </p>`
     : "";
+  const intro = completedLabel
+    ? `${esc(completedLabel)} is complete. Here is ${esc(playerName)}'s next ice time. Please arrive at least 30 minutes early for check-in.`
+    : `Here is ${esc(playerName)}'s ice time. Please arrive at least 30 minutes early for check-in.`;
   return emailWrapper(`
     ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Ice Time`)}
-    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s ice time. Please arrive at least 30 minutes early for check-in.</p>
+    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${intro}</p>
     <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
       <div style="padding:30px 28px;text-align:center;">
         <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${sessionLabel || "Evaluation Session"}</div>

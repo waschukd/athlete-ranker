@@ -73,13 +73,16 @@ export function googleCalendarUrl({ scheduled_date, start_time, end_time, title,
 export function generateICS(sessions) {
   const events = Array.isArray(sessions) ? sessions : [sessions];
 
+  // Same rule as the calendar link: a scheduled_date is a calendar day, not an
+  // instant. Reading `new Date("2026-09-06")` back with .getDate() on a
+  // negative-offset host yields the 5th, so an evaluator on a Mountain-time box
+  // would get an invite dated a day early. Vercel is UTC, so this was right by
+  // luck rather than design.
   const formatDate = (dateStr, time) => {
-    const d = new Date(dateStr);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    const ymd = toYmd(dateStr);
+    if (!ymd) return null;
     const [h, m] = (time || "00:00").split(":").map(Number);
-    return `${year}${month}${day}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
+    return `${ymd}T${String(h).padStart(2, "0")}${String(m || 0).padStart(2, "0")}00`;
   };
 
   const escapeText = (text) => (text || "").replace(/[,;\\]/g, (c) => `\\${c}`).replace(/\n/g, "\\n");
