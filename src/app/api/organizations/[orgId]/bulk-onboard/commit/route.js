@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { isTesting, deriveSessions } from "@/lib/bulkSessions";
+import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 const ADMIN_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 
@@ -115,6 +116,10 @@ export async function POST(request, { params }) {
         // later in the dashboard Teams tab (no teams exist at bulk load).
         await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, matchup, status)
           VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${r.matchup || null}, 'scheduled')`;
+        // The slot's group must also exist in session_groups — that's what
+        // "Manage groups" and auto-assign read. Without this the Schedule tab
+        // shows groups while group management insists there are none.
+        await ensureSessionGroup(catId, sNum, grpNum);
         summary.scheduleImported++;
       }
     }

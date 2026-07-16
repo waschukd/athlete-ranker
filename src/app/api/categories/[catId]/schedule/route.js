@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
 import { resolveMatchupTeams, assignMatchupRoster } from "@/lib/scrimmageTeams";
+import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 // Round-robin: if a row carries a matchup label ("A vs B"), populate that game's
 // group with the two teams' players. Best-effort — never blocks the schedule save.
@@ -35,20 +36,6 @@ async function uniqueCheckinCode(session_number, group_number) {
     existing = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
   }
   return code;
-}
-
-async function ensureSessionGroup(catId, session_number, group_number) {
-  if (!group_number) return;
-  const existingGroup = await sql`
-    SELECT id FROM session_groups
-    WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number}
-  `;
-  if (!existingGroup.length) {
-    await sql`
-      INSERT INTO session_groups (age_category_id, session_number, group_number, name, display_order)
-      VALUES (${catId}, ${session_number}, ${group_number}, ${'Group ' + group_number}, ${group_number})
-    `;
-  }
 }
 
 const initiatorOf = (session) => ({ name: session.name || session.email, role: session.role });
