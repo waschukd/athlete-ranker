@@ -11,7 +11,8 @@
 import { describe, it, expect } from "vitest";
 import { groupAssignmentHtml, parentScheduleHtml, parentSessionUpdateHtml } from "@/lib/email";
 import { generateICS, googleCalendarUrl } from "@/lib/calendar";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 const GROUPY = /\bgroup\s*\d|\bG\d\b|\bgroup\s+(one|two|three)\b/i;
 
@@ -24,6 +25,59 @@ const ICE_TIME = {
   time: "9:00 AM – 10:00 AM",
   location: "Community Rink",
 };
+
+// Checking known functions one by one is how scheduleNotify.js kept its "Group"
+// row through two passes of this exact fix — it builds its own HTML inline
+// instead of going through lib/email.js. Sweep every sender instead.
+function walk(dir, out = []) {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (p.endsWith(".js") || p.endsWith(".jsx")) out.push(p);
+  }
+  return out;
+}
+
+// Must be function-level, not file-level: scheduleNotify.js holds BOTH
+// notifyParentsIfImminent (parents — no group) and notifySessionChange
+// (evaluators/admins — group required, they need to know what moved). A
+// file-level check can't tell them apart and would strip the staff one.
+function parentFacingFunctions() {
+  const out = [];
+  for (const file of walk("src")) {
+    if (/lib[\\/]email\.js$/.test(file)) continue; // the builders themselves are covered above
+    const src = readFileSync(file, "utf8");
+    if (!/parentEmails\s*\(/.test(src)) continue;
+    // Split on top-level function boundaries and keep the chunks that send to parents.
+    const chunks = src.split(/(?=^(?:export\s+)?(?:async\s+)?function\s+\w+)/m);
+    for (const chunk of chunks) {
+      if (!/parentEmails\s*\(/.test(chunk)) continue;
+      const name = chunk.match(/function\s+(\w+)/)?.[1] || "(module scope)";
+      out.push([`${file} → ${name}()`, chunk]);
+    }
+  }
+  return out;
+}
+
+describe("no parent-facing sender renders a group", () => {
+  const senders = parentFacingFunctions();
+
+  it("finds the parent-facing senders", () => {
+    expect(senders.length).toBeGreaterThan(0);
+  });
+
+  it.each(senders)("%s renders no group into copy", (_label, chunk) => {
+    // Interpolating a group INTO prose/markup — e.g. `Group ${r.group_number}`.
+    // Passing group_number as a SQL value or object key is fine; that's internal
+    // bookkeeping and never reaches a parent.
+    const rendered = chunk.match(/Group\s*\$\{[^}]+\}/g) || [];
+    expect(
+      rendered,
+      `interpolates a group number into parent-facing copy: ${rendered.join(", ")}. ` +
+      `Parents read a group as a skill tier; the date/time is already group-specific.`,
+    ).toEqual([]);
+  });
+});
 
 describe("parent emails never name the group", () => {
   it("ice-time email carries date/time/rink but no group", () => {
@@ -116,6 +170,31 @@ describe("add-to-calendar link", () => {
 
   it("no longer promises an attachment that isn't there", () => {
     expect(groupAssignmentHtml({ ...ICE_TIME, calendarUrl: "https://x" })).not.toMatch(/attached/i);
+  });
+});
+
+describe("arrive-early window", () => {
+  // 30 minutes, set by the owner. Lives in three places (email body, schedule
+  // email, calendar event details) — they must not drift apart.
+  it("the ice-time email says 30 minutes", () => {
+    const html = groupAssignmentHtml(ICE_TIME);
+    expect(html).toMatch(/at least 30 minutes early/);
+    expect(html).not.toMatch(/15 minutes/);
+  });
+
+  it("the schedule email says 30 minutes", () => {
+    const html = parentScheduleHtml({
+      playerName: "Ella Boyd", categoryName: "U11 House", orgName: "Demo Soci",
+      sessions: [{ session_number: 1, date: "Sun, Sep 6", time: "9:00 AM", location: "Community Rink" }],
+    });
+    expect(html).toMatch(/at least 30 minutes early/);
+    expect(html).not.toMatch(/15 minutes/);
+  });
+
+  it("the calendar event details say 30 minutes", () => {
+    const route = readFileSync("src/app/api/categories/[catId]/group-emails/route.js", "utf8");
+    expect(route).toMatch(/at least 30 minutes early/);
+    expect(route).not.toMatch(/15 minutes early/);
   });
 });
 

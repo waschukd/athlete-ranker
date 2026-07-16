@@ -414,7 +414,7 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
         ${rows}
       </table>
     </div>
-    <p style="margin:18px 0 0;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">A calendar invite is attached — open it to add these sessions to your calendar. Please arrive 15 minutes early for check-in.</p>
+    <p style="margin:18px 0 0;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">A calendar invite is attached — open it to add these sessions to your calendar. Please arrive at least 30 minutes early for check-in.</p>
   `);
 }
 
@@ -438,7 +438,7 @@ export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgNam
     : "";
   return emailWrapper(`
     ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Ice Time`)}
-    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s ice time. Please arrive at least 15 minutes early for check-in.</p>
+    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s ice time. Please arrive at least 30 minutes early for check-in.</p>
     <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
       <div style="padding:30px 28px;text-align:center;">
         <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${sessionLabel || "Evaluation Session"}</div>

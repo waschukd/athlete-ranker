@@ -160,7 +160,7 @@ export async function POST(request, { params }) {
           scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
           title: `${plan.category_name} Evaluation`,
           location: g.location || "",
-          details: `${plan.org_name}\nPlease arrive 15 minutes early for check-in.`,
+          details: `${plan.org_name}\nPlease arrive at least 30 minutes early for check-in.`,
         });
         // The group picks WHICH date/time this parent gets; it never reaches them.
         const html = groupAssignmentHtml({

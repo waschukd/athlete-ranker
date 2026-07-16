@@ -245,12 +245,11 @@ export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }
         <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Hi, an upcoming ${esc(category_name)} session${org_name ? ` with ${esc(org_name)}` : ""} for <strong style="color:#101113;">${esc(p.first_name)} ${esc(p.last_name)}</strong> has been ${cancelled ? "cancelled" : "rescheduled"}.</p>
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Group</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">Group ${r.group_number}</td></tr>
-            <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">${cancelled ? "Was" : "New time"}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}${r.start_time ? ` · ${r.start_time}` : ""}</td></tr>
+            <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">${cancelled ? "Was" : "New time"}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}${r.start_time ? ` · ${r.start_time}` : ""}</td></tr>
             ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>`}
           </table>
         </div>
-        <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive 15 minutes early for check-in."}</p>
+        <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive at least 30 minutes early for check-in."}</p>
       `);
       for (const to of parentEmails(p)) await sendEmail(to, `${headline} — ${category_name}`, html);
     }
