@@ -151,12 +151,13 @@ export default function GodModeDashboard() {
           }
         `}} />
 
-        <div style={{
-          position: "sticky", top: 0, zIndex: 50,
-          background: "color-mix(in srgb, var(--gm-bg) 82%, transparent)",
-          backdropFilter: "blur(18px)",
-          borderBottom: "1px solid var(--gm-border)",
-        }}>
+        {/* Not sticky, and deliberately no z-index: SessionBar (layout.jsx) is
+            sticky top-0 z-50 and renders before this, so a sibling here at the
+            same z-index would win on DOM order and paint over its GodJump
+            dropdown. Anything positioned here must stay below z-50. */}
+        {/* Transparent so the root's radial glow reads through — a solid fill
+            here would band against it. Nothing scrolls under it now. */}
+        <div style={{ borderBottom: "1px solid var(--gm-border)" }}>
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "18px 24px 0 24px" }}>
             <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
               <div>
