@@ -37,6 +37,11 @@ export default function GodModeDashboard() {
             --gm-dim: #9aa0aa;
             --gm-accent: #0b5cd6;
             --gm-accent-soft: #eaf1fe;
+            /* De-emphasis step of the accent ramp — history in a sparkline sits
+               here so the current period (in --gm-accent) reads as the subject.
+               Held at 3.26:1 vs the card surface: lighter steps drop under the
+               3:1 floor and the bars go ghostly. */
+            --gm-spark: #5b8fe0;
             --gm-green: #15803d;
             --gm-green-soft: #dcfce7;
             --gm-blue: #0b5cd6;
