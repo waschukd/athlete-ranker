@@ -79,7 +79,7 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
             <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div>
                 <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight flex items-center gap-2"><Mail size={17} className="text-accent" /> Group assignment emails</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{data?.session?.name || `Session ${sessionNumber}`}{data?.session?.session_type ? ` · ${data.session.session_type}` : ""} · each parent gets their child's group, rink, date & time</p>
+                <p className="text-xs text-gray-400 mt-0.5">{data?.session?.name || `Session ${sessionNumber}`}{data?.session?.session_type ? ` · ${data.session.session_type}` : ""} · each parent gets their child&apos;s date, time &amp; rink — never the group number</p>
               </div>
               <button onClick={() => !sending && setOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>

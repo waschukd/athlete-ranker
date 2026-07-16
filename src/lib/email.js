@@ -387,13 +387,16 @@ export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgNa
   `);
 }
 
+// A player's full schedule. Like the ice-time email, the group column is
+// deliberately absent — the session's date/time/rink is already group-specific,
+// so naming the group adds nothing a parent can act on and invites mid-process
+// comparison between families.
 export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessions }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
   const th = `padding:11px 16px;font-size:10px;color:${GOLD_DEEP};text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;`;
   const rows = sessions.map(s => `
     <tr style="border-top:1px solid ${GOLD_LINE};">
       <td style="padding:11px 16px;font-size:13px;color:${INK};font-weight:700;">S${s.session_number}</td>
-      <td style="padding:11px 16px;font-size:13px;color:${INK};">Group ${s.group_number}</td>
       <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${s.date || "TBD"}</td>
       <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${s.time || "TBD"}</td>
       <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${esc(s.location) || "TBD"}</td>
@@ -406,7 +409,7 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
     <div style="border:1px solid ${GOLD_LINE};border-radius:14px;overflow:hidden;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr style="background:${GOLD_SOFT};">
-          <th style="${th}">Session</th><th style="${th}">Group</th><th style="${th}">Date</th><th style="${th}">Time</th><th style="${th}">Location</th>
+          <th style="${th}">Session</th><th style="${th}">Date</th><th style="${th}">Time</th><th style="${th}">Location</th>
         </tr>
         ${rows}
       </table>
@@ -415,25 +418,37 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
   `);
 }
 
-// Group-assignment alert: tells a parent which group their athlete is in for a
-// specific session, with the rink/date/time. Sent from the Groups page once the
-// director has set the groups for a session.
-export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, groupNumber, date, time, location: _loc }) {
+// A player's ice time for one session — date, time, rink. Sent from the Groups
+// page once the director has set that session's groups.
+//
+// Deliberately does NOT name the group. Groups are an internal artifact of how
+// the ice is split, but parents read "Group 1" as a tier and start comparing
+// mid-process. They get the information they need to show up; the grouping stays
+// on the dashboard. The caller still passes groupNumber — it selects WHICH
+// date/time this parent gets — it just never reaches the page.
+export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, date, time, location: _loc, calendarUrl }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
+  // A quiet text link, not a big button — the session card is the headline; this
+  // is a convenience underneath it. Deliberately NOT an .ics attachment: Gmail
+  // would render its own bulky event card above our email and bury the brand.
+  const calendarLink = calendarUrl
+    ? `<p style="margin:18px auto 0;text-align:center;">
+         <a href="${esc(calendarUrl)}" style="display:inline-block;font-size:12.5px;font-weight:600;color:${GOLD_DEEP};text-decoration:none;border-bottom:1px solid ${GOLD_LINE};padding-bottom:2px;">+ Add to calendar</a>
+       </p>`
+    : "";
   return emailWrapper(`
-    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Group Assignment`)}
-    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s group and ice time. Please arrive at least 15 minutes early for check-in.</p>
+    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Ice Time`)}
+    <p style="margin:14px auto 26px;max-width:420px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here is ${esc(playerName)}'s ice time. Please arrive at least 15 minutes early for check-in.</p>
     <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
       <div style="padding:30px 28px;text-align:center;">
         <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">${sessionLabel || "Evaluation Session"}</div>
-        <div style="font-family:${SERIF_FONT};font-size:26px;font-weight:800;color:#ffffff;margin:12px 0 0;">Group ${groupNumber}</div>
+        <div style="font-family:${SERIF_FONT};font-size:26px;font-weight:800;color:#ffffff;margin:12px 0 0;line-height:1.2;">${date || "Date to be confirmed"}</div>
         <div style="width:30px;height:1px;background:rgba(200,161,58,0.55);margin:18px auto;"></div>
-        <div style="font-size:15px;color:#e9e5dc;font-weight:600;">${date || "Date to be confirmed"}</div>
-        ${time ? `<div style="font-size:14px;color:#e9e5dc;margin-top:4px;">${time}</div>` : ""}
+        <div style="font-size:15px;color:#e9e5dc;font-weight:600;">${time || "Time to be confirmed"}</div>
         <div style="font-size:13.5px;color:#a7abb4;margin-top:6px;">${location || "Location to be confirmed"}</div>
       </div>
     </div>
-    <p style="margin:24px auto 0;max-width:400px;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">A calendar invite is attached — open it to add this session to your calendar.</p>
+    ${calendarLink}
   `);
 }
 

@@ -15,6 +15,61 @@
  * @param {string} [sessions.checkin_code] - Check-in code
  * @returns {string} .ics file content
  */
+// Sessions run on the association's wall clock, and our date/time columns carry
+// no zone, so a calendar link must state the zone rather than let the recipient's
+// device guess.
+const DEFAULT_TZ = "America/Edmonton";
+
+// A scheduled_date is a calendar day, not an instant — "2026-09-06" means that
+// Sunday regardless of where the server sits. Never round-trip it through local
+// time: `new Date("2026-09-06")` is UTC midnight, and reading it back with
+// .getDate() on any negative-offset host rolls it to the 5th. A string is sliced
+// as text; a Date (what the pg driver hands back) is read in UTC, which is where
+// the driver put midnight.
+function toYmd(v) {
+  if (!v) return null;
+  if (typeof v === "string") {
+    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[1]}${m[2]}${m[3]}` : null;
+  }
+  const d = v instanceof Date ? v : new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+// "Add to calendar" link for a single session.
+//
+// Why a link and not an .ics attachment for parent mail: Gmail parses a
+// text/calendar attachment and injects its OWN bulky event card ABOVE the
+// message — outside our HTML, unmovable, and it buries the association's
+// branding. A plain link keeps our email first and puts the calendar action
+// where we choose. Staff mail still attaches a real .ics via generateICS.
+export function googleCalendarUrl({ scheduled_date, start_time, end_time, title, location, details, timezone = DEFAULT_TZ }) {
+  if (!scheduled_date || !start_time) return null;
+  const ymd = toYmd(scheduled_date);
+  if (!ymd) return null;
+  const hhmm = (t) => {
+    const [h, m] = String(t).split(":").map(Number);
+    return `${String(h).padStart(2, "0")}${String(m || 0).padStart(2, "0")}00`;
+  };
+  const start = `${ymd}T${hhmm(start_time)}`;
+  const end = `${ymd}T${hhmm(end_time || start_time)}`;
+  const q = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title || "Evaluation session",
+    dates: `${start}/${end}`,
+    ctz: timezone,
+  });
+  if (location) q.set("location", location);
+  if (details) q.set("details", details);
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}
+
+// group_number is OPTIONAL and shows up in the event title ("— S1 G2") and
+// description. Staff invites (evaluator signup) want it — they need to know which
+// group they're covering. Parent-facing invites must NOT pass it: parents read a
+// group as a skill tier and start comparing mid-process. Omit the field and it
+// disappears from both. Watch for `{...row}` spreads — that's how it leaks.
 export function generateICS(sessions) {
   const events = Array.isArray(sessions) ? sessions : [sessions];
 

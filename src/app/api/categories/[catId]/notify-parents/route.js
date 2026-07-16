@@ -134,8 +134,12 @@ export async function POST(request, { params }) {
             sessions,
           });
 
-          // Generate .ics for their sessions
-          const icsContent = generateICS(sessions.filter(s => s.scheduled_date).map(s => ({
+          // Generate .ics for their sessions.
+          // group_number is destructured OFF deliberately: generateICS renders it
+          // into the event title ("— S1 G2") and description, which would put the
+          // group straight into a parent's calendar even though we keep it out of
+          // the email body. Spreading `...s` would carry it silently.
+          const icsContent = generateICS(sessions.filter(s => s.scheduled_date).map(({ group_number, ...s }) => ({
             ...s,
             category_name,
             org_name,

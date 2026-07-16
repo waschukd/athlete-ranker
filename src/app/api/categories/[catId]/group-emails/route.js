@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, groupAssignmentHtml, parentEmails } from "@/lib/email";
-import { generateICS } from "@/lib/calendar";
+import { googleCalendarUrl } from "@/lib/calendar";
 
 // Per-recipient delivery log for group-assignment emails. Auto-creates so no
 // manual migration is needed. Webhook (/api/webhooks/resend) updates status by
@@ -152,22 +152,26 @@ export async function POST(request, { params }) {
           await sql`INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
           continue;
         }
+        // "Add to calendar" as a link, not an .ics attachment: Gmail turns an
+        // attachment into its own bulky event card ABOVE our email, which we
+        // can't move or resize. The link sits under the session card instead.
+        // No group_number — it would land in the calendar event's title.
+        const calendarUrl = googleCalendarUrl({
+          scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
+          title: `${plan.category_name} Evaluation`,
+          location: g.location || "",
+          details: `${plan.org_name}\nPlease arrive 15 minutes early for check-in.`,
+        });
+        // The group picks WHICH date/time this parent gets; it never reaches them.
         const html = groupAssignmentHtml({
           playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
-          sessionLabel, groupNumber: g.group_number, date, time, location: g.location || "",
+          sessionLabel, date, time, location: g.location || "", calendarUrl,
         });
-        let attachments;
-        if (g.scheduled_date && g.start_time) {
-          const ics = generateICS({
-            scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
-            location: g.location, session_number, group_number: g.group_number,
-            category_name: plan.category_name, org_name: plan.org_name, session_type: plan.session.session_type,
-          });
-          attachments = [{ filename: "session.ics", content: Buffer.from(ics).toString("base64") }];
-        }
         // Email each household on file (separated parents); each is logged separately.
         for (const to of emails) {
-          const res = await sendEmail(to, `${name} — Group ${g.group_number} · ${plan.category_name} (${plan.org_name})`, html, attachments);
+          // Subject carries no group either — it's the first thing shown in the
+          // inbox list, so a group here defeats every other precaution.
+          const res = await sendEmail(to, `${name}'s ice time — ${plan.category_name} (${plan.org_name})`, html);
           if (res.ok) sent++; else failed++;
           await sql`
             INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
