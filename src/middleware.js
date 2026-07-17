@@ -31,6 +31,9 @@ const PUBLIC_PATHS = [
   "/api/service-provider/calendar",
   "/api/tester/calendar",
   "/api/association/calendar",
+  // Parent "Add to calendar · Apple/Outlook" link. Parents have no account, so
+  // this must be reachable without a cookie; it self-auths via HMAC token.
+  "/api/calendar/session.ics",
   "/report",
   "/api/report",
   "/prototype",

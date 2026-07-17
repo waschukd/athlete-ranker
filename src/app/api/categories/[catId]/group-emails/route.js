@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, groupAssignmentHtml, parentEmails } from "@/lib/email";
 import { googleCalendarUrl } from "@/lib/calendar";
+import { signSessionIcsToken, canonicalCalendarBase } from "@/lib/calendar-token";
 
 // Per-recipient delivery log for group-assignment emails. Auto-creates so no
 // manual migration is needed. Webhook (/api/webhooks/resend) updates status by
@@ -61,6 +62,7 @@ async function buildPlan(catId, sessionNumber) {
   }
   const groups = await sql`
     SELECT sg.id, sg.group_number,
+      es.id AS schedule_id,
       es.scheduled_date, es.start_time, es.end_time, es.location
     FROM session_groups sg
     LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId}
@@ -141,6 +143,10 @@ export async function POST(request, { params }) {
     const plan = await buildPlan(catId, session_number);
     if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Apple/Google follow Vercel's apex→www 307 and then fail, so the .ics link
+    // must already be on the canonical host.
+    const baseUrl = canonicalCalendarBase(new URL(request.url).origin);
+
     await ensureTable();
     // Fresh batch for this session — clear prior log so the panel reflects this send.
     await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
@@ -160,9 +166,11 @@ export async function POST(request, { params }) {
           await sql`INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
           continue;
         }
-        // "Add to calendar" as a link, not an .ics attachment: Gmail turns an
-        // attachment into its own bulky event card ABOVE our email, which we
-        // can't move or resize. The link sits under the session card instead.
+        // Two "add to calendar" LINKS, never an attachment (Gmail would render
+        // its own event card above our email). Google's template URL for Google
+        // users; a signed .ics link for Apple/Outlook, which the Google URL
+        // can't serve — it would bounce them to a Google sign-in and save the
+        // event to a calendar they don't use.
         // No group_number — it would land in the calendar event's title.
         const calendarUrl = googleCalendarUrl({
           scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
@@ -170,10 +178,13 @@ export async function POST(request, { params }) {
           location: g.location || "",
           details: `${plan.org_name}\nPlease arrive at least 30 minutes early for check-in.`,
         });
+        const icsUrl = g.schedule_id
+          ? `${baseUrl}/api/calendar/session.ics?t=${signSessionIcsToken(g.schedule_id)}`
+          : null;
         // The group picks WHICH date/time this parent gets; it never reaches them.
         const html = groupAssignmentHtml({
           playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
-          sessionLabel, date, time, location: g.location || "", calendarUrl,
+          sessionLabel, date, time, location: g.location || "", calendarUrl, icsUrl,
           completedLabel: plan.completedLabel,
         });
         // Email each household on file (separated parents); each is logged separately.

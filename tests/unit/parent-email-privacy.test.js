@@ -172,9 +172,16 @@ describe("the ice-time email's subject line", () => {
     for (const s of subjects) expect(s, `subject: ${s}`).not.toMatch(/group/i);
   });
 
-  it("sends no .ics attachment — Gmail would render its own card above our email", () => {
-    expect(route).not.toMatch(/session\.ics/);
-    expect(route).not.toMatch(/generateICS/);
+  it("sends no .ics ATTACHMENT — Gmail would render its own card above our email", () => {
+    // A LINK to session.ics is the whole point and must stay; it's the
+    // attachment that triggers Gmail's card. Assert on the mechanism, not the
+    // filename: no attachments argument reaches sendEmail, and the route no
+    // longer builds .ics bytes itself.
+    expect(route).not.toMatch(/attachments/);
+    expect(route).not.toMatch(/generateICS\s*\(/);
+    expect(route).not.toMatch(/Buffer\.from\([^)]*ics/i);
+    // The link, however, is expected.
+    expect(route).toContain("/api/calendar/session.ics?t=");
   });
 });
 
@@ -208,6 +215,27 @@ describe("add-to-calendar link", () => {
 
     const without = groupAssignmentHtml(ICE_TIME);
     expect(without).not.toContain("Add to calendar");
+  });
+
+  it("offers BOTH Google and Apple/Outlook — a Google-only link strands iPhone parents", () => {
+    const html = groupAssignmentHtml({
+      ...ICE_TIME,
+      calendarUrl: "https://calendar.google.com/calendar/render?action=TEMPLATE",
+      icsUrl: "https://www.sidelinestar.com/api/calendar/session.ics?t=42.abc",
+    });
+    expect(html).toContain("Google");
+    expect(html).toContain("Apple / Outlook");
+    expect(html).toContain("session.ics?t=42.abc");
+  });
+
+  it("degrades to whichever link it has", () => {
+    const g = groupAssignmentHtml({ ...ICE_TIME, calendarUrl: "https://cal/x" });
+    expect(g).toContain("Google");
+    expect(g).not.toContain("Apple / Outlook");
+
+    const i = groupAssignmentHtml({ ...ICE_TIME, icsUrl: "https://x/session.ics?t=1.a" });
+    expect(i).toContain("Apple / Outlook");
+    expect(i).not.toContain("Google");
   });
 
   it("no longer promises an attachment that isn't there", () => {
@@ -258,5 +286,18 @@ describe("calendar invites", () => {
     // Evaluators need to know which group they're covering — this must keep working.
     const ics = generateICS({ ...base, group_number: 2 });
     expect(ics).toMatch(/G2|Group 2/);
+  });
+
+  it("a title override reads plain-English and drops the staff shorthand", () => {
+    // Parent events should match the Google link's name, not "U11 House — S1".
+    const ics = generateICS({ ...base, title: "U11 House Evaluation" });
+    expect(ics).toContain("SUMMARY:U11 House Evaluation");
+    expect(ics).not.toMatch(/— S1/);
+  });
+
+  it("a title override still cannot smuggle the group in", () => {
+    const ics = generateICS({ ...base, title: "U11 House Evaluation", group_number: 2 });
+    expect(ics).toContain("SUMMARY:U11 House Evaluation");
+    expect(ics).not.toMatch(/SUMMARY:.*G2/);
   });
 });

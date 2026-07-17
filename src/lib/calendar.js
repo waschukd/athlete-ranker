@@ -90,7 +90,11 @@ export function generateICS(sessions) {
   const veventBlocks = events
     .filter((s) => s.scheduled_date && s.start_time)
     .map((s) => {
-      const summary = `${s.category_name || "Evaluation"} — S${s.session_number}${s.group_number ? ` G${s.group_number}` : ""}`;
+      // `title` overrides the staff-shorthand summary. Parent-facing callers pass
+      // one so the event reads like a human wrote it ("U11 House Evaluation")
+      // and matches the Google link, instead of "U11 House — S1 G2".
+      const summary = s.title
+        || `${s.category_name || "Evaluation"} — S${s.session_number}${s.group_number ? ` G${s.group_number}` : ""}`;
       const description = [
         s.org_name ? `Organization: ${s.org_name}` : "",
         s.session_type ? `Type: ${s.session_type}` : "",

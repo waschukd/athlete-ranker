@@ -403,14 +403,25 @@ export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName
 // read as progress through the process rather than a bare time slot. Omitted for
 // session 1 — nothing has been completed yet, and announcing "Registration
 // complete" to someone who just registered reads as a non-sequitur.
-export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, date, time, location: _loc, calendarUrl, completedLabel }) {
+export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessionLabel: _sl, date, time, location: _loc, calendarUrl, icsUrl, completedLabel }) {
   const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), sessionLabel = esc(_sl), location = esc(_loc);
-  // A quiet text link, not a big button — the session card is the headline; this
-  // is a convenience underneath it. Deliberately NOT an .ics attachment: Gmail
-  // would render its own bulky event card above our email and bury the brand.
-  const calendarLink = calendarUrl
-    ? `<p style="margin:18px auto 0;text-align:center;">
-         <a href="${esc(calendarUrl)}" style="display:inline-block;font-size:12.5px;font-weight:600;color:${GOLD_DEEP};text-decoration:none;border-bottom:1px solid ${GOLD_LINE};padding-bottom:2px;">+ Add to calendar</a>
+  // Quiet text links, not big buttons — the session card is the headline; this
+  // is a convenience underneath it.
+  //
+  // Two links because one can't cover everyone: the Google template URL bounces
+  // an Apple/Outlook parent to a Google sign-in and lands the event in a
+  // calendar they don't use, while an .ics link opens Apple Calendar's native
+  // "Add Event" sheet. Both are LINKS — an .ics *attachment* would make Gmail
+  // render its own bulky event card above our email and bury the brand.
+  const opt = (href, label) =>
+    `<a href="${esc(href)}" style="display:inline-block;font-size:12.5px;font-weight:600;color:${GOLD_DEEP};text-decoration:none;border-bottom:1px solid ${GOLD_LINE};padding-bottom:2px;">${label}</a>`;
+  const links = [
+    calendarUrl ? opt(calendarUrl, "Google") : "",
+    icsUrl ? opt(icsUrl, "Apple / Outlook") : "",
+  ].filter(Boolean);
+  const calendarLink = links.length
+    ? `<p style="margin:18px auto 0;text-align:center;font-size:12.5px;color:${MUTED};">
+         Add to calendar:&nbsp; ${links.join(`&nbsp;&nbsp;<span style="color:${GOLD_LINE};">·</span>&nbsp;&nbsp;`)}
        </p>`
     : "";
   const intro = completedLabel
