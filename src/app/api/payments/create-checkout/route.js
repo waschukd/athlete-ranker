@@ -143,10 +143,12 @@ export async function POST(request) {
     });
 
     // Pending purchase row + the ledger entry. Confirmed by the webhook.
+    // currency is written explicitly — the column defaults to 'usd', so omitting
+    // it recorded USD in the ledger while Stripe charged REPORT_CURRENCY (cad).
     await sql`
-      INSERT INTO report_purchases (athlete_id, age_category_id, buyer_email, stripe_session_id, amount_cents, status, report_link_token,
+      INSERT INTO report_purchases (athlete_id, age_category_id, buyer_email, stripe_session_id, amount_cents, currency, status, report_link_token,
                                     platform_fee_cents, provider_org_id)
-      VALUES (${athlete_id}, ${age_category_id}, '', ${session.id}, ${priceCents}, 'pending', ${token},
+      VALUES (${athlete_id}, ${age_category_id}, '', ${session.id}, ${priceCents}, ${REPORT_CURRENCY}, 'pending', ${token},
               ${feeCents}, ${provider.orgId})
     `;
 

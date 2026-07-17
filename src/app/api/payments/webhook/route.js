@@ -46,6 +46,10 @@ export async function POST(request) {
         const taxCents = Number.isFinite(session.total_details?.amount_tax)
           ? session.total_details.amount_tax
           : null;
+        // The currency Stripe actually settled in. Adaptive pricing can convert a
+        // buyer to their local currency, so reconcile the ledger to what was
+        // really charged rather than what we requested.
+        const currency = session.currency || null;
 
         await sql`
           UPDATE report_purchases SET
@@ -53,6 +57,7 @@ export async function POST(request) {
             buyer_email = ${session.customer_details?.email || ''},
             stripe_payment_intent_id = ${session.payment_intent || ''},
             amount_cents = COALESCE(${netCents}, amount_cents),
+            currency = COALESCE(${currency}, currency),
             tax_cents = COALESCE(${taxCents}, tax_cents),
             platform_fee_cents = COALESCE(${feeCents}, platform_fee_cents),
             provider_org_id = COALESCE(${providerOrgId}, provider_org_id),
