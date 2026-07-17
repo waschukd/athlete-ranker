@@ -38,16 +38,22 @@ export async function POST(request) {
           ? parseInt(session.metadata.platform_fee_cents, 10)
           : null;
 
-        // amount_total is what Stripe actually charged — authoritative over the
-        // price we intended, which can drift from an old pending row.
-        const paidCents = Number.isFinite(session.amount_total) ? session.amount_total : null;
+        // amount_SUBTOTAL, not amount_total. The total includes GST, which is not
+        // revenue — it's owed to the CRA. Storing the total here would make the
+        // provider's 75% eat a slice of the government's money on every sale
+        // ($27.99 instead of $26.24 at $34.99 + 5%). Tax is held separately.
+        const netCents = Number.isFinite(session.amount_subtotal) ? session.amount_subtotal : null;
+        const taxCents = Number.isFinite(session.total_details?.amount_tax)
+          ? session.total_details.amount_tax
+          : null;
 
         await sql`
           UPDATE report_purchases SET
             status = 'completed',
             buyer_email = ${session.customer_details?.email || ''},
             stripe_payment_intent_id = ${session.payment_intent || ''},
-            amount_cents = COALESCE(${paidCents}, amount_cents),
+            amount_cents = COALESCE(${netCents}, amount_cents),
+            tax_cents = COALESCE(${taxCents}, tax_cents),
             platform_fee_cents = COALESCE(${feeCents}, platform_fee_cents),
             provider_org_id = COALESCE(${providerOrgId}, provider_org_id),
             completed_at = NOW()

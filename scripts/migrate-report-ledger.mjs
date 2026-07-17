@@ -23,6 +23,7 @@ const ADD = [
   ["organizations", "report_purchasing_enabled"],
   ["report_purchases", "provider_org_id"],
   ["report_purchases", "platform_fee_cents"],
+  ["report_purchases", "tax_cents"],
 ];
 // Each carries the predicate for "someone actually used this". IS NOT NULL is
 // wrong for a NOT NULL DEFAULT false column — every row is non-null while
@@ -63,6 +64,7 @@ if (!COMMIT) { console.log("\nDRY RUN — re-run with --commit."); process.exit(
 await sql`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS report_purchasing_enabled BOOLEAN NOT NULL DEFAULT true`;
 await sql`ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS provider_org_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL`;
 await sql`ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS platform_fee_cents INTEGER`;
+await sql`ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS tax_cents INTEGER`;
 await sql`CREATE INDEX IF NOT EXISTS report_purchases_provider_idx ON report_purchases (provider_org_id)`;
 
 await sql`ALTER TABLE organizations   DROP COLUMN IF EXISTS stripe_account_id`;

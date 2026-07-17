@@ -155,9 +155,18 @@ export async function GET() {
         SELECT
           o.id, o.name, o.type,
           COUNT(rp.id)::int AS reports,
+          -- amount_cents is PRE-tax, so gross/cut/owed are all revenue figures.
+          -- Tax is surfaced separately: it's a CRA liability, never splittable.
           COALESCE(SUM(rp.amount_cents), 0)::int AS gross_cents,
+          COALESCE(SUM(COALESCE(rp.tax_cents, 0)), 0)::int AS tax_cents,
           COALESCE(SUM(COALESCE(rp.platform_fee_cents, 0)), 0)::int AS platform_cents,
           COALESCE(SUM(rp.amount_cents - COALESCE(rp.platform_fee_cents, 0)), 0)::int AS owed_cents,
+          -- Funnel: report.viewed vs sold, per provider. The ratio moves revenue
+          -- ~3x harder than price does, and it's otherwise invisible.
+          (SELECT COUNT(*) FROM analytics_events ae
+            WHERE ae.event = 'report.viewed'
+              AND (ae.metadata->>'catId')::int IN (
+                SELECT ac2.id FROM age_categories ac2 WHERE ac2.organization_id = o.id))::int AS views,
           MAX(rp.completed_at) AS last_purchase
         FROM report_purchases rp
         LEFT JOIN age_categories ac ON ac.id = rp.age_category_id
@@ -200,8 +209,10 @@ export async function GET() {
       providerLedger: providerLedger.map(b => ({
         ...b,
         gross_cents: n(b.gross_cents),
+        tax_cents: n(b.tax_cents),
         platform_cents: n(b.platform_cents),
         owed_cents: n(b.owed_cents),
+        views: n(b.views),
       })),
       feed,
     });

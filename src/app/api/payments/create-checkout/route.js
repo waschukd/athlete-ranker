@@ -120,9 +120,17 @@ export async function POST(request) {
             description: `${link[0].category_name} — Full evaluation report with scores, notes, and AI scouting analysis`,
           },
           unit_amount: priceCents,
+          // The listed price is PRE-tax; GST is added on top at checkout.
+          tax_behavior: "exclusive",
         },
         quantity: 1,
       }],
+      // Stripe Tax. Safe to ship before any registration exists — it collects
+      // nothing until a registration is active in Dashboard > Tax > Registrations,
+      // so until the accountant says go this behaves exactly as it does today.
+      automatic_tax: { enabled: true },
+      // Tax can't be computed without knowing where the buyer is.
+      billing_address_collection: "required",
       metadata: {
         token,
         athlete_id: String(athlete_id),

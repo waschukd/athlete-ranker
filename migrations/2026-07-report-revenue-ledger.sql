@@ -23,6 +23,12 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS report_purchasing_enabled BOO
 ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS provider_org_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL;
 ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS platform_fee_cents INTEGER;
 
+-- GST/HST collected, held separately because it is NOT revenue — it's a
+-- liability owed to the CRA. amount_cents stays PRE-TAX so the provider's share
+-- is computed on the sale, not on the tax. Conflating them would quietly pay
+-- every provider a slice of the government's money.
+ALTER TABLE report_purchases ADD COLUMN IF NOT EXISTS tax_cents INTEGER;
+
 CREATE INDEX IF NOT EXISTS report_purchases_provider_idx ON report_purchases (provider_org_id);
 
 -- ── drop: Connect-only columns from the superseded migration ─────────────────

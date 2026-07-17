@@ -128,3 +128,30 @@ describe("providerAmountCents", () => {
     expect(providerAmountCents(2499, 9999)).toBe(0);
   });
 });
+
+describe("GST is not revenue", () => {
+  // The expensive mistake: GST is collected from the parent but owed to the CRA.
+  // If the provider's 75% is taken off the tax-inclusive total, every sale quietly
+  // pays them a slice of the government's money ($27.99 instead of $26.24, or
+  // $2,275 across 1,300 sales). amount_cents is stored PRE-tax for this reason.
+  const PRICE = 3499, GST = 175, TOTAL = PRICE + GST;
+
+  it("the provider's share comes off the pre-tax amount", () => {
+    const fee = platformFeeCents(PRICE);
+    expect(fee).toBe(875);
+    expect(providerAmountCents(PRICE, fee)).toBe(2624); // $26.24
+  });
+
+  it("splitting the tax-inclusive total would overpay the provider", () => {
+    // Guards the shape of the bug, so a future refactor that starts storing
+    // amount_total fails here rather than in a payout run.
+    const wrong = providerAmountCents(TOTAL, platformFeeCents(PRICE));
+    expect(wrong).toBe(2799);
+    expect(wrong - 2624).toBe(GST); // exactly the CRA's money
+  });
+
+  it("cut + owed reconciles to pre-tax revenue, with tax outside the split", () => {
+    const fee = platformFeeCents(PRICE);
+    expect(fee + providerAmountCents(PRICE, fee)).toBe(PRICE);
+  });
+});
