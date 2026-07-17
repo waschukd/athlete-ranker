@@ -10,6 +10,10 @@ import { LoadingState } from "./LoadingState";
 const avg = (rows, key) => (rows.length ? rows.reduce((a, r) => a + (r[key] || 0), 0) / rows.length : 0);
 const money = cents => `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// View -> purchase. "—" rather than 0% when nobody has looked yet: a 0% that
+// means "no data" reads as "nobody buys", which is a different and alarming claim.
+const conv = (views, sold) => (views > 0 ? `${Math.round((sold / views) * 100)}%` : "—");
+
 function relTime(ts) {
   const s = Math.floor((Date.now() - new Date(ts)) / 1000);
   if (s < 60) return "just now";
@@ -52,7 +56,9 @@ export function OverviewTab() {
   const series = data?.series || [];
   const pulse = data?.pulse || [];
   const topOrgs = data?.topOrgs || [];
-  const topBuyers = data?.topBuyers || [];
+  const providerLedger = data?.providerLedger || [];
+  const feeBps = data?.feeBps ?? 2500;
+  const totalTax = providerLedger.reduce((a, b) => a + (b.tax_cents || 0), 0);
   const feed = data?.feed || [];
 
   const col = k => series.map(r => r[k]);
@@ -128,30 +134,44 @@ export function OverviewTab() {
 
           <div className="gm-card" style={{ padding: 22 }}>
             <SectionHead
-              kicker="Parent development reports"
-              title="Reports purchased"
-              right={`${o.total_reports || 0} all-time · ${money(o.total_revenue_cents || 0)}`}
+              kicker="Owed to providers · remitted off-platform"
+              title="Provider payouts"
+              right={`${o.total_reports || 0} sold · ${money(o.total_revenue_cents || 0)} gross`}
               inline
             />
-            {topBuyers.length === 0 ? (
+            {providerLedger.length === 0 ? (
               <Empty>
-                No reports attributed to an organization yet
+                No reports sold yet
                 {o.total_reports > 0 && (
                   <div style={{ marginTop: 8, fontSize: 11, color: "var(--gm-amber)", maxWidth: 420, marginInline: "auto", lineHeight: 1.5 }}>
                     {o.total_reports} purchase{o.total_reports === 1 ? "" : "s"} exist but point at a deleted
-                    athlete/category, so they can&apos;t be attributed to an org.
+                    athlete/category and carry no provider, so they can&apos;t be attributed.
                   </div>
                 )}
               </Empty>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {topBuyers.map((b, i) => (
-                  <Row key={b.id} rank={i + 1} name={b.name} kind={b.type}>
-                    <Stat val={b.reports} label="Reports" />
-                    <Stat val={money(b.revenue_cents)} label="Revenue" strong />
-                  </Row>
-                ))}
-              </div>
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {providerLedger.map((b, i) => (
+                    <Row key={b.id} rank={i + 1} name={b.name} kind={b.type}>
+                      <Stat val={conv(b.views, b.reports)} label="Conv." />
+                      <Stat val={b.reports} label="Sold" />
+                      <Stat val={money(b.gross_cents)} label="Net sales" />
+                      <Stat val={money(b.platform_cents)} label="Our cut" />
+                      <Stat val={money(b.owed_cents)} label="Owed" strong />
+                    </Row>
+                  ))}
+                </div>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--gm-border)", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: 11, color: "var(--gm-dim)" }}>
+                  <span>
+                    Sideline Star keeps {(feeBps / 100).toFixed(0)}% · providers paid outside the platform
+                    {totalTax > 0 && <> · <span style={{ color: "var(--gm-amber)" }}>{money(totalTax)} GST held for CRA</span></>}
+                  </span>
+                  <span style={{ color: "var(--gm-accent)", fontWeight: 700 }}>
+                    {money(providerLedger.reduce((a, b) => a + b.owed_cents, 0))} owed
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </div>
