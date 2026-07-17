@@ -11,17 +11,14 @@ vi.mock("@/lib/db", () => ({ default: vi.fn() }));
 const { default: sql } = await import("@/lib/db");
 const {
   resolveReportProvider, isPurchasable, purchaseBlockedReason,
-  platformFeeCents, PLATFORM_FEE_BPS,
+  platformFeeCents, providerAmountCents, PLATFORM_FEE_BPS,
 } = await import("@/lib/reportProvider");
 
 const CAT_ROW = {
   id: 76, organization_id: 38, org_name: "Demo Soci", org_type: "association",
-  stripe_account_id: "acct_assoc", stripe_transfers_active: true, report_purchasing_enabled: true,
+  report_purchasing_enabled: true,
 };
-const SP_ROW = {
-  id: 16, name: "Competitive Thread", type: "service_provider",
-  stripe_account_id: "acct_sp", stripe_transfers_active: true,
-};
+const SP_ROW = { id: 16, name: "Competitive Thread", type: "service_provider" };
 
 beforeEach(() => { sql.mockReset(); });
 
@@ -36,9 +33,8 @@ describe("platformFeeCents", () => {
     expect(platformFeeCents(2499, 2000)).toBe(500);
   });
 
-  it("never meets or exceeds the charge — Stripe rejects that outright", () => {
-    expect(platformFeeCents(2499, 10000)).toBe(2498);
-    expect(platformFeeCents(100, 10000)).toBe(99);
+  it("never exceeds the charge", () => {
+    expect(platformFeeCents(2499, 10000)).toBe(2499);
   });
 
   it("never goes negative", () => {
@@ -60,7 +56,7 @@ describe("resolveReportProvider", () => {
     sql.mockResolvedValueOnce([CAT_ROW]).mockResolvedValueOnce([SP_ROW]);
     const p = await resolveReportProvider(76);
     expect(p.orgId).toBe(16);
-    expect(p.stripeAccountId).toBe("acct_sp");
+    expect(p.orgName).toBe("Competitive Thread");
     expect(p.isSelfProvider).toBe(false);
   });
 
@@ -68,7 +64,7 @@ describe("resolveReportProvider", () => {
     sql.mockResolvedValueOnce([CAT_ROW]).mockResolvedValueOnce([]);
     const p = await resolveReportProvider(76);
     expect(p.orgId).toBe(38);
-    expect(p.stripeAccountId).toBe("acct_assoc");
+    expect(p.orgName).toBe("Demo Soci");
     expect(p.isSelfProvider).toBe(true);
   });
 
@@ -88,29 +84,14 @@ describe("resolveReportProvider", () => {
 });
 
 describe("isPurchasable / purchaseBlockedReason", () => {
-  const ok = { purchasingEnabled: true, stripeAccountId: "acct_1", transfersActive: true };
-
-  it("allows a fully onboarded, enabled provider", () => {
-    expect(isPurchasable(ok)).toBe(true);
-    expect(purchaseBlockedReason(ok)).toBeNull();
-  });
-
-  it("blocks a provider that never onboarded", () => {
-    const p = { ...ok, stripeAccountId: null };
-    expect(isPurchasable(p)).toBe(false);
-    expect(purchaseBlockedReason(p)).toBe("provider_not_onboarded");
-  });
-
-  it("blocks a provider mid-onboarding — Stripe can't transfer to them yet", () => {
-    // The dangerous case: an account exists, so a naive check would pass, but
-    // the transfer would fail or strand funds on the platform.
-    const p = { ...ok, transfersActive: false };
-    expect(isPurchasable(p)).toBe(false);
-    expect(purchaseBlockedReason(p)).toBe("provider_onboarding_incomplete");
+  it("allows an enabled association", () => {
+    const p = { purchasingEnabled: true };
+    expect(isPurchasable(p)).toBe(true);
+    expect(purchaseBlockedReason(p)).toBeNull();
   });
 
   it("blocks when the association switched purchasing off", () => {
-    const p = { ...ok, purchasingEnabled: false };
+    const p = { purchasingEnabled: false };
     expect(isPurchasable(p)).toBe(false);
     expect(purchaseBlockedReason(p)).toBe("purchasing_disabled");
   });
@@ -118,5 +99,32 @@ describe("isPurchasable / purchaseBlockedReason", () => {
   it("blocks on a null provider", () => {
     expect(isPurchasable(null)).toBe(false);
     expect(purchaseBlockedReason(null)).toBe("category_missing");
+  });
+
+  it("does not gate on the provider's banking — Sideline Star collects the charge", () => {
+    // Under Connect a provider mid-onboarding couldn't be paid, so a sale had to
+    // be blocked. Without Connect the money lands on our account regardless, so
+    // nothing about the provider stops a parent buying.
+    expect(isPurchasable({ purchasingEnabled: true })).toBe(true);
+  });
+});
+
+describe("providerAmountCents", () => {
+  it("is the charge minus our cut", () => {
+    expect(providerAmountCents(2499, 625)).toBe(1874); // $18.74 of $24.99
+  });
+
+  it("derives the fee when none was recorded", () => {
+    expect(providerAmountCents(2499)).toBe(1874);
+  });
+
+  it("uses the fee STORED on the sale, not today's rate", () => {
+    // A statement must reconstruct from the ledger: if the cut changes later,
+    // historical sales keep the split they were actually sold under.
+    expect(providerAmountCents(2499, 500)).toBe(1999); // sold at 20%
+  });
+
+  it("never goes negative", () => {
+    expect(providerAmountCents(2499, 9999)).toBe(0);
   });
 });

@@ -1,6 +1,7 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { PLATFORM_FEE_BPS } from "@/lib/reportProvider";
 
 // Day boundaries follow the association's wall clock, not UTC — a 7pm MT session
 // belongs to that evening, not the next UTC day.
@@ -36,7 +37,7 @@ export async function GET() {
     const adminUser = await requireSuperAdmin();
     if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const [overview, today, series, pulse, topOrgs, topBuyers, feed] = await Promise.all([
+    const [overview, today, series, pulse, topOrgs, providerLedger, feed] = await Promise.all([
       sql`
         WITH sess AS (${SESSIONS_CTE})
         SELECT
@@ -141,18 +142,29 @@ export async function GET() {
         ORDER BY hours DESC NULLS LAST, session_count DESC
         LIMIT 8
       `,
+      // Provider payout ledger. Sideline Star collects every charge and remits
+      // each provider's share off-platform, so this is the statement: what they
+      // sold, what we kept, what they're owed.
+      //
+      // Joins on provider_org_id — who actually EARNED the sale (the SP that ran
+      // the evals, else the association). The old query joined through the
+      // category to the association, which is a different question and wrong
+      // whenever an SP is involved. Falls back to the category's org for rows
+      // written before the ledger existed.
       sql`
         SELECT
           o.id, o.name, o.type,
           COUNT(rp.id)::int AS reports,
-          COALESCE(SUM(rp.amount_cents), 0)::int AS revenue_cents,
+          COALESCE(SUM(rp.amount_cents), 0)::int AS gross_cents,
+          COALESCE(SUM(COALESCE(rp.platform_fee_cents, 0)), 0)::int AS platform_cents,
+          COALESCE(SUM(rp.amount_cents - COALESCE(rp.platform_fee_cents, 0)), 0)::int AS owed_cents,
           MAX(rp.completed_at) AS last_purchase
         FROM report_purchases rp
-        JOIN age_categories ac ON ac.id = rp.age_category_id
-        JOIN organizations o ON o.id = ac.organization_id
+        LEFT JOIN age_categories ac ON ac.id = rp.age_category_id
+        JOIN organizations o ON o.id = COALESCE(rp.provider_org_id, ac.organization_id)
         WHERE rp.status = 'completed'
         GROUP BY o.id, o.name, o.type
-        ORDER BY reports DESC, revenue_cents DESC
+        ORDER BY owed_cents DESC, reports DESC
         LIMIT 8
       `,
       sql`
@@ -182,7 +194,15 @@ export async function GET() {
       })),
       pulse: pulse.map(r => ({ day: r.day, events: n(r.events), users: n(r.users) })),
       topOrgs: topOrgs.map(o => ({ ...o, hours: n(o.hours), testing_hours: n(o.testing_hours) })),
-      topBuyers: topBuyers.map(b => ({ ...b, revenue_cents: n(b.revenue_cents) })),
+      // Surfaced so the ledger footer states the actual configured cut rather
+      // than a hardcoded 25% that could drift from REPORT_PLATFORM_FEE_BPS.
+      feeBps: PLATFORM_FEE_BPS(),
+      providerLedger: providerLedger.map(b => ({
+        ...b,
+        gross_cents: n(b.gross_cents),
+        platform_cents: n(b.platform_cents),
+        owed_cents: n(b.owed_cents),
+      })),
       feed,
     });
   } catch (error) {

@@ -14,9 +14,8 @@ import { getStripe } from "@/lib/stripe";
 import { resolveReportProvider, isPurchasable, purchaseBlockedReason, platformFeeCents } from "@/lib/reportProvider";
 
 // Charge currency. Defaults to usd to preserve existing behaviour — the one
-// completed purchase to date was USD. Note the associations are Albertan and
-// their connected accounts default to CAD, so today every payout crosses an FX
-// boundary; flip this to "cad" when the pricing decision is made.
+// completed purchase to date was USD. The associations are Albertan, so "cad" is
+// probably the right answer; it's an env flip once the pricing call is made.
 const REPORT_CURRENCY = (process.env.REPORT_CURRENCY || "usd").toLowerCase();
 
 // Mirror the read-side TTL on /api/report/[token] so a bought link can
@@ -88,13 +87,13 @@ export async function POST(request) {
     `;
     if (existing.length) return NextResponse.json({ already_purchased: true });
 
-    // Who earns this report, and can Stripe actually pay them? Resolved
-    // server-side — never trusted from the client.
+    // Who earns this sale. Resolved server-side — never trusted from the client.
+    // Sideline Star is merchant of record and collects the whole charge; this is
+    // for the ledger (and the association's own purchasing switch), not a gate on
+    // the provider's banking.
     const provider = await resolveReportProvider(age_category_id);
     if (!isPurchasable(provider)) {
       const reason = purchaseBlockedReason(provider);
-      // Deliberately vague to the parent: an unfinished bank onboarding is the
-      // association's problem to fix, not something to explain at a paywall.
       return NextResponse.json(
         { error: "Report purchasing isn't available for this association yet.", reason },
         { status: 409 },
@@ -102,12 +101,13 @@ export async function POST(request) {
     }
 
     const priceCents = parseInt(process.env.REPORT_PRICE_CENTS || "2499");
+    // Recorded per sale so a provider statement reads off the ledger rather than
+    // recomputing against a rate that may have moved since.
     const feeCents = platformFeeCents(priceCents);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
-    // Create Stripe Checkout Session — a DESTINATION charge. Sideline Star is
-    // merchant of record; Stripe atomically keeps application_fee_amount for the
-    // platform and moves the remainder to the provider's connected account.
+    // Plain charge on Sideline Star's own account — no destination/transfer.
+    // The provider's share is remitted off-platform from the ledger.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{
@@ -123,31 +123,23 @@ export async function POST(request) {
         },
         quantity: 1,
       }],
-      payment_intent_data: {
-        application_fee_amount: feeCents,
-        transfer_data: { destination: provider.stripeAccountId },
-        // Shows on the parent's card statement — they bought from the association
-        // via Sideline Star, so name it something they'll recognise.
-        description: `${link[0].category_name} report — ${provider.orgName}`,
-      },
       metadata: {
         token,
         athlete_id: String(athlete_id),
         age_category_id: String(age_category_id),
         provider_org_id: String(provider.orgId),
-        application_fee_cents: String(feeCents),
+        platform_fee_cents: String(feeCents),
       },
       success_url: `${baseUrl}/report/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/report/${token}?payment=cancelled`,
     });
 
-    // Create pending purchase record. The split is re-read from Stripe in the
-    // webhook (the source of truth); these are the intended values.
+    // Pending purchase row + the ledger entry. Confirmed by the webhook.
     await sql`
       INSERT INTO report_purchases (athlete_id, age_category_id, buyer_email, stripe_session_id, amount_cents, status, report_link_token,
-                                    application_fee_cents, provider_org_id, destination_account_id)
+                                    platform_fee_cents, provider_org_id)
       VALUES (${athlete_id}, ${age_category_id}, '', ${session.id}, ${priceCents}, 'pending', ${token},
-              ${feeCents}, ${provider.orgId}, ${provider.stripeAccountId})
+              ${feeCents}, ${provider.orgId})
     `;
 
     return NextResponse.json({ checkout_url: session.url });
