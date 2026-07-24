@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Users, FileText, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
 import { OrgAvatar, buildOrgColorMap, colorForOrg } from "@/lib/orgVisuals";
 import { WeekGrid, MonthCalendar, DateStripBar } from "@/components/SessionDateNav";
+import SessionRosterModal from "@/components/SessionRosterModal";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import BulkOnboard from "@/components/BulkOnboard";
@@ -159,6 +160,7 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview"); // overview | schedule
   const [scheduleView, setScheduleView] = useState("week"); // week | month | list
   const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null);
+  const [rosterScheduleId, setRosterScheduleId] = useState(null); // open session-roster modal
   const [schedulePast, setSchedulePast] = useState(false);
 
   const { data: myOrgsData } = useQuery({
@@ -716,6 +718,12 @@ function Dashboard() {
                                   {!serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {entry.spots_open}</span>
                                   )}
+                                  <button
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRosterScheduleId(entry.schedule_id); }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-accent border border-gray-200 rounded-lg px-2 py-1 flex-shrink-0"
+                                  >
+                                    <Users size={11} /> Evaluators
+                                  </button>
                                   <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
                                 </a>
                               );
@@ -863,6 +871,10 @@ function Dashboard() {
             )}
           </div>
         </div>
+      )}
+
+      {rosterScheduleId && (
+        <SessionRosterModal scheduleId={rosterScheduleId} onClose={() => setRosterScheduleId(null)} />
       )}
     </div>
   );
