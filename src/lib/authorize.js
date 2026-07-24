@@ -201,6 +201,69 @@ export async function authorizeOrgAccess(session, orgId) {
 }
 
 /**
+ * Can this user manage WHO evaluates a session for an association — see the
+ * roster, add someone, take a spot from someone, promote a lead?
+ *
+ * Rules (owner's call):
+ *  - super_admin           → always (the safety net)
+ *  - lead of the assoc     → always for their association (SP-served or not)
+ *  - SP admin              → for any association their SP actively serves
+ *  - association_admin      → ONLY when the association runs in-house
+ *                            (no active service provider). If an SP serves them,
+ *                            the SP handles evaluators and the association is
+ *                            locked out.
+ *
+ * Returns { authorized, reason, isLead, spServed }.
+ */
+export async function canManageSessionAssignments(session, orgId) {
+  if (!session?.email || !orgId) return { authorized: false, reason: "no_session" };
+  if (session.role === "super_admin") return { authorized: true, reason: "super_admin" };
+
+  const users = await sql`SELECT id FROM users WHERE email = ${session.email}`;
+  if (!users.length) return { authorized: false, reason: "no_user" };
+  const userId = users[0].id;
+
+  // Is this association served by an active service provider?
+  const sp = await sql`
+    SELECT sal.service_provider_id AS sp_id, o.contact_email
+    FROM sp_association_links sal
+    JOIN organizations o ON o.id = sal.service_provider_id
+    WHERE sal.association_id = ${orgId} AND sal.status = 'active'
+  `;
+  const spServed = sp.length > 0;
+
+  // Lead of THIS association — authority regardless of who runs the evals.
+  const lead = await sql`
+    SELECT 1 FROM evaluator_memberships
+    WHERE user_id = ${userId} AND organization_id = ${orgId}
+      AND status = 'active' AND is_lead = true
+  `;
+  if (lead.length) return { authorized: true, reason: "lead", isLead: true, spServed };
+
+  // SP admin of a provider that serves this association.
+  const spAdmin = sp.some(row =>
+    row.contact_email === session.email,
+  ) || (spServed && await (async () => {
+    const r = await sql`
+      SELECT 1 FROM user_organization_roles uor
+      WHERE uor.user_id = ${userId} AND uor.organization_id = ANY(${sp.map(s => s.sp_id)})
+    `;
+    return r.length > 0;
+  })());
+  if (spAdmin) return { authorized: true, reason: "sp_admin", spServed };
+
+  // Association admin — in-house only. Locked out the moment an SP serves them.
+  if (!spServed) {
+    const owner = await sql`SELECT 1 FROM organizations WHERE id = ${orgId} AND contact_email = ${session.email}`;
+    if (owner.length) return { authorized: true, reason: "assoc_admin_inhouse", spServed };
+    const role = await sql`SELECT 1 FROM user_organization_roles WHERE user_id = ${userId} AND organization_id = ${orgId}`;
+    if (role.length) return { authorized: true, reason: "assoc_admin_inhouse", spServed };
+  }
+
+  return { authorized: false, reason: spServed ? "sp_served_locked" : "not_authorized", spServed };
+}
+
+/**
  * Get all organization IDs a user has access to (for filtering lists).
  */
 export async function getAccessibleOrgIds(session) {
