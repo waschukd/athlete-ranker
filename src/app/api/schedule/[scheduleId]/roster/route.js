@@ -1,0 +1,199 @@
+// Session roster: who's evaluating/testing a given session, and (for those
+// authorized) placing or removing people.
+//
+//   GET    → session details + evaluators + testers on it + who can be added +
+//            whether the caller may manage it
+//   POST   → add a user as an evaluator or tester ({ user_id, kind })
+//   DELETE → remove a user's signup ({ user_id, kind })
+//
+// Manage authority is canManageSessionAssignments on the session's association:
+// God, a lead of the association, the SP admin that serves it, or an in-house
+// association admin (locked out once an SP serves them).
+import { NextResponse } from "next/server";
+import sql from "@/lib/db";
+import { getSession, getAppUserId } from "@/lib/auth";
+import { canManageSessionAssignments } from "@/lib/authorize";
+import { eligiblePeople, eligibilityOf } from "@/lib/sessionRoster";
+
+// Resolve the schedule row to its association org (+ session context). SP-owned
+// testing events carry a NULL category and hang off the SP; those aren't the
+// association-evaluator sessions this manages, so they resolve to no org and are
+// treated as unmanageable here.
+async function loadSession(scheduleId) {
+  const [row] = await sql`
+    SELECT es.id, es.age_category_id, es.session_number, es.group_number,
+           es.scheduled_date, es.start_time, es.end_time, es.location, es.status,
+           es.service_provider_id,
+           ac.name AS category_name, ac.organization_id,
+           o.name AS org_name,
+           cs.session_type, cs.name AS session_name,
+           COALESCE(cs.evaluators_required, ac.evaluators_required, 4) AS evaluators_required,
+           COALESCE(es.testers_required, 0) AS testers_required
+    FROM evaluation_schedule es
+    LEFT JOIN age_categories ac ON ac.id = es.age_category_id
+    LEFT JOIN organizations o ON o.id = ac.organization_id
+    LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
+    WHERE es.id = ${scheduleId}
+  `;
+  return row || null;
+}
+
+async function rosterFor(scheduleId) {
+  const evaluators = await sql`
+    SELECT ess.user_id, u.name, u.email, ess.status, (ess.assigned_by IS NOT NULL) AS assigned
+    FROM evaluator_session_signups ess
+    JOIN users u ON u.id = ess.user_id
+    WHERE ess.schedule_id = ${scheduleId} AND ess.status != 'cancelled'
+    ORDER BY u.name`;
+  const testers = await sql`
+    SELECT tss.user_id, u.name, u.email, tss.status, (tss.assigned_by IS NOT NULL) AS assigned
+    FROM tester_session_signups tss
+    JOIN users u ON u.id = tss.user_id
+    WHERE tss.schedule_id = ${scheduleId} AND tss.status != 'cancelled'
+    ORDER BY u.name`;
+  return { evaluators, testers };
+}
+
+export async function GET(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const scheduleId = parseInt(params.scheduleId);
+    if (!scheduleId) return NextResponse.json({ error: "Invalid session" }, { status: 400 });
+
+    const s = await loadSession(scheduleId);
+    if (!s) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+    // Anyone who can view the org's schedule can see the roster; management is a
+    // stricter check surfaced as canManage.
+    const orgId = s.organization_id;
+    const manage = orgId ? await canManageSessionAssignments(session, orgId) : { authorized: false };
+
+    // Gate the read to people with some access to this org (managers, or org
+    // members). getAppUserId + a membership check keeps a random logged-in user
+    // from enumerating rosters.
+    // A viewer is a manager, or someone eligible to work this association (their
+    // membership is on the SP for SP-served associations, not the association).
+    const uid = await getAppUserId(session);
+    let canView = manage.authorized;
+    if (!canView && uid && orgId) {
+      const e = await eligibilityOf(orgId, uid);
+      canView = e.evaluator || e.tester;
+    }
+    if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const roster = await rosterFor(scheduleId);
+
+    // Eligible to add: everyone who can work this association, not already on this
+    // session — drawn from the SP's people (or direct members, in-house).
+    let addable = { evaluators: [], testers: [] };
+    if (manage.authorized && orgId) {
+      const onEval = new Set(roster.evaluators.map(e => e.user_id));
+      const onTest = new Set(roster.testers.map(t => t.user_id));
+      const people = await eligiblePeople(orgId);
+      addable = {
+        evaluators: people.filter(m => m.is_evaluator && !onEval.has(m.user_id)),
+        testers: people.filter(m => m.is_tester && !onTest.has(m.user_id)),
+      };
+    }
+
+    return NextResponse.json({
+      session: {
+        id: s.id, category_id: s.age_category_id, category_name: s.category_name,
+        org_id: orgId, org_name: s.org_name,
+        session_number: s.session_number, session_name: s.session_name,
+        session_type: s.session_type, group_number: s.group_number,
+        scheduled_date: s.scheduled_date, start_time: s.start_time, end_time: s.end_time,
+        location: s.location,
+        evaluators_required: s.evaluators_required, testers_required: s.testers_required,
+      },
+      evaluators: roster.evaluators,
+      testers: roster.testers,
+      canManage: manage.authorized,
+      manageReason: manage.reason || null,
+      addable,
+    });
+  } catch (error) {
+    console.error("roster GET error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function authorizeManage(session, scheduleId) {
+  const s = await loadSession(scheduleId);
+  if (!s) return { ok: false, status: 404, error: "Session not found" };
+  if (!s.organization_id) return { ok: false, status: 400, error: "This session isn't a manageable association session" };
+  const manage = await canManageSessionAssignments(session, s.organization_id);
+  if (!manage.authorized) return { ok: false, status: 403, error: "Forbidden", reason: manage.reason };
+  return { ok: true, s };
+}
+
+export async function POST(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const scheduleId = parseInt(params.scheduleId);
+    const { user_id, kind } = await request.json();
+    if (!scheduleId || !user_id || !["evaluator", "tester"].includes(kind)) {
+      return NextResponse.json({ error: "scheduleId, user_id and kind (evaluator|tester) required" }, { status: 400 });
+    }
+
+    const auth = await authorizeManage(session, scheduleId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+
+    // The person being placed must be eligible to work this association (member
+    // of it, or of an SP serving it) with the right capability.
+    const elig = await eligibilityOf(auth.s.organization_id, user_id);
+    if (kind === "evaluator" && !elig.evaluator) return NextResponse.json({ error: "That person isn't an evaluator for this association." }, { status: 400 });
+    if (kind === "tester" && !elig.tester) return NextResponse.json({ error: "That person isn't a tester for this association." }, { status: 400 });
+
+    const actorId = await getAppUserId(session);
+    const table = kind === "evaluator" ? "evaluator_session_signups" : "tester_session_signups";
+
+    // Reactivate a cancelled row if present, else insert. Keeps one row per
+    // (user, session) rather than accumulating duplicates.
+    if (kind === "evaluator") {
+      const [ex] = await sql`SELECT id, status FROM evaluator_session_signups WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+      if (ex && ex.status !== "cancelled") return NextResponse.json({ ok: true, alreadyOn: true });
+      if (ex) await sql`UPDATE evaluator_session_signups SET status = 'signed_up', assigned_by = ${actorId}, cancel_reason = NULL WHERE id = ${ex.id}`;
+      else await sql`INSERT INTO evaluator_session_signups (schedule_id, user_id, status, assigned_by) VALUES (${scheduleId}, ${user_id}, 'signed_up', ${actorId})`;
+    } else {
+      const [ex] = await sql`SELECT id, status FROM tester_session_signups WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+      if (ex && ex.status !== "cancelled") return NextResponse.json({ ok: true, alreadyOn: true });
+      if (ex) await sql`UPDATE tester_session_signups SET status = 'signed_up', assigned_by = ${actorId} WHERE id = ${ex.id}`;
+      else await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status, assigned_by) VALUES (${scheduleId}, ${user_id}, 'signed_up', ${actorId})`;
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("roster POST error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const scheduleId = parseInt(params.scheduleId);
+    const { user_id, kind } = await request.json();
+    if (!scheduleId || !user_id || !["evaluator", "tester"].includes(kind)) {
+      return NextResponse.json({ error: "scheduleId, user_id and kind required" }, { status: 400 });
+    }
+
+    const auth = await authorizeManage(session, scheduleId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+
+    // Soft-cancel (mirrors self-cancel), so history and any scoring provenance
+    // survive rather than being hard-deleted.
+    if (kind === "evaluator") {
+      await sql`UPDATE evaluator_session_signups SET status = 'cancelled', cancel_reason = 'removed_by_admin' WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+    } else {
+      await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("roster DELETE error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
