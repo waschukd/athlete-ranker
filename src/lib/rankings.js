@@ -36,8 +36,15 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const hasScores = parseInt(scoreCheck[0].count) > 0 || parseInt(testingCheck[0].count) > 0;
 
   if (!hasScores) {
+    // Goalies are ranked as a separate pool and must never appear in the skater
+    // list — same split as the scored path below. Before this, the no-scores
+    // fallback lumped everyone into `athletes`, so a goalie showed a skater rank
+    // (e.g. alphabetically 4th) on the group-making page.
+    const isGoalie = (a) => (a.position || "").toLowerCase() === "goalie";
+    const preRank = (list) => list.map((a, i) => ({ ...a, rank: i + 1, weighted_total: null, session_scores: {}, rank_history: [] }));
     return {
-      athletes: athletes.map((a, i) => ({ ...a, rank: i + 1, weighted_total: null, session_scores: {}, rank_history: [] })),
+      athletes: preRank(athletes.filter(a => !isGoalie(a))),
+      goalies: preRank(athletes.filter(isGoalie)),
       has_scores: false, phase: "pre_session", sessions, category,
     };
   }
