@@ -28,4 +28,17 @@ describe("scheduleFromColumns — format-aware", () => {
   it("returns null with no Division column", () => {
     expect(scheduleFromColumns([["Date", "Time"], ["2026-01-01", "09:00"]])).toBe(null);
   });
+
+  it("flags an 'if necessary' game as tentative, wherever the phrase sits", () => {
+    const g = [
+      ["Division", "Format", "Session #", "Group/Matchup", "Type", "Date", "Start Time", "End Time", "Location"],
+      ["U15", "Standard", "4", "3", "Eval Game (if necessary)", "2026-09-26", "13:00", "14:00", "TME"], // in Type
+      ["U15", "Standard", "4", "4", "Eval Game", "2026-09-26", "14:15", "15:15", "TME"],                // normal
+      ["U15", "Standard", "4", "5", "Eval Game", "2026-09-26", "16:45", "17:45", "TME — IF NEC"],       // in Location
+    ];
+    const r = scheduleFromColumns(g);
+    expect(r[0].if_necessary).toBe(true);
+    expect(r[1].if_necessary).toBe(false);
+    expect(r[2].if_necessary).toBe(true);
+  });
 });

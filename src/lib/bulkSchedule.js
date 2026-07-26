@@ -44,9 +44,14 @@ export function scheduleFromColumns(grid) {
     const gmVal = ci.gm >= 0 ? String(r[ci.gm] || "").trim() : "";
     const isT = eval_format === "round_robin";
     const session_number = ci.sess >= 0 ? (parseInt(r[ci.sess]) || null) : null;
+    // "If necessary" games (common in client files) come in as tentative — they
+    // show on the schedule but stay closed to signups until a manager confirms.
+    // Scan the whole row so the phrase is caught wherever it lands (type, label,
+    // a notes column).
+    const if_necessary = /\bif\s*nec/i.test((r || []).map(c => String(c ?? "")).join(" "));
     rows.push({
       raw_label: division, age_group: null, division,
-      eval_format, session_number,
+      eval_format, session_number, if_necessary,
       group_number: isT ? null : (parseInt(gmVal) || null),
       matchup: isT ? (gmVal || null) : null,
       session_type: stype(ci.type >= 0 ? r[ci.type] : ""),

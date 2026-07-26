@@ -163,6 +163,15 @@ function Dashboard() {
   const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null);
   const [rosterScheduleId, setRosterScheduleId] = useState(null); // open session-roster modal
   const [showLeads, setShowLeads] = useState(false); // open leads-management modal
+  const [confirmingId, setConfirmingId] = useState(null); // confirming an "if necessary" session
+  const confirmSession = async (scheduleId) => {
+    setConfirmingId(scheduleId);
+    try {
+      await fetch(`/api/schedule/${scheduleId}/confirm`, { method: "POST" });
+      queryClient.invalidateQueries({ queryKey: ["assoc-schedule", orgId] });
+    } catch {}
+    setConfirmingId(null);
+  };
   const [schedulePast, setSchedulePast] = useState(false);
 
   const { data: myOrgsData } = useQuery({
@@ -744,6 +753,7 @@ function Dashboard() {
                                       <span className="text-sm font-semibold text-ink">{entry.category_name}</span>
                                       {entry.session_type && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent-soft text-accent">{typeLabel(entry.session_type)}</span>}
                                       {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
+                                      {entry.status === "tentative" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">If necessary</span>}
                                     </div>
                                     <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                                       <span className="flex items-center gap-1"><Clock size={11} />{fmtTime(entry.start_time)}{entry.end_time ? ` – ${fmtTime(entry.end_time)}` : ""}</span>
@@ -751,8 +761,17 @@ function Dashboard() {
                                       <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
                                     </div>
                                   </div>
-                                  {!serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
+                                  {entry.status !== "tentative" && !serviceProvider && entry.spots_open > 0 && entry.session_type !== "testing" && (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertTriangle size={11} /> Needs {entry.spots_open}</span>
+                                  )}
+                                  {entry.status === "tentative" && (
+                                    <button
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); confirmSession(entry.schedule_id); }}
+                                      disabled={confirmingId === entry.schedule_id}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-accent hover:opacity-90 rounded-lg px-2.5 py-1 flex-shrink-0 disabled:opacity-50"
+                                    >
+                                      {confirmingId === entry.schedule_id ? "…" : "Confirm"}
+                                    </button>
                                   )}
                                   <button
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRosterScheduleId(entry.schedule_id); }}

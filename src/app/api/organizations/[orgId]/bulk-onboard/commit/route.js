@@ -114,8 +114,11 @@ export async function POST(request, { params }) {
         const evalReq = isTesting(r.session_type) ? 0 : pe;
         // Tournament matchup label is stored, not resolved — teams are assigned
         // later in the dashboard Teams tab (no teams exist at bulk load).
+        // "If necessary" games land tentative — visible on the schedule, closed
+        // to signups until confirmed (the signup queries filter status='scheduled').
+        const schedStatus = r.if_necessary ? "tentative" : "scheduled";
         await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, matchup, status)
-          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${r.matchup || null}, 'scheduled')`;
+          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${r.matchup || null}, ${schedStatus})`;
         // The slot's group must also exist in session_groups — that's what
         // "Manage groups" and auto-assign read. Without this the Schedule tab
         // shows groups while group management insists there are none.
