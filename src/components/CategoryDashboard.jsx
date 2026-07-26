@@ -7,7 +7,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -261,6 +261,28 @@ export default function CategoryDashboard({
   const completedSessions = rankingsData?.completed_sessions || [];
   const inProgressSessions = rankingsData?.in_progress_sessions || [];
   const sessionStatus = rankingsData?.session_status || {};
+
+  // "Up next" nudge: when a session finishes for everyone, point at the next
+  // step — form groups for the following session, or (after the last) pick final
+  // teams. Reads the live completion the ranking engine already computes; no new
+  // tracking. Null when nothing actionable.
+  const nextAction = (() => {
+    const sess = setupData?.sessions || [];
+    const total = sess.length;
+    if (!total) return null;
+    const done = (n) => sessionStatus?.[n] === "complete" || completedSessions.some(c => String(c) === String(n));
+    const nums = sess.map(s => Number(s.session_number)).filter(done).sort((a, b) => a - b);
+    if (!nums.length) return null;
+    const last = nums[nums.length - 1];
+    if (nums.length === total) {
+      return { kind: "teams", last, href: `/association/dashboard/category/${catId}/teams?org=${orgId}` };
+    }
+    const next = last + 1;
+    if (next <= total) {
+      return { kind: "groups", last, next, href: `/association/dashboard/category/${catId}/groups?org=${orgId}&session=${next}` };
+    }
+    return null;
+  })();
   const hasCoaches = rankingsData?.has_coaches || false;
   const evalDesignations = evaluatorsData?.designations || [];
   const evalCandidates = evaluatorsData?.candidates || [];
@@ -504,6 +526,25 @@ export default function CategoryDashboard({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {nextAction && (
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/25 bg-accent-soft px-5 py-4">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/15">
+                <Check size={16} className="text-accent" />
+              </span>
+              <p className="text-sm text-ink">
+                {nextAction.kind === "teams"
+                  ? <><b>All sessions are complete.</b> Time to build your final teams.</>
+                  : <><b>Session {nextAction.last} is complete for everyone.</b> Form groups for Session {nextAction.next} to keep things moving.</>}
+              </p>
+            </div>
+            <a href={nextAction.href}
+              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">
+              {nextAction.kind === "teams" ? "Create Final Teams →" : `Manage Groups · Session ${nextAction.next} →`}
+            </a>
+          </div>
+        )}
 
         {activeTab === "rankings" && (
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
