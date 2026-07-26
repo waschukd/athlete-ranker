@@ -6,6 +6,8 @@ import { Calendar, Clock, MapPin, Users, CheckCircle, Plus, Download, LogOut, Cl
 import { colorForOrg, buildOrgColorMap, abbrevOrgName, OrgChip } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar } from "@/components/SessionDateNav";
 import ScheduleBoard from "@/components/ScheduleBoard";
+import BatchSignupPrompt from "@/components/BatchSignupPrompt";
+import { contiguousBlock } from "@/lib/sessionBlocks";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import { useTheme } from "@/lib/useTheme";
@@ -1438,6 +1440,28 @@ function EvaluatorDashboard() {
 
   const mineSessions = mineData?.sessions || [];
   const availSessions = availData?.sessions || [];
+
+  // Batch signup: if the clicked session sits in a back-to-back block, offer the
+  // whole run before signing up for just one.
+  const [batchPrompt, setBatchPrompt] = useState(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const handleSignup = (id) => {
+    const clicked = availSessions.find(s => s.schedule_id === id);
+    const block = clicked ? contiguousBlock(clicked, availSessions) : [];
+    if (block.length > 1) setBatchPrompt({ sessions: block, anchorId: id });
+    else signupMutation.mutate(id);
+  };
+  const signupBlock = async (ids) => {
+    setBatchBusy(true); setSignupError(null);
+    try {
+      for (const sid of ids) {
+        await fetch("/api/evaluator/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+      }
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
+      setBatchPrompt(null); setActiveTab("mine");
+    } finally { setBatchBusy(false); }
+  };
   const upcoming = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
   const past = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
 
@@ -1650,7 +1674,7 @@ function EvaluatorDashboard() {
                 emptyText="No available sessions right now. Check back soon or edit your availability."
                 renderRow={(s) => (
                   <SessionCard session={s} mode="available"
-                    onSignup={(id) => signupMutation.mutate(id)}
+                    onSignup={handleSignup}
                     onCancel={() => {}} onCancelWithReason={() => {}} />
                 )}
               />
@@ -1705,6 +1729,13 @@ function EvaluatorDashboard() {
           </div>
         )}
       </div>
+
+      <BatchSignupPrompt
+        data={batchPrompt} busy={batchBusy} role="evaluator"
+        onAll={() => signupBlock(batchPrompt.sessions.map(s => s.schedule_id))}
+        onJustOne={() => { const id = batchPrompt.anchorId; setBatchPrompt(null); signupMutation.mutate(id); }}
+        onClose={() => setBatchPrompt(null)}
+      />
     </div>
   );
 }

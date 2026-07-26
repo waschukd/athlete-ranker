@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Clock, MapPin, Check, Loader2, ClipboardList, Users, DollarSign, Inbox, Send, X } from "lucide-react";
 import ScheduleBoard from "@/components/ScheduleBoard";
+import BatchSignupPrompt from "@/components/BatchSignupPrompt";
+import { contiguousBlock } from "@/lib/sessionBlocks";
 
 const fmtTime = (t) => {
   if (!t) return "";
@@ -35,6 +37,23 @@ export default function TesterDashboard() {
   const mine = data?.mine || [];
   const available = data?.available || [];
 
+  // Batch signup for a back-to-back block at the same rink/day.
+  const [batchPrompt, setBatchPrompt] = useState(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const handleSignup = (schedule_id) => {
+    const clicked = available.find(s => s.schedule_id === schedule_id);
+    const block = clicked ? contiguousBlock(clicked, available) : [];
+    if (block.length > 1) setBatchPrompt({ sessions: block, anchorId: schedule_id });
+    else act(schedule_id, "signup");
+  };
+  const signupBlock = async (ids) => {
+    setBatchBusy(true);
+    try {
+      for (const sid of ids) await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+      await load(); setBatchPrompt(null); setTab("mine");
+    } finally { setBatchBusy(false); }
+  };
+
   const Row = ({ s, mineRow }) => {
     const filled = parseInt(s.testers_signed_up || 0), need = parseInt(s.testers_required || 0);
     const isPast = (s.scheduled_date?.toString().split("T")[0] || "") < todayKey();
@@ -60,7 +79,7 @@ export default function TesterDashboard() {
             </button>
           </div>
         ) : (
-          <button onClick={() => act(s.schedule_id, "signup")} disabled={busyId === `signup-${s.schedule_id}`} className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md disabled:opacity-50">
+          <button onClick={() => handleSignup(s.schedule_id)} disabled={busyId === `signup-${s.schedule_id}`} className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md disabled:opacity-50">
             {busyId === `signup-${s.schedule_id}` ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Sign up
           </button>
         )}
@@ -113,6 +132,13 @@ export default function TesterDashboard() {
           </>
         )}
       </div>
+
+      <BatchSignupPrompt
+        data={batchPrompt} busy={batchBusy} role="tester"
+        onAll={() => signupBlock(batchPrompt.sessions.map(s => s.schedule_id))}
+        onJustOne={() => { const id = batchPrompt.anchorId; setBatchPrompt(null); act(id, "signup"); }}
+        onClose={() => setBatchPrompt(null)}
+      />
     </div>
   );
 }

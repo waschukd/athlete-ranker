@@ -7,6 +7,7 @@ import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserChe
 import { OrgAvatar, buildOrgColorMap, colorForOrg } from "@/lib/orgVisuals";
 import { WeekGrid, MonthCalendar, DateStripBar } from "@/components/SessionDateNav";
 import SessionRosterModal from "@/components/SessionRosterModal";
+import LeadsModal from "@/components/LeadsModal";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import BulkOnboard from "@/components/BulkOnboard";
@@ -161,6 +162,7 @@ function Dashboard() {
   const [scheduleView, setScheduleView] = useState("week"); // week | month | list
   const [scheduleSelectedDate, setScheduleSelectedDate] = useState(null);
   const [rosterScheduleId, setRosterScheduleId] = useState(null); // open session-roster modal
+  const [showLeads, setShowLeads] = useState(false); // open leads-management modal
   const [schedulePast, setSchedulePast] = useState(false);
 
   const { data: myOrgsData } = useQuery({
@@ -680,6 +682,9 @@ function Dashboard() {
                       {schedulePast ? "Hide Past" : `Show Past (${schedulePastCount})`}
                     </button>
                   )}
+                  <button onClick={() => setShowLeads(true)} className="text-xs px-3 py-1.5 rounded-lg border font-medium bg-white text-gray-600 border-gray-200 inline-flex items-center gap-1.5">
+                    <Shield size={12} /> Manage Leads
+                  </button>
                 </div>
               </div>
               {assocSchedule.length === 0 ? (
@@ -906,6 +911,9 @@ function Dashboard() {
 
       {rosterScheduleId && (
         <SessionRosterModal scheduleId={rosterScheduleId} onClose={() => setRosterScheduleId(null)} />
+      )}
+      {showLeads && (
+        <LeadsModal orgId={orgId} orgName={org?.name} onClose={() => setShowLeads(false)} />
       )}
     </div>
   );
