@@ -77,6 +77,38 @@ function pickHeader(headers, key, { excludeNameish = false } = {}) {
   return null;
 }
 
+// Contact / non-contact declaration column (U15+). Deliberately NOT routed through
+// pickHeader — a bare "contact" partial-match would grab "Contact Email" or
+// "Emergency Contact". We whitelist the real column names and exclude contact-info
+// columns.
+function pickContactHeader(headers) {
+  const normed = headers.map(h => ({ raw: h, n: norm(h) }));
+  const bad = ["email", "phone", "number", "name", "emergency", "address", "info"];
+  const exactWl = ["contact", "non contact", "contact status", "contact type", "checking", "checking status", "division type", "contact declaration"];
+  for (const w of exactWl) { const m = normed.find(h => h.n === w); if (m) return m.raw; }
+  const m = normed.find(h =>
+    (/\bnon ?contact\b/.test(h.n) || /\bcontact\b/.test(h.n) || /\bchecking\b/.test(h.n))
+    && !bad.some(b => h.n.includes(b)));
+  return m ? m.raw : null;
+}
+
+// Interpret one contact-column cell → non_contact boolean. Blank = contact (norm).
+// Handles explicit text ("non-contact", "nc") and yes/no values whose meaning
+// depends on whether the header frames contact or non-contact.
+export function parseNonContact(cell, header = "") {
+  const v = norm(cell);
+  const h = norm(header);
+  if (!v) return false;
+  if (/\bnon ?contact\b/.test(v) || v === "nc" || v === "non") return true;
+  if (v === "contact" || v === "full" || v === "full contact" || v === "body contact" || v === "checking") return false;
+  const truthy = ["yes", "y", "true", "1", "x"].includes(v);
+  const falsy = ["no", "n", "false", "0"].includes(v);
+  const headerIsNonContact = /\bnon ?contact\b/.test(h);
+  if (truthy) return headerIsNonContact;        // "yes" under a Non-Contact header = non-contact
+  if (falsy) return !headerIsNonContact;         // "no" under a Contact header = non-contact
+  return false;
+}
+
 // Best-guess column mapping for a set of headers.
 export function detectMapping(headers) {
   const firstName = pickHeader(headers, "firstName", { excludeNameish: true });
@@ -98,6 +130,7 @@ export function detectMapping(headers) {
     })(),
     division: pickHeader(headers, "division"),
     helmet: pickHeader(headers, "helmet"),
+    contact: pickContactHeader(headers),
   };
 }
 
@@ -157,6 +190,7 @@ export function toAthlete(row, mapping) {
     parent_email_2: mapping.parentEmail2 ? (row[mapping.parentEmail2] || "").trim() : "",
     // Helmet sticker number — kept as text (leading zeros matter), capped to 4 digits.
     helmet_number: mapping.helmet ? (row[mapping.helmet] || "").trim().slice(0, 4) : "",
+    non_contact: mapping.contact ? parseNonContact(row[mapping.contact], mapping.contact) : false,
     _division: mapping.division ? (row[mapping.division] || "").trim() : "",
   };
 }

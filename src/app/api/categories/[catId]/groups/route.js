@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -184,9 +185,27 @@ export async function POST(request, { params }) {
             AND athlete_id IN (SELECT id FROM athletes WHERE age_category_id = ${catId} AND position = 'goalie')`;
       }
 
+      // Contact / non-contact split (U15+). contact_groups = the count of the
+      // lowest-numbered groups that are contact; the rest are non-contact. NULL/0
+      // = feature off. Non-contact players are partitioned into the non-contact
+      // groups by rank and never auto-placed into a contact group, regardless of
+      // score — only a manual move does that.
+      const catRow = (await sql`SELECT contact_groups FROM age_categories WHERE id = ${catId}`)[0];
+      const contactBoundary = Number(catRow?.contact_groups) || 0;
+      const splitActive = splitIsActive(skaterGroups, contactBoundary);
+
       let assignments = []; // [{ athlete_id, group_index }] — index into skaterGroups
 
-      if (method === "alphabetical") {
+      if (splitActive && method === "ranking") {
+        // Rank-partitioned: contact players fill contact groups by rank, non-contact
+        // fill non-contact groups by rank. (Position-balancing is skipped when the
+        // split is on — the contact boundary takes precedence.)
+        const ranked = rankedAthletes.length
+          ? rankedAthletes.filter(a => a.position !== 'goalie')
+          : (await sql`SELECT id, non_contact FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name`);
+        assignments = partitionByContact(ranked, skaterGroups, contactBoundary);
+
+      } else if (method === "alphabetical") {
         const athletes = await sql`
           SELECT id FROM athletes
           WHERE age_category_id = ${catId} AND is_active = true

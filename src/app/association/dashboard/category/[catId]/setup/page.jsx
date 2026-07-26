@@ -376,6 +376,61 @@ function AthletesStep({ catId, categoryName }) {
 }
 
 // ─── Schedule ───────────────────────────────────────────────────────────────
+// U15 and up run contact + non-contact divisions. Extract the age number so we
+// can surface the split control only where it applies.
+function ageOf(name) {
+  const m = String(name || "").toLowerCase().match(/\bu\s*(\d{1,2})\b/) || String(name || "").toLowerCase().match(/\bunder\s*(\d{1,2})\b/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// Contact / non-contact group split (U15+). Lets the association say how many of
+// their (rank-ordered) groups are contact; the rest are non-contact. Non-contact
+// players are then slotted into the non-contact groups by rank and never
+// auto-moved up into a contact group regardless of score.
+function ContactSplitCard({ catId }) {
+  const [contact, setContact] = useState("");
+  const [nonContact, setNonContact] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/categories/${catId}/setup`).then(r => r.json()).then(d => {
+      if (d.category?.contact_groups != null) setContact(String(d.category.contact_groups));
+      if (d.category?.non_contact_groups != null) setNonContact(String(d.category.non_contact_groups));
+    }).catch(() => {});
+  }, [catId]);
+
+  const save = async () => {
+    setSaving(true); setSaved(false);
+    await fetch(`/api/categories/${catId}/setup`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "contact_split", data: {
+        contact_groups: contact ? parseInt(contact) : null,
+        non_contact_groups: nonContact ? parseInt(nonContact) : null,
+      } }),
+    });
+    setSaving(false); setSaved(true);
+  };
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+      <p className="text-sm font-semibold text-amber-800 mb-1">Contact / non-contact groups</p>
+      <p className="text-xs text-amber-700 mb-3">U15+ runs both. Set how many of your groups (numbered by rank, group 1 = top) are contact — the rest hold the non-contact players. Players who declared non-contact are slotted into the non-contact groups by rank and never auto-moved into a contact group.</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium text-amber-800">Contact groups
+          <input type="number" min="0" value={contact} onChange={e => { setContact(e.target.value); setSaved(false); }} placeholder="e.g. 2" className="mt-1 block w-24 px-3 py-2 border border-amber-300 rounded-lg text-sm text-gray-800" />
+        </label>
+        <label className="text-xs font-medium text-amber-800">Non-contact groups
+          <input type="number" min="0" value={nonContact} onChange={e => { setNonContact(e.target.value); setSaved(false); }} placeholder="e.g. 3" className="mt-1 block w-24 px-3 py-2 border border-amber-300 rounded-lg text-sm text-gray-800" />
+        </label>
+        <button onClick={save} disabled={saving} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 disabled:opacity-50">{saving ? "Saving…" : "Save split"}</button>
+        {saved && <span className="text-xs text-green-700 font-semibold">✓ Saved</span>}
+      </div>
+      <p className="text-[11px] text-amber-600 mt-2">Leave blank for no split (all groups mixed by rank — the default).</p>
+    </div>
+  );
+}
+
 function ScheduleStep({ catId, sessions = [], categoryName }) {
   const [mode, setMode] = useState("smart"); // 'smart' | 'template'
   const [schedule, setSchedule] = useState([]);
@@ -431,6 +486,8 @@ function ScheduleStep({ catId, sessions = [], categoryName }) {
         <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 mt-0.5">Optional — can add later</span>
       </div>
       <p className="text-sm text-gray-500 mb-6">Upload your evaluation schedule. This creates the full evaluation timeline and is shared with your service provider and evaluators. You can skip this step and add it later.</p>
+
+      {ageOf(categoryName) != null && ageOf(categoryName) >= 15 && <ContactSplitCard catId={catId} />}
 
       <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs mb-5">
         <button onClick={() => setMode("smart")} className={`px-3 py-1.5 rounded-md font-medium ${mode === "smart" ? "bg-white text-ink shadow-sm" : "text-gray-500"}`}>Smart import (any file)</button>

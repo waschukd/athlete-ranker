@@ -1,8 +1,37 @@
 import { describe, it, expect } from "vitest";
 import {
   parseCsv, detectMapping, splitName, parseBirthYear, normalizePosition,
-  toAthlete, summarizeDivisions, buildAthletes, suggestDivisions,
+  toAthlete, summarizeDivisions, buildAthletes, suggestDivisions, parseNonContact,
 } from "@/lib/rosterImport";
+
+describe("contact / non-contact column", () => {
+  it("detects a 'Contact' column but NOT 'Contact Email'", () => {
+    expect(detectMapping(["First Name", "Last Name", "Contact"]).contact).toBe("Contact");
+    expect(detectMapping(["First Name", "Last Name", "Contact Email"]).contact).toBe(null);
+    expect(detectMapping(["Name", "Emergency Contact"]).contact).toBe(null);
+    expect(detectMapping(["Name", "Non-Contact"]).contact).toBe("Non-Contact");
+  });
+
+  it("parses explicit text values", () => {
+    expect(parseNonContact("non-contact")).toBe(true);
+    expect(parseNonContact("NC")).toBe(true);
+    expect(parseNonContact("contact")).toBe(false);
+    expect(parseNonContact("")).toBe(false); // blank defaults to contact
+  });
+
+  it("interprets yes/no relative to the header's framing", () => {
+    expect(parseNonContact("yes", "Non-Contact")).toBe(true);   // yes, is non-contact
+    expect(parseNonContact("no", "Non-Contact")).toBe(false);
+    expect(parseNonContact("yes", "Contact")).toBe(false);      // yes, is contact
+    expect(parseNonContact("no", "Contact")).toBe(true);        // not contact → non-contact
+  });
+
+  it("toAthlete carries non_contact through", () => {
+    const m = detectMapping(["First Name", "Last Name", "Contact"]);
+    expect(toAthlete({ "First Name": "A", "Last Name": "B", "Contact": "non-contact" }, m).non_contact).toBe(true);
+    expect(toAthlete({ "First Name": "A", "Last Name": "B", "Contact": "contact" }, m).non_contact).toBe(false);
+  });
+});
 
 describe("parseCsv", () => {
   it("respects quoted fields containing commas", () => {

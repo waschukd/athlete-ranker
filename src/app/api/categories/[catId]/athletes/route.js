@@ -78,14 +78,15 @@ export async function POST(request, { params }) {
           const parent_email = athlete.parent_email || athlete["Parent Email"] || athlete["Email"] || "";
           const parent_email_2 = athlete.parent_email_2 || athlete["Parent Email 2"] || athlete["Email 2"] || athlete["Parent 2 Email"] || "";
           const helmet_number = (athlete.helmet_number || athlete["Helmet #"] || athlete["Helmet Number"] || athlete["Helmet"] || "").toString().trim().slice(0, 4) || null;
+          const non_contact = athlete.non_contact === true;
 
           if (!first_name || !last_name) { skipped++; continue; }
 
           // Use upsert — insert or update based on external_id or name match
           if (external_id) {
             const result = await sql`
-              INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-              VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id}, ${position}, ${birth_year}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet_number}, true)
+              INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact, is_active)
+              VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id}, ${position}, ${birth_year}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet_number}, ${non_contact}, true)
               ON CONFLICT (age_category_id, external_id) WHERE external_id IS NOT NULL
               DO UPDATE SET
                 first_name = EXCLUDED.first_name,
@@ -95,6 +96,7 @@ export async function POST(request, { params }) {
                 parent_email = COALESCE(EXCLUDED.parent_email, athletes.parent_email),
                 parent_email_2 = COALESCE(EXCLUDED.parent_email_2, athletes.parent_email_2),
                 helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number),
+                non_contact = athletes.non_contact OR EXCLUDED.non_contact,
                 age_category_id = EXCLUDED.age_category_id,
                 is_active = true
               RETURNING (xmax = 0) as inserted
@@ -106,14 +108,14 @@ export async function POST(request, { params }) {
             `;
             if (existing.length) {
               await sql`
-                UPDATE athletes SET position = COALESCE(${position}, position), birth_year = COALESCE(${birth_year}, birth_year), parent_email = COALESCE(${parent_email || null}, parent_email), parent_email_2 = COALESCE(${parent_email_2 || null}, parent_email_2), helmet_number = COALESCE(${helmet_number}, helmet_number), is_active = true
+                UPDATE athletes SET position = COALESCE(${position}, position), birth_year = COALESCE(${birth_year}, birth_year), parent_email = COALESCE(${parent_email || null}, parent_email), parent_email_2 = COALESCE(${parent_email_2 || null}, parent_email_2), helmet_number = COALESCE(${helmet_number}, helmet_number), non_contact = athletes.non_contact OR ${non_contact}, is_active = true
                 WHERE id = ${existing[0].id}
               `;
               updated++;
             } else {
               await sql`
-                INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-                VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, null, ${position}, ${birth_year}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet_number}, true)
+                INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact, is_active)
+                VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, null, ${position}, ${birth_year}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet_number}, ${non_contact}, true)
               `;
               imported++;
             }
@@ -127,15 +129,15 @@ export async function POST(request, { params }) {
     }
 
     // Single quick-add
-    const { first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number } = body;
+    const { first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact } = body;
     if (!first_name || !last_name) {
       return NextResponse.json({ error: "First and last name required" }, { status: 400 });
     }
     const helmet = helmet_number ? String(helmet_number).trim().slice(0, 4) || null : null;
 
     const result = await sql`
-      INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizePosition(position)}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet}, true)
+      INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact, is_active)
+      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizePosition(position)}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet}, ${non_contact === true}, true)
       RETURNING *
     `;
     return NextResponse.json({ athlete: result[0] }, { status: 201 });
@@ -158,6 +160,9 @@ export async function PATCH(request, { params }) {
     if ("helmet_number" in body) {
       const helmet = body.helmet_number != null && String(body.helmet_number).trim() !== "" ? String(body.helmet_number).trim().slice(0, 4) : null;
       await sql`UPDATE athletes SET helmet_number = ${helmet} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("non_contact" in body) {
+      await sql`UPDATE athletes SET non_contact = ${body.non_contact === true} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
     }
     return NextResponse.json({ success: true });
   } catch (error) {

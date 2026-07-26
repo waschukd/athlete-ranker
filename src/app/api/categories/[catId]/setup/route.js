@@ -152,6 +152,18 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: true, eval_format: fmt });
       }
 
+      // Contact / non-contact group split (U15+). contact_groups = count of the
+      // lowest-numbered groups that are contact; the rest are non-contact. Null/0
+      // both sides = feature off. Resilient to a pre-migration DB.
+      case "contact_split": {
+        const c = Number.isInteger(data?.contact_groups) && data.contact_groups > 0 ? data.contact_groups : null;
+        const nc = Number.isInteger(data?.non_contact_groups) && data.non_contact_groups > 0 ? data.non_contact_groups : null;
+        try {
+          await sql`UPDATE age_categories SET contact_groups = ${c}, non_contact_groups = ${nc} WHERE id = ${catId}`;
+        } catch { /* columns not migrated */ }
+        return NextResponse.json({ success: true, contact_groups: c, non_contact_groups: nc });
+      }
+
       case "complete": {
         await sql`
           UPDATE age_categories SET setup_complete = true, status = 'active' WHERE id = ${catId}

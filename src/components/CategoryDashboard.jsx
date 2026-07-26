@@ -110,6 +110,12 @@ export default function CategoryDashboard({
       refetchAthletes();
     } catch {}
   };
+  const saveNonContact = async (athleteId, val) => {
+    try {
+      await fetch(`/api/categories/${catId}/athletes`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athlete_id: athleteId, non_contact: val }) });
+      refetchAthletes();
+    } catch {}
+  };
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
   const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
   const [scheduleDay, setScheduleDay] = useState(null); // selected day for Day view
@@ -407,6 +413,12 @@ export default function CategoryDashboard({
 
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
+  // U15 and up run contact + non-contact divisions — surface the per-athlete
+  // non-contact toggle only there.
+  const u15Plus = (() => {
+    const m = String(displayName || "").toLowerCase().match(/\bu\s*(\d{1,2})\b/);
+    return m ? parseInt(m[1], 10) >= 15 : false;
+  })();
   // Big title tracks the active tab (sample-6 look: group in the kicker, section as the headline)
   const TAB_TITLES = { rankings: "Rankings", schedule: "Schedule", teams: "Teams", analysis: "Analysis", athletes: "Athletes", settings: "Settings" };
   const activeTitle = TAB_TITLES[activeTab] || "Rankings";
@@ -1441,9 +1453,9 @@ export default function CategoryDashboard({
                 </div>
               )}
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th></tr></thead>
+                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th>{u15Plus && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>}</tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {athletes.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
+                  {athletes.length === 0 ? <tr><td colSpan={u15Plus ? 7 : 6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={u15Plus ? 7 : 6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{a.last_name}, {a.first_name}</td>
@@ -1458,6 +1470,16 @@ export default function CategoryDashboard({
                           onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
                           className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
                       </td>
+                      {u15Plus && (
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => saveNonContact(a.id, !a.non_contact)}
+                            title="Toggle contact / non-contact"
+                            className={`text-xs px-2 py-0.5 rounded font-medium ${a.non_contact ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>
+                            {a.non_contact ? "Non-contact" : "Contact"}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
