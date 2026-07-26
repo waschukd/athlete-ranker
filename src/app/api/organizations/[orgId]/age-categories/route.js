@@ -25,6 +25,43 @@ export async function GET(request, { params }) {
       ORDER BY ac.name
     `;
 
+    // Per-category "up next": which sessions are complete (computed live the same
+    // way the ranking engine does — testing done when every skater has a testing
+    // rank; scrimmage done at >=70% of athletes scored — not the stored
+    // category_sessions.status flag, which real flows don't keep current). Drives
+    // the dashboard's next-step card.
+    try {
+      const rows = await sql`
+        SELECT cs.age_category_id AS cat, cs.session_number AS sn, cs.session_type AS type,
+          (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = cs.age_category_id AND a.is_active = true AND a.position <> 'goalie')::int AS skaters,
+          (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = cs.age_category_id AND a.is_active = true)::int AS total_ath,
+          (SELECT COUNT(*) FROM testing_drill_results t WHERE t.age_category_id = cs.age_category_id AND t.session_number = cs.session_number)::int AS testing_n,
+          (SELECT COUNT(DISTINCT c.athlete_id) FROM category_scores c WHERE c.age_category_id = cs.age_category_id AND c.session_number = cs.session_number)::int AS scored_n
+        FROM category_sessions cs
+        JOIN age_categories ac ON ac.id = cs.age_category_id
+        WHERE ac.organization_id = ${params.orgId}
+        ORDER BY cs.age_category_id, cs.session_number`;
+
+      const byCat = {};
+      for (const r of rows) {
+        (byCat[r.cat] = byCat[r.cat] || { total: 0, complete: [] });
+        byCat[r.cat].total++;
+        const done = r.type === "testing"
+          ? (r.skaters > 0 && r.testing_n >= r.skaters)
+          : (r.total_ath > 0 && r.scored_n >= Math.ceil(r.total_ath * 0.7));
+        if (done) byCat[r.cat].complete.push(r.sn);
+      }
+      for (const c of categories) {
+        const info = byCat[c.id];
+        c.next_action = null;
+        if (info && info.complete.length) {
+          const last = Math.max(...info.complete);
+          if (info.complete.length === info.total) c.next_action = { kind: "teams", last };
+          else if (last < info.total) c.next_action = { kind: "groups", last, next: last + 1 };
+        }
+      }
+    } catch { /* non-fatal — card just won't show */ }
+
     // Next upcoming sessions across the whole association (for the dashboard's
     // "Upcoming schedule" rail). signups lets us flag understaffed sessions.
     let upcoming = [];

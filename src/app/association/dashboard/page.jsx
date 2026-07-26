@@ -291,10 +291,9 @@ function Dashboard() {
   // ── Needs-attention items (association-wide, derived from data on hand) ──
   const needSetup = categories.filter(c => !c.setup_complete);
   const understaffed = upcoming.filter(s => (parseInt(s.evaluators_required) || 0) > 0 && (parseInt(s.signups) || 0) < (parseInt(s.evaluators_required) || 0));
-  // Evaluations complete = setup done, has sessions, and every session is marked complete → time to build teams.
-  const readyForTeams = categories.filter(c => c.setup_complete && parseInt(c.cs_total) > 0 && parseInt(c.cs_complete) === parseInt(c.cs_total));
+  // "Ready to make teams" now lives in the live-computed "Up Next" card (driven by
+  // next_action), so it's dropped from here to avoid a stale, duplicated nudge.
   const attention = [
-    ...readyForTeams.map(c => ({ icon: Trophy, tone: "emerald", text: `${c.name} evaluations are complete — it's time to make teams`, href: `/association/dashboard/category/${c.id}/teams?org=${orgId}` })),
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
     !serviceProvider && understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
   ].filter(Boolean);
@@ -479,6 +478,38 @@ function Dashboard() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-8">
 
+              {/* Up next — divisions that finished a session, with the next step */}
+              {(() => {
+                const upNext = categories.filter(c => c.next_action);
+                if (!upNext.length) return null;
+                return (
+                  <section className="rounded-2xl border border-accent/25 bg-accent-soft p-5">
+                    <h2 className="font-display font-bold text-ink text-sm flex items-center gap-2 mb-3">
+                      <Check size={15} className="text-accent" /> Up Next
+                    </h2>
+                    <div className="flex flex-col gap-2">
+                      {upNext.map(c => {
+                        const na = c.next_action;
+                        const href = na.kind === "teams"
+                          ? `/association/dashboard/category/${c.id}/teams?org=${orgId}`
+                          : `/association/dashboard/category/${c.id}/groups?org=${orgId}&session=${na.next}`;
+                        return (
+                          <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-white border border-gray-100 px-4 py-3">
+                            <p className="text-sm text-ink flex-1 min-w-0">
+                              {na.kind === "teams"
+                                ? <><b>{c.name}</b> — all sessions complete.</>
+                                : <><b>{c.name}</b> — Session {na.last} complete for everyone.</>}
+                            </p>
+                            <a href={href} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-white hover:opacity-90">
+                              {na.kind === "teams" ? "Create Final Teams →" : `Manage Groups · Session ${na.next} →`}
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* Categories */}
               <section id="categories" className="scroll-mt-6">
