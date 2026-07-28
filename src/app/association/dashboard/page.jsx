@@ -501,19 +501,27 @@ function Dashboard() {
                     <div className="flex flex-col gap-2">
                       {upNext.map(c => {
                         const na = c.next_action;
-                        const href = na.kind === "teams"
-                          ? `/association/dashboard/category/${c.id}/teams?org=${orgId}`
-                          : `/association/dashboard/category/${c.id}/groups?org=${orgId}&session=${na.next}`;
+                        const base = `/association/dashboard/category/${c.id}`;
+                        const href =
+                          na.kind === "teams" || na.kind === "make_teams" ? `${base}/teams?org=${orgId}`
+                          : na.kind === "add_players" ? `${base}?org=${orgId}`
+                          : `${base}/groups?org=${orgId}&session=${na.next}`; // groups / make_groups
+                        const msg =
+                          na.kind === "teams" ? <><b>{c.name}</b> — all sessions complete.</>
+                          : na.kind === "groups" ? <><b>{c.name}</b> — Session {na.last} complete for everyone.</>
+                          : na.kind === "add_players" ? <><b>{c.name}</b> — welcome! Add your players to get started.</>
+                          : na.kind === "make_teams" ? <><b>{c.name}</b> — welcome! Let's make your teams.</>
+                          : <><b>{c.name}</b> — welcome! Let's make your testing groups.</>; // make_groups
+                        const cta =
+                          na.kind === "teams" ? "Create Final Teams →"
+                          : na.kind === "groups" ? `Manage Groups · Session ${na.next} →`
+                          : na.kind === "add_players" ? "Add Players →"
+                          : na.kind === "make_teams" ? "Make Teams →"
+                          : "Make Testing Groups →"; // make_groups
                         return (
                           <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-white border border-gray-100 px-4 py-3">
-                            <p className="text-sm text-ink flex-1 min-w-0">
-                              {na.kind === "teams"
-                                ? <><b>{c.name}</b> — all sessions complete.</>
-                                : <><b>{c.name}</b> — Session {na.last} complete for everyone.</>}
-                            </p>
-                            <a href={href} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-white hover:opacity-90">
-                              {na.kind === "teams" ? "Create Final Teams →" : `Manage Groups · Session ${na.next} →`}
-                            </a>
+                            <p className="text-sm text-ink flex-1 min-w-0">{msg}</p>
+                            <a href={href} className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-white hover:opacity-90">{cta}</a>
                           </div>
                         );
                       })}

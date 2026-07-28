@@ -278,7 +278,16 @@ export default function CategoryDashboard({
     if (!total) return null;
     const done = (n) => sessionStatus?.[n] === "complete" || completedSessions.some(c => String(c) === String(n));
     const nums = sess.map(s => Number(s.session_number)).filter(done).sort((a, b) => a - b);
-    if (!nums.length) return null;
+    if (!nums.length) {
+      // Before session 1: point at the very first step. No players yet → upload
+      // them; otherwise the format decides — tournament makes teams for the round
+      // robin, standard makes testing groups.
+      if (!category?.setup_complete) return null;
+      if (athletes.length === 0) return { kind: "add_players" };
+      return category?.eval_format === "round_robin"
+        ? { kind: "make_teams", href: `/association/dashboard/category/${catId}/teams?org=${orgId}` }
+        : { kind: "make_groups", next: 1, href: `/association/dashboard/category/${catId}/groups?org=${orgId}&session=1` };
+    }
     const last = nums[nums.length - 1];
     if (nums.length === total) {
       return { kind: "teams", last, href: `/association/dashboard/category/${catId}/teams?org=${orgId}` };
@@ -539,24 +548,38 @@ export default function CategoryDashboard({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {nextAction && (
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/25 bg-accent-soft px-5 py-4">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/15">
-                <Check size={16} className="text-accent" />
-              </span>
-              <p className="text-sm text-ink">
-                {nextAction.kind === "teams"
-                  ? <><b>All sessions are complete.</b> Time to build your final teams.</>
-                  : <><b>Session {nextAction.last} is complete for everyone.</b> Form groups for Session {nextAction.next} to keep things moving.</>}
-              </p>
+        {nextAction && (() => {
+          const na = nextAction;
+          const msg =
+            na.kind === "teams" ? <><b>All sessions are complete.</b> Time to build your final teams.</>
+            : na.kind === "groups" ? <><b>Session {na.last} is complete for everyone.</b> Form groups for Session {na.next} to keep things moving.</>
+            : na.kind === "add_players" ? <><b>Welcome to {displayName}!</b> First step — add your players.</>
+            : na.kind === "make_teams" ? <><b>Welcome to {displayName}!</b> Let's make your teams for the round robin.</>
+            : <><b>Welcome to {displayName}!</b> Let's make your testing groups for Session 1.</>; // make_groups
+          const cta =
+            na.kind === "teams" ? "Create Final Teams →"
+            : na.kind === "groups" ? `Manage Groups · Session ${na.next} →`
+            : na.kind === "add_players" ? "Add Players →"
+            : na.kind === "make_teams" ? "Make Teams →"
+            : "Make Testing Groups →"; // make_groups
+          return (
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/25 bg-accent-soft px-5 py-4">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/15">
+                  <Check size={16} className="text-accent" />
+                </span>
+                <p className="text-sm text-ink">{msg}</p>
+              </div>
+              {na.kind === "add_players" ? (
+                <button onClick={() => setActiveTab("athletes")}
+                  className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">{cta}</button>
+              ) : (
+                <a href={na.href}
+                  className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">{cta}</a>
+              )}
             </div>
-            <a href={nextAction.href}
-              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">
-              {nextAction.kind === "teams" ? "Create Final Teams →" : `Manage Groups · Session ${nextAction.next} →`}
-            </a>
-          </div>
-        )}
+          );
+        })()}
 
         {activeTab === "rankings" && (
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
