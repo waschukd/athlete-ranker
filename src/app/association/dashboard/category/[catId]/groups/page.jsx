@@ -105,7 +105,7 @@ function GroupsManagerInner() {
     for (const group of groups) {
       const players = assignments.filter(a => a.session_group_id === group.id);
       const sample = players[0];
-      const date = sample?.scheduled_date ? new Date(sample.scheduled_date).toLocaleDateString() : '';
+      const date = sample?.scheduled_date ? new Date(String(sample.scheduled_date).slice(0, 10) + 'T00:00:00').toLocaleDateString() : '';
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : (sample?.start_time || '');
       const loc = sample?.location || '';
       for (const player of players) {
@@ -127,7 +127,7 @@ function GroupsManagerInner() {
     for (const group of groups) {
       const players = assignments.filter(a => a.session_group_id === group.id);
       const sample = players[0];
-      const date = sample?.scheduled_date ? new Date(sample.scheduled_date).toLocaleDateString() : '';
+      const date = sample?.scheduled_date ? new Date(String(sample.scheduled_date).slice(0, 10) + 'T00:00:00').toLocaleDateString() : '';
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : '';
       const loc = sample?.location || '';
       html += '<div class="group"><div class="group-header">Group ' + group.group_number + ([date,time,loc].filter(Boolean).length ? ' | ' + [date,time,loc].filter(Boolean).join(' · ') : '') + '</div>';

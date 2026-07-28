@@ -134,7 +134,7 @@ export function SessionsTab() {
                       </td>
                       <td style={{ color: "var(--gm-muted)", fontSize: 12 }}>{session.organization_name}</td>
                       <td style={{ color: "var(--gm-muted)", fontSize: 12 }}>
-                        {session.scheduled_date ? new Date(session.scheduled_date).toLocaleDateString() : "—"}
+                        {session.scheduled_date ? new Date(String(session.scheduled_date).slice(0, 10) + "T00:00:00").toLocaleDateString() : "—"}
                       </td>
                       <td style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{session.group_count || 0}</td>
                       <td style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{session.athlete_count || 0}</td>

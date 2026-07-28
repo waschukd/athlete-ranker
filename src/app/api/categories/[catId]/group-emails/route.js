@@ -38,9 +38,15 @@ function fmtTime(t) {
 }
 function fmtDate(d) {
   if (!d) return "";
-  const str = d.toString().split("T")[0];
-  const [y, mo, da] = str.split("-").map(Number);
-  return new Date(y, mo - 1, da).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  // This runs SERVER-SIDE, where a DATE column comes back as a JS Date object,
+  // not the ISO string the client sees post-JSON. A Date's toString() is
+  // "Fri Aug 11 2026 …" (no "T"), so the old split produced NaN → "Invalid Date".
+  // Pull YYYY-MM-DD from either a Date's ISO form or a raw string.
+  const iso = d instanceof Date ? d.toISOString() : String(d);
+  const m = iso.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  const [, y, mo, da] = m;
+  return new Date(+y, +mo - 1, +da).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 // Gather everything needed to send (and preview) the group emails for a session.
