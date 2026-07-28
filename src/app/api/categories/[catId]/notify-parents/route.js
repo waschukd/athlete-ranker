@@ -67,6 +67,10 @@ export async function POST(request, { params }) {
           console.error("Failed to send onboarding to athlete " + a.id + ":", e?.message || e);
         }
       }
+      // Mark the category as welcomed so the first-step flow can advance from
+      // "welcome families" to "make groups/teams". Best-effort (pre-migration DBs
+      // just no-op).
+      if (sent > 0) { try { await sql`UPDATE age_categories SET welcome_sent_at = NOW() WHERE id = ${catId}`; } catch { /* column not migrated */ } }
       return NextResponse.json({ success: true, sent, total: athletes.length });
     }
 

@@ -176,7 +176,7 @@ export default function CategoryDashboard({
   const [scheduleCancelBusy, setScheduleCancelBusy] = useState(false);
   const [scheduleMsg, setScheduleMsg] = useState("");
 
-  const { data: setupData } = useQuery({
+  const { data: setupData, refetch: refetchSetup } = useQuery({
     queryKey: ["category-setup", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/setup`); return res.json(); },
     enabled: !!catId,
@@ -256,6 +256,25 @@ export default function CategoryDashboard({
   const rankedAthletes = rankingsData?.athletes || [];
   const goalieAthletes = rankingsData?.goalies || [];
   const athletes = athletesData?.athletes || [];
+  // Send the welcome/onboarding email to every family with an email on file, then
+  // refresh setup so welcome_sent_at advances the first-step flow. Shared by the
+  // Athletes-tab button and the "Welcome players & families" next-step banner.
+  const [welcomeSending, setWelcomeSending] = useState(false);
+  const sendWelcome = async () => {
+    const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
+    if (!withEmail.length) { setAthleteMsg("No parent emails on file yet — add them first."); setTimeout(() => setAthleteMsg(""), 5000); return; }
+    if (!confirm(`Send the welcome email to ${withEmail.length} ${withEmail.length === 1 ? "family" : "families"}?`)) return;
+    setWelcomeSending(true);
+    try {
+      const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding" }),
+      });
+      const data = await res.json();
+      setAthleteMsg(data.success ? `Welcome email sent to ${data.sent} ${data.sent === 1 ? "family" : "families"}` : "Failed to send");
+      if (data.success) refetchSetup();
+    } catch { setAthleteMsg("Failed to send"); }
+    finally { setWelcomeSending(false); setTimeout(() => setAthleteMsg(""), 5000); }
+  };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
   const calSessions = useMemo(() => schedule.map(e => ({
@@ -284,6 +303,10 @@ export default function CategoryDashboard({
       // robin, standard makes testing groups.
       if (!category?.setup_complete) return null;
       if (athletes.length === 0) return { kind: "add_players" };
+      // Welcome families next — but only when there are emails to send to and it
+      // hasn't been done yet; otherwise skip straight to groups/teams.
+      const hasParentEmails = athletes.some(a => a.parent_email || a.parent_email_2);
+      if (hasParentEmails && !category?.welcome_sent_at) return { kind: "welcome_players" };
       return category?.eval_format === "round_robin"
         ? { kind: "make_teams", href: `/association/dashboard/category/${catId}/teams?org=${orgId}` }
         : { kind: "make_groups", next: 1, href: `/association/dashboard/category/${catId}/groups?org=${orgId}&session=1` };
@@ -554,14 +577,18 @@ export default function CategoryDashboard({
             na.kind === "teams" ? <><b>All sessions are complete.</b> Time to build your final teams.</>
             : na.kind === "groups" ? <><b>Session {na.last} is complete for everyone.</b> Form groups for Session {na.next} to keep things moving.</>
             : na.kind === "add_players" ? <><b>Welcome to {displayName}!</b> First step — add your players.</>
+            : na.kind === "welcome_players" ? <><b>Players are in!</b> Next — welcome your players &amp; families with their onboarding email.</>
             : na.kind === "make_teams" ? <><b>Welcome to {displayName}!</b> Let's make your teams for the round robin.</>
             : <><b>Welcome to {displayName}!</b> Let's make your testing groups for Session 1.</>; // make_groups
           const cta =
             na.kind === "teams" ? "Create Final Teams →"
             : na.kind === "groups" ? `Manage Groups · Session ${na.next} →`
             : na.kind === "add_players" ? "Add Players →"
+            : na.kind === "welcome_players" ? (welcomeSending ? "Sending…" : "Welcome Players & Families →")
             : na.kind === "make_teams" ? "Make Teams →"
             : "Make Testing Groups →"; // make_groups
+          const isButton = na.kind === "add_players" || na.kind === "welcome_players";
+          const onBtn = na.kind === "add_players" ? () => setActiveTab("athletes") : sendWelcome;
           return (
             <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/25 bg-accent-soft px-5 py-4">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -570,9 +597,9 @@ export default function CategoryDashboard({
                 </span>
                 <p className="text-sm text-ink">{msg}</p>
               </div>
-              {na.kind === "add_players" ? (
-                <button onClick={() => setActiveTab("athletes")}
-                  className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">{cta}</button>
+              {isButton ? (
+                <button onClick={onBtn} disabled={na.kind === "welcome_players" && welcomeSending}
+                  className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50">{cta}</button>
               ) : (
                 <a href={na.href}
                   className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">{cta}</a>
@@ -1393,20 +1420,11 @@ export default function CategoryDashboard({
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={async () => {
-                        if (!confirm(`Send welcome/onboarding email to ${withEmail.length} parents?`)) return;
-                        const res = await fetch(`/api/categories/${catId}/notify-parents`, {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "onboarding" }),
-                        });
-                        const data = await res.json();
-                        setAthleteMsg(data.success ? `Welcome email sent to ${data.sent} parents` : "Failed to send");
-                        setTimeout(() => setAthleteMsg(""), 5000);
-                      }}
-                      disabled={!withEmail.length}
+                      onClick={sendWelcome}
+                      disabled={!withEmail.length || welcomeSending}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
                     >
-                      Send Welcome Email
+                      {welcomeSending ? "Sending…" : "Send Welcome Email"}
                     </button>
                     <button
                       onClick={async () => {
