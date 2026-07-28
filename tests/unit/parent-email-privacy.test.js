@@ -95,16 +95,18 @@ describe("parent emails never name the group", () => {
     expect(html).not.toMatch(GROUPY);
   });
 
-  it("schedule email has no Group column", () => {
+  it("schedule (dates) email has no group and no group-specific time", () => {
     const html = parentScheduleHtml({
       playerName: "Ella Boyd", categoryName: "U11 House", orgName: "Demo Soci",
       sessions: [
-        { session_number: 1, group_number: 2, date: "Sun, Sep 6", time: "9:00 AM", location: "Community Rink" },
-        { session_number: 2, group_number: 3, date: "Sun, Sep 13", time: "10:15 AM", location: "Community Rink" },
+        { session_number: 1, date: "2026-09-06" },
+        { session_number: 2, date: "2026-09-13" },
       ],
     });
-    expect(html).toContain("Community Rink");
-    expect(html).toContain("Sun, Sep 6");
+    // Dates only — group and exact ice time stay TBD (families don't know their group yet).
+    expect(html).toContain("Evaluation Dates");
+    expect(html).toContain("Sep 6");
+    expect(html).toContain("TBD");
     expect(html).not.toMatch(GROUPY);
     expect(html).not.toMatch(/<th[^>]*>\s*Group\s*<\/th>/i);
   });
@@ -244,19 +246,12 @@ describe("add-to-calendar link", () => {
 });
 
 describe("arrive-early window", () => {
-  // 30 minutes, set by the owner. Lives in three places (email body, schedule
-  // email, calendar event details) — they must not drift apart.
+  // 30 minutes, set by the owner. Lives with the actual ice time (the per-session
+  // email and the calendar event details) — they must not drift apart. The dates
+  // overview email deliberately omits it: there's no group-specific time to arrive
+  // for yet.
   it("the ice-time email says 30 minutes", () => {
     const html = groupAssignmentHtml(ICE_TIME);
-    expect(html).toMatch(/at least 30 minutes early/);
-    expect(html).not.toMatch(/15 minutes/);
-  });
-
-  it("the schedule email says 30 minutes", () => {
-    const html = parentScheduleHtml({
-      playerName: "Ella Boyd", categoryName: "U11 House", orgName: "Demo Soci",
-      sessions: [{ session_number: 1, date: "Sun, Sep 6", time: "9:00 AM", location: "Community Rink" }],
-    });
     expect(html).toMatch(/at least 30 minutes early/);
     expect(html).not.toMatch(/15 minutes/);
   });

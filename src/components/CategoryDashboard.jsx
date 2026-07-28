@@ -1428,19 +1428,19 @@ export default function CategoryDashboard({
                     </button>
                     <button
                       onClick={async () => {
-                        if (!confirm(`Send evaluation schedule to ${withEmail.length} parents? (Only athletes with group assignments will receive it)`)) return;
+                        if (!confirm(`Email the evaluation dates to ${withEmail.length} families? (Groups & times stay TBD — the exact ice time goes out per session.)`)) return;
                         const res = await fetch(`/api/categories/${catId}/notify-parents`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ action: "schedule" }),
                         });
                         const data = await res.json();
-                        setAthleteMsg(data.success ? `Schedule sent to ${data.sent} parents (${data.skipped} skipped — no group assignment)` : "Failed to send");
+                        setAthleteMsg(data.success ? `Evaluation dates sent to ${data.sent} families` : "Failed to send");
                         setTimeout(() => setAthleteMsg(""), 5000);
                       }}
                       disabled={!withEmail.length}
                       className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
                     >
-                      Push Schedule
+                      Send Eval Dates
                     </button>
                   </div>
                 </div>

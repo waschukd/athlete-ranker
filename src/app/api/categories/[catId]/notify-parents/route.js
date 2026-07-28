@@ -4,7 +4,6 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc, FROM } from "@/lib/email";
 
-import { generateICS } from "@/lib/calendar";
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 
 export async function POST(request, { params }) {
@@ -74,47 +73,27 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, sent, total: athletes.length });
     }
 
-    // ── Schedule Push ─────────────────────────────────────
+    // ── Evaluation Dates Push ─────────────────────────────
+    // Category-level DATES only — not a per-group schedule. Families don't know
+    // their group yet, so we send every family the same list of session dates
+    // (Groups & time TBD); the exact ice time follows in its own per-session
+    // email once groups are set. No .ics here — there's no confirmed time to add.
     if (action === "schedule") {
-      // Get group assignments + schedule for each athlete
-      const assignments = await sql`
-        SELECT
-          pga.athlete_id,
-          sg.session_number, sg.group_number,
-          es.scheduled_date, es.start_time, es.end_time, es.location
-        FROM player_group_assignments pga
-        JOIN session_groups sg ON sg.id = pga.session_group_id
-        LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId}
-          AND es.session_number = sg.session_number
-          AND es.group_number = sg.group_number
-        WHERE sg.age_category_id = ${catId}
-        ${session_number ? sql`AND sg.session_number = ${session_number}` : sql``}
-        ORDER BY sg.session_number, sg.group_number
+      const dateRows = await sql`
+        SELECT DISTINCT session_number, scheduled_date
+        FROM evaluation_schedule
+        WHERE age_category_id = ${catId} AND scheduled_date IS NOT NULL
+        ${session_number ? sql`AND session_number = ${session_number}` : sql``}
+        ORDER BY session_number, scheduled_date
       `;
+      const sessions = dateRows.map(r => ({ session_number: r.session_number, date: r.scheduled_date }));
 
-      // Group assignments by athlete
-      const byAthlete = {};
-      for (const a of assignments) {
-        if (!byAthlete[a.athlete_id]) byAthlete[a.athlete_id] = [];
-        byAthlete[a.athlete_id].push({
-          session_number: a.session_number,
-          group_number: a.group_number,
-          date: a.scheduled_date?.toString().split("T")[0] || null,
-          time: a.start_time ? `${a.start_time}${a.end_time ? ` – ${a.end_time}` : ""}` : null,
-          location: a.location,
-          scheduled_date: a.scheduled_date,
-          start_time: a.start_time,
-          end_time: a.end_time,
-        });
+      if (!sessions.length) {
+        return NextResponse.json({ success: true, sent: 0, skipped: 0, total: athletes.length, message: "No evaluation dates scheduled yet" });
       }
 
-      let sent = 0;
-      let skipped = 0;
-
+      let sent = 0, skipped = 0;
       for (const athlete of athletes) {
-        const sessions = byAthlete[athlete.id];
-        if (!sessions || !sessions.length) { skipped++; continue; }
-
         try {
           const html = parentScheduleHtml({
             playerName: `${athlete.first_name} ${athlete.last_name}`,
@@ -122,43 +101,14 @@ export async function POST(request, { params }) {
             orgName: org_name,
             sessions,
           });
-
-          // Generate .ics for their sessions.
-          // group_number is destructured OFF deliberately: generateICS renders it
-          // into the event title ("— S1 G2") and description, which would put the
-          // group straight into a parent's calendar even though we keep it out of
-          // the email body. Spreading `...s` would carry it silently.
-          const icsContent = generateICS(sessions.filter(s => s.scheduled_date).map(({ group_number, ...s }) => ({
-            ...s,
-            category_name,
-            org_name,
-          })));
-
-          // Send with .ics attachment — one per household (both parent emails).
-          if (process.env.RESEND_API_KEY) {
-            for (const to of parentEmails(athlete)) {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                },
-                body: JSON.stringify({
-                  from: FROM,
-                  to,
-                  subject: `Evaluation Schedule — ${athlete.first_name} ${athlete.last_name} · ${category_name}`,
-                  html,
-                  attachments: [{
-                    filename: "evaluation-schedule.ics",
-                    content: Buffer.from(icsContent).toString("base64"),
-                  }],
-                }),
-              });
-            }
-            sent++;
+          const recipients = parentEmails(athlete);
+          if (!recipients.length) { skipped++; continue; }
+          for (const to of recipients) {
+            await sendEmail(to, `Evaluation Dates — ${category_name} (${org_name})`, html);
           }
+          sent++;
         } catch (e) {
-          console.error("Failed to send schedule to athlete " + athlete.id + ":", e?.message || e);
+          console.error("Failed to send dates to athlete " + athlete.id + ":", e?.message || e);
           skipped++;
         }
       }
