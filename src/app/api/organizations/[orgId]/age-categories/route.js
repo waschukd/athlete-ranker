@@ -54,16 +54,13 @@ export async function GET(request, { params }) {
       for (const c of categories) {
         const info = byCat[c.id];
         c.next_action = null;
+        // Only the AFTER-session steps surface on the main dashboard. The
+        // before-session-1 first step lives on the age-category page only
+        // (computed there), by request.
         if (info && info.complete.length) {
           const last = Math.max(...info.complete);
           if (info.complete.length === info.total) c.next_action = { kind: "teams", last };
           else if (last < info.total) c.next_action = { kind: "groups", last, next: last + 1 };
-        } else if (info && c.setup_complete) {
-          // Before session 1: point at the very first step. No players yet →
-          // upload them; otherwise the schedule's format decides — a tournament
-          // makes teams for the round robin, a standard eval makes testing groups.
-          if (Number(c.athletes_count) === 0) c.next_action = { kind: "add_players" };
-          else c.next_action = c.eval_format === "round_robin" ? { kind: "make_teams" } : { kind: "make_groups", next: 1 };
         }
       }
     } catch { /* non-fatal — card just won't show */ }
