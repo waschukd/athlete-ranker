@@ -451,11 +451,9 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   return emailWrapper(`
     ${emailHeader(fromLine, `${esc(playerName)}'s Development Report is ready`)}
     <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report breaks down their objective testing results, how the evaluators graded each skill, what a top mark looks like, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
-    ${infoCard("Inside the full report", `<div style="font-size:13px;color:#4a4f57;line-height:1.95;">
-        Objective testing with a target to chase &nbsp;·&nbsp; Skill scores &amp; what a top mark looks like<br/>
-        Session-by-session progress &nbsp;·&nbsp; Every evaluator note<br/>
-        A personalized development plan &nbsp;·&nbsp; Downloadable PDF
-      </div>`)}
+    ${infoCard("Inside the full report", `<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;color:#4a4f57;">
+        ${["Objective testing with a target to chase", "Skill scores &amp; what a top mark looks like", "Session-by-session progress", "Every evaluator note", "A personalized development plan", "Downloadable PDF"].map(t => `<tr><td width="20" valign="top" style="padding:4px 0;color:${GOLD_DEEP};font-weight:800;line-height:1.5;">&check;</td><td style="padding:4px 0;line-height:1.5;">${t}</td></tr>`).join("")}
+      </table>`)}
     <div style="text-align:center;margin:8px 0 0;">${btn(reportUrl, "View the report")}</div>
     <p style="margin:18px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">Open a free preview now; unlock the full report for ${priceStr}. Secure payment via Stripe — no account needed.</p>
   `);
