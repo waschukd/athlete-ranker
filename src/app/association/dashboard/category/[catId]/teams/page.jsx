@@ -63,6 +63,11 @@ function TeamGeneratorInner() {
   const ranked = rankingsData?.athletes || [];
   const hasExistingTeams = teams.length > 0;
 
+  // athlete_id → overall category rank + weighted score, so each team roster row
+  // can show WHY a player landed where they did (teams are balanced by ranking).
+  const rankByAthlete = {};
+  ranked.forEach(a => { rankByAthlete[a.id] = { rank: a.rank, score: a.weighted_total }; });
+
   const totalConfigured = teamConfig.reduce((s, t) => s + (parseInt(t.size) || 0), 0);
   const totalAthletes = ranked.filter(a => a.position !== 'goalie').length;
 
@@ -312,7 +317,7 @@ function TeamGeneratorInner() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Team Rosters</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Drag players between teams to adjust. Goalies assigned separately.</p>
+                <p className="text-xs text-gray-400 mt-0.5">Balanced by overall ranking. Each row shows <b className="text-gray-500">#rank</b> · <b className="text-[#0b5cd6]">score</b> · position. Drag players between teams to adjust; goalies assigned separately.</p>
               </div>
               <button onClick={() => setStep("setup")}
                 className="text-sm text-[#0b5cd6] hover:underline">← Back to Setup</button>
@@ -340,24 +345,30 @@ function TeamGeneratorInner() {
                       <Users size={16} className="text-white/70" />
                     </div>
                     <div className="divide-y divide-gray-50">
-                      {players.map((p, i) => (
+                      {players.map((p) => {
+                        const info = rankByAthlete[p.athlete_id] || {};
+                        return (
                         <div key={p.athlete_id}
                           draggable
                           onDragStart={e => e.dataTransfer.setData("text/plain", JSON.stringify({ athleteId: p.athlete_id, fromTeamId: team.id }))}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-grab active:cursor-grabbing"
+                          className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 cursor-grab active:cursor-grabbing"
                         >
-                          <span className="text-xs text-gray-300 w-5 text-right">{i + 1}</span>
+                          <span className="text-xs font-bold text-gray-400 w-7 text-right tabular-nums flex-shrink-0" title="Overall ranking in this category">#{info.rank ?? "—"}</span>
                           <div className="flex-1 min-w-0">
                             <span className="text-sm font-medium text-gray-900">{p.last_name}, {p.first_name}</span>
                           </div>
+                          {info.score != null && (
+                            <span className="text-xs font-bold text-[#0b5cd6] bg-[#0b5cd6]/10 px-1.5 py-0.5 rounded tabular-nums flex-shrink-0" title="Overall score">{info.score.toFixed(1)}</span>
+                          )}
                           {p.position && (
                             <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
                               {POSITION_SHORT[p.position] || p.position}
                             </span>
                           )}
-                          <span className="text-xs text-gray-300 font-mono">{p.external_id || ""}</span>
+                          {p.external_id && <span className="text-[10px] text-gray-300 font-mono flex-shrink-0" title="HC#">{p.external_id}</span>}
                         </div>
-                      ))}
+                        );
+                      })}
                       {players.length === 0 && (
                         <div className="px-4 py-8 text-center text-xs text-gray-300">Drop players here</div>
                       )}
