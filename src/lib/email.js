@@ -126,10 +126,12 @@ function emailHeader(eyebrow, title) {
     </div>
     <h1 style="margin:18px 0 0;font-family:${SERIF_FONT};font-size:24px;font-weight:900;color:${INK};letter-spacing:-0.2px;text-align:center;line-height:1.25;">${title}</h1>`;
 }
-// Gold-tinted info section with a small uppercase eyebrow.
-function infoCard(eyebrow, innerHtml) {
+// Gold-tinted info section with a small uppercase eyebrow. Pass { center: true }
+// to center the eyebrow header.
+function infoCard(eyebrow, innerHtml, opts = {}) {
+  const align = opts.center ? "text-align:center;" : "";
   return `<div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:14px;padding:18px 22px;margin:0 0 16px;">
-      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:12px;">${eyebrow}</div>
+      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:12px;${align}">${eyebrow}</div>
       ${innerHtml}
     </div>`;
 }
@@ -345,17 +347,19 @@ export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgNa
     ${emailHeader(`${esc(orgName)} &middot; Evaluations`, `Welcome to ${esc(categoryName)} Evaluations`)}
     <p style="margin:14px auto 26px;max-width:430px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;"><strong style="color:${INK};">${esc(playerName)}</strong> is registered for evaluations with <strong style="color:${INK};">${esc(orgName)}</strong>. Here's what to expect.</p>
     ${infoCard("What to expect", `<table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Multiple sessions</strong> — scored by professional evaluators across several sessions.</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Group assignments</strong> — players are organized into groups; you'll get the exact schedule before each session.</td></tr>
-      </table>`)}
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Multiple sessions</strong> — scored by professional evaluators across several sessions. Sessions can be testing, skills, or scrimmages, and you'll be notified before each one.</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#4a4f57;line-height:1.55;"><strong style="color:${INK};">Group assignments</strong> — players are organized into groups that may change from session to session; you'll get the exact schedule before each one.</td></tr>
+      </table>`, { center: true })}
     ${infoCard("Before you arrive", `<table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Arrive at least 30 minutes prior to your session for check-in.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Have full equipment ready; jersey numbers are assigned at check-in.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure skates are freshly sharpened.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Make sure your athlete is fuelled and hydrated.</td></tr>
         <tr><td style="padding:4px 0;font-size:13px;color:#4a4f57;">Trust the process — evaluators assess the full picture across sessions.</td></tr>
-      </table>`)}
-    ${infoCard("After evaluations", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">A comprehensive Development Report will be available — collective evaluator feedback, an AI-compiled scouting analysis, and a personalized plan for ${esc(playerName)}.</p>`)}
+      </table>`, { center: true })}
+    ${infoCard("Conduct &amp; sportsmanship", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">Evaluations can be high-pressure moments for young players. Keep it positive — cheer for every kid on the ice, not only your own, and remember this is one snapshot of a long season, never a final verdict on your athlete. Kids take their cue from the stands: a calm, encouraging parent makes the whole process easier on them.</p>`, { center: true })}
+    ${infoCard("Give the evaluators room", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">To score fairly, evaluators need to watch the ice without distraction. Please don't approach, coach, or question them before, during, or after a session — give them their space. Any questions about the process or the schedule should go to your association, not the evaluators.</p>`, { center: true })}
+    ${infoCard("After evaluations", `<p style="margin:0;font-size:13px;color:#4a4f57;line-height:1.6;">A comprehensive Development Report will be available — collective evaluator feedback, an AI-compiled scouting analysis, and a personalized plan for ${esc(playerName)}.</p>`, { center: true })}
     <p style="margin:6px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">You'll receive another email with ${esc(playerName)}'s specific schedule once groups are assigned.</p>
   `);
 }
