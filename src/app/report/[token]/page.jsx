@@ -97,20 +97,18 @@ export default function PublicReportPage({ params }) {
           <div style={{ background: "rgba(80,200,120,.12)", border: "1px solid rgba(80,200,120,.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#5fd08a" }}>Unlocked — your full report is ready.</div>
         )}
 
-        {/* Standing (free preview) */}
-        {standing && (
-          <div style={{ display: "flex", alignItems: "center", gap: 20, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "18px 22px", marginBottom: 16 }}>
-            <div style={{ textAlign: "center", flexShrink: 0 }}>
-              <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 28, color: GOLD, lineHeight: 1 }}>{standing.band}</div>
-              <div style={{ fontSize: 10, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>of the group</div>
-            </div>
-            <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
-            <div>
-              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fff" }}>{standing.tier}</div>
-              <div style={{ color: "#b8bcc4", fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>{firstName} graded out in the <b style={{ color: "#fff" }}>{standing.band.toLowerCase()}</b> of {standing.total} skaters. The full report shows exactly what to chase to climb.</div>
-            </div>
+        {/* Development snapshot (free preview) — no ranking/percentile, just the value */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "18px 22px", marginBottom: 16 }}>
+          <div style={{ textAlign: "center", flexShrink: 0 }}>
+            <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 28, color: GOLD, lineHeight: 1 }}>{firstName}'s</div>
+            <div style={{ fontSize: 10, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Development Report</div>
           </div>
-        )}
+          <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
+          <div>
+            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fff" }}>What to work on next</div>
+            <div style={{ color: "#b8bcc4", fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>Objective testing, evaluator skill scores and session-by-session progress — with what a top mark looks like and the exact plan to get there. The full report shows what to chase, in order.</div>
+          </div>
+        </div>
 
         {/* Skill teaser (free) */}
         {skillProfile.length > 0 && (

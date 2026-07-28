@@ -152,13 +152,17 @@ export default function DevelopmentReport({ data }) {
   const weaknessSkill = gradedSkills.slice().sort((a, b) => a.player - b.player)[0];
   const focusSkill = skillFocus[0];
 
-  const skillPill = (p, g, top) => {
+  // Pills are keyed to the TOP of the group (the target), never the average — a
+  // parent should read every skill as distance-to-aim-for, not a placement grade.
+  const skillPill = (p, top) => {
     if (p == null) return { bg: "rgba(255,255,255,.06)", c: GRAY, t: "—" };
     if (top != null && p >= top - 0.2) return { bg: "rgba(80,200,120,.16)", c: "#5fd08a", t: "Strength" };
-    if (g != null && p >= g) return { bg: "rgba(80,200,120,.12)", c: "#67c98c", t: "Above average" };
-    if (g != null && p >= g - 0.6) return { bg: GOLD_SOFT, c: GOLD, t: "Around average" };
+    const gap = top != null ? top - p : null;
+    if (gap != null && gap <= 1.0) return { bg: "rgba(80,200,120,.12)", c: "#67c98c", t: "Close to the top" };
+    if (gap != null && gap <= 2.0) return { bg: GOLD_SOFT, c: GOLD, t: "Developing" };
     return { bg: "rgba(224,138,42,.16)", c: "#e0944a", t: "Focus area" };
   };
+  const topMark = Math.round(scale); // "what a 10 looks like" — the top of the scale
 
   const Shead = ({ kicker, title }) => (
     <div style={{ breakInside: "avoid", breakAfter: "avoid" }}>
@@ -211,7 +215,7 @@ export default function DevelopmentReport({ data }) {
             <Shead kicker="The skills session" title="Goalie skills" />
             <div style={leadStyle}>Goalies run their own skills session — four drills, scored by eye, where <b style={{ color: "#cfd2d7" }}>a higher mark is better</b> (out of {scale}). Each card shows where {firstName} landed against the group average and the top of the group, with what evaluators were watching for.</div>
             {goalieSkillsProfile.map(s => {
-              const p = skillPill(s.player, s.group, s.top);
+              const p = skillPill(s.player, s.top);
               const blurb = drillBlurb(s.name);
               const brow = (k, val, color, strong) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -229,8 +233,7 @@ export default function DevelopmentReport({ data }) {
                   {blurb && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 11px" }}>{blurb}</div>}
                   {!blurb && <div style={{ height: 8 }} />}
                   {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
-                  {brow("Group avg", s.group, "#5f636c", false)}
-                  {brow("Top of group", s.top, "#d8dade", false)}
+                  {brow("Aim for (top)", s.top, "#d8dade", false)}
                 </div>
               );
             })}
@@ -241,47 +244,45 @@ export default function DevelopmentReport({ data }) {
         {testingProfile.length > 0 && (
           <div style={{ marginBottom: 10 }}>
             <Shead kicker="The numbers don't lie" title="Objective testing" />
-            <div style={leadStyle}>These come first — measured results from the testing session, same drills and same clock for everyone. <b style={{ color: "#cfd2d7" }}>Lower is better — the fastest time wins.</b> Each card shows where {firstName} landed against the day's best and the group average.</div>
+            <div style={leadStyle}>This is the one part of the evaluation with no opinion in it. Every skater ran the <b style={{ color: "#cfd2d7" }}>same drills, the same clock and the same setup</b> — so these numbers measure raw on-ice athleticism: straight-line speed, acceleration, agility, edge control and how quickly {firstName} changes direction. <b style={{ color: "#cfd2d7" }}>Lower is better — the fastest time wins.</b> Each card shows {firstName}'s best result next to the fastest in the group, so there's a clear number to chase.</div>
             {testingProfile.map((t, i) => {
-              const you = t.player_best, best = t.group_best, avg = t.group_avg;
+              const you = t.player_best, best = t.group_best;
               const youBest = best != null && you <= best + 0.0005;
               const gap = best != null ? (you - best).toFixed(2) : null;
-              const havePos = avg != null && best != null && avg !== best;
-              const pos = (v) => havePos ? Math.max(7, Math.min(97, 12 + ((avg - v) / (avg - best)) * 76)) : 50;
               const info = testInfo(t.test_name);
-              // When the player IS the best, the You/Best markers land on the same
-              // spot; when they're very close their labels collide. closeToBest hides
-              // the Best label in that case (the badge already shows the gap).
-              const closeToBest = best != null && !youBest && Math.abs(pos(you) - pos(best)) < 14;
-              const dot = (left, pip, labCol, lab, val, ring, showLabel = true) => (
-                <div style={{ position: "absolute", left: `${left}%`, top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <span style={{ width: 13, height: 13, borderRadius: "50%", background: pip, boxShadow: ring ? `0 0 0 4px ${ring}` : "none" }} />
-                  {showLabel && <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, lineHeight: 1.25, textAlign: "center", whiteSpace: "nowrap", color: labCol }}>{lab}<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(val)}</b></span>}
-                </div>
-              );
               return (
-                <div key={`${t.test_name}-${i}`} style={{ position: "relative", overflow: "hidden", borderRadius: 11, border: `1px solid ${LINE}`, background: "radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%)", padding: "8px 16px 7px", marginBottom: 7, breakInside: "avoid" }}>
+                <div key={`${t.test_name}-${i}`} style={{ position: "relative", overflow: "hidden", borderRadius: 11, border: `1px solid ${LINE}`, background: "radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%)", padding: "10px 16px 9px", marginBottom: 7, breakInside: "avoid" }}>
                   <div style={{ position: "absolute", top: -50, right: -50, width: 150, height: 150, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.06)" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aeb2bb" }}>{t.test_name}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: GOLD, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, padding: "2px 9px", borderRadius: 99, whiteSpace: "nowrap" }}>{youBest ? "🏆 Group best" : gap != null ? `${gap}s off best` : ""}</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: GOLD, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, padding: "2px 9px", borderRadius: 99, whiteSpace: "nowrap" }}>{youBest ? "🏆 Group best" : gap != null ? `${gap}s off the best` : ""}</span>
                   </div>
-                  {info && <div style={{ fontSize: 9.5, color: MUTED, lineHeight: 1.4, margin: "2px 0 4px", maxWidth: "92%" }}>{info}</div>}
+                  {info && <div style={{ fontSize: 9.5, color: MUTED, lineHeight: 1.4, margin: "2px 0 8px", maxWidth: "92%" }}>{info}</div>}
                   <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
                     <div style={{ display: "flex", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
                       <span style={{ fontFamily: NUM, fontWeight: 800, fontSize: 30, lineHeight: 0.85, color: "#f6f7f8", letterSpacing: "-0.02em" }}>{fmt(you)}</span>
                       <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, marginBottom: 3 }}>sec</span>
                     </div>
-                    <div style={{ position: "relative", flex: 1, height: 34 }}>
+                    {/* Two-point aim line: You → the fastest in the group (the target). No
+                        group average — the target is what gives them something to chase. */}
+                    <div style={{ position: "relative", flex: 1, height: 30 }}>
                       <div style={{ position: "absolute", left: "2%", right: "2%", top: 6, height: 3, background: "rgba(255,255,255,0.13)", borderRadius: 99 }} />
-                      {havePos && <div style={{ position: "absolute", top: 6, left: `${pos(avg)}%`, width: `${Math.max(0, pos(best) - pos(avg))}%`, height: 3, background: `linear-gradient(90deg, rgba(205,164,52,.2), ${GOLD})`, borderRadius: 99 }} />}
-                      {avg != null && dot(pos(avg), "#5f636c", GRAY, "Avg", avg)}
                       {youBest ? (
-                        dot(pos(you), GOLD, GOLD, "You", you, "rgba(205,164,52,0.22)")
+                        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <span style={{ width: 13, height: 13, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(205,164,52,0.22)" }} />
+                          <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>You · Group best<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(you)}</b></span>
+                        </div>
                       ) : (
                         <>
-                          {dot(pos(you), "#ffffff", "#ffffff", "You", you, "rgba(255,255,255,.1)")}
-                          {best != null && dot(pos(best), GOLD, GOLD, "Best", best, "rgba(205,164,52,0.13)", !closeToBest)}
+                          <div style={{ position: "absolute", top: 6, left: "22%", width: "56%", height: 3, background: `linear-gradient(90deg, rgba(205,164,52,.15), ${GOLD})`, borderRadius: 99 }} />
+                          <div style={{ position: "absolute", left: "22%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <span style={{ width: 13, height: 13, borderRadius: "50%", background: "#ffffff", boxShadow: "0 0 0 4px rgba(255,255,255,.1)" }} />
+                            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: "#ffffff" }}>You<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(you)}</b></span>
+                          </div>
+                          <div style={{ position: "absolute", left: "78%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <span style={{ width: 13, height: 13, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(205,164,52,0.13)" }} />
+                            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>Aim for<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(best)}</b></span>
+                          </div>
                         </>
                       )}
                     </div>
@@ -295,20 +296,23 @@ export default function DevelopmentReport({ data }) {
         {/* Skill profile + progress trend */}
         {skillProfile.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
-            <Shead kicker={isGoalie ? "Evaluator scores from the scrimmages" : "Evaluator scores vs the group"} title={isGoalie ? "Scrimmage evaluation" : "Skill profile"} />
-            <div style={leadStyle}>{isGoalie ? "In the scrimmages, evaluators graded each area by eye watching live game play." : "Beyond the clock, evaluators graded each skill by eye over the sessions."} Here's how {firstName} stacks up against the group average and the top of the group, out of {scale}. Higher is better.</div>
+            <Shead kicker={isGoalie ? "Evaluator scores from the scrimmages" : "What the evaluators graded"} title={isGoalie ? "Scrimmage evaluation" : "Skill profile"} />
+            <div style={leadStyle}>{isGoalie ? "In the scrimmages, evaluators graded each area by eye watching live game play" : "Beyond the clock, evaluators graded each skill by eye across the sessions"}, on a <b style={{ color: "#cfd2d7" }}>{scale}-point scale in half-point steps</b> — so a 7.5 is a real, deliberate mark. The number shown is {firstName}'s <b style={{ color: "#cfd2d7" }}>average across every evaluator</b> who watched them. Higher is better. For each skill, here's what evaluators are looking for, <b style={{ color: "#cfd2d7" }}>what a {topMark} looks like</b>, and where {firstName}'s score sits against the top of the group to aim at.</div>
             {skillProfile.map(s => {
-              const p = skillPill(s.player, s.group, s.top);
-              // Data-driven interpretation, scaled to where the player sits.
+              const p = skillPill(s.player, s.top);
+              // Interpretation is framed against the TOP of the group (the target),
+              // never the average — the parent reads distance-to-aim-for, not a grade.
               let interp = "";
               if (s.player != null) {
                 const f = (v) => (v != null ? v.toFixed(1) : "—");
-                if (s.top != null && s.player >= s.top - 0.2) interp = `A genuine strength — at ${f(s.player)}, ${firstName} is right with the top of the group (${f(s.top)}). Keep it sharp and lean on it.`;
-                else if (s.group != null && s.player >= s.group) interp = `Above the group average (${f(s.group)}) at ${f(s.player)}; the next target is closing the gap to the top of the group (${f(s.top)}).`;
-                else if (s.group != null && s.player >= s.group - 0.6) interp = `Right around the group average (${f(s.group)}). This is the kind of gap that closes fast with a focused block of reps.`;
-                else interp = `The clearest area to attack — ${f(s.player)} against a group average of ${f(s.group)} and a top of ${f(s.top)}. The single biggest opportunity to climb.`;
+                const gap = s.top != null ? Math.round((s.top - s.player) * 10) / 10 : null;
+                if (s.top != null && s.player >= s.top - 0.2) interp = `A genuine strength — at ${f(s.player)}, ${firstName} is right at the top of the group (${f(s.top)}). Keep it sharp and lean on it.`;
+                else if (gap != null && gap <= 1.0) interp = `Close to the top — ${f(s.player)} against a group top of ${f(s.top)}, about ${gap.toFixed(1)} away. A focused block of reps closes this fast.`;
+                else if (gap != null && gap <= 2.0) interp = `Coming along — ${f(s.player)} with room to the top of the group (${f(s.top)}), about ${gap.toFixed(1)} to close. A clear place to put in work.`;
+                else interp = `The clearest area to attack — ${f(s.player)} against a group top of ${f(s.top)}. The single biggest opportunity to climb.`;
               }
               const sub = skillInfo(s.name, isGoalie);
+              const elite = skillElite(s.name, isGoalie);
               const brow = (k, val, color, strong) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
@@ -322,11 +326,11 @@ export default function DevelopmentReport({ data }) {
                     <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
                     <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 11px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
                   </div>
-                  {sub && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 11px" }}>{sub}</div>}
-                  {!sub && <div style={{ height: 8 }} />}
+                  {sub && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 8px" }}>{sub}</div>}
+                  {!sub && <div style={{ height: 6 }} />}
+                  {elite && <div style={{ fontSize: 11, color: "#c7cbd2", lineHeight: 1.5, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 9, padding: "7px 11px", margin: "0 0 11px" }}><b style={{ color: GOLD }}>What a {topMark} looks like:</b> {elite}.</div>}
                   {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
-                  {brow("Group avg", s.group, "#5f636c", false)}
-                  {brow("Top of group", s.top, "#d8dade", false)}
+                  {brow("Aim for (top)", s.top, "#d8dade", false)}
                   {interp && <div style={{ marginTop: 10, paddingTop: 11, borderTop: `1px solid ${LINE}`, fontSize: 11.5, color: "#c7cbd2", lineHeight: 1.5 }}>{interp}</div>}
                 </div>
               );
@@ -431,7 +435,7 @@ export default function DevelopmentReport({ data }) {
               <div style={{ marginTop: 16, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 14, padding: "14px 18px", breakInside: "avoid" }}>
                 <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 7 }}>What it adds up to</div>
                 <div style={{ fontSize: 12.5, color: "#dfe1e4", lineHeight: 1.6 }}>
-                  Read together, the scores tell a consistent story.{strengthSkill && weaknessSkill && strengthSkill.scoring_category_id !== weaknessSkill.scoring_category_id ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> ({strengthSkill.player.toFixed(1)}) grades out as the relative strength, while <b style={{ color: "#fff" }}>{weaknessSkill.name.toLowerCase()}</b> ({weaknessSkill.player.toFixed(1)}) is the area to attack first</> : strengthSkill ? <> {firstName}'s scores sit close together, with <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> grading highest</> : ""}.{standing ? <> Overall {firstName} graded out <b style={{ color: "#fff" }}>{standing.tier.toLowerCase()}</b> — {standing.band.toLowerCase()} of {standing.total} {cohortWord}. The development plan on the next page lays out the order to climb.</> : ""}
+                  Read together, the scores tell a consistent story.{strengthSkill && weaknessSkill && strengthSkill.scoring_category_id !== weaknessSkill.scoring_category_id ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> ({strengthSkill.player.toFixed(1)}) grades out as the relative strength, while <b style={{ color: "#fff" }}>{weaknessSkill.name.toLowerCase()}</b> ({weaknessSkill.player.toFixed(1)}) is the area to attack first</> : strengthSkill ? <> {firstName}'s scores sit close together, with <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> grading highest</> : ""}. The development plan on the next page lays out the order to climb.
                 </div>
               </div>
             )}
@@ -442,24 +446,15 @@ export default function DevelopmentReport({ data }) {
         {(standing || skillFocus.length > 0 || testFocus.length > 0) && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="The bottom line" title="Summary & recommendations" />
-            {standing && (
-              <div style={{ display: "flex", alignItems: "center", gap: 22, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "12px 20px", breakInside: "avoid" }}>
-                <div style={{ textAlign: "center", flexShrink: 0 }}>
-                  <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 30, color: GOLD, lineHeight: 1 }}>{standing.band}</div>
-                  <div style={{ fontSize: 10.5, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>of the group</div>
-                </div>
-                <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
-                <div>
-                  <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 21, color: "#fff" }}>{standing.tier}</div>
-                  <div style={{ color: "#b8bcc4", lineHeight: 1.55, marginTop: 4, fontSize: 12 }}>Across {isGoalie ? "the evaluators' scores" : "testing and evaluator scores"}, {firstName} graded out in the <b style={{ color: "#fff" }}>{standing.band.toLowerCase()}</b> of {standing.total} {cohortWord} evaluated. Here's exactly what to chase to climb.</div>
-                </div>
-              </div>
-            )}
+            <div style={{ background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "14px 20px", breakInside: "avoid" }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: "#fff", marginBottom: 4 }}>What to chase next</div>
+              <div style={{ color: "#b8bcc4", lineHeight: 1.55, fontSize: 12 }}>{firstName} was measured across {isGoalie ? "the evaluators' scores" : "objective testing and evaluator scores"} over the evaluation. The point of this report isn't a ranking — it's a clear picture of what to work on and, just as important, the order to work on it in.</div>
+            </div>
             <div style={{ marginTop: 10, borderLeft: `2px solid ${GOLD}`, background: "rgba(205,164,52,0.06)", borderRadius: "0 10px 10px 0", padding: "9px 14px", color: "#b8bcc4", fontSize: 11, lineHeight: 1.5, breakInside: "avoid" }}>
-              <b style={{ color: "#fff" }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
+              <b style={{ color: "#fff" }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player, and it isn't how groups or teams get set. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
             </div>
             <div style={{ lineHeight: 1.55, marginTop: 11, fontSize: 12.5, color: "#c7cbd2" }}>
-              {standing && <p style={{ marginTop: 0 }}>If {firstName} invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>}
+              <p style={{ marginTop: 0 }}>If {firstName} invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
               {skillFocus.length > 0 && (
                 <>
                   <div style={{ background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 12, padding: "11px 15px", margin: "9px 0", breakInside: "avoid" }}>

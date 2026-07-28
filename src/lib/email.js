@@ -450,9 +450,9 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
     ${emailHeader(fromLine, `${esc(playerName)}'s Development Report is ready`)}
-    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report shows where they stand against the group, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
+    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report breaks down their objective testing results, how the evaluators graded each skill, what a top mark looks like, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
     ${infoCard("Inside the full report", `<div style="font-size:13px;color:#4a4f57;line-height:1.95;">
-        Objective testing vs the group &nbsp;·&nbsp; Skill profile with interpretation<br/>
+        Objective testing with a target to chase &nbsp;·&nbsp; Skill scores &amp; what a top mark looks like<br/>
         Session-by-session progress &nbsp;·&nbsp; Every evaluator note<br/>
         A personalized development plan &nbsp;·&nbsp; Downloadable PDF
       </div>`)}
