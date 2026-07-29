@@ -151,7 +151,8 @@ export default function CategoryDashboard({
   const [importing, setImporting] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [showDirectorModal, setShowDirectorModal] = useState(false);
-  const [directorForm, setDirectorForm] = useState({ name: "", email: "" });
+  const [directorRows, setDirectorRows] = useState([{ name: "", email: "" }, { name: "", email: "" }]);
+  const [directorSending, setDirectorSending] = useState(false);
   const [directorMsg, setDirectorMsg] = useState("");
   const [volunteerModal, setVolunteerModal] = useState(null); // { sessionNum, entries }
   const [volunteerEmails, setVolunteerEmails] = useState("");
@@ -1872,7 +1873,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div><h3 className="text-sm font-semibold text-gray-900">Directors</h3><p className="text-xs text-gray-400 mt-0.5">Assign directors to this age category</p></div>
-                  <button onClick={() => { setShowDirectorModal(true); setDirectorMsg(""); }} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-xs font-semibold">+ Invite Director</button>
+                  <button onClick={() => { setShowDirectorModal(true); setDirectorMsg(""); setDirectorRows([{ name: "", email: "" }, { name: "", email: "" }]); }} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-xs font-semibold">+ Invite Directors</button>
                 </div>
                 {!(directorsData?.directors?.length) ? <p className="text-xs text-gray-400">No directors assigned yet</p> : directorsData.directors.map(d => (
                   <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-2">
@@ -1883,23 +1884,37 @@ export default function CategoryDashboard({
               </div>
               {showDirectorModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
-                  <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-                    <h3 className="font-bold text-gray-900 mb-1">Invite Director</h3>
-                    <p className="text-sm text-gray-500 mb-5">They will receive login credentials and access to this age category only.</p>
+                  <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+                    <h3 className="font-bold text-gray-900 mb-1">Invite Directors</h3>
+                    <p className="text-sm text-gray-500 mb-5">Add one or more. Each gets login credentials and access to this age category only.</p>
                     {directorMsg ? (
-                      <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorForm({ name: "", email: "" }); }} className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium">Done</button></div>
+                      <div className="text-center py-4"><p className="text-green-600 font-medium text-sm">{directorMsg}</p><button onClick={() => { setShowDirectorModal(false); setDirectorRows([{ name: "", email: "" }, { name: "", email: "" }]); setDirectorMsg(""); }} className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium">Done</button></div>
                     ) : (
-                      <div className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label><input type="text" value={directorForm.name} onChange={e => setDirectorForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label><input type="email" value={directorForm.email} onChange={e => setDirectorForm(f => ({ ...f, email: e.target.value }))} placeholder="john@email.com" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
-                        <div className="flex gap-3 pt-2">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                          <span className="flex-1">Full name</span><span className="flex-1">Email</span><span className="w-6" />
+                        </div>
+                        {directorRows.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <input type="text" value={r.name} onChange={e => setDirectorRows(rows => rows.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="John Smith" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+                            <input type="email" value={r.email} onChange={e => setDirectorRows(rows => rows.map((x, j) => j === i ? { ...x, email: e.target.value } : x))} placeholder="john@email.com" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" />
+                            <button onClick={() => setDirectorRows(rows => rows.length > 1 ? rows.filter((_, j) => j !== i) : rows)} disabled={directorRows.length <= 1} title="Remove row" className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-30 text-lg leading-none">×</button>
+                          </div>
+                        ))}
+                        <button onClick={() => setDirectorRows(rows => [...rows, { name: "", email: "" }])} className="text-xs font-semibold text-[#0b5cd6] hover:underline">+ Add another</button>
+                        <div className="flex gap-3 pt-3">
                           <button onClick={() => setShowDirectorModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm">Cancel</button>
                           <button onClick={async () => {
-                            if (!directorForm.name || !directorForm.email) return;
-                            const res = await fetch(`/api/categories/${catId}/invite-director`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(directorForm) });
-                            const data = await res.json();
-                            if (data.success) { setDirectorMsg(data.message); refetchDirectors(); }
-                          }} disabled={!directorForm.name || !directorForm.email} className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">Send Invite</button>
+                            const directors = directorRows.map(r => ({ name: r.name.trim(), email: r.email.trim() })).filter(r => r.name && r.email);
+                            if (!directors.length) return;
+                            setDirectorSending(true);
+                            try {
+                              const res = await fetch(`/api/categories/${catId}/invite-director`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ directors }) });
+                              const data = await res.json();
+                              if (data.success) { setDirectorMsg(data.message); refetchDirectors(); }
+                              else setDirectorMsg(data.message || data.error || "Failed to send");
+                            } finally { setDirectorSending(false); }
+                          }} disabled={directorSending || !directorRows.some(r => r.name.trim() && r.email.trim())} className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">{directorSending ? "Sending…" : "Send Invites"}</button>
                         </div>
                       </div>
                     )}

@@ -49,8 +49,17 @@ export async function POST(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { email, name } = await request.json();
-    if (!email || !name) return NextResponse.json({ error: "Name and email required" }, { status: 400 });
+    // Accept either a single { name, email } or a batch { directors: [...] }.
+    const body = await request.json();
+    const list = Array.isArray(body.directors) ? body.directors : [{ name: body.name, email: body.email }];
+    const seen = new Set();
+    const dedup = [];
+    for (const d of list) {
+      const name = String(d?.name || "").trim();
+      const email = String(d?.email || "").trim().toLowerCase();
+      if (name && email && !seen.has(email)) { seen.add(email); dedup.push({ name, email }); }
+    }
+    if (!dedup.length) return NextResponse.json({ error: "Name and email required" }, { status: 400 });
 
     // Get category + org info
     const catInfo = await sql`
@@ -62,6 +71,9 @@ export async function POST(request, { params }) {
     if (!catInfo.length) return NextResponse.json({ error: "Category not found" }, { status: 404 });
     const cat = catInfo[0];
 
+    // Invite (or re-assign) one director: create the account + email credentials
+    // if new, otherwise notify, then assign to this category.
+    async function inviteOne(name, email) {
     // Check if user already exists
     let appUser = await sql`SELECT id FROM users WHERE email = ${email}`;
 
@@ -199,8 +211,25 @@ export async function POST(request, { params }) {
       VALUES (${appUser[0].id}, ${catId}, ${cat.org_id}, 'active')
       ON CONFLICT (user_id, age_category_id) DO UPDATE SET status = 'active'
     `;
+      return { ok: true };
+    } // end inviteOne
 
-    return NextResponse.json({ success: true, message: `${name} has been assigned as director and notified by email.` });
+    const results = [];
+    for (const d of dedup) {
+      try {
+        await inviteOne(d.name, d.email);
+        results.push({ email: d.email, name: d.name, ok: true });
+      } catch (e) {
+        console.error("Invite director failed for " + d.email + ":", e?.message || e);
+        results.push({ email: d.email, name: d.name, ok: false, error: e?.message || "failed" });
+      }
+    }
+    const invited = results.filter(r => r.ok).length;
+    const failed = results.length - invited;
+    const message = failed
+      ? `${invited} invited${failed ? `, ${failed} failed` : ""}.`
+      : `${invited} director${invited === 1 ? "" : "s"} invited and notified by email.`;
+    return NextResponse.json({ success: invited > 0, invited, failed, results, message });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
