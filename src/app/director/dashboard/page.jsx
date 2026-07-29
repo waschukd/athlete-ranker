@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect } from "react";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
 import { useTrackPageView } from "@/lib/useAnalytics";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 import CategoryDashboard from "@/components/CategoryDashboard";
 
 const qc = new QueryClient();
@@ -11,6 +13,7 @@ const LAST_CAT_KEY = "director_last_cat";
 
 function DirectorDashboardInner() {
   useTrackPageView("dashboard.director.viewed");
+  const [theme, toggleTheme] = useTheme();
 
   const { data: dirData, isLoading: dirLoading } = useQuery({
     queryKey: ["director-category"],
@@ -68,10 +71,10 @@ function DirectorDashboardInner() {
     </div>
   ) : null;
 
-  if (dirLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
+  if (dirLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme={theme}><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
 
   if (!assignment) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4" data-theme={theme}>
       <div className="text-center max-w-sm">
         <AlertCircle size={52} className="mx-auto text-gray-300 mb-4" />
         <h2 className="text-xl font-bold text-gray-700 mb-2">No Category Assigned</h2>
@@ -84,7 +87,7 @@ function DirectorDashboardInner() {
   if (view === "overview" && assignments.length > 1) {
     const orgCount = new Set(assignments.map(a => a.org_name)).size;
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50" data-theme={theme}>
         <header className="border-b border-gray-200 bg-white">
           <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
             <div>
@@ -92,7 +95,10 @@ function DirectorDashboardInner() {
               <h1 className="font-display text-2xl font-black text-ink leading-tight">My Categories</h1>
               <p className="text-sm text-gray-500 mt-0.5">{assignments.length} categories{orgCount > 1 ? ` across ${orgCount} associations` : `${assignments[0]?.org_name ? ` · ${assignments[0].org_name}` : ""}`}</p>
             </div>
-            <button onClick={signOut} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 whitespace-nowrap">Sign out</button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <button onClick={signOut} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 whitespace-nowrap">Sign out</button>
+            </div>
           </div>
         </header>
         <main className="max-w-6xl mx-auto px-6 py-8">

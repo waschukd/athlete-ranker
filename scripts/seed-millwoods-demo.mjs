@@ -10,7 +10,7 @@ for (const l of env.split(/\r?\n/)) { const m = l.match(/^([A-Z_]+)=(.*)$/); if 
 const sql = neon(process.env.DATABASE_URL);
 
 const ORG_NAME = "Millwoods Minor Hockey";
-const DIRECTOR = { name: "Dana Millwood", email: "director.millwoods@demo.sidelinestar.com", password: "Millwoods123!" };
+const DIRECTOR = { name: "Dana Millwood", email: "director.millwoods@demo.sidelinestar.com", password: "millwoods2026" };
 const SCALE = 10, THROUGH = 2;
 
 async function bulk(table, cols, rows) {
