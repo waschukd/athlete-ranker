@@ -146,10 +146,9 @@ function Dashboard() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [adminRows, setAdminRows] = useState([{ name: "", email: "" }, { name: "", email: "" }]);
   const [goalieEvalOpen, setGoalieEvalOpen] = useState(false);
   const [showBulkOnboard, setShowBulkOnboard] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
@@ -204,6 +203,12 @@ function Dashboard() {
     enabled: !!orgId,
   });
 
+  const { data: adminsData, refetch: refetchAdmins } = useQuery({
+    queryKey: ["org-admins", orgId],
+    queryFn: async () => { const res = await fetch(`/api/organizations/${orgId}/admins`); return res.ok ? res.json() : { admins: [] }; },
+    enabled: !!orgId,
+  });
+
   const { data: scheduleData } = useQuery({
     queryKey: ["assoc-schedule", orgId],
     queryFn: async () => {
@@ -234,21 +239,25 @@ function Dashboard() {
   });
 
   const sendInvite = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
+    const list = adminRows.map(r => ({ name: r.name.trim(), email: r.email.trim() })).filter(r => r.email);
+    if (!list.length) return;
     setInviteLoading(true);
     const res = await fetch("/api/admin/invite-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organization_id: parseInt(orgId), email: inviteEmail, name: inviteName }),
+      body: JSON.stringify({ organization_id: parseInt(orgId), admins: list }),
     });
     const data = await res.json();
     setInviteResult(data);
     setInviteLoading(false);
+    if (data.success) refetchAdmins();
   };
 
   const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; };
 
   const org = orgData?.organization;
+  const admins = adminsData?.admins || [];
   const serviceProvider = orgData?.service_provider || null;
   // An SP-served association can add its OWN evaluators only if the SP granted it.
   // Those evaluators are COACH/comparison-only — their scores never count in the
@@ -455,6 +464,18 @@ function Dashboard() {
                   <span><b className="text-ink">{totalSessions}</b> sessions</span>
                 </div>
               )}
+              {/* Who has admin access to this association */}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400"><Shield size={13} className="text-accent" /> Admin access</span>
+                {admins.length === 0 ? (
+                  <span className="text-xs text-gray-400">No admins yet</span>
+                ) : admins.map(a => (
+                  <span key={a.email} title={a.email} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${a.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                    {a.name}{a.status === "pending" ? " · invite pending" : ""}
+                  </span>
+                ))}
+                <button onClick={() => { setShowInvite(true); setInviteResult(null); }} className="text-xs font-semibold text-accent hover:opacity-70">+ Invite</button>
+              </div>
             </div>
             {/* Desktop: theme toggle top-right (consistent with other pages) */}
             <div className="hidden lg:flex items-center">
@@ -879,11 +900,12 @@ function Dashboard() {
 
       {showInvite && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowInvite(false)}>
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">Invite Association Admin</h2>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-gray-900">Invite Association Admins</h2>
               <button onClick={() => setShowInvite(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
+            <p className="text-sm text-gray-500 mb-5">Add one or more. Each gets an invite link and full admin access to this association.</p>
             {inviteResult ? (
               <div className="text-center py-4">
                 {inviteResult.success ? (
@@ -899,30 +921,33 @@ function Dashboard() {
                         </div>
                       </div>
                     )}
-                    <button onClick={() => { setShowInvite(false); setInviteResult(null); setInviteEmail(""); setInviteName(""); }} className="mt-4 px-5 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90">Done</button>
+                    <button onClick={() => { setShowInvite(false); setInviteResult(null); setAdminRows([{ name: "", email: "" }, { name: "", email: "" }]); }} className="mt-4 px-5 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90">Done</button>
                   </>
                 ) : (
                   <>
-                    <p className="text-red-600 font-medium">{inviteResult.error}</p>
+                    <p className="text-red-600 font-medium">{inviteResult.error || inviteResult.message}</p>
                     <button onClick={() => setInviteResult(null)} className="mt-3 text-sm text-gray-500 hover:text-gray-700">Try again</button>
                   </>
                 )}
               </div>
             ) : (
-              <form onSubmit={sendInvite} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Their full name" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="flex-1">Full name</span><span className="flex-1">Email</span><span className="w-6" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-400">*</span></label>
-                  <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" placeholder="admin@association.com" />
-                </div>
-                <div className="flex gap-3 pt-1">
+                {adminRows.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="text" value={r.name} onChange={e => setAdminRows(rows => rows.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Their full name" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    <input type="email" value={r.email} onChange={e => setAdminRows(rows => rows.map((x, j) => j === i ? { ...x, email: e.target.value } : x))} placeholder="admin@association.com" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    <button onClick={() => setAdminRows(rows => rows.length > 1 ? rows.filter((_, j) => j !== i) : rows)} disabled={adminRows.length <= 1} title="Remove row" className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-30 text-lg leading-none">×</button>
+                  </div>
+                ))}
+                <button onClick={() => setAdminRows(rows => [...rows, { name: "", email: "" }])} className="text-xs font-semibold text-accent hover:underline">+ Add another</button>
+                <div className="flex gap-3 pt-3">
                   <button type="button" onClick={() => setShowInvite(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-                  <button type="submit" disabled={inviteLoading} className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{inviteLoading ? "Sending..." : "Send Invite"}</button>
+                  <button type="button" onClick={sendInvite} disabled={inviteLoading || !adminRows.some(r => r.email.trim())} className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{inviteLoading ? "Sending…" : "Send Invites"}</button>
                 </div>
-              </form>
+              </div>
             )}
           </div>
         </div>
