@@ -6,6 +6,8 @@ import { isTesting, deriveSessions } from "@/lib/bulkSessions";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 const ADMIN_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+// Default testers per testing session (matches the per-category schedule route).
+const DEFAULT_TESTING_TESTERS = 6;
 
 // Standard defaults — same shape the setup wizard seeds.
 const SKATER_CATS = ["Skating", "Puck Skills", "Effort / Compete", "Hockey IQ"];
@@ -112,13 +114,18 @@ export async function POST(request, { params }) {
         const pe = r.player_evaluators != null && r.player_evaluators !== "" ? (parseInt(r.player_evaluators) || 0) : (isTesting(r.session_type) ? 0 : 4);
         const ge = r.goalie_evaluators != null && r.goalie_evaluators !== "" ? (parseInt(r.goalie_evaluators) || 0) : 0;
         const evalReq = isTesting(r.session_type) ? 0 : pe;
+        // Testing sessions are staffed by TESTERS, not player evaluators — default a
+        // tester requirement so testers can sign up out of the box (matches the
+        // per-category schedule route). Without this, testers_required stays 0 and
+        // the tester-available query (signed_up < testers_required) shows nothing.
+        const testersReq = isTesting(r.session_type) ? DEFAULT_TESTING_TESTERS : 0;
         // Tournament matchup label is stored, not resolved — teams are assigned
         // later in the dashboard Teams tab (no teams exist at bulk load).
         // "If necessary" games land tentative — visible on the schedule, closed
         // to signups until confirmed (the signup queries filter status='scheduled').
         const schedStatus = r.if_necessary ? "tentative" : "scheduled";
-        await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, matchup, status)
-          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${r.matchup || null}, ${schedStatus})`;
+        await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status)
+          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${testersReq}, ${r.matchup || null}, ${schedStatus})`;
         // The slot's group must also exist in session_groups — that's what
         // "Manage groups" and auto-assign read. Without this the Schedule tab
         // shows groups while group management insists there are none.
