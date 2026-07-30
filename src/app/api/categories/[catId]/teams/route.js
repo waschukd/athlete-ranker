@@ -4,6 +4,14 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { snakeDistribute } from "@/lib/teamInsights";
 import { computeCategoryRankings } from "@/lib/rankings";
+import { sendEmail, parentEmails, esc, parentTeamPlacementHtml } from "@/lib/email";
+
+// Default team-placement message. {player} and {team} merge per athlete; the
+// association can edit it before sending (e.g. add a TeamLinkt note).
+const DEFAULT_TEAM_MESSAGE =
+  "Congratulations on completing the evaluation process — and thank you for all of {player}'s hard work and effort throughout. After careful consideration of everything across the sessions, {player} will be playing on {team}.";
+
+const mergeTokens = (tpl, vars) => String(tpl || "").replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -204,6 +212,53 @@ export async function POST(request, { params }) {
       await sql`DELETE FROM team_rosters WHERE team_id IN (SELECT id FROM teams WHERE age_category_id = ${catId})`;
       await sql`DELETE FROM teams WHERE age_category_id = ${catId}`;
       return NextResponse.json({ success: true });
+    }
+
+    // Rename a team — associations often use their own numbering (e.g. 401/402).
+    if (action === "rename_team") {
+      const teamId = parseInt(body.team_id);
+      const name = String(body.name || "").trim().slice(0, 60);
+      if (!teamId || !name) return NextResponse.json({ error: "team_id and name required" }, { status: 400 });
+      await sql`UPDATE teams SET name = ${name} WHERE id = ${teamId} AND age_category_id = ${catId}`;
+      return NextResponse.json({ success: true });
+    }
+
+    // Return the default message + recipient count so the modal can preview before sending.
+    if (action === "notify_preview") {
+      const [{ n }] = await sql`
+        SELECT COUNT(*)::int n FROM team_rosters tr
+        JOIN athletes a ON a.id = tr.athlete_id
+        WHERE tr.age_category_id = ${catId}
+          AND ((a.parent_email IS NOT NULL AND a.parent_email <> '') OR (a.parent_email_2 IS NOT NULL AND a.parent_email_2 <> ''))`;
+      return NextResponse.json({ default_message: DEFAULT_TEAM_MESSAGE, recipients: n });
+    }
+
+    // Email every rostered player's family their team placement.
+    if (action === "notify_teams") {
+      const [cat] = await sql`SELECT ac.name AS category_name, o.name AS org_name FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}`;
+      if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      const rows = await sql`
+        SELECT a.first_name, a.last_name, a.parent_email, a.parent_email_2, t.name AS team_name
+        FROM team_rosters tr
+        JOIN teams t ON t.id = tr.team_id
+        JOIN athletes a ON a.id = tr.athlete_id
+        WHERE tr.age_category_id = ${catId}`;
+      const bodyTpl = String(body.message || DEFAULT_TEAM_MESSAGE);
+      const subjectTpl = String(body.subject || `Team placement — ${cat.category_name} (${cat.org_name})`);
+      let sent = 0, skipped = 0;
+      for (const r of rows) {
+        const recipients = parentEmails(r);
+        if (!recipients.length) { skipped++; continue; }
+        const vars = { player: r.first_name, team: r.team_name, org: cat.org_name, category: cat.category_name };
+        // Escape the merged (admin-authored) text, then re-apply paragraph breaks —
+        // same guard as the onboarding override so it can't inject markup.
+        const bodyHtml = mergeTokens(bodyTpl, vars).split(/\n\s*\n/).map(p => esc(p).replace(/\n/g, "<br/>")).join("<br/><br/>");
+        const subject = mergeTokens(subjectTpl, vars);
+        const html = parentTeamPlacementHtml({ playerName: `${r.first_name} ${r.last_name}`, categoryName: cat.category_name, orgName: cat.org_name, teamName: r.team_name, bodyHtml });
+        try { for (const to of recipients) await sendEmail(to, subject, html); sent++; }
+        catch (e) { console.error("Team notify failed for " + r.first_name + " " + r.last_name + ":", e?.message || e); skipped++; }
+      }
+      return NextResponse.json({ success: true, sent, skipped, total: rows.length });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

@@ -456,6 +456,23 @@ export function groupAssignmentHtml({ playerName: _pn, categoryName: _cn, orgNam
   `);
 }
 
+// ── Team placement: "congrats — here's the team your athlete is on" ──
+// bodyHtml is the association's (merged, pre-escaped) message; teamName is shown
+// prominently in its own card so the placement is unmistakable.
+export function parentTeamPlacementHtml({ playerName: _pn, categoryName: _cn, orgName: _on, teamName: _tn, bodyHtml }) {
+  const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on), teamName = esc(_tn);
+  return emailWrapper(`
+    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, `${esc(playerName)}'s Team`)}
+    <div style="margin:14px auto 24px;max-width:436px;font-size:14.5px;color:#5b606b;line-height:1.75;text-align:center;">${bodyHtml}</div>
+    <div style="border-radius:18px;overflow:hidden;background:#0f0f12;background-image:radial-gradient(150% 220% at 88% 0%, #221f17 0%, #141416 55%, #0d0d0f 100%);border:1px solid rgba(200,161,58,0.28);box-shadow:0 22px 50px -34px rgba(10,12,16,0.7);">
+      <div style="padding:28px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:${GOLD};font-weight:700;">Team</div>
+        <div style="font-family:${SERIF_FONT};font-size:30px;font-weight:900;color:#ffffff;margin:10px 0 0;line-height:1.15;">${teamName}</div>
+      </div>
+    </div>
+  `);
+}
+
 // ── Parent paywall delivery: "your child's report is ready" + preview/buy CTA ──
 // fromLine reads "<SP> on behalf of <Association>" when an SP name is provided.
 export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _sp, reportUrl, priceStr }) {

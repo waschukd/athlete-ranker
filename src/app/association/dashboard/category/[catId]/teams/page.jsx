@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -37,6 +37,11 @@ function TeamGeneratorInner() {
   const [error, setError] = useState("");
   const [dragPlayer, setDragPlayer] = useState(null);
   const [theme, toggleTheme] = useTheme();
+  const [showNotify, setShowNotify] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState("");
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyResult, setNotifyResult] = useState(null);
+  const [notifyRecipients, setNotifyRecipients] = useState(0);
 
   const { data: rankingsData } = useQuery({
     queryKey: ["rankings", catId],
@@ -132,6 +137,35 @@ function TeamGeneratorInner() {
     });
     refetchTeams();
     setStep("setup");
+  };
+
+  const renameTeam = async (teamId, name) => {
+    const clean = (name || "").trim();
+    if (!clean) return;
+    await fetch(`/api/categories/${catId}/teams`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rename_team", team_id: teamId, name: clean }),
+    });
+    refetchTeams();
+  };
+
+  const openNotify = async () => {
+    setShowNotify(true); setNotifyResult(null);
+    const res = await fetch(`/api/categories/${catId}/teams`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "notify_preview" }),
+    });
+    const d = await res.json();
+    if (!notifyMsg) setNotifyMsg(d.default_message || "");
+    setNotifyRecipients(d.recipients || 0);
+  };
+
+  const sendNotify = async () => {
+    setNotifyBusy(true);
+    const res = await fetch(`/api/categories/${catId}/teams`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "notify_teams", message: notifyMsg }),
+    });
+    setNotifyResult(await res.json());
+    setNotifyBusy(false);
   };
 
   const exportTeamSheet = () => {
@@ -337,12 +371,19 @@ function TeamGeneratorInner() {
                       if (fromTeamId !== team.id) movePlayer(athleteId, fromTeamId, team.id);
                     }}
                   >
-                    <div className="px-4 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-white">{team.name}</h3>
+                    <div className="px-4 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <input
+                          key={`${team.id}-${team.name}`}
+                          defaultValue={team.name}
+                          onBlur={e => { const v = e.target.value.trim(); if (v && v !== team.name) renameTeam(team.id, v); else e.target.value = team.name; }}
+                          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                          title="Click to rename this team"
+                          className="w-full bg-transparent text-white font-bold text-base border-b border-transparent hover:border-white/40 focus:border-white focus:outline-none px-0 py-0.5"
+                        />
                         <span className="text-xs text-white/70">{players.length} / {team.size} players</span>
                       </div>
-                      <Users size={16} className="text-white/70" />
+                      <Users size={16} className="text-white/70 flex-shrink-0" />
                     </div>
                     <div className="divide-y divide-gray-50">
                       {players.map((p) => {
@@ -409,12 +450,46 @@ function TeamGeneratorInner() {
               </div>
             )}
 
-            {/* Export */}
-            <div className="flex justify-end">
+            {/* Actions */}
+            <div className="flex flex-wrap justify-end gap-3">
               <button onClick={exportTeamSheet}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold hover:shadow-lg transition-shadow">
+                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
                 <Download size={16} /> Export Team Sheets CSV
               </button>
+              <button onClick={openNotify}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold hover:shadow-lg transition-shadow">
+                <Mail size={16} /> Notify players of teams
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Notify-parents modal */}
+        {showNotify && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowNotify(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-1"><Mail size={18} className="text-[#0b5cd6]" /><h3 className="text-lg font-bold text-gray-900">Notify players of their team</h3></div>
+              {notifyResult ? (
+                <div className="text-center py-4">
+                  <p className="font-semibold text-gray-900 mb-1">{notifyResult.success ? `Sent to ${notifyResult.sent} famil${notifyResult.sent === 1 ? "y" : "ies"}` : "Failed to send"}</p>
+                  {notifyResult.skipped > 0 && <p className="text-xs text-gray-400">{notifyResult.skipped} skipped (no parent email)</p>}
+                  <button onClick={() => { setShowNotify(false); setNotifyResult(null); }} className="mt-4 px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-medium">Done</button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-4">Each family gets their child's team. Edit the message below — <code className="text-xs bg-gray-100 px-1 rounded">{"{player}"}</code> and <code className="text-xs bg-gray-100 px-1 rounded">{"{team}"}</code> fill in per player. The team name is also shown in its own card in the email.</p>
+                  <textarea value={notifyMsg} onChange={e => setNotifyMsg(e.target.value)} rows={6}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] leading-relaxed" />
+                  <p className="text-xs text-gray-400 mt-2">Tip: add a line like "Stay tuned for your TeamLinkt invite." if you want.</p>
+                  <div className="flex items-center justify-between gap-3 mt-5">
+                    <span className="text-xs text-gray-500">Will email <b className="text-gray-800">{notifyRecipients}</b> famil{notifyRecipients === 1 ? "y" : "ies"}.</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowNotify(false)} className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium">Cancel</button>
+                      <button onClick={sendNotify} disabled={notifyBusy || !notifyMsg.trim() || !notifyRecipients} className="px-5 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{notifyBusy ? "Sending…" : "Send to families"}</button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
