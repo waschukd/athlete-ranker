@@ -168,9 +168,14 @@ function TestersTab({ spUrl, spName }) {
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
 
+  const [actErr, setActErr] = useState(null);
   const act = async (body) => {
-    setBusy(true);
-    await fetch(spUrl("/api/service-provider/testers"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setBusy(true); setActErr(null);
+    try {
+      const res = await fetch(spUrl("/api/service-provider/testers"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) setActErr(d.error || "Couldn't save — please refresh and try again.");
+    } catch { setActErr("Network error — please try again."); }
     setBusy(false);
     qc.invalidateQueries({ queryKey: ["sp-testers"] });
   };
@@ -203,6 +208,7 @@ function TestersTab({ spUrl, spName }) {
             I'm a tester too
           </label>
         </div>
+        {actErr && <p className="text-xs text-red-500 mt-2">{actErr}</p>}
         {meIsTester && <p className="text-xs text-accent mt-2">You're in the tester pool — head to your <a href="/tester/dashboard" className="underline font-medium">tester dashboard</a> to sign up for testing sessions (or use the role switcher in the top bar).</p>}
       </div>
 
