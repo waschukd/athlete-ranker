@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, MapPin, Check, Loader2, ClipboardList, Users, DollarSign, Inbox, Send, X } from "lucide-react";
+import { Clock, MapPin, Check, Loader2, ClipboardList, Users, DollarSign, Inbox, Send, X, AlertTriangle } from "lucide-react";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BatchSignupPrompt from "@/components/BatchSignupPrompt";
 import { contiguousBlock } from "@/lib/sessionBlocks";
@@ -43,6 +43,19 @@ export default function TesterDashboard() {
   const mine = data?.mine || [];
   const available = data?.available || [];
 
+  // Flag an available session that overlaps one you're already signed up for —
+  // you can't be at two testing sessions at once.
+  const myOccupied = mine
+    .filter(s => (!s.signup_status || s.signup_status === "signed_up") && s.start_time && s.end_time)
+    .map(s => ({ dateKey: s.scheduled_date?.toString().split("T")[0], start: s.start_time?.toString(), end: s.end_time?.toString(),
+      label: `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}${s.location ? ` @ ${s.location}` : ""}` }));
+  const conflictFor = (s) => {
+    const dateKey = s.scheduled_date?.toString().split("T")[0];
+    const start = s.start_time?.toString(), end = s.end_time?.toString();
+    if (!dateKey || !start || !end) return null;
+    return myOccupied.find(o => o.dateKey === dateKey && o.start < end && o.end > start) || null;
+  };
+
   // Batch signup for a back-to-back block at the same rink/day.
   const [batchPrompt, setBatchPrompt] = useState(null);
   const [batchBusy, setBatchBusy] = useState(false);
@@ -69,6 +82,7 @@ export default function TesterDashboard() {
   const Row = ({ s, mineRow }) => {
     const filled = parseInt(s.testers_signed_up || 0), need = parseInt(s.testers_required || 0);
     const isPast = (s.scheduled_date?.toString().split("T")[0] || "") < todayKey();
+    const conflict = !mineRow ? conflictFor(s) : null;
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
@@ -90,6 +104,10 @@ export default function TesterDashboard() {
               {busyId === `cancel-${s.schedule_id}` ? "…" : "Cancel"}
             </button>
           </div>
+        ) : conflict ? (
+          <span title={`You're already booked ${conflict.label}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-semibold whitespace-nowrap cursor-not-allowed">
+            <AlertTriangle size={13} /> Busy at this time
+          </span>
         ) : (
           <button onClick={() => handleSignup(s.schedule_id)} disabled={busyId === `signup-${s.schedule_id}`} className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md disabled:opacity-50">
             {busyId === `signup-${s.schedule_id}` ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Sign up

@@ -503,11 +503,11 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         <button
           disabled
           className="row-span-2 self-center px-3 py-2 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0 cursor-not-allowed border border-amber-300"
-          title={`Overlaps with ${conflict.label} (${conflict.start?.slice(0, 5)}-${conflict.end?.slice(0, 5)})`}
-          aria-label="Time conflict — already signed up for an overlapping session"
+          title={conflict.testing ? "You're on the testing crew — testing takes priority at this time" : `Overlaps with ${conflict.label} (${conflict.start?.slice(0, 5)}-${conflict.end?.slice(0, 5)})`}
+          aria-label={conflict.testing ? "Busy — testing takes priority at this time" : "Time conflict — already signed up for an overlapping session"}
         >
           <AlertTriangle size={13} />
-          <span>Conflict</span>
+          <span>{conflict.testing ? "Testing" : "Conflict"}</span>
         </button>
       ) : (
         <button
@@ -527,7 +527,7 @@ function AvailableSessionRow({ session, onSignup, palette, conflict }) {
         </span>
         {conflict ? (
           <span className="text-amber-700 font-medium whitespace-nowrap">
-            · Overlaps {conflict.label}
+            · {conflict.testing ? "You're testing at this time" : `Overlaps ${conflict.label}`}
           </span>
         ) : (
           <span className="text-amber-600 font-semibold whitespace-nowrap">
@@ -562,13 +562,18 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
   }, [mySessions]);
 
   const findConflict = (session) => {
+    // Testing obligations win — the server flags any testing session this user's
+    // SP runs at this time (whether or not they've signed up for it).
+    if (session.busy_testing) return { label: "testing", testing: true };
     const dateKey = session.scheduled_date?.toString().split("T")[0];
     const start = session.start_time?.toString();
     const end = session.end_time?.toString();
-    if (!dateKey || !start || !end) return null;
-    return myOccupied.find(o =>
-      o.dateKey === dateKey && o.start < end && o.end > start
-    ) || null;
+    if (dateKey && start && end) {
+      const c = myOccupied.find(o => o.dateKey === dateKey && o.start < end && o.end > start);
+      if (c) return c;
+    }
+    if (session.busy_eval) return { label: "another session", testing: false };
+    return null;
   };
 
   const orgs = useMemo(() => {
