@@ -106,6 +106,29 @@ export async function POST(request) {
     if (!ok.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (body.action === "signup") {
+      // A tester can't be in two places at once — block signup if it overlaps in
+      // time with a session they're already on that day (any location). Two slots
+      // overlap when newStart < existingEnd AND existingStart < newEnd.
+      const [clash] = await sql`
+        SELECT es2.id, es2.start_time, es2.end_time, es2.location,
+          COALESCE(ac.name, es2.age_label, 'a testing session') AS label
+        FROM tester_session_signups t
+        JOIN evaluation_schedule es2 ON es2.id = t.schedule_id
+        JOIN evaluation_schedule newes ON newes.id = ${scheduleId}
+        LEFT JOIN age_categories ac ON ac.id = es2.age_category_id
+        WHERE t.user_id = ${cap.userId} AND t.status = 'signed_up'
+          AND es2.id <> newes.id
+          AND es2.scheduled_date = newes.scheduled_date
+          AND es2.start_time IS NOT NULL AND es2.end_time IS NOT NULL
+          AND newes.start_time IS NOT NULL AND newes.end_time IS NOT NULL
+          AND newes.start_time < es2.end_time AND es2.start_time < newes.end_time
+        LIMIT 1`;
+      if (clash) {
+        const t = (v) => String(v || "").slice(0, 5);
+        return NextResponse.json({
+          error: `That overlaps a session you're already signed up for — ${clash.label} at ${clash.location || "another location"}, ${t(clash.start_time)}–${t(clash.end_time)}. Cancel that one first if you meant to switch.`,
+        }, { status: 409 });
+      }
       await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status) VALUES (${scheduleId}, ${cap.userId}, 'signed_up')
         ON CONFLICT (schedule_id, user_id) DO UPDATE SET status = 'signed_up'`;
       return NextResponse.json({ success: true });

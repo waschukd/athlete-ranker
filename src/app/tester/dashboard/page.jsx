@@ -20,6 +20,7 @@ export default function TesterDashboard() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [tab, setTab] = useState("mine");
+  const [actMsg, setActMsg] = useState(null);
 
   const load = useCallback(async () => {
     try { const res = await fetch("/api/tester/sessions"); setData(await res.json()); }
@@ -29,8 +30,13 @@ export default function TesterDashboard() {
   useEffect(() => { load(); }, [load]);
 
   const act = async (schedule_id, action) => {
-    setBusyId(`${action}-${schedule_id}`);
-    try { await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id, action }) }); await load(); } catch {}
+    setBusyId(`${action}-${schedule_id}`); setActMsg(null);
+    try {
+      const res = await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id, action }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) setActMsg({ type: "error", text: d.error || "Something went wrong." });
+      await load();
+    } catch { setActMsg({ type: "error", text: "Network error — please try again." }); }
     setBusyId(null);
   };
 
@@ -47,10 +53,16 @@ export default function TesterDashboard() {
     else act(schedule_id, "signup");
   };
   const signupBlock = async (ids) => {
-    setBatchBusy(true);
+    setBatchBusy(true); setActMsg(null);
+    let failed = null;
     try {
-      for (const sid of ids) await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+      for (const sid of ids) {
+        const res = await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || d.error) { failed = d.error || "Some sessions in the block couldn't be added."; break; }
+      }
       await load(); setBatchPrompt(null); setTab("mine");
+      if (failed) setActMsg({ type: "error", text: failed });
     } finally { setBatchBusy(false); }
   };
 
@@ -113,6 +125,12 @@ export default function TesterDashboard() {
           </div>
         ) : (
           <>
+            {actMsg && (
+              <div className={`mb-4 rounded-xl px-4 py-3 text-sm flex items-start justify-between gap-3 ${actMsg.type === "error" ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-700"}`}>
+                <span>{actMsg.text}</span>
+                <button onClick={() => setActMsg(null)} className="text-current opacity-60 hover:opacity-100 flex-shrink-0">✕</button>
+              </div>
+            )}
             <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
               {tabs.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
