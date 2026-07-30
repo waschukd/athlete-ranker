@@ -213,38 +213,6 @@ function TestersTab({ spUrl, spName }) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Tester Join Code</h3>
-          <button onClick={() => act({ action: "generate_code" })} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Plus size={15} /> New code</button>
-        </div>
-        <div className="p-5">
-          {!activeCode ? (
-            <p className="text-sm text-gray-400">Generate a code, then share the signup link so your testers can join.</p>
-          ) : (
-            <div className="flex items-center gap-3 flex-wrap">
-              <code className="text-lg font-mono font-bold text-[#0b5cd6] bg-[#e8f0fd] px-3 py-1.5 rounded-lg tracking-wider">{activeCode.code}</code>
-              <span className="text-xs text-gray-400">{activeCode.uses}/{activeCode.max_uses} used</span>
-              <button onClick={() => { navigator.clipboard.writeText(signupUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1.5">{copied ? <><CheckCircle size={13} className="text-green-600" /> Copied</> : "Copy signup link"}</button>
-              <button onClick={() => { if (confirm("Deactivate this code?")) act({ action: "deactivate_code", code_id: activeCode.id }); }} className="text-xs px-3 py-1.5 border border-red-100 text-red-400 rounded-lg hover:bg-red-50">Deactivate</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Invite Testers by Email</h3><p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p></div>
-        <div className="p-5">
-          <textarea rows={3} placeholder={"tester1@example.com, tester2@example.com\ntester3@example.com"} value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
-          <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
-            <span className="text-xs text-gray-400">{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
-            <button disabled={!inviteEmail.trim() || inviteSending} onClick={sendInvite} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">{inviteSending ? "Sending…" : "Send Invites"}</button>
-          </div>
-          {inviteMsg && <p className={`text-xs font-medium mt-2 ${inviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{inviteMsg.text}</p>}
-          {!activeCode && <p className="text-xs text-gray-400 mt-2">Generate a join code above first — invites use it.</p>}
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Testers ({testers.length})</h3></div>
         {testers.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-gray-400">No testers yet — share your join code above.</div>
@@ -272,6 +240,47 @@ function TestersTab({ spUrl, spName }) {
           </div>
         )}
       </div>
+
+      {/* Add testers — join code & email invites, tucked below the crew */}
+      <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <summary className="px-5 py-4 cursor-pointer list-none flex items-center justify-between hover:bg-gray-50">
+          <span className="text-sm font-semibold text-gray-900">Add testers — join code &amp; email invites</span>
+          <span className="text-gray-400 text-xs group-open:hidden">Show</span>
+          <span className="text-gray-400 text-xs hidden group-open:inline">Hide</span>
+        </summary>
+        <div className="border-t border-gray-100 p-5 space-y-6">
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Tester Join Code</h3>
+              <button onClick={() => act({ action: "generate_code" })} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Plus size={15} /> New code</button>
+            </div>
+            <div className="p-5">
+              {!activeCode ? (
+                <p className="text-sm text-gray-400">Generate a code, then share the signup link so your testers can join.</p>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <code className="text-lg font-mono font-bold text-[#0b5cd6] bg-[#e8f0fd] px-3 py-1.5 rounded-lg tracking-wider">{activeCode.code}</code>
+                  <span className="text-xs text-gray-400">{activeCode.uses}/{activeCode.max_uses} used</span>
+                  <button onClick={() => { navigator.clipboard.writeText(signupUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1.5">{copied ? <><CheckCircle size={13} className="text-green-600" /> Copied</> : "Copy signup link"}</button>
+                  <button onClick={() => { if (confirm("Deactivate this code?")) act({ action: "deactivate_code", code_id: activeCode.id }); }} className="text-xs px-3 py-1.5 border border-red-100 text-red-400 rounded-lg hover:bg-red-50">Deactivate</button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Invite Testers by Email</h3><p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p></div>
+            <div className="p-5">
+              <textarea rows={3} placeholder={"tester1@example.com, tester2@example.com\ntester3@example.com"} value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
+              <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+                <span className="text-xs text-gray-400">{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{inviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
+                <button disabled={!inviteEmail.trim() || inviteSending} onClick={sendInvite} className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">{inviteSending ? "Sending…" : "Send Invites"}</button>
+              </div>
+              {inviteMsg && <p className={`text-xs font-medium mt-2 ${inviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{inviteMsg.text}</p>}
+              {!activeCode && <p className="text-xs text-gray-400 mt-2">Generate a join code above first — invites use it.</p>}
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -2208,40 +2217,7 @@ function SPDashboard() {
               </div>
             )}
 
-            <JoinCodesPanel orgId={assocData?.sp?.id} data={joinCodeData} refetch={refetchCodes} />
-
             <MessagesSection />
-
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Invite Evaluators by Email</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p>
-              </div>
-              <div className="p-5">
-                <textarea rows={3} placeholder={"evaluator1@example.com, evaluator2@example.com\nevaluator3@example.com"} value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
-                <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
-                  <span className="text-xs text-gray-400">{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
-                  <button disabled={!evalInviteEmail.trim() || evalInviteSending}
-                    onClick={async () => {
-                      const activeCode = joinCodeData?.codes?.find(c => c.uses < c.max_uses);
-                      if (!activeCode) { setEvalInviteMsg({ type: "error", text: "Generate a join code first" }); return; }
-                      const emails = evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean);
-                      if (!emails.length) { setEvalInviteMsg({ type: "error", text: "Add at least one email" }); return; }
-                      setEvalInviteSending(true); setEvalInviteMsg(null);
-                      const signupUrl = `${window.location.origin}/evaluator/signup?code=${activeCode.code}`;
-                      const res = await fetch("/api/service-provider/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_evaluators", emails, signup_url: signupUrl, sp_name: sp?.name }) });
-                      const data = await res.json();
-                      setEvalInviteSending(false);
-                      if (data.success) { setEvalInviteMsg({ type: "success", text: data.message || `Sent ${data.sent} invites` }); setEvalInviteEmail(""); }
-                      else { setEvalInviteMsg({ type: "error", text: data.error || "Failed" }); }
-                    }}
-                    className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
-                    {evalInviteSending ? "Sending..." : "Send Invites"}
-                  </button>
-                </div>
-                {evalInviteMsg && <p className={`text-xs font-medium mt-2 ${evalInviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{evalInviteMsg.text}</p>}
-              </div>
-            </div>
 
             {selEvals.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap">
@@ -2354,6 +2330,48 @@ function SPDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Grow your pool — invites & join codes, tucked below the roster */}
+            <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <summary className="px-5 py-4 cursor-pointer list-none flex items-center justify-between hover:bg-gray-50">
+                <span className="text-sm font-semibold text-gray-900">Add evaluators — invites &amp; join codes</span>
+                <span className="text-gray-400 text-xs group-open:hidden">Show</span>
+                <span className="text-gray-400 text-xs hidden group-open:inline">Hide</span>
+              </summary>
+              <div className="border-t border-gray-100 p-5 space-y-6">
+                <JoinCodesPanel orgId={assocData?.sp?.id} data={joinCodeData} refetch={refetchCodes} />
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-900">Invite Evaluators by Email</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Paste one or many — separated by commas, spaces, or new lines. Each gets their own invite.</p>
+                  </div>
+                  <div className="p-5">
+                    <textarea rows={3} placeholder={"evaluator1@example.com, evaluator2@example.com\nevaluator3@example.com"} value={evalInviteEmail} onChange={e => setEvalInviteEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 resize-y" />
+                    <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+                      <span className="text-xs text-gray-400">{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length} email{evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean).length === 1 ? "" : "s"}</span>
+                      <button disabled={!evalInviteEmail.trim() || evalInviteSending}
+                        onClick={async () => {
+                          const activeCode = joinCodeData?.codes?.find(c => c.uses < c.max_uses);
+                          if (!activeCode) { setEvalInviteMsg({ type: "error", text: "Generate a join code first" }); return; }
+                          const emails = evalInviteEmail.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean);
+                          if (!emails.length) { setEvalInviteMsg({ type: "error", text: "Add at least one email" }); return; }
+                          setEvalInviteSending(true); setEvalInviteMsg(null);
+                          const signupUrl = `${window.location.origin}/evaluator/signup?code=${activeCode.code}`;
+                          const res = await fetch("/api/service-provider/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "invite_evaluators", emails, signup_url: signupUrl, sp_name: sp?.name }) });
+                          const data = await res.json();
+                          setEvalInviteSending(false);
+                          if (data.success) { setEvalInviteMsg({ type: "success", text: data.message || `Sent ${data.sent} invites` }); setEvalInviteEmail(""); }
+                          else { setEvalInviteMsg({ type: "error", text: data.error || "Failed" }); }
+                        }}
+                        className="px-5 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40 whitespace-nowrap">
+                        {evalInviteSending ? "Sending..." : "Send Invites"}
+                      </button>
+                    </div>
+                    {evalInviteMsg && <p className={`text-xs font-medium mt-2 ${evalInviteMsg.type === "success" ? "text-green-600" : "text-red-500"}`}>{evalInviteMsg.text}</p>}
+                  </div>
+                </div>
+              </div>
+            </details>
 
             {showBulkDelete && (
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
