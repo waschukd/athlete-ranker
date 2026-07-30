@@ -818,12 +818,13 @@ export default function CategoryDashboard({
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {compareCoaches && hasCoaches && <th className="px-4 py-3 text-center text-xs font-medium text-accent uppercase">Coach rk</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>}
+                      {category?.eval_format === "round_robin" && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Cut</th>}
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.filter(matchesSearch).length === 0 && tableSearch && (
-                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1 + (compareCoaches && hasCoaches ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
+                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1 + (compareCoaches && hasCoaches ? 1 : 0) + (category?.eval_format === "round_robin" ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${a.rank === 1 ? "bg-accent-soft" : ""}`}>
@@ -865,17 +866,21 @@ export default function CategoryDashboard({
                             );
                           })()}
                         </td>}
-                        <td className="px-4 py-3 text-center">
-                          <div className="inline-flex items-center gap-1.5">
-                            <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
-                              <FileText size={13} /> Report
-                            </a>
-                            {category?.eval_format === "round_robin" && canEditSchedule && !a.cut_at && (
-                              <button onClick={() => openCut(a)} title="Cut player" className="inline-flex items-center justify-center p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-300 transition-colors">
-                                <Scissors size={13} />
+                        {category?.eval_format === "round_robin" && (
+                          <td className="px-4 py-3 text-center">
+                            {a.cut_at ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded font-semibold" title="Cut — not moving forward in this division">Cut</span>
+                            ) : canEditSchedule ? (
+                              <button onClick={() => openCut(a)} title="Cut player" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-300 text-xs font-semibold transition-colors">
+                                <Scissors size={13} /> Cut
                               </button>
-                            )}
-                          </div>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                        )}
+                        <td className="px-4 py-3 text-center">
+                          <a href={`/player/report?athlete=${a.id}&cat=${catId}`} title="Open player report" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors">
+                            <FileText size={13} /> Report
+                          </a>
                         </td>
                       </tr>
                     ))}
