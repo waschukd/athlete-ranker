@@ -250,6 +250,42 @@ export async function POST(request) {
       }
     }
 
+    // ── Testing-priority guard ─────────────────────────────────────────
+    // A tester can't take an evaluation that overlaps ANY testing session run by
+    // an SP they test for — testing obligations come first, whether or not they've
+    // signed up for that testing slot. Covers SP-owned testing events and testing
+    // sessions in the associations that SP serves. Scheduled (confirmed) only.
+    if (info.start_time && info.end_time) {
+      const [obligation] = await sql`
+        SELECT tes.start_time, tes.end_time, tes.location,
+          COALESCE(ac.name, tes.age_label, 'a testing session') AS label
+        FROM evaluation_schedule tes
+        LEFT JOIN age_categories ac ON ac.id = tes.age_category_id
+        LEFT JOIN category_sessions cs ON cs.age_category_id = tes.age_category_id AND cs.session_number = tes.session_number
+        WHERE tes.scheduled_date = ${info.scheduled_date}
+          AND tes.status = 'scheduled'
+          AND tes.start_time IS NOT NULL AND tes.end_time IS NOT NULL
+          AND tes.start_time < ${info.end_time} AND tes.end_time > ${info.start_time}
+          AND (
+            tes.service_provider_id IN (
+              SELECT organization_id FROM evaluator_memberships
+              WHERE user_id = ${appUserId} AND is_tester = true AND status = 'active')
+            OR (cs.session_type = 'testing' AND ac.organization_id IN (
+              SELECT sal.association_id FROM sp_association_links sal
+              JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id
+                AND em.user_id = ${appUserId} AND em.is_tester = true AND em.status = 'active'
+              WHERE sal.status = 'active'))
+          )
+        LIMIT 1`;
+      if (obligation) {
+        const t = (v) => String(v || "").slice(0, 5);
+        return NextResponse.json({
+          error: "Testing comes first",
+          message: `You're a tester, and there's a testing session at that time (${t(obligation.start_time)}–${t(obligation.end_time)}${obligation.location ? ` @ ${obligation.location}` : ""}). Testing obligations take priority, so you can't sign up for this evaluation — please pick a slot outside testing hours.`,
+        }, { status: 409 });
+      }
+    }
+
     await sql`
       INSERT INTO evaluator_session_signups (user_id, schedule_id, status, notified_at)
       VALUES (${appUserId}, ${schedule_id}, 'signed_up', NOW())
