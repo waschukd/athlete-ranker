@@ -627,7 +627,7 @@ function TestingSessionsControls({ spUrl, onSaved }) {
   const [open, setOpen] = useState(false);
   const { data: evData } = useQuery({ queryKey: ["sp-testing-events"], queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/testing-events")); return r.json(); } });
   const events = evData?.events || [];
-  const blankEv = { client_label: "", age_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "6" };
+  const blankEv = { client_label: "", age_label: "", scheduled_date: "", start_time: "", end_time: "", location: "", testers_required: "7" };
   const [evForm, setEvForm] = useState(blankEv);
   const [evBusy, setEvBusy] = useState(false);
   const [uploadMsg, setUploadMsg] = useState(null);
@@ -663,7 +663,7 @@ function TestingSessionsControls({ spUrl, onSaved }) {
     else setUploadMsg({ type: "error", text: d.error || "Upload failed" });
   };
   const downloadTemplate = () => {
-    const csv = "Client,Age Category,Date,Start Time,End Time,Location,Testers Needed\nRingette Association,U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,6\n";
+    const csv = "Client,Age Category,Date,Start Time,End Time,Location,Testers Needed\nRingette Association,U12,2026-09-15,17:00,18:00,Demo Arena - Rink A,7\n";
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = "testing-sessions-template.csv"; a.click();
   };

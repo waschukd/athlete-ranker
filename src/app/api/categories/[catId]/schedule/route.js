@@ -18,7 +18,7 @@ async function applyMatchup(catId, session_number, group_number, matchup) {
 
 // The SP owns tester volume, not the association. Any testing session in a
 // schedule auto-opens with this many tester slots (adjustable by the SP).
-const DEFAULT_TESTING_TESTERS = 6;
+const DEFAULT_TESTING_TESTERS = 7;
 
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

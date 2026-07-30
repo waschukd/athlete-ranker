@@ -7,7 +7,7 @@ import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 const ADMIN_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 // Default testers per testing session (matches the per-category schedule route).
-const DEFAULT_TESTING_TESTERS = 6;
+const DEFAULT_TESTING_TESTERS = 7;
 
 // Standard defaults — same shape the setup wizard seeds.
 const SKATER_CATS = ["Skating", "Puck Skills", "Effort / Compete", "Hockey IQ"];
