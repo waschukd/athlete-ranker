@@ -286,7 +286,10 @@ export async function POST(request) {
           WHERE id = ${signup[0].id}
         `;
 
-        // Auto-calculate hours on first score only
+        // Auto-calculate hours on first score only. Pay model: each session pays a
+        // 1-hour session, PRORATED only when it runs longer than an hour — never
+        // less. Hours are per session (breaks between sessions are never paid,
+        // since each schedule row logs its own duration independently).
         if (isFirstScore) {
           const schedInfo = await sql`
             SELECT es.start_time, es.end_time, es.scheduled_date, ac.organization_id
@@ -299,7 +302,7 @@ export async function POST(request) {
             if (sched.start_time && sched.end_time) {
               const [sh, sm] = sched.start_time.toString().split(":").map(Number);
               const [eh, em] = sched.end_time.toString().split(":").map(Number);
-              const hours = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+              const hours = Math.max(1, ((eh * 60 + em) - (sh * 60 + sm)) / 60);
               await sql`
                 INSERT INTO evaluator_hours (evaluator_id, organization_id, schedule_id, session_date, hours_worked, status)
                 VALUES (${appUserId}, ${sched.organization_id}, ${schedule_id}, ${sched.scheduled_date}, ${hours}, 'pending')
