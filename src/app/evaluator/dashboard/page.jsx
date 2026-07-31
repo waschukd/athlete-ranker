@@ -1338,6 +1338,7 @@ function EvaluatorDashboard() {
   const [joinMsg, setJoinMsg] = useState("");
   const [joiningOrg, setJoiningOrg] = useState(false);
   const [signupError, setSignupError] = useState(null);
+  const [signupOk, setSignupOk] = useState(null);
   const [theme, toggleTheme] = useTheme();
 
   // Capabilities drive which dashboard(s) this person sees. Also carries the
@@ -1412,7 +1413,9 @@ function EvaluatorDashboard() {
         a.download = "session.ics";
         a.click();
       }
-      setActiveTab("mine");
+      // Stay on the available list so they can keep signing up; the session they
+      // just took drops off automatically. Confirm with a quick banner.
+      setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
     },
   });
 
@@ -1455,6 +1458,22 @@ function EvaluatorDashboard() {
   const mineSessions = mineData?.sessions || [];
   const availSessions = availData?.sessions || [];
 
+  // Association filter for the available list. Only meaningful for an evaluator
+  // whose available sessions span more than one association (an SP evaluator tied
+  // to a multi-association service provider). Options are drawn straight from the
+  // available sessions, so it can only ever list the evaluator's own accessible
+  // associations. "all" = every association's sessions across all dates.
+  const [availOrgFilter, setAvailOrgFilter] = useState("all");
+  const availOrgs = useMemo(() => {
+    const set = new Set();
+    availSessions.forEach(s => s.org_name && set.add(s.org_name));
+    return Array.from(set).sort();
+  }, [availSessions]);
+  const availFiltered = useMemo(
+    () => availOrgFilter === "all" ? availSessions : availSessions.filter(s => s.org_name === availOrgFilter),
+    [availSessions, availOrgFilter]
+  );
+
   // Batch signup: if the clicked session sits in a back-to-back block, offer the
   // whole run before signing up for just one.
   const [batchPrompt, setBatchPrompt] = useState(null);
@@ -1476,8 +1495,9 @@ function EvaluatorDashboard() {
       }
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
-      setBatchPrompt(null); setActiveTab("mine");
+      setBatchPrompt(null);
       if (failed) setSignupError(failed);
+      else setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
     } catch { setSignupError("Network error — please try again."); }
     finally { setBatchBusy(false); }
   };
@@ -1592,7 +1612,7 @@ function EvaluatorDashboard() {
               { id: "pay", label: "Hours & Pay" },
               { id: "join", label: "Join Organization" },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSignupOk(null); setSignupError(null); }}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
@@ -1684,11 +1704,40 @@ function EvaluatorDashboard() {
                 </button>
               </div>
             )}
+            {signupOk && (
+              <div className="mb-3 flex items-start gap-2 px-3 py-2 bg-green-50 border border-green-300 rounded-lg">
+                <Check size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                <p className="flex-1 min-w-0 text-sm text-green-800">{signupOk}</p>
+                <button
+                  onClick={() => setSignupOk(null)}
+                  className="text-green-600 hover:text-green-900 flex-shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {availOrgs.length > 1 && (
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-400 font-medium">Association</span>
+                <select
+                  value={availOrgFilter}
+                  onChange={e => setAvailOrgFilter(e.target.value)}
+                  className={`text-xs font-medium px-3 py-1.5 border rounded-full focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] cursor-pointer ${availOrgFilter !== "all" ? "border-[#0b5cd6] bg-[#0b5cd6]/5 text-[#0b5cd6]" : "border-gray-300 bg-white text-gray-700"}`}
+                >
+                  <option value="all">All associations</option>
+                  {availOrgs.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                {availOrgFilter !== "all" && (
+                  <button onClick={() => setAvailOrgFilter("all")} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+                )}
+              </div>
+            )}
             {availLoading ? (
               <div className="py-12 text-center text-gray-400 text-sm">Loading available sessions...</div>
             ) : (
               <ScheduleBoard
-                sessions={availSessions}
+                sessions={availFiltered}
                 storageKey="eval-avail-view"
                 emptyText="No available sessions right now. Check back soon or edit your availability."
                 renderRow={(s) => (
