@@ -152,12 +152,16 @@ function SignupForm() {
 
           <div className={invited ? "" : "border-t border-gray-100 pt-4"}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span className="text-red-400">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Your Full Name <span className="text-red-400">*</span></label>
               <input
                 type="text"
+                name="evaluator-full-name"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={form.name}
                 onChange={e => set("name", e.target.value)}
-                placeholder="Dan Waschuk"
+                placeholder="Your full name"
                 required
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
               />
