@@ -26,6 +26,20 @@ const ORG_PALETTE = [
   { hex: "#7c3aed", bg: "#ddd6fe", fg: "#4c1d95" }, // violet
 ];
 
+// Build a full palette entry ({ hex, bg, fg }) from a single chosen hex, so an
+// SP-picked association colour renders like a built-in palette hue: a light
+// tinted background and a readable dark foreground derived from the same hue.
+export function paletteFromHex(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ""));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c, t, amt) => Math.round(c + (t - c) * amt);
+  const bg = `#${[mix(r, 255, 0.78), mix(g, 255, 0.78), mix(b, 255, 0.78)].map(c => c.toString(16).padStart(2, "0")).join("")}`;
+  const fg = `#${[mix(r, 0, 0.55), mix(g, 0, 0.55), mix(b, 0, 0.55)].map(c => c.toString(16).padStart(2, "0")).join("")}`;
+  return { hex: `#${m[1]}`, bg, fg };
+}
+
 // Hash-based fallback when no view-level color map is available.
 export function colorForOrg(name) {
   if (!name) return ORG_PALETTE[0];

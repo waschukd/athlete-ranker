@@ -14,10 +14,21 @@ export async function PATCH(request) {
     const { orgId: spId } = await resolveSpContext(session, new URL(request.url).searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
     const body = await request.json();
-    if (body.action !== "set_evaluator_access") return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     const associationId = parseInt(body.association_id);
-    const allow = !!body.allow;
     if (!associationId) return NextResponse.json({ error: "association_id required" }, { status: 400 });
+
+    // Set this association's colour on the SP master schedule.
+    if (body.action === "set_schedule_color") {
+      const color = typeof body.color === "string" && /^#[0-9a-fA-F]{6}$/.test(body.color) ? body.color : null;
+      const res = await sql`
+        UPDATE sp_association_links SET schedule_color = ${color}
+        WHERE service_provider_id = ${spId} AND association_id = ${associationId} RETURNING id`;
+      if (!res.length) return NextResponse.json({ error: "Not one of your associations" }, { status: 403 });
+      return NextResponse.json({ success: true, color });
+    }
+
+    if (body.action !== "set_evaluator_access") return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    const allow = !!body.allow;
     const res = await sql`
       UPDATE sp_association_links SET allow_association_evaluators = ${allow}
       WHERE service_provider_id = ${spId} AND association_id = ${associationId} RETURNING id`;
@@ -68,11 +79,12 @@ export async function GET(request) {
     // Per-association "can add their own evaluators" grant — separate + resilient so
     // the dashboard doesn't break before the column migration is applied.
     let accessMap = {};
+    const colorMap = {};
     try {
-      const grants = await sql`SELECT association_id, allow_association_evaluators FROM sp_association_links WHERE service_provider_id = ${spId}`;
-      for (const g of grants) accessMap[g.association_id] = !!g.allow_association_evaluators;
+      const grants = await sql`SELECT association_id, allow_association_evaluators, schedule_color FROM sp_association_links WHERE service_provider_id = ${spId}`;
+      for (const g of grants) { accessMap[g.association_id] = !!g.allow_association_evaluators; colorMap[g.association_id] = g.schedule_color || null; }
     } catch { /* pre-migration */ }
-    for (const a of associations) a.allow_association_evaluators = !!accessMap[a.id];
+    for (const a of associations) { a.allow_association_evaluators = !!accessMap[a.id]; a.schedule_color = colorMap[a.id] || null; }
 
     const evaluatorStats = await sql`
       SELECT COUNT(DISTINCT em.user_id) as total_evaluators

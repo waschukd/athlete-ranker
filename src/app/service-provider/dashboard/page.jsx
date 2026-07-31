@@ -6,7 +6,7 @@ import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tan
 import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload, Shield } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
 import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
-import { colorForOrg, buildOrgColorMap, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
+import { colorForOrg, buildOrgColorMap, paletteFromHex, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -64,6 +64,45 @@ function SessionRow({ s, showDate }) {
       {s.is_goalie_sp
         ? <a href={`/evaluator/score/${s.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md flex-shrink-0 inline-flex items-center gap-1.5"><Star size={12} /> Evaluate</a>
         : <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>}
+    </div>
+  );
+}
+
+// Per-association colour picker for the SP master schedule. Presets match the
+// built-in palette; a custom hex or "Auto" (clear) are also available.
+function AssocColorPicker({ assoc, spId, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const PRESETS = ["#2563eb", "#dc2626", "#16a34a", "#ea580c", "#9333ea", "#ca8a04", "#0891b2", "#db2777", "#65a30d", "#7c3aed"];
+  const current = assoc.schedule_color || null;
+  const save = async (color) => {
+    await fetch(`/api/service-provider/associations${spId ? `?org=${spId}` : ""}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_schedule_color", association_id: assoc.id, color }),
+    });
+    setOpen(false); onSaved?.();
+  };
+  return (
+    <div className="relative flex-shrink-0">
+      <button onClick={() => setOpen(o => !o)} title="Schedule colour" className="w-6 h-6 rounded-full border-2 border-white shadow ring-1 ring-gray-200" style={current ? { background: current } : { background: "conic-gradient(#ef4444,#eab308,#22c55e,#3b82f6,#a855f7,#ef4444)" }} />
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-20 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg p-3">
+            <div className="text-[11px] font-semibold text-gray-500 mb-2">Schedule colour</div>
+            <div className="grid grid-cols-5 gap-1.5 mb-2">
+              {PRESETS.map(c => (
+                <button key={c} onClick={() => save(c)} title={c} className={`w-6 h-6 rounded-full ${current === c ? "ring-2 ring-offset-1 ring-gray-800" : ""}`} style={{ background: c }} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input type="color" value={current || "#2563eb"} onChange={e => save(e.target.value)} className="w-7 h-7 p-0 border border-gray-200 rounded cursor-pointer" /> Custom
+              </label>
+              <button onClick={() => save(null)} className="text-xs text-gray-500 hover:text-gray-700 underline">Auto</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1481,7 +1520,17 @@ function SPDashboard() {
     const orgs = Array.from(new Set(schedule.map(s => s.org_name).filter(Boolean)));
     return buildOrgColorMap(orgs);
   }, [schedule]);
-  const scheduleOrgPalette = (name) => scheduleOrgColorMap.get(name) || colorForOrg(name);
+  // SP-picked colours override the auto palette (fixes collisions).
+  const customColorByName = useMemo(() => {
+    const m = new Map();
+    associations.forEach(a => { if (a.schedule_color) m.set(a.name, a.schedule_color); });
+    return m;
+  }, [associations]);
+  const scheduleOrgPalette = (name) => {
+    const custom = customColorByName.get(name);
+    if (custom) { const p = paletteFromHex(custom); if (p) return p; }
+    return scheduleOrgColorMap.get(name) || colorForOrg(name);
+  };
 
   // Distinct association/category contexts present in the schedule — drives the
   // "Add session" picker (the POST endpoint is keyed by age_category_id).
@@ -1788,7 +1837,10 @@ function SPDashboard() {
                             <p className="text-xs text-gray-400 truncate">{assoc.contact_email}</p>
                           </div>
                         </div>
-                        {needsEval > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{needsEval} needs eval</span>}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {needsEval > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">{needsEval} needs eval</span>}
+                          <AssocColorPicker assoc={assoc} spId={sp?.id} onSaved={() => queryClient.invalidateQueries({ queryKey: ["sp-associations"] })} />
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mb-4 text-center">
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.age_categories || 0}</div><div className="text-xs text-gray-400">Categories</div></div>
