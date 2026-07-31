@@ -29,14 +29,25 @@ const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 
 // The green/red movement arrow — click it for a brief explanation of why the
 // player is flagged (hover still shows it as a title too).
-function FlagInfo({ dir, why }) {
+// Priority tiers for a movement flag, from strongest signal to weakest.
+// high   — a full SD past the group mean AND already crossing the boundary player
+// medium — a full SD past the mean, boundary not yet crossed
+// watch  — flagged on trajectory alone (climbing, but not yet statistically clear)
+const PRI_META = {
+  high:   { tag: "High",  head: "High priority",         cls: "bg-amber-500 text-white" },
+  medium: { tag: "Med",   head: "Medium priority",       cls: "bg-amber-200 text-amber-900" },
+  watch:  { tag: "Watch", head: "Low — but worth a look", cls: "bg-gray-200 text-gray-600" },
+};
+
+function FlagInfo({ dir, why, priority }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const btnRef = useRef(null);
+  const meta = PRI_META[priority];
   const toggle = () => {
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      const below = r.bottom + 90 < window.innerHeight;
+      const below = r.bottom + 110 < window.innerHeight;
       setPos({
         top: below ? r.bottom + 6 : r.top - 6,
         left: Math.max(8, Math.min(r.left, window.innerWidth - 268)),
@@ -46,23 +57,29 @@ function FlagInfo({ dir, why }) {
     setOpen(o => !o);
   };
   return (
-    <span className="flex-shrink-0" onClick={e => e.stopPropagation()}>
+    <span className="flex-shrink-0 inline-flex items-center gap-1" onClick={e => e.stopPropagation()}>
       <button
         ref={btnRef}
         type="button"
-        title={why}
+        title={meta ? `${meta.head} — ${why}` : why}
         onClick={toggle}
         className={`font-bold text-sm leading-none cursor-help ${dir === "up" ? "text-green-500" : "text-red-400"}`}
         aria-label="Why is this player flagged?"
       >
         {dir === "up" ? "↑" : "↓"}
       </button>
+      {meta && (
+        <span className={`text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none ${meta.cls}`}>
+          {meta.tag}
+        </span>
+      )}
       {/* Fixed-position tooltip so the group card's overflow-hidden can't clip it. */}
       {open && pos && (
         <>
           <span className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <span className="fixed z-50 w-64 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-snug font-normal normal-case"
             style={{ left: pos.left, ...(pos.below ? { top: pos.top } : { bottom: window.innerHeight - pos.top }) }}>
+            {meta && <span className="block font-bold mb-1">{meta.head}</span>}
             {why}
           </span>
         </>
@@ -330,8 +347,8 @@ function GroupsManagerInner() {
   // Sensitivity comes from the same threshold control. Recomputes live as the
   // director drags, so a moved player re-evaluates against their new group.
   const movement = useMemo(() => {
-    const up = new Set(), down = new Set(), why = {};
-    if (groups.length < 2) return { up, down, why };
+    const up = new Set(), down = new Set(), why = {}, pri = {};
+    if (groups.length < 2) return { up, down, why, pri };
     const sorted = [...groups].sort((a, b) => a.group_number - b.group_number);
     const score = {}, delta = {};
     rankedAthletes.forEach(a => {
@@ -362,6 +379,8 @@ function GroupsManagerInner() {
         const z = (sc - stats[U.id].mean) / stats[U.id].sd, d = delta[id] || 0;
         if (!(z < -sdThreshold || (d < 0 && z < -0.5))) return;
         down.add(id);
+        const crossed = strongLoScore != null && String(strongLo.athlete_id) !== id && sc <= strongLoScore;
+        pri[id] = z < -sdThreshold ? (crossed ? "high" : "medium") : "watch";
         const parts = [`Scores ${sc.toFixed(1)} — ${(stats[U.id].mean - sc).toFixed(1)} below Group ${U.group_number}'s ${stats[U.id].mean.toFixed(1)} average`];
         if (strongLoScore != null && String(strongLo.athlete_id) !== id) parts.push(sc <= strongLoScore
           ? `now behind the top of Group ${L.group_number} (${nm(strongLo)}, ${strongLoScore.toFixed(1)})`
@@ -375,6 +394,8 @@ function GroupsManagerInner() {
         const z = (sc - stats[L.id].mean) / stats[L.id].sd, d = delta[id] || 0;
         if (!(z > sdThreshold || (d > 0 && z > 0.5))) return;
         up.add(id);
+        const crossed = weakUpScore != null && String(weakUp.athlete_id) !== id && sc >= weakUpScore;
+        pri[id] = z > sdThreshold ? (crossed ? "high" : "medium") : "watch";
         const parts = [`Scores ${sc.toFixed(1)} — ${(sc - stats[L.id].mean).toFixed(1)} above Group ${L.group_number}'s ${stats[L.id].mean.toFixed(1)} average`];
         if (weakUpScore != null && String(weakUp.athlete_id) !== id) parts.push(sc >= weakUpScore
           ? `outscoring the bottom of Group ${U.group_number} (${nm(weakUp)}, ${weakUpScore.toFixed(1)})`
@@ -383,7 +404,7 @@ function GroupsManagerInner() {
         why[id] = parts.join("; ") + `. Could move up to Group ${U.group_number}.`;
       });
     }
-    return { up, down, why };
+    return { up, down, why, pri };
   }, [groups, groupPlayers, rankedAthletes, sdThreshold]);
 
   // "Changes you made" — players whose current group differs from the system's
@@ -744,8 +765,8 @@ function GroupsManagerInner() {
                           } ${player.checked_in ? "bg-green-50/30" : ""} ${movement.up.has(String(player.athlete_id)) ? "border-l-4 border-l-green-400" : movement.down.has(String(player.athlete_id)) ? "border-l-4 border-l-red-400" : "border-l-4 border-l-transparent"}`}
                         >
                           <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
-                          {movement.up.has(String(player.athlete_id)) && <FlagInfo dir="up" why={movement.why[String(player.athlete_id)]} />}
-                          {movement.down.has(String(player.athlete_id)) && <FlagInfo dir="down" why={movement.why[String(player.athlete_id)]} />}
+                          {movement.up.has(String(player.athlete_id)) && <FlagInfo dir="up" why={movement.why[String(player.athlete_id)]} priority={movement.pri[String(player.athlete_id)]} />}
+                          {movement.down.has(String(player.athlete_id)) && <FlagInfo dir="down" why={movement.why[String(player.athlete_id)]} priority={movement.pri[String(player.athlete_id)]} />}
 
                           {/* Jersey colour indicator — click any time to switch White/Dark (balance the teams) */}
                           <div
