@@ -407,6 +407,14 @@ function GroupsManagerInner() {
     } catch { showMsg("Couldn't update colour.", "error"); }
   };
 
+  const setJerseyNumber = async (athleteId, scheduleId, num) => {
+    if (!scheduleId) { showMsg("This group has no scheduled ice time yet — add the schedule first.", "error"); return; }
+    try {
+      await fetch(`/api/categories/${catId}/groups`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set_jersey_number", athlete_id: athleteId, schedule_id: scheduleId, jersey_number: num }) });
+      refetch();
+    } catch { showMsg("Couldn't save jersey number.", "error"); }
+  };
+
   const setLock = async (lock) => {
     setFinalizeBusy(true);
     try {
@@ -588,11 +596,11 @@ function GroupsManagerInner() {
                   <span className="text-gray-600 font-medium">Movement flags:</span>
                   <span className="inline-flex items-center gap-1 font-semibold"><span className="text-green-600">↑ {movement.up.size} up</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size} down</span></span>
                 </div>
-                <label className="inline-flex items-center gap-2 cursor-pointer" title="Optional — set White/Dark jerseys per player before check-in. Otherwise colours are handled at check-in.">
+                <label className="inline-flex items-center gap-2 cursor-pointer" title="Optional — assign each player's jersey NUMBER here; it carries through to check-in. (Colours you can switch any time by clicking a jersey.)">
                   <button type="button" onClick={() => setJerseyMode(v => !v)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${jerseyMode ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${jerseyMode ? "translate-x-5" : "translate-x-0.5"}`} />
                   </button>
-                  <span className="text-xs text-gray-600 font-medium">Pre-assign jerseys</span>
+                  <span className="text-xs text-gray-600 font-medium">Pre-assign jersey numbers</span>
                 </label>
               </div>
               <div className="flex items-center gap-2">
@@ -685,18 +693,18 @@ function GroupsManagerInner() {
                   {/* Colour balance — F/D per team, so directors can even the split */}
                   {hasColors && (() => {
                     const uneven = teamStats.White.D !== teamStats.Dark.D || teamStats.White.F !== teamStats.Dark.F;
-                    const chip = (label, dot, s) => (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`w-2.5 h-2.5 rounded-full border ${dot}`} />
-                        <span className="font-semibold text-gray-700">{label}</span>
-                        <span className="text-gray-500">{s.F}F · {s.D}D{s.G ? ` · ${s.G}G` : ""}</span>
+                    const chip = (label, dotStyle, s) => (
+                      <span className="inline-flex items-center gap-1.5 text-ink">
+                        <span className="w-2.5 h-2.5 rounded-full border border-black/25" style={dotStyle} />
+                        <span className="font-bold">{label}</span>
+                        <span className="font-medium">{s.F}F · {s.D}D{s.G ? ` · ${s.G}G` : ""}</span>
                       </span>
                     );
                     return (
-                      <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-4 flex-wrap text-xs bg-gray-50/60">
-                        {chip("White", "bg-white border-gray-300", teamStats.White)}
-                        {chip("Dark", "bg-gray-800 border-gray-800", teamStats.Dark)}
-                        {uneven && <span className="text-amber-600 font-medium ml-auto">uneven — switch colours to balance</span>}
+                      <div className="px-4 py-2 flex items-center gap-4 flex-wrap text-xs" style={{ background: "#d4af37" }}>
+                        {chip("White", { background: "#ffffff" }, teamStats.White)}
+                        {chip("Dark", { background: "#1f2937" }, teamStats.Dark)}
+                        {uneven && <span className="text-ink font-bold ml-auto">⚠ uneven — click a jersey to switch colours</span>}
                       </div>
                     );
                   })()}
@@ -739,11 +747,11 @@ function GroupsManagerInner() {
                           {movement.up.has(String(player.athlete_id)) && <FlagInfo dir="up" why={movement.why[String(player.athlete_id)]} />}
                           {movement.down.has(String(player.athlete_id)) && <FlagInfo dir="down" why={movement.why[String(player.athlete_id)]} />}
 
-                          {/* Jersey/color indicator — clickable to switch White/Dark in jersey mode */}
+                          {/* Jersey colour indicator — click any time to switch White/Dark (balance the teams) */}
                           <div
-                            onClick={jerseyMode && player.position !== "goalie" ? (e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White"); } : undefined}
-                            title={jerseyMode ? "Click to switch jersey colour (White / Dark)" : undefined}
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${jerseyMode && player.position !== "goalie" ? "cursor-pointer ring-2 ring-offset-1 ring-[#0b5cd6]/40 hover:ring-[#0b5cd6]" : ""} ${
+                            onClick={(e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White"); }}
+                            title="Click to switch jersey colour (White / Dark)"
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50 ${
                             player.team_color === "White"
                               ? "bg-white border-2 border-gray-300 text-gray-700"
                               : player.team_color === "Dark"
@@ -752,6 +760,21 @@ function GroupsManagerInner() {
                           }`}>
                             {player.jersey_number || (idx + 1)}
                           </div>
+                          {/* Jersey NUMBER input — only in pre-assign mode; carries to check-in */}
+                          {jerseyMode && (
+                            <input
+                              type="number" min="0" max="99"
+                              key={`jn-${player.athlete_id}-${player.jersey_number ?? ""}`}
+                              defaultValue={player.jersey_number ?? ""}
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={e => e.stopPropagation()}
+                              onBlur={e => { const v = e.target.value.trim(); if (v !== String(player.jersey_number ?? "")) setJerseyNumber(player.athlete_id, player.schedule_id, v); }}
+                              onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                              placeholder="#"
+                              title="Jersey number (carries to check-in)"
+                              className="w-11 px-1 py-0.5 border border-gray-200 rounded text-xs text-center flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30"
+                            />
+                          )}
 
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-gray-900 truncate">

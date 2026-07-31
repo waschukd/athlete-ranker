@@ -384,6 +384,22 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, color });
     }
 
+    // Pre-assign a jersey NUMBER for a player — carries through to check-in.
+    if (action === "set_jersey_number") {
+      const athleteId = parseInt(body.athlete_id);
+      const scheduleId = parseInt(body.schedule_id);
+      const raw = String(body.jersey_number ?? "").trim();
+      const num = /^\d{1,3}$/.test(raw) ? parseInt(raw) : null;
+      if (!athleteId || !scheduleId) return NextResponse.json({ error: "athlete_id and schedule_id required" }, { status: 400 });
+      let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
+      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
+      await sql`
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, checked_in)
+        VALUES (${athleteId}, ${scheduleId}, ${csRows[0].id}, ${num}, false)
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET jersey_number = ${num}`;
+      return NextResponse.json({ success: true, jersey_number: num });
+    }
+
     if (action === "assign_goalie") {
       const { athlete_id, group_id } = body;
       const group = await sql`SELECT * FROM session_groups WHERE id = ${group_id}`;
