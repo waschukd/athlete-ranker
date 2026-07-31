@@ -121,23 +121,7 @@ export async function GET(request) {
               AND mysch.scheduled_date = sch.scheduled_date
               AND mysch.start_time IS NOT NULL AND mysch.end_time IS NOT NULL
               AND sch.start_time < mysch.end_time AND mysch.start_time < sch.end_time
-          ) AS busy_eval,
-          -- Overlaps a testing session run by an SP this user tests for (testing wins).
-          EXISTS (
-            SELECT 1 FROM evaluation_schedule tes
-            LEFT JOIN age_categories tac ON tac.id = tes.age_category_id
-            LEFT JOIN category_sessions tcs ON tcs.age_category_id = tes.age_category_id AND tcs.session_number = tes.session_number
-            WHERE tes.scheduled_date = sch.scheduled_date AND tes.status = 'scheduled'
-              AND tes.start_time IS NOT NULL AND tes.end_time IS NOT NULL
-              AND sch.start_time < tes.end_time AND tes.start_time < sch.end_time
-              AND (
-                tes.service_provider_id IN (SELECT organization_id FROM evaluator_memberships WHERE user_id = ${appUId} AND is_tester = true AND status = 'active')
-                OR (tcs.session_type = 'testing' AND tac.organization_id IN (
-                  SELECT sal.association_id FROM sp_association_links sal
-                  JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id AND em.user_id = ${appUId} AND em.is_tester = true AND em.status = 'active'
-                  WHERE sal.status = 'active'))
-              )
-          ) AS busy_testing
+          ) AS busy_eval
         FROM evaluation_schedule sch
         JOIN age_categories ac ON ac.id = sch.age_category_id
         JOIN organizations o ON o.id = ac.organization_id
@@ -147,6 +131,25 @@ export async function GET(request) {
           AND sch.scheduled_date >= CURRENT_DATE
           AND sch.status = 'scheduled'
           AND COALESCE(cs.session_type, '') != 'testing'
+          -- Testing takes priority. Hide (not just flag) any evaluation that overlaps
+          -- a testing session run by an SP this user tests for, so a tester can never
+          -- see — let alone book — an evaluation on top of a testing obligation.
+          AND NOT EXISTS (
+            SELECT 1 FROM evaluation_schedule tes
+            LEFT JOIN age_categories tac ON tac.id = tes.age_category_id
+            LEFT JOIN category_sessions tcs ON tcs.age_category_id = tes.age_category_id AND tcs.session_number = tes.session_number
+            WHERE tes.scheduled_date = sch.scheduled_date AND tes.status = 'scheduled'
+              AND tes.start_time IS NOT NULL AND tes.end_time IS NOT NULL
+              AND sch.start_time IS NOT NULL AND sch.end_time IS NOT NULL
+              AND sch.start_time < tes.end_time AND tes.start_time < sch.end_time
+              AND (
+                tes.service_provider_id IN (SELECT organization_id FROM evaluator_memberships WHERE user_id = ${appUId} AND is_tester = true AND status = 'active')
+                OR (tcs.session_type = 'testing' AND tac.organization_id IN (
+                  SELECT sal.association_id FROM sp_association_links sal
+                  JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id AND em.user_id = ${appUId} AND em.is_tester = true AND em.status = 'active'
+                  WHERE sal.status = 'active'))
+              )
+          )
         GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required, ac.evaluators_required
         HAVING COUNT(DISTINCT ess.id) < COALESCE(cs.evaluators_required, ac.evaluators_required, 4)
           AND COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) = 0

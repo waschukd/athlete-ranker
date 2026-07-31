@@ -562,9 +562,9 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
   }, [mySessions]);
 
   const findConflict = (session) => {
-    // Testing obligations win — the server flags any testing session this user's
-    // SP runs at this time (whether or not they've signed up for it).
-    if (session.busy_testing) return { label: "testing", testing: true };
+    // Testing obligations win — the server now HIDES any evaluation that overlaps a
+    // testing session this user's SP runs, so testing conflicts never reach here.
+    // What's left to flag is an overlap with another evaluation they've booked.
     const dateKey = session.scheduled_date?.toString().split("T")[0];
     const start = session.start_time?.toString();
     const end = session.end_time?.toString();
