@@ -288,11 +288,18 @@ export async function POST(request, { params }) {
           session_group_id: skaterGroups[group_index].id,
         }));
 
+      // display_order = the athlete's overall rank, so within each group the list
+      // reads top-to-bottom by ranking (not alphabetical). Because it's the global
+      // rank, a player dragged into another group also slots into the right spot.
+      const rankMap = {};
+      rankedAthletes.forEach(a => { if (a.id != null) rankMap[a.id] = a.rank; });
+      let ordFallback = 1000;
       for (const va of validAssignments) {
+        const ord = rankMap[va.athlete_id] != null ? rankMap[va.athlete_id] : ordFallback++;
         await sql`
           INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
-          VALUES (${va.athlete_id}, ${va.session_group_id}, 0)
-          ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+          VALUES (${va.athlete_id}, ${va.session_group_id}, ${ord})
+          ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${ord}`;
       }
 
       // Scrimmage/skills sessions: auto-load goalies evenly across ALL groups,
@@ -313,10 +320,12 @@ export async function POST(request, { params }) {
         gTotals.sort((a, b) => b.weighted_total !== a.weighted_total ? b.weighted_total - a.weighted_total : a.last_name.localeCompare(b.last_name));
         for (let i = 0; i < gTotals.length; i++) {
           const grp = groups[i % groups.length];
+          // Goalies sit after skaters (skater display_order = rank, small), ordered
+          // among themselves by goalie ranking.
           await sql`
             INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
-            VALUES (${gTotals[i].id}, ${grp.id}, 99)
-            ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+            VALUES (${gTotals[i].id}, ${grp.id}, ${5000 + i})
+            ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${5000 + i}`;
         }
         goaliesAssigned = gTotals.length;
       }
@@ -337,13 +346,15 @@ export async function POST(request, { params }) {
     }
 
     if (action === "move_player") {
-      const { athlete_id, from_group_id, to_group_id, display_order } = body;
+      const { athlete_id, from_group_id, to_group_id } = body;
       const oldGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${from_group_id}`;
       const newGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${to_group_id}`;
 
+      // Keep the player's display_order (their rank) so they slot into the correct
+      // ranked position within the destination group — not the bottom.
       await sql`
         UPDATE player_group_assignments
-        SET session_group_id = ${to_group_id}, display_order = ${display_order || 0}
+        SET session_group_id = ${to_group_id}
         WHERE athlete_id = ${athlete_id} AND session_group_id = ${from_group_id}`;
 
       await sql`
