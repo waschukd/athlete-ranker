@@ -368,6 +368,22 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, locked: false });
     }
 
+    // Set a player's jersey colour (White/Dark) for a group — lets directors
+    // pre-assign / rebalance colours from the groups page before check-in.
+    if (action === "set_color") {
+      const athleteId = parseInt(body.athlete_id);
+      const scheduleId = parseInt(body.schedule_id);
+      const color = body.color === "White" || body.color === "Dark" ? body.color : null;
+      if (!athleteId || !scheduleId) return NextResponse.json({ error: "athlete_id and schedule_id required" }, { status: 400 });
+      let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
+      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
+      await sql`
+        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
+        VALUES (${athleteId}, ${scheduleId}, ${csRows[0].id}, ${color}, false)
+        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = ${color}`;
+      return NextResponse.json({ success: true, color });
+    }
+
     if (action === "assign_goalie") {
       const { athlete_id, group_id } = body;
       const group = await sql`SELECT * FROM session_groups WHERE id = ${group_id}`;
