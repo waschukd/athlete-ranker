@@ -917,6 +917,10 @@ function LeadsSection({ spUrl, orgParam, associations }) {
     },
   });
   const leads = leadsData?.leads || [];
+  const pool = leadsData?.pool || [];
+  // Only offer pool members who aren't already a lead.
+  const leadIds = new Set(leads.map(l => l.user_id));
+  const candidates = pool.filter(p => !leadIds.has(p.user_id));
 
   const toggleAssoc = (id) =>
     setSelectedAssocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1000,18 +1004,28 @@ function LeadsSection({ spUrl, orgParam, associations }) {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Assign New Lead</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Grant a person scoped admin access to one or more of your associations.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Pick someone from <b className="text-gray-500">your evaluator pool</b> and give them scoped admin access to one or more of your associations.</p>
         </div>
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Name (optional)</label>
-              <input type="text" placeholder="Jane Smith" value={name} onChange={e => setName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Email *</label>
-              <input type="email" placeholder="jane@club.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30" />
-            </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Evaluator *</label>
+            {candidates.length === 0 ? (
+              <p className="text-xs text-gray-400">Everyone in your evaluator pool is already a lead. Add people to your pool first.</p>
+            ) : (
+              <select
+                value={email}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  setName(candidates.find(c => c.email === e.target.value)?.name || null);
+                }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30"
+              >
+                <option value="">Select from your pool…</option>
+                {candidates.map(c => (
+                  <option key={c.user_id} value={c.email}>{c.name || c.email} ({c.email})</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500 mb-2 block">Associations *</label>

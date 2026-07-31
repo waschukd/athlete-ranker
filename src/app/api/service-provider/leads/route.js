@@ -33,17 +33,25 @@ export async function GET(request) {
     if (ctx.error) return ctx.error;
     const { sp_id } = ctx;
 
-    // Leads = users with user_organization_roles rows on this SP's linked
-    // associations. Group by user, collect their associations.
+    // Leads are the SP's OWN people (their evaluator pool) that the SP has granted
+    // scoped admin over specific client associations — NOT the associations' own
+    // admins/directors. So we only surface user_organization_roles rows whose user
+    // is a member of this SP's evaluator pool; everyone else on those associations
+    // is the association's staff and has nothing to do with the SP's leads.
     const rows = await sql`
       SELECT u.id as user_id, u.name, u.email, o.id as association_id, o.name as association_name
       FROM user_organization_roles uor
       JOIN users u ON u.id = uor.user_id
       JOIN organizations o ON o.id = uor.organization_id
-      WHERE uor.organization_id IN (
-        SELECT association_id FROM sp_association_links
-        WHERE service_provider_id = ${sp_id} AND status = 'active'
-      )
+      WHERE uor.role = 'association_admin'
+        AND uor.organization_id IN (
+          SELECT association_id FROM sp_association_links
+          WHERE service_provider_id = ${sp_id} AND status = 'active'
+        )
+        AND uor.user_id IN (
+          SELECT user_id FROM evaluator_memberships
+          WHERE organization_id = ${sp_id} AND status = 'active'
+        )
       ORDER BY u.name, o.name
     `;
 
@@ -55,7 +63,16 @@ export async function GET(request) {
       byUser.get(r.user_id).associations.push({ id: r.association_id, name: r.association_name });
     }
 
-    return NextResponse.json({ leads: [...byUser.values()] });
+    // The pool the SP picks leads FROM — their active evaluator/tester members.
+    const pool = await sql`
+      SELECT u.id as user_id, u.name, u.email
+      FROM evaluator_memberships em
+      JOIN users u ON u.id = em.user_id
+      WHERE em.organization_id = ${sp_id} AND em.status = 'active'
+      ORDER BY u.name
+    `;
+
+    return NextResponse.json({ leads: [...byUser.values()], pool });
   } catch (error) {
     console.error("SP leads GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -76,6 +93,18 @@ export async function POST(request) {
     const { name, association_ids } = body;
     if (!email || !Array.isArray(association_ids) || association_ids.length === 0) {
       return NextResponse.json({ error: "email and a non-empty association_ids array are required" }, { status: 400 });
+    }
+
+    // A lead must be one of the SP's own evaluator-pool members — never an
+    // arbitrary email or the association's own staff.
+    const inPool = await sql`
+      SELECT 1 FROM evaluator_memberships em
+      JOIN users u ON u.id = em.user_id
+      WHERE u.email = ${email} AND em.organization_id = ${sp_id} AND em.status = 'active'
+      LIMIT 1
+    `;
+    if (!inPool.length) {
+      return NextResponse.json({ error: "Leads must be chosen from your evaluator pool." }, { status: 400 });
     }
 
     // SECURITY: every requested association must be actively linked to this SP.
