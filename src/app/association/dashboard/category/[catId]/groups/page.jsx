@@ -751,13 +751,12 @@ function GroupsManagerInner() {
                           <div
                             onClick={(e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White"); }}
                             title="Click to switch jersey colour (White / Dark)"
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50 ${
-                            player.team_color === "White"
-                              ? "bg-white border-2 border-gray-300 text-gray-700"
+                            style={player.team_color === "White"
+                              ? { background: "#ffffff", color: "#111827", border: "2px solid #d1d5db" }
                               : player.team_color === "Dark"
-                              ? "bg-gray-800 text-white"
-                              : "bg-gray-100 text-gray-600"
-                          }`}>
+                              ? { background: "#1f2937", color: "#ffffff", border: "2px solid #d1d5db" }
+                              : { background: "#f3f4f6", color: "#4b5563", border: "2px solid #e5e7eb" }}
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
                             {player.jersey_number || (idx + 1)}
                           </div>
                           {/* Jersey NUMBER input — only in pre-assign mode; carries to check-in */}
