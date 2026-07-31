@@ -302,33 +302,11 @@ export async function POST(request, { params }) {
           ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${ord}`;
       }
 
-      // Scrimmage/skills sessions: auto-load goalies evenly across ALL groups,
-      // ordered by goalie ranking (round-robin → counts equal ±1). The director can
-      // drag a goalie up/down afterwards. Session 1 (testing/goalie skills) is skipped
-      // here — goalies stay in their own goalie-skills group.
-      let goaliesAssigned = 0;
-      if (mixGoalies) {
-        const goalieAthletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND position = 'goalie' ORDER BY last_name, first_name`;
-        const gTotals = goalieAthletes.map(a => {
-          let total = 0;
-          for (const sess of sessionsList) {
-            const s = (scoreMap[a.id] || {})[sess.session_number];
-            if (s != null) total += s * (parseFloat(sess.weight_percentage) / 100);
-          }
-          return { ...a, weighted_total: Math.round(total * 10) / 10 };
-        });
-        gTotals.sort((a, b) => b.weighted_total !== a.weighted_total ? b.weighted_total - a.weighted_total : a.last_name.localeCompare(b.last_name));
-        for (let i = 0; i < gTotals.length; i++) {
-          const grp = groups[i % groups.length];
-          // Goalies sit after skaters (skater display_order = rank, small), ordered
-          // among themselves by goalie ranking.
-          await sql`
-            INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
-            VALUES (${gTotals[i].id}, ${grp.id}, ${5000 + i})
-            ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${5000 + i}`;
-        }
-        goaliesAssigned = gTotals.length;
-      }
+      // Goalies are NEVER auto-assigned. On a scrimmage/skills session the delete
+      // above cleared them out of the groups; they stay in the unassigned pool for
+      // a director to drag into a group manually. (Session 1 keeps goalies in their
+      // own goalie-skills group — mixGoalies is false there, so nothing is cleared.)
+      const goaliesAssigned = 0;
 
       // Apply snake draft colors
       try {
