@@ -450,17 +450,22 @@ function CalendarSubscribePanel() {
 // Replaces the old flat chronological list. Evaluators think about their
 // schedule by "what rink am I at on what day" so they can chain sessions.
 
-function FilterChip({ value, options, onChange }) {
+function FilterChip({ value, options, onChange, label }) {
+  // A non-default selection reads as "active" so a filtered view is obvious.
+  const active = value !== "all";
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-full bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] cursor-pointer"
-    >
-      {options.map(opt => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
+    <label className="inline-flex items-center gap-1.5">
+      {label && <span className="text-xs text-gray-400 font-medium">{label}</span>}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`text-xs font-medium px-3 py-1.5 border rounded-full focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] cursor-pointer ${active ? "border-[#0b5cd6] bg-[#0b5cd6]/5 text-[#0b5cd6]" : "border-gray-300 bg-white text-gray-700"}`}
+      >
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -733,6 +738,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         />
         {orgs.length > 1 && (
           <FilterChip
+            label="Association"
             value={orgFilter}
             onChange={setOrgFilter}
             options={[
@@ -743,6 +749,7 @@ function AvailableSessionsView({ sessions, mySessions = [], onSignup, isLoading 
         )}
         {arenas.length > 1 && (
           <FilterChip
+            label="Arena"
             value={arenaFilter}
             onChange={setArenaFilter}
             options={[
