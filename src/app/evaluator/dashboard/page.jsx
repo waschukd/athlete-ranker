@@ -212,7 +212,7 @@ function CancelModal({ scheduleId, onClose, onConfirm, isPending }) {
   );
 }
 
-function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode }) {
+function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode, conflict }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const spotsAfterMe = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 1);
   const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(localToday());
@@ -309,6 +309,13 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                   </button>
                 )}
               </>
+            ) : conflict ? (
+              <button
+                disabled
+                title="You're already signed up for a session that overlaps this time. Cancel that one first if you'd rather take this."
+                className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-3 sm:py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-sm font-semibold cursor-not-allowed">
+                <AlertTriangle size={14} /> Time conflict
+              </button>
             ) : (
               <button onClick={() => onSignup(session.schedule_id)}
                 className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-3 sm:py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
@@ -1474,6 +1481,25 @@ function EvaluatorDashboard() {
     [availSessions, availOrgFilter]
   );
 
+  // Time slots the evaluator already holds, so overlapping available sessions can
+  // be flagged (and their Sign Up disabled) — you can't double-book yourself.
+  // Two intervals overlap iff a.start < b.end AND b.start < a.end (same day).
+  const myOccupied = useMemo(() => mineSessions
+    .map(s => ({
+      dateKey: s.scheduled_date?.toString().split("T")[0],
+      start: s.start_time?.toString(),
+      end: s.end_time?.toString(),
+    }))
+    .filter(x => x.dateKey && x.start && x.end), [mineSessions]);
+  const availConflict = (s) => {
+    if (s.busy_eval) return true; // server-detected overlap with an existing signup
+    const dateKey = s.scheduled_date?.toString().split("T")[0];
+    const start = s.start_time?.toString();
+    const end = s.end_time?.toString();
+    if (!dateKey || !start || !end) return false;
+    return myOccupied.some(o => o.dateKey === dateKey && o.start < end && o.end > start);
+  };
+
   // Batch signup: if the clicked session sits in a back-to-back block, offer the
   // whole run before signing up for just one.
   const [batchPrompt, setBatchPrompt] = useState(null);
@@ -1743,6 +1769,7 @@ function EvaluatorDashboard() {
                 renderRow={(s) => (
                   <SessionCard session={s} mode="available"
                     onSignup={handleSignup}
+                    conflict={availConflict(s)}
                     onCancel={() => {}} onCancelWithReason={() => {}} />
                 )}
               />
