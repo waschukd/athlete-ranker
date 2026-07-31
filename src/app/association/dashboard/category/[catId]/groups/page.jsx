@@ -31,21 +31,38 @@ const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 // player is flagged (hover still shows it as a title too).
 function FlagInfo({ dir, why }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const below = r.bottom + 90 < window.innerHeight;
+      setPos({
+        top: below ? r.bottom + 6 : r.top - 6,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - 268)),
+        below,
+      });
+    }
+    setOpen(o => !o);
+  };
   return (
-    <span className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
+    <span className="flex-shrink-0" onClick={e => e.stopPropagation()}>
       <button
+        ref={btnRef}
         type="button"
         title={why}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={`font-bold text-sm leading-none cursor-help ${dir === "up" ? "text-green-500" : "text-red-400"}`}
         aria-label="Why is this player flagged?"
       >
         {dir === "up" ? "↑" : "↓"}
       </button>
-      {open && (
+      {/* Fixed-position tooltip so the group card's overflow-hidden can't clip it. */}
+      {open && pos && (
         <>
-          <span className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <span className="absolute left-0 top-6 z-20 w-60 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-snug font-normal normal-case">
+          <span className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <span className="fixed z-50 w-64 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-snug font-normal normal-case"
+            style={{ left: pos.left, ...(pos.below ? { top: pos.top } : { bottom: window.innerHeight - pos.top }) }}>
             {why}
           </span>
         </>
@@ -316,11 +333,11 @@ function GroupsManagerInner() {
     const up = new Set(), down = new Set(), why = {};
     if (groups.length < 2) return { up, down, why };
     const sorted = [...groups].sort((a, b) => a.group_number - b.group_number);
-    const score = {}, trend = {};
+    const score = {}, delta = {};
     rankedAthletes.forEach(a => {
       if (a.weighted_total != null) score[String(a.id)] = a.weighted_total;
       const h = a.rank_history || []; const last = h.length ? h[h.length - 1] : null;
-      trend[String(a.id)] = last == null ? 0 : (a.rank < last ? 1 : a.rank > last ? -1 : 0);
+      delta[String(a.id)] = last == null ? 0 : (last - a.rank); // + climbed spots, − slipped
     });
     const stats = {};
     for (const g of sorted) {
@@ -330,17 +347,40 @@ function GroupsManagerInner() {
       const sd = Math.sqrt(ps.reduce((s, v) => s + (v - mean) ** 2, 0) / ps.length);
       stats[g.id] = { mean, sd };
     }
+    const nm = (p) => p ? `${p.first_name} ${(p.last_name || "")[0] || ""}.` : "";
+    const spots = (n) => `${Math.abs(n)} spot${Math.abs(n) === 1 ? "" : "s"}`;
     for (let i = 0; i < sorted.length - 1; i++) {
       const U = sorted[i], L = sorted[i + 1];
-      (groupPlayers[U.id] || []).forEach(p => {
+      const uPlayers = groupPlayers[U.id] || [], lPlayers = groupPlayers[L.id] || [];
+      const weakUp = uPlayers[uPlayers.length - 1];       // bottom of the upper group
+      const strongLo = lPlayers[0];                        // top of the lower group
+      const weakUpScore = weakUp ? score[String(weakUp.athlete_id)] : null;
+      const strongLoScore = strongLo ? score[String(strongLo.athlete_id)] : null;
+
+      uPlayers.forEach(p => {
         const id = String(p.athlete_id), sc = score[id]; if (sc == null || stats[U.id].sd <= 0) return;
-        const z = (sc - stats[U.id].mean) / stats[U.id].sd;
-        if (z < -sdThreshold || (trend[id] < 0 && z < -0.5)) { down.add(id); why[id] = `Scoring in the bottom of Group ${U.group_number}${trend[id] < 0 ? " and sliding" : ""} — could drop to Group ${L.group_number}`; }
+        const z = (sc - stats[U.id].mean) / stats[U.id].sd, d = delta[id] || 0;
+        if (!(z < -sdThreshold || (d < 0 && z < -0.5))) return;
+        down.add(id);
+        const parts = [`Scores ${sc.toFixed(1)} — ${(stats[U.id].mean - sc).toFixed(1)} below Group ${U.group_number}'s ${stats[U.id].mean.toFixed(1)} average`];
+        if (strongLoScore != null && String(strongLo.athlete_id) !== id) parts.push(sc <= strongLoScore
+          ? `now behind the top of Group ${L.group_number} (${nm(strongLo)}, ${strongLoScore.toFixed(1)})`
+          : `right at the Group ${L.group_number} line (${strongLoScore.toFixed(1)})`);
+        if (d < 0) parts.push(`down ${spots(d)} since last session`);
+        why[id] = parts.join("; ") + `. Could drop to Group ${L.group_number}.`;
       });
-      (groupPlayers[L.id] || []).forEach(p => {
+
+      lPlayers.forEach(p => {
         const id = String(p.athlete_id), sc = score[id]; if (sc == null || stats[L.id].sd <= 0) return;
-        const z = (sc - stats[L.id].mean) / stats[L.id].sd;
-        if (z > sdThreshold || (trend[id] > 0 && z > 0.5)) { up.add(id); why[id] = `Scoring at the top of Group ${L.group_number}${trend[id] > 0 ? " and climbing" : ""} — could move up to Group ${U.group_number}`; }
+        const z = (sc - stats[L.id].mean) / stats[L.id].sd, d = delta[id] || 0;
+        if (!(z > sdThreshold || (d > 0 && z > 0.5))) return;
+        up.add(id);
+        const parts = [`Scores ${sc.toFixed(1)} — ${(sc - stats[L.id].mean).toFixed(1)} above Group ${L.group_number}'s ${stats[L.id].mean.toFixed(1)} average`];
+        if (weakUpScore != null && String(weakUp.athlete_id) !== id) parts.push(sc >= weakUpScore
+          ? `outscoring the bottom of Group ${U.group_number} (${nm(weakUp)}, ${weakUpScore.toFixed(1)})`
+          : `within reach of the Group ${U.group_number} cut (${weakUpScore.toFixed(1)})`);
+        if (d > 0) parts.push(`up ${spots(d)} since last session`);
+        why[id] = parts.join("; ") + `. Could move up to Group ${U.group_number}.`;
       });
     }
     return { up, down, why };
