@@ -1,10 +1,12 @@
-// Cut a player from an elite/Tournament division and re-register them at a lower
-// level (e.g. U11 AA → U11 house). The source athlete is deactivated (is_active
-// = false) and stamped cut_at/cut_to_category_id, so they drop out of every AA
-// roster, ranking, and check-in automatically — but their scores are untouched
-// (scores are keyed by athlete_id + session, never deleted). A fresh athlete is
-// created in the destination category with a clean slate, and (optionally) the
-// parents get a gentle notification email.
+// Cut a player from an elite/Tournament division. Two modes:
+//   "move"    — re-register them one level down (e.g. U11 AA → U11 house). A fresh
+//               athlete is created in the destination category with a clean slate.
+//   "release" — they've finished tryouts here and go nowhere (common in AA, where a
+//               cut player simply leaves). No re-registration; the parents get a
+//               warm "thank you for coming out" note. cut_to_category_id stays NULL.
+// In both modes the source athlete is stamped cut_at (kept active + visible, flagged
+// "Cut", real scores intact) and pulled from future teams/rosters. Scores are keyed
+// by athlete_id + session and never deleted.
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -34,7 +36,8 @@ export async function GET(request, { params }) {
       ORDER BY name`;
 
     const template = await resolveTemplate(cat.organization_id, "player_cut");
-    return NextResponse.json({ categories, template, organizationId: cat.organization_id });
+    const releaseTemplate = await resolveTemplate(cat.organization_id, "player_released");
+    return NextResponse.json({ categories, template, releaseTemplate, organizationId: cat.organization_id });
   } catch (error) {
     console.error("cut GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -51,24 +54,33 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const athleteId = parseInt(body.athleteId);
+    // "release" = cut with no destination: the player has finished tryouts here and
+    // isn't being re-registered anywhere (common in AA — they simply leave). "move"
+    // (default) re-registers them one level down.
+    const mode = body.mode === "release" ? "release" : "move";
     const toCategoryId = parseInt(body.toCategoryId);
-    if (!athleteId || !toCategoryId) return NextResponse.json({ error: "athleteId and toCategoryId required" }, { status: 400 });
+    if (!athleteId) return NextResponse.json({ error: "athleteId required" }, { status: 400 });
+    if (mode === "move" && !toCategoryId) return NextResponse.json({ error: "toCategoryId required" }, { status: 400 });
 
     // Source athlete must belong to this category.
     const [athlete] = await sql`SELECT * FROM athletes WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
     if (!athlete) return NextResponse.json({ error: "Athlete not found in this category" }, { status: 404 });
 
     const [fromCat] = await sql`SELECT id, name, organization_id FROM age_categories WHERE id = ${params.catId}`;
-    const [toCat] = await sql`SELECT id, name, organization_id FROM age_categories WHERE id = ${toCategoryId}`;
-    if (!toCat) return NextResponse.json({ error: "Destination category not found" }, { status: 404 });
-    if (toCat.organization_id !== fromCat.organization_id) return NextResponse.json({ error: "Destination must be in the same association" }, { status: 400 });
+    let toCat = null;
+    if (mode === "move") {
+      [toCat] = await sql`SELECT id, name, organization_id FROM age_categories WHERE id = ${toCategoryId}`;
+      if (!toCat) return NextResponse.json({ error: "Destination category not found" }, { status: 404 });
+      if (toCat.organization_id !== fromCat.organization_id) return NextResponse.json({ error: "Destination must be in the same association" }, { status: 400 });
+    }
 
     const [org] = await sql`SELECT name FROM organizations WHERE id = ${fromCat.organization_id}`;
 
     // 1) Stamp the source athlete cut — but keep them ACTIVE so they stay VISIBLE
     // (flagged "Cut") in this division's ranking with their real scores. cut_at is
     // what removes them from FUTURE games, not is_active. Scores stay put.
-    await sql`UPDATE athletes SET cut_at = NOW(), cut_to_category_id = ${toCategoryId} WHERE id = ${athleteId}`;
+    // Released players carry a NULL destination (they went nowhere).
+    await sql`UPDATE athletes SET cut_at = NOW(), cut_to_category_id = ${mode === "move" ? toCategoryId : null} WHERE id = ${athleteId}`;
     // Pull them off any Tournament team so re-seeds / future matchups exclude them.
     try {
       await sql`DELETE FROM scrimmage_team_members WHERE athlete_id = ${athleteId} AND scrimmage_team_id IN (SELECT id FROM scrimmage_teams WHERE age_category_id = ${params.catId})`;
@@ -85,12 +97,16 @@ export async function POST(request, { params }) {
           )`;
     } catch { /* best-effort */ }
 
-    // 2) Create a fresh athlete in the destination category (clean slate).
-    await sql`
-      INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, is_active)
-      VALUES (${fromCat.organization_id}, ${toCategoryId}, ${athlete.first_name}, ${athlete.last_name}, ${athlete.external_id || null}, ${athlete.position || null}, ${athlete.birth_year || null}, ${athlete.parent_email || null}, ${athlete.parent_email_2 || null}, true)`;
+    // 2) Move mode only: create a fresh athlete in the destination category (clean
+    // slate). Release mode re-registers nowhere — the player is done here.
+    if (mode === "move") {
+      await sql`
+        INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, is_active)
+        VALUES (${fromCat.organization_id}, ${toCategoryId}, ${athlete.first_name}, ${athlete.last_name}, ${athlete.external_id || null}, ${athlete.position || null}, ${athlete.birth_year || null}, ${athlete.parent_email || null}, ${athlete.parent_email_2 || null}, true)`;
+    }
 
-    // 3) Optional gentle email to the parents.
+    // 3) Optional gentle email to the parents — placement note for a move, a warm
+    // "thank you & released" note when they went nowhere.
     let emailSent = false;
     if (body.notify) {
       const playerName = `${athlete.first_name || ""} ${athlete.last_name || ""}`.trim();
@@ -99,12 +115,12 @@ export async function POST(request, { params }) {
       // The admin may have edited the copy in the modal. If they didn't, fall
       // back to the org's saved template, and failing that the built-in wording —
       // resolved here rather than trusting the client to send it.
-      const tpl = await resolveTemplate(fromCat.organization_id, "player_cut");
+      const tpl = await resolveTemplate(fromCat.organization_id, mode === "release" ? "player_released" : "player_cut");
       const vars = {
         player_name: athlete.first_name || playerName,
         org_name: orgName,
         from_category: fromCat.name,
-        to_category: toCat.name,
+        to_category: toCat?.name || "",
       };
       const message = (body.message && body.message.trim()) || renderTemplate(tpl.body, vars);
       const subject = renderTemplate(tpl.subject, vars);
@@ -115,7 +131,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    return NextResponse.json({ success: true, emailSent, movedTo: toCat.name });
+    return NextResponse.json({ success: true, emailSent, released: mode === "release", movedTo: toCat?.name || null });
   } catch (error) {
     console.error("cut POST error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

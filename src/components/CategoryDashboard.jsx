@@ -75,27 +75,30 @@ export default function CategoryDashboard({
   const [cutMsg, setCutMsg] = useState("");
   const [cutBusy, setCutBusy] = useState(false);
   const [cutResult, setCutResult] = useState("");
-  const [cutTpl, setCutTpl] = useState(null);        // {subject, body, isDefault}
+  const [cutTpl, setCutTpl] = useState(null);        // {subject, body, isDefault} — move
+  const [releaseTpl, setReleaseTpl] = useState(null);// {subject, body, isDefault} — release
+  const [cutMode, setCutMode] = useState("move");    // "move" (to a division) | "release" (thank & cut)
   const [cutEdited, setCutEdited] = useState(false); // admin typed — stop re-filling
   const [cutOrgId, setCutOrgId] = useState(null);
 
   const openCut = async (athlete) => {
     setCutTarget(athlete); setCutDest(""); setCutNotify(true); setCutMsg("");
-    setCutResult(""); setCutCats([]); setCutTpl(null); setCutEdited(false);
+    setCutResult(""); setCutCats([]); setCutTpl(null); setReleaseTpl(null); setCutEdited(false); setCutMode("move");
     try {
       const res = await fetch(`/api/categories/${catId}/cut`);
       const d = await res.json();
       setCutCats(d.categories || []);
       setCutTpl(d.template || null);
+      setReleaseTpl(d.releaseTemplate || null);
       setCutOrgId(d.organizationId || null);
     } catch {}
   };
 
   const submitCut = async () => {
-    if (!cutTarget || !cutDest) return;
+    if (!cutTarget || (cutMode === "move" && !cutDest)) return;
     setCutBusy(true); setCutResult("");
     try {
-      const res = await fetch(`/api/categories/${catId}/cut`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athleteId: cutTarget.id, toCategoryId: parseInt(cutDest), notify: cutNotify, message: cutMsg || null }) });
+      const res = await fetch(`/api/categories/${catId}/cut`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athleteId: cutTarget.id, mode: cutMode, toCategoryId: cutMode === "move" ? parseInt(cutDest) : null, notify: cutNotify, message: cutMsg || null }) });
       const d = await res.json();
       if (d.success) { setCutTarget(null); refetchRankings(); }
       else setCutResult(d.error || "Couldn't cut player.");
@@ -244,15 +247,16 @@ export default function CategoryDashboard({
   // Declared here, after `category`: a dep array is evaluated during render, so
   // referencing it any earlier is a temporal-dead-zone ReferenceError.
   useEffect(() => {
-    if (!cutTarget || !cutTpl || cutEdited) return;
+    const tpl = cutMode === "release" ? releaseTpl : cutTpl;
+    if (!cutTarget || !tpl || cutEdited) return;
     const dest = cutCats.find(c => String(c.id) === String(cutDest));
-    setCutMsg(renderTemplate(cutTpl.body, {
+    setCutMsg(renderTemplate(tpl.body, {
       player_name: cutTarget.first_name || `${cutTarget.first_name || ""} ${cutTarget.last_name || ""}`.trim(),
       org_name: orgName || "your association",
       from_category: category?.name || categoryName || "these",
       to_category: dest?.name || "…",
     }));
-  }, [cutTarget, cutTpl, cutDest, cutCats, cutEdited, orgName, category, categoryName]);
+  }, [cutTarget, cutTpl, releaseTpl, cutMode, cutDest, cutCats, cutEdited, orgName, category, categoryName]);
 
   const rankedAthletes = rankingsData?.athletes || [];
   const goalieAthletes = rankingsData?.goalies || [];
@@ -1959,12 +1963,38 @@ export default function CategoryDashboard({
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !cutBusy && setCutTarget(null)}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
               <div className="flex items-center gap-2 mb-1"><Scissors size={18} className="text-red-500" /><h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Cut player</h3></div>
-              <p className="text-sm text-gray-600 mb-4">Cut <b>{cutTarget.first_name} {cutTarget.last_name}</b> from {displayName}? Their scores here are kept; they're removed from remaining games and re-registered in the division you pick.</p>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Move player to</label>
-              <select value={cutDest} onChange={e => setCutDest(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white mb-4">
-                <option value="">Select a division…</option>
-                {cutCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <p className="text-sm text-gray-600 mb-4">Cut <b>{cutTarget.first_name} {cutTarget.last_name}</b> from {displayName}? Their scores here are kept and they&apos;re removed from remaining games.</p>
+
+              {/* What happens to the player: move them down a level, or release them. */}
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">What happens next</label>
+              <div className="grid grid-cols-1 gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setCutMode("move"); setCutEdited(false); }}
+                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${cutMode === "move" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
+                >
+                  <span className="font-semibold text-gray-800">Move to another division</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">Re-register them one level down (e.g. AA → house) with a clean slate.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCutMode("release"); setCutDest(""); setCutEdited(false); }}
+                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${cutMode === "release" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
+                >
+                  <span className="font-semibold text-gray-800">Release — thank &amp; cut</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">They&apos;re done here and go nowhere. We thank them for coming out.</span>
+                </button>
+              </div>
+
+              {cutMode === "move" && (
+                <>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Move player to</label>
+                  <select value={cutDest} onChange={e => setCutDest(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white mb-4">
+                    <option value="">Select a division…</option>
+                    {cutCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </>
+              )}
               <label className="flex items-center gap-2 mb-3 text-sm text-gray-700">
                 <input type="checkbox" checked={cutNotify} onChange={e => setCutNotify(e.target.checked)} /> Email the parents a gentle note
               </label>
@@ -1985,7 +2015,7 @@ export default function CategoryDashboard({
                       )}
                       {cutOrgId && (
                         <a
-                          href={`/email-templates?org=${cutOrgId}&key=player_cut`}
+                          href={`/email-templates?org=${cutOrgId}&key=${cutMode === "release" ? "player_released" : "player_cut"}`}
                           target="_blank" rel="noopener noreferrer"
                           className="text-[11px] text-accent hover:underline"
                         >
@@ -2003,7 +2033,7 @@ export default function CategoryDashboard({
                   <p className="text-[11px] text-gray-400 mt-1">
                     {cutEdited
                       ? "Your wording — sent as typed, just this once."
-                      : cutTpl?.isDefault
+                      : (cutMode === "release" ? releaseTpl : cutTpl)?.isDefault
                         ? "Sideline Star's default wording. Edit here for this player, or change it for every player."
                         : "Your association's saved wording."}
                   </p>
@@ -2012,7 +2042,7 @@ export default function CategoryDashboard({
               {cutResult && <p className="text-sm text-red-600 mb-3">{cutResult}</p>}
               <div className="flex items-center justify-end gap-2">
                 <button onClick={() => setCutTarget(null)} disabled={cutBusy} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50">Cancel</button>
-                <button onClick={submitCut} disabled={cutBusy || !cutDest} className="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">{cutBusy ? "Cutting…" : "Confirm cut"}</button>
+                <button onClick={submitCut} disabled={cutBusy || (cutMode === "move" && !cutDest)} className="px-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">{cutBusy ? "Cutting…" : cutMode === "release" ? "Release player" : "Confirm cut"}</button>
               </div>
             </div>
           </div>

@@ -35,6 +35,26 @@ See you at the rink,
 {{org_name}}`,
   },
 
+  player_released: {
+    label: "Thank you & released",
+    description:
+      "Sent when a player is cut but NOT moved to another division — they've finished tryouts here. Warm, final, and grateful; leaves the door open for next year.",
+    fields: ["player_name", "org_name", "from_category"],
+    subject: "Thank you for coming out — {{org_name}}",
+    body: `Hi {{player_name}},
+
+Thank you for coming out to {{from_category}} evaluations. You put in the work on the ice, and our evaluators genuinely appreciated the effort and attitude you brought to every session.
+
+After watching all of the sessions closely, we won't be moving you forward with {{from_category}} this season. That's a hard message to get, and it takes nothing away from how you competed this week.
+
+Evaluations are only ever a snapshot of a few days. A lot can change in a year, and we'd love to see you back out next season.
+
+Thank you again for being part of it.
+
+All the best,
+{{org_name}}`,
+  },
+
   welcome: {
     label: "Welcome email",
     description: "The first email parents receive when a division opens for evaluations.",
