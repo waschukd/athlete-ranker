@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense, useEffect } from "react";
+import { useState, useRef, Suspense, useEffect, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -273,8 +273,45 @@ function GroupsManagerInner() {
 
 
 
-  const promotePlanUpIds = new Set((promotePlan || []).filter(m => m.direction === "up").map(m => String(m.athlete.athlete_id)));
-  const promotePlanDownIds = new Set((promotePlan || []).filter(m => m.direction === "down").map(m => String(m.athlete.athlete_id)));
+  // Always-on movement flags: the data highlights who could move up/down without
+  // forcing anything. A player scoring well above their group's mean (top of a
+  // lower group) is a move-up candidate; well below (bottom of an upper group) a
+  // move-down candidate. Trend (improving/sliding rank) nudges borderline cases.
+  // Sensitivity comes from the same threshold control. Recomputes live as the
+  // director drags, so a moved player re-evaluates against their new group.
+  const movement = useMemo(() => {
+    const up = new Set(), down = new Set(), why = {};
+    if (groups.length < 2) return { up, down, why };
+    const sorted = [...groups].sort((a, b) => a.group_number - b.group_number);
+    const score = {}, trend = {};
+    rankedAthletes.forEach(a => {
+      if (a.weighted_total != null) score[String(a.id)] = a.weighted_total;
+      const h = a.rank_history || []; const last = h.length ? h[h.length - 1] : null;
+      trend[String(a.id)] = last == null ? 0 : (a.rank < last ? 1 : a.rank > last ? -1 : 0);
+    });
+    const stats = {};
+    for (const g of sorted) {
+      const ps = (groupPlayers[g.id] || []).map(p => score[String(p.athlete_id)]).filter(s => s != null);
+      if (!ps.length) { stats[g.id] = { mean: 0, sd: 0 }; continue; }
+      const mean = ps.reduce((a, b) => a + b, 0) / ps.length;
+      const sd = Math.sqrt(ps.reduce((s, v) => s + (v - mean) ** 2, 0) / ps.length);
+      stats[g.id] = { mean, sd };
+    }
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const U = sorted[i], L = sorted[i + 1];
+      (groupPlayers[U.id] || []).forEach(p => {
+        const id = String(p.athlete_id), sc = score[id]; if (sc == null || stats[U.id].sd <= 0) return;
+        const z = (sc - stats[U.id].mean) / stats[U.id].sd;
+        if (z < -sdThreshold || (trend[id] < 0 && z < -0.5)) { down.add(id); why[id] = `Scoring in the bottom of Group ${U.group_number}${trend[id] < 0 ? " and sliding" : ""} — could drop to Group ${L.group_number}`; }
+      });
+      (groupPlayers[L.id] || []).forEach(p => {
+        const id = String(p.athlete_id), sc = score[id]; if (sc == null || stats[L.id].sd <= 0) return;
+        const z = (sc - stats[L.id].mean) / stats[L.id].sd;
+        if (z > sdThreshold || (trend[id] > 0 && z > 0.5)) { up.add(id); why[id] = `Scoring at the top of Group ${L.group_number}${trend[id] > 0 ? " and climbing" : ""} — could move up to Group ${U.group_number}`; }
+      });
+    }
+    return { up, down, why };
+  }, [groups, groupPlayers, rankedAthletes, sdThreshold]);
 
   const rankMap = {};
   rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
@@ -315,21 +352,14 @@ function GroupsManagerInner() {
                 </button>
               )}
               {groups.length > 1 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" title="How sensitive the up/down flags are">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">Movement flags</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold"><span className="text-green-600">↑ {movement.up.size}</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size}</span></span>
                   <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300">
-                    <option value="0.75">Aggressive</option>
-                    <option value="1.0">Moderate</option>
-                    <option value="1.5">Conservative</option>
+                    <option value="0.75">Sensitive</option>
+                    <option value="1.0">Balanced</option>
+                    <option value="1.5">Strict</option>
                   </select>
-                  {promotePlan === null ? (
-                    <button onClick={buildPromotePlan} className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100">⇕ Forced Movement</button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-purple-600 font-medium">{promotePlan.length} move{promotePlan.length !== 1 ? "s" : ""} flagged</span>
-                      <button onClick={() => setPromotePlan(null)} className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50">Cancel</button>
-                      <button onClick={applyPromotePlan} disabled={promotePlan.length === 0} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-40">{promotePlan.length === 0 ? "No moves" : "Apply Moves"}</button>
-                    </div>
-                  )}
                 </div>
               )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
@@ -546,11 +576,11 @@ function GroupsManagerInner() {
                           onDragStart={e => onDragStart(e, player.athlete_id, group.id)}
                           className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-grab active:cursor-grabbing transition-colors ${
                             dragging?.athleteId === player.athlete_id ? "opacity-50" : ""
-                          } ${player.checked_in ? "bg-green-50/30" : ""} ${promotePlanUpIds.has(player.athlete_id) ? "border-l-4 border-l-green-400 bg-green-50/50" : promotePlanDownIds.has(player.athlete_id) ? "border-l-4 border-l-red-400 bg-red-50/30" : "border-l-4 border-l-transparent"}`}
+                          } ${player.checked_in ? "bg-green-50/30" : ""} ${movement.up.has(String(player.athlete_id)) ? "border-l-4 border-l-green-400 bg-green-50/50" : movement.down.has(String(player.athlete_id)) ? "border-l-4 border-l-red-400 bg-red-50/30" : "border-l-4 border-l-transparent"}`}
                         >
                           <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
-                          {promotePlanUpIds.has(player.athlete_id) && <span className="text-green-500 font-bold text-sm leading-none flex-shrink-0">↑</span>}
-                          {promotePlanDownIds.has(player.athlete_id) && <span className="text-red-400 font-bold text-sm leading-none flex-shrink-0">↓</span>}
+                          {movement.up.has(String(player.athlete_id)) && <span title={movement.why[String(player.athlete_id)]} className="text-green-500 font-bold text-sm leading-none flex-shrink-0 cursor-help">↑</span>}
+                          {movement.down.has(String(player.athlete_id)) && <span title={movement.why[String(player.athlete_id)]} className="text-red-400 font-bold text-sm leading-none flex-shrink-0 cursor-help">↓</span>}
 
                           {/* Jersey/color indicator */}
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
