@@ -38,7 +38,7 @@ export async function GET(request, { params }) {
 
     const assignments = sessionNum
       ? await sql`
-          SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order,
+          SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order, pga.auto_group_number,
             a.first_name, a.last_name, a.external_id, a.position,
             sg.session_number, sg.group_number,
             pc.jersey_number, pc.team_color, pc.checked_in,
@@ -53,7 +53,7 @@ export async function GET(request, { params }) {
           WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sessionNum}
           ORDER BY sg.group_number, pga.display_order, a.last_name`
       : await sql`
-          SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order,
+          SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order, pga.auto_group_number,
             a.first_name, a.last_name, a.external_id, a.position,
             sg.session_number, sg.group_number,
             pc.jersey_number, pc.team_color, pc.checked_in,
@@ -79,7 +79,15 @@ export async function GET(request, { params }) {
         )
       ORDER BY a.last_name` : [];
 
-    return NextResponse.json({ groups, assignments, goalies });
+    let locked_at = null;
+    if (sessionNum) {
+      try {
+        const [row] = await sql`SELECT groups_locked_at FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sessionNum}`;
+        locked_at = row?.groups_locked_at || null;
+      } catch { /* column not migrated */ }
+    }
+
+    return NextResponse.json({ groups, assignments, goalies, locked_at });
   } catch (error) {
     console.error("Groups GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -286,6 +294,7 @@ export async function POST(request, { params }) {
         .map(({ athlete_id, group_index }) => ({
           athlete_id,
           session_group_id: skaterGroups[group_index].id,
+          auto_group_number: skaterGroups[group_index].group_number,
         }));
 
       // display_order = the athlete's overall rank, so within each group the list
@@ -296,11 +305,15 @@ export async function POST(request, { params }) {
       let ordFallback = 1000;
       for (const va of validAssignments) {
         const ord = rankMap[va.athlete_id] != null ? rankMap[va.athlete_id] : ordFallback++;
+        // auto_group_number = the system's original group for this player, so the
+        // groups page can diff it against any manual drags ("changes you made").
         await sql`
-          INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order)
-          VALUES (${va.athlete_id}, ${va.session_group_id}, ${ord})
-          ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${ord}`;
+          INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order, auto_group_number)
+          VALUES (${va.athlete_id}, ${va.session_group_id}, ${ord}, ${va.auto_group_number})
+          ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${ord}, auto_group_number = ${va.auto_group_number}`;
       }
+      // A fresh auto-assignment un-locks the session (new baseline to review).
+      try { await sql`UPDATE category_sessions SET groups_locked_at = NULL WHERE age_category_id = ${catId} AND session_number = ${session_number}`; } catch { /* column not migrated */ }
 
       // Goalies are NEVER auto-assigned. On a scrimmage/skills session the delete
       // above cleared them out of the groups; they stay in the unassigned pool for
@@ -341,6 +354,18 @@ export async function POST(request, { params }) {
           ${'Group ' + oldGroup[0]?.group_number}, ${'Group ' + newGroup[0]?.group_number})`;
 
       return NextResponse.json({ success: true });
+    }
+
+    // Confirm & lock a session's groups (finalized, ready to send to parents).
+    if (action === "lock_groups") {
+      const sn = parseInt(body.session_number);
+      await sql`UPDATE category_sessions SET groups_locked_at = NOW() WHERE age_category_id = ${catId} AND session_number = ${sn}`;
+      return NextResponse.json({ success: true, locked: true });
+    }
+    if (action === "unlock_groups") {
+      const sn = parseInt(body.session_number);
+      await sql`UPDATE category_sessions SET groups_locked_at = NULL WHERE age_category_id = ${catId} AND session_number = ${sn}`;
+      return NextResponse.json({ success: true, locked: false });
     }
 
     if (action === "assign_goalie") {

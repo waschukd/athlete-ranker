@@ -44,6 +44,8 @@ function GroupsManagerInner() {
   const [showAnchorPanel, setShowAnchorPanel] = useState(false);
   const [sdThreshold, setSdThreshold] = useState(1.0); // players beyond X std devs from group mean are candidates
   const [promotePlan, setPromotePlan] = useState(null); // [{from, to, athlete}]
+  const [showReview, setShowReview] = useState(false);
+  const [finalizeBusy, setFinalizeBusy] = useState(false);
 
   // Get sessions
   const { data: setupData } = useQuery({
@@ -99,6 +101,8 @@ function GroupsManagerInner() {
 
   const unassigned = assignments.filter(a => !groups.find(g => g.id === a.session_group_id));
   const goalies = groupsData?.goalies || [];
+  const lockedAt = groupsData?.locked_at || null;
+  const locked = !!lockedAt;
   const currentSession = sessions.find(s => s.session_number === selectedSession);
   const exportCSV = () => {
     const rows = [['Group','Date','Time','Location','Last Name','First Name','ID','Position']];
@@ -162,6 +166,7 @@ function GroupsManagerInner() {
 
   const movePlayer = async (athleteId, fromGroupId, toGroupId) => {
     if (fromGroupId === toGroupId) return;
+    if (locked) { showMsg("Groups are locked — unlock to make changes.", "error"); return; }
     const toGroup = groups.find(g => g.id === toGroupId);
     const currentPlayers = groupPlayers[toGroupId] || [];
 
@@ -313,6 +318,30 @@ function GroupsManagerInner() {
     return { up, down, why };
   }, [groups, groupPlayers, rankedAthletes, sdThreshold]);
 
+  // "Changes you made" — players whose current group differs from the system's
+  // auto-assigned group (captured at auto-assign time).
+  const changes = useMemo(() => {
+    const numById = {}; groups.forEach(g => { numById[g.id] = g.group_number; });
+    const out = [];
+    assignments.forEach(a => {
+      const cur = numById[a.session_group_id];
+      if (cur == null || a.auto_group_number == null) return;
+      if (a.auto_group_number !== cur) out.push({ id: a.athlete_id, name: `${a.first_name} ${a.last_name}`, from: a.auto_group_number, to: cur });
+    });
+    return out.sort((a, b) => a.to - b.to || a.name.localeCompare(b.name));
+  }, [assignments, groups]);
+
+  const setLock = async (lock) => {
+    setFinalizeBusy(true);
+    try {
+      await fetch(`/api/categories/${catId}/groups`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: lock ? "lock_groups" : "unlock_groups", session_number: selectedSession }) });
+      await refetch();
+      setShowReview(false);
+      showMsg(lock ? "Groups locked — ready to send to parents." : "Groups unlocked — you can edit again.");
+    } catch { showMsg("Something went wrong.", "error"); }
+    finally { setFinalizeBusy(false); }
+  };
+
   const rankMap = {};
   rankedAthletes.forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total }; });
   // Goalies carry their own (goalie-pool) ranking too — shown on their names like skaters.
@@ -351,21 +380,7 @@ function GroupsManagerInner() {
                   ⚓ Anchor Players {anchors.filter(a=>a.session_number===selectedSession).length > 0 ? `(${anchors.filter(a=>a.session_number===selectedSession).length})` : ""}
                 </button>
               )}
-              {groups.length > 1 && (
-                <div className="flex items-center gap-2" title="How sensitive the up/down flags are">
-                  <span className="text-xs text-gray-500 whitespace-nowrap">Movement flags</span>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold"><span className="text-green-600">↑ {movement.up.size}</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size}</span></span>
-                  <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300">
-                    <option value="0.75">Sensitive</option>
-                    <option value="1.0">Balanced</option>
-                    <option value="1.5">Strict</option>
-                  </select>
-                </div>
-              )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
-              {groups.length > 0 && assignments.length > 0 && selectedSession && (
-                <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} />
-              )}
             </div>
           </div>
         </div>
@@ -488,7 +503,32 @@ function GroupsManagerInner() {
             <p className="text-sm text-gray-400">Make sure your schedule CSV includes group numbers for Session {selectedSession}.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <>
+          {/* Movement flags meter + lock banner — sit right above the groups */}
+          {groups.length > 1 && (
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+              <div className="flex items-center gap-2 text-sm" title="Players near a group boundary who the data says could move">
+                <span className="text-gray-600 font-medium">Movement flags:</span>
+                <span className="inline-flex items-center gap-1 font-semibold"><span className="text-green-600">↑ {movement.up.size} up</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size} down</span></span>
+                <span className="text-xs text-gray-400">— highlighted below; drag to move (nothing auto-moves)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Sensitivity</span>
+                <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} disabled={locked} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50">
+                  <option value="0.75">Sensitive</option>
+                  <option value="1.0">Balanced</option>
+                  <option value="1.5">Strict</option>
+                </select>
+              </div>
+            </div>
+          )}
+          {locked && (
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+              <span className="text-sm text-green-700 font-medium">🔒 Groups locked & finalized. Unlock to make changes.</span>
+              <button onClick={() => setLock(false)} disabled={finalizeBusy} className="text-xs px-3 py-1.5 border border-green-300 text-green-700 rounded-lg font-semibold hover:bg-green-100 disabled:opacity-50">Unlock to edit</button>
+            </div>
+          )}
+          <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${locked ? "opacity-95" : ""}`}>
             {groups.map(group => {
               const players = groupPlayers[group.id] || [];
               const groupSchedule = assignments.find(a => a.session_group_id === group.id);
@@ -643,6 +683,7 @@ function GroupsManagerInner() {
               );
             })}
           </div>
+          </>
         )}
 
         {/* Goalie Assignment Panel */}
@@ -679,6 +720,63 @@ function GroupsManagerInner() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Finalize bar — review your changes, confirm & lock, then send to parents */}
+        {groups.length > 0 && assignments.length > 0 && selectedSession && (
+          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900">Finalize {currentSession?.name || `Session ${selectedSession}`}</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {changes.length > 0
+                  ? <>You've moved <b className="text-gray-600">{changes.length}</b> player{changes.length === 1 ? "" : "s"} from the auto-assigned groups.</>
+                  : "No changes from the auto-assigned groups yet."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {changes.length > 0 && (
+                <button onClick={() => setShowReview(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50">Review changes ({changes.length})</button>
+              )}
+              {!locked ? (
+                <button onClick={() => setLock(true)} disabled={finalizeBusy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC] disabled:opacity-50">{finalizeBusy ? "Locking…" : "Confirm & lock groups"}</button>
+              ) : (
+                <>
+                  <span className="text-sm text-green-700 font-medium inline-flex items-center gap-1">🔒 Locked</span>
+                  <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Review-changes modal */}
+        {showReview && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowReview(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl max-h-[85vh] overflow-y-auto">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Changes you made</h3>
+              <p className="text-sm text-gray-500 mb-4">Moves from the groups the system auto-assigned by ranking.</p>
+              {changes.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4 text-center">No changes — the groups match the auto-assignment.</p>
+              ) : (
+                <div className="divide-y divide-gray-100 mb-5">
+                  {changes.map(c => (
+                    <div key={c.id} className="flex items-center justify-between py-2.5 text-sm">
+                      <span className="font-medium text-gray-900">{c.name}</span>
+                      <span className="inline-flex items-center gap-1.5 text-gray-500">
+                        <span className="px-2 py-0.5 bg-gray-100 rounded">Group {c.from}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className={`px-2 py-0.5 rounded font-semibold ${c.to < c.from ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>Group {c.to}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => setShowReview(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium">Close</button>
+                {!locked && <button onClick={() => setLock(true)} disabled={finalizeBusy} className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">{finalizeBusy ? "Locking…" : "Confirm & lock"}</button>}
+              </div>
             </div>
           </div>
         )}
