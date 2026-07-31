@@ -513,6 +513,11 @@ function GroupsManagerInner() {
                 <span className="text-xs text-gray-400">— highlighted below; drag to move (nothing auto-moves)</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 italic max-w-[16rem] text-right hidden sm:block">
+                  {sdThreshold <= 0.75 ? "Sensitive — flags anyone even a little above/below their group (more suggestions)"
+                    : sdThreshold >= 1.5 ? "Strict — flags only the clearest cases (fewest suggestions)"
+                    : "Balanced — flags players who clearly stand out from their group"}
+                </span>
                 <span className="text-xs text-gray-400">Sensitivity</span>
                 <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} disabled={locked} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50">
                   <option value="0.75">Sensitive</option>
@@ -528,7 +533,7 @@ function GroupsManagerInner() {
               <button onClick={() => setLock(false)} disabled={finalizeBusy} className="text-xs px-3 py-1.5 border border-green-300 text-green-700 rounded-lg font-semibold hover:bg-green-100 disabled:opacity-50">Unlock to edit</button>
             </div>
           )}
-          <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${locked ? "opacity-95" : ""}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {groups.map(group => {
               const players = groupPlayers[group.id] || [];
               const groupSchedule = assignments.find(a => a.session_group_id === group.id);
@@ -616,7 +621,7 @@ function GroupsManagerInner() {
                           onDragStart={e => onDragStart(e, player.athlete_id, group.id)}
                           className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-grab active:cursor-grabbing transition-colors ${
                             dragging?.athleteId === player.athlete_id ? "opacity-50" : ""
-                          } ${player.checked_in ? "bg-green-50/30" : ""} ${movement.up.has(String(player.athlete_id)) ? "border-l-4 border-l-green-400 bg-green-50/50" : movement.down.has(String(player.athlete_id)) ? "border-l-4 border-l-red-400 bg-red-50/30" : "border-l-4 border-l-transparent"}`}
+                          } ${player.checked_in ? "bg-green-50/30" : ""} ${movement.up.has(String(player.athlete_id)) ? "border-l-4 border-l-green-400" : movement.down.has(String(player.athlete_id)) ? "border-l-4 border-l-red-400" : "border-l-4 border-l-transparent"}`}
                         >
                           <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
                           {movement.up.has(String(player.athlete_id)) && <span title={movement.why[String(player.athlete_id)]} className="text-green-500 font-bold text-sm leading-none flex-shrink-0 cursor-help">↑</span>}
