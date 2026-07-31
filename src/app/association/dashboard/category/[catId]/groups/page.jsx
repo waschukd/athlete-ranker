@@ -661,8 +661,8 @@ function GroupsManagerInner() {
                         {group.group_number}
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900 text-sm">{group.name || `Group ${group.group_number}`}</div>
-                        <div className="text-xs text-gray-400">{players.length} players</div>
+                        <div className="font-semibold text-sm" style={{ color: "#111827" }}>{group.name || `Group ${group.group_number}`}</div>
+                        <div className="text-xs" style={{ color: "#6b7280" }}>{players.length} players</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
