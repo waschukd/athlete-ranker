@@ -27,6 +27,33 @@ const POSITION_COLORS = {
 };
 const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 
+// The green/red movement arrow — click it for a brief explanation of why the
+// player is flagged (hover still shows it as a title too).
+function FlagInfo({ dir, why }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        title={why}
+        onClick={() => setOpen(o => !o)}
+        className={`font-bold text-sm leading-none cursor-help ${dir === "up" ? "text-green-500" : "text-red-400"}`}
+        aria-label="Why is this player flagged?"
+      >
+        {dir === "up" ? "↑" : "↓"}
+      </button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <span className="absolute left-0 top-6 z-20 w-60 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-snug font-normal normal-case">
+            {why}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 function GroupsManagerInner() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -624,8 +651,8 @@ function GroupsManagerInner() {
                           } ${player.checked_in ? "bg-green-50/30" : ""} ${movement.up.has(String(player.athlete_id)) ? "border-l-4 border-l-green-400" : movement.down.has(String(player.athlete_id)) ? "border-l-4 border-l-red-400" : "border-l-4 border-l-transparent"}`}
                         >
                           <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
-                          {movement.up.has(String(player.athlete_id)) && <span title={movement.why[String(player.athlete_id)]} className="text-green-500 font-bold text-sm leading-none flex-shrink-0 cursor-help">↑</span>}
-                          {movement.down.has(String(player.athlete_id)) && <span title={movement.why[String(player.athlete_id)]} className="text-red-400 font-bold text-sm leading-none flex-shrink-0 cursor-help">↓</span>}
+                          {movement.up.has(String(player.athlete_id)) && <FlagInfo dir="up" why={movement.why[String(player.athlete_id)]} />}
+                          {movement.down.has(String(player.athlete_id)) && <FlagInfo dir="down" why={movement.why[String(player.athlete_id)]} />}
 
                           {/* Jersey/color indicator */}
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
