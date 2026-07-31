@@ -1292,11 +1292,13 @@ function TesterDashboardView({ data, theme, toggleTheme, showSwitch, onSwitch, q
   const mine = data?.mine || [];
   const act = async (action, schedule_id) => {
     setBusy(true);
-    await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, schedule_id }) });
-    setBusy(false);
-    queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
+    try {
+      await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, schedule_id }) });
+      queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
+    } catch { /* network blip — leave the list as-is; user can retry */ }
+    finally { setBusy(false); }
   };
-  const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; };
+  const signOut = async () => { try { await fetch("/api/auth/logout", { method: "POST" }); } catch {} window.location.href = "/account/signin"; };
   return (
     <div data-theme={theme} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200">
@@ -1459,13 +1461,18 @@ function EvaluatorDashboard() {
   const signupBlock = async (ids) => {
     setBatchBusy(true); setSignupError(null);
     try {
+      let failed = null;
       for (const sid of ids) {
-        await fetch("/api/evaluator/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+        const res = await fetch("/api/evaluator/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || d.error) { failed = d.message || d.error || "Some sessions in the block couldn't be added."; break; }
       }
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
       setBatchPrompt(null); setActiveTab("mine");
-    } finally { setBatchBusy(false); }
+      if (failed) setSignupError(failed);
+    } catch { setSignupError("Network error — please try again."); }
+    finally { setBatchBusy(false); }
   };
   const upcoming = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
   const past = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
