@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogOut, ChevronDown, Check } from "lucide-react";
+import { LogOut, ChevronDown, Check, Pencil } from "lucide-react";
 import GodJump from "@/components/GodJump";
 
 // Friendly role labels — what the user sees ("am I in as God Mode, SP, etc.?").
@@ -27,6 +27,9 @@ export default function SessionBar() {
   const [active, setActive] = useState(null);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -38,6 +41,23 @@ export default function SessionBar() {
   if (!user) return null;
 
   const who = user.name || user.email || "Account";
+
+  const startEdit = () => { setNameDraft(user.name || ""); setEditing(true); };
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (!name || name === user.name) { setEditing(false); return; }
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.success) setUser(u => ({ ...u, name: d.name }));
+    } catch {}
+    setSavingName(false);
+    setEditing(false);
+  };
   const activeRole = active || user.role;
   const multi = roles.length > 1;
 
@@ -77,7 +97,31 @@ export default function SessionBar() {
     >
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-[#9aa0aa] hidden sm:inline">Signed in as</span>
-        <span className="font-semibold truncate" style={{ color: "#f4f4f5" }}>{who}</span>
+        {editing ? (
+          <span className="inline-flex items-center gap-1">
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditing(false); }}
+              disabled={savingName}
+              maxLength={80}
+              placeholder="Your name"
+              className="px-1.5 py-0.5 rounded text-[13px] font-semibold outline-none"
+              style={{ background: "#1b1b1f", border: "1px solid #3a3a42", color: "#f4f4f5", width: "11rem" }}
+            />
+            <button onClick={saveName} disabled={savingName} title="Save" className="p-1 rounded hover:bg-white/10" style={{ color: "#cda434" }}>
+              <Check size={14} />
+            </button>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <span className="font-semibold truncate" style={{ color: "#f4f4f5" }}>{who}</span>
+            <button onClick={startEdit} title="Edit your name" className="p-0.5 rounded hover:bg-white/10 flex-shrink-0" style={{ color: "#9aa0aa" }}>
+              <Pencil size={12} />
+            </button>
+          </span>
+        )}
         {multi ? (
           <div className="relative">
             <button onClick={() => setOpen(o => !o)} disabled={switching} title="Switch role" className="hover:opacity-80">
