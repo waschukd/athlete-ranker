@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, MapPin, Check, Loader2, ClipboardList, Users, DollarSign, Inbox, Send, X, AlertTriangle } from "lucide-react";
+import { Clock, MapPin, Check, Loader2, ClipboardList, Users, DollarSign, Inbox, Send, X, AlertTriangle, LogOut } from "lucide-react";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BatchSignupPrompt from "@/components/BatchSignupPrompt";
 import { contiguousBlock } from "@/lib/sessionBlocks";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 
 const fmtTime = (t) => {
   if (!t) return "";
@@ -16,6 +19,7 @@ const fmtTime = (t) => {
 const todayKey = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`; };
 
 export default function TesterDashboard() {
+  const [theme, toggleTheme] = useTheme();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -125,13 +129,26 @@ export default function TesterDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-3 mb-1">
-          <ClipboardList size={22} className="text-accent" />
-          <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">Testing</h1>
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 flex justify-end items-center gap-3">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <NotificationBell />
+          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
+            <LogOut size={14} /> Sign out
+          </button>
         </div>
-        <p className="text-sm text-gray-500 mb-6">Sign up for testing sessions, track your hours &amp; pay, and message your service provider. Switch roles from the top bar.</p>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-1 pb-5">
+          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Tester</div>
+          <div className="flex items-end gap-4 flex-wrap">
+            <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Testing</h1>
+            <img src="/mark-gold.svg" style={{ width: "48px", height: "44px", objectFit: "contain" }} alt="" />
+          </div>
+          <p className="text-sm text-gray-500 mt-3">Sign up for testing sessions, track your hours &amp; pay, and message your service provider.</p>
+        </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-4 py-8">
 
         {loading ? (
           <div className="py-16 text-center text-gray-400">Loading…</div>
