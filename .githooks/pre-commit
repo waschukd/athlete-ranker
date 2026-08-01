@@ -1,0 +1,14 @@
+#!/bin/sh
+# Block any commit that contains a secret. Runs gitleaks on staged changes.
+# Enabled per-clone with:  git config core.hooksPath .githooks
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact -v; then
+    echo ""
+    echo "✋ Commit blocked: gitleaks found a secret in your staged changes."
+    echo "   Remove the secret (put real values in .env.local, which is gitignored)"
+    echo "   and commit again."
+    exit 1
+  fi
+else
+  echo "gitleaks not on PATH — skipping secret scan. Install gitleaks to enable this guard."
+fi
