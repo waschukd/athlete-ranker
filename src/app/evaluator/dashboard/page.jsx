@@ -212,20 +212,29 @@ function CancelModal({ scheduleId, onClose, onConfirm, isPending }) {
   );
 }
 
-function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode, conflict }) {
-  const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
-  const spotsAfterMe = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 1);
+function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode, conflict, kind }) {
+  // kind ("evaluation" | "testing") is set in the combined My Sessions list so one
+  // card can render either commitment. It drives the badge, the staffing wording,
+  // and which staffing count to read (testers_* vs evaluators_*).
+  const isTesting = kind === "testing";
+  const roleNoun = isTesting ? "tester" : "evaluator";
+  const reqCount = parseInt(isTesting ? session.testers_required : session.evaluators_required);
+  const spotsLeft = reqCount - parseInt((isTesting ? session.testers_signed_up : session.evaluators_signed_up) || 0);
+  const spotsAfterMe = reqCount - parseInt((isTesting ? session.testers_signed_up : session.evaluators_signed_up) || 1);
   const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(localToday());
   const [showInvite, setShowInvite] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
-  // Status badge (My Sessions only): TODAY / Needs scoring / Scored / Upcoming
+  // Status badge (My Sessions only): TODAY / Needs scoring / Scored / Upcoming.
+  // Testing sessions don't carry scoring state here, so they show plain when-badges.
   const dateStr = session.scheduled_date?.toString().split("T")[0];
   const todayStr = localToday();
   const scored = parseInt(session.my_scored_athletes || 0) > 0;
   const isToday = dateStr === todayStr;
   const isPast = dateStr < todayStr;
   const badge = mode !== "mine" ? null
+    : isTesting
+      ? (isToday ? { t: "Today", c: "bg-accent-soft text-accent" } : isPast ? { t: "Past", c: "bg-gray-100 text-gray-500" } : { t: "Upcoming", c: "bg-gray-100 text-gray-500" })
     : isToday ? { t: scored ? "Today · Scored ✓" : "Today", c: "bg-accent-soft text-accent" }
     : isPast ? (scored ? { t: "Scored ✓", c: "bg-green-50 text-green-700" } : { t: "Needs scoring", c: "bg-amber-100 text-amber-700" })
     : (scored ? { t: "Upcoming · Scored ✓", c: "bg-green-50 text-green-700" } : { t: "Upcoming", c: "bg-gray-100 text-gray-500" });
@@ -248,6 +257,11 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-2">
+              {kind && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${isTesting ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-blue-100 text-blue-700 border-blue-200"}`}>
+                  {isTesting ? "Testing" : "Evaluation"}
+                </span>
+              )}
               <OrgChip name={session.org_name} palette={colorForOrg(session.org_name)} />
               <span className="text-gray-300">·</span>
               <span className="font-medium text-gray-700">{session.category_name}</span>
@@ -275,9 +289,9 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                 <Users size={11} />
                 {mode === "mine"
                   ? spotsAfterMe > 0
-                    ? `${spotsAfterMe} more evaluator${spotsAfterMe !== 1 ? "s" : ""} needed`
+                    ? `${spotsAfterMe} more ${roleNoun}${spotsAfterMe !== 1 ? "s" : ""} needed`
                     : "Session fully staffed ✓"
-                  : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left of ${session.evaluators_required}`
+                  : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left of ${reqCount}`
                 }
               </span>
             </div>
@@ -290,7 +304,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <ClipboardList size={14} /> Score
                 </a>
-                {spotsAfterMe > 0 && (
+                {!isTesting && spotsAfterMe > 0 && (
                   <button
                     onClick={() => setShowInvite(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
@@ -1444,6 +1458,19 @@ function EvaluatorDashboard() {
     },
   });
 
+  // Cancelling a TESTING commitment from the combined My Sessions list goes through
+  // the tester endpoint (the evaluator cancel path doesn't touch testing signups).
+  const testerCancelMutation = useMutation({
+    mutationFn: async (schedule_id) => {
+      const res = await fetch("/api/tester/sessions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule_id, action: "cancel" }),
+      });
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["my-capabilities"] }); },
+  });
+
   const handleJoinCode = async (e) => {
     e.preventDefault();
     setJoiningOrg(true);
@@ -1464,6 +1491,14 @@ function EvaluatorDashboard() {
 
   const mineSessions = mineData?.sessions || [];
   const availSessions = availData?.sessions || [];
+
+  // Combined "My Sessions": evaluation signups + testing signups in one list, each
+  // tagged so the card can badge it Evaluation vs Testing. Lets a dual-role person
+  // (evaluator + tester) see their whole day in one place instead of flipping views.
+  const combinedMine = useMemo(() => [
+    ...mineSessions.map(s => ({ ...s, __kind: "evaluation" })),
+    ...(capData?.mine || []).map(s => ({ ...s, __kind: "testing" })),
+  ], [mineSessions, capData]);
 
   // Association filter for the available list. Only meaningful for an evaluator
   // whose available sessions span more than one association (an SP evaluator tied
@@ -1685,7 +1720,7 @@ function EvaluatorDashboard() {
           <div className="space-y-4">
             {mineLoading ? (
               <div className="py-12 text-center text-gray-400 text-sm">Loading your sessions...</div>
-            ) : mineSessions.length === 0 ? (
+            ) : combinedMine.length === 0 ? (
               <div className="py-16 text-center">
                 <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                 <h3 className="font-semibold text-gray-700 mb-2">No sessions yet</h3>
@@ -1696,18 +1731,25 @@ function EvaluatorDashboard() {
                 </button>
               </div>
             ) : (
-              <ScheduleBoard
-                sessions={mineSessions}
-                storageKey="eval-mine-view"
-                subscribeEndpoint="/api/evaluator/calendar-link"
-                renderRow={(s) => (
-                  <SessionCard session={s} mode="mine"
-                    onCancel={() => {}}
-                    onCancelWithReason={(id, reason) => cancelMutation.mutate({ schedule_id: id, reason })}
-                    cancelPending={cancelMutation.isPending}
-                    onSignup={() => {}} />
+              <>
+                {isTester && isEvaluator && (
+                  <p className="text-xs text-gray-400 mb-1">Your evaluation and testing commitments, together. Each card is tagged so you can tell them apart.</p>
                 )}
-              />
+                <ScheduleBoard
+                  sessions={combinedMine}
+                  storageKey="eval-mine-view"
+                  subscribeEndpoint="/api/evaluator/calendar-link"
+                  renderRow={(s) => (
+                    <SessionCard session={s} mode="mine" kind={s.__kind}
+                      onCancel={() => {}}
+                      onCancelWithReason={(id, reason) => s.__kind === "testing"
+                        ? testerCancelMutation.mutate(id)
+                        : cancelMutation.mutate({ schedule_id: id, reason })}
+                      cancelPending={s.__kind === "testing" ? testerCancelMutation.isPending : cancelMutation.isPending}
+                      onSignup={() => {}} />
+                  )}
+                />
+              </>
             )}
           </div>
         )}
