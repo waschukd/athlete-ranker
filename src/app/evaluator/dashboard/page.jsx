@@ -490,6 +490,27 @@ function FilterChip({ value, options, onChange, label }) {
   );
 }
 
+// Segmented All / Testing / Evaluation switch, shown only to a dual-role person so
+// they can view (or sign up from) everything at once or narrow to one kind. Counts
+// are live so the breakdown is obvious at a glance.
+function SessionTypeTabs({ value, onChange, counts }) {
+  const opts = [
+    ["all", "All", counts.all],
+    ["testing", "Testing", counts.testing],
+    ["evaluation", "Evaluation", counts.evaluation],
+  ];
+  return (
+    <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white mb-3">
+      {opts.map(([v, l, c]) => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${value === v ? "bg-[#0b5cd6] text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+          {l} <span className={value === v ? "opacity-80" : "text-gray-400"}>({c})</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function AvailableSessionRow({ session, onSignup, palette, conflict }) {
   const spotsLeft = parseInt(session.evaluators_required) - parseInt(session.evaluators_signed_up || 0);
   const orgAbbrev = abbrevOrgName(session.org_name);
@@ -1517,6 +1538,18 @@ function EvaluatorDashboard() {
     ...(capData?.mine || []).map(s => ({ ...s, __kind: "testing" })),
   ], [mineSessions, capData]);
 
+  // Segmented All / Testing / Evaluation filter for My Sessions.
+  const [mineFilter, setMineFilter] = useState("all");
+  const mineFiltered = useMemo(
+    () => mineFilter === "all" ? combinedMine : combinedMine.filter(s => s.__kind === mineFilter),
+    [combinedMine, mineFilter]
+  );
+  const mineCounts = useMemo(() => ({
+    all: combinedMine.length,
+    testing: combinedMine.filter(s => s.__kind === "testing").length,
+    evaluation: combinedMine.filter(s => s.__kind === "evaluation").length,
+  }), [combinedMine]);
+
   // ONE available list: testing sessions the person can sign up for + (if they hold
   // evaluator rights) evaluation sessions that DON'T conflict with testing — the
   // server already hides testing-conflicting evals. Each is tagged so the card can
@@ -1529,15 +1562,23 @@ function EvaluatorDashboard() {
   // Association filter — options drawn from the combined available list, so it only
   // ever lists the person's own accessible associations. "all" = every one.
   const [availOrgFilter, setAvailOrgFilter] = useState("all");
+  const [availTypeFilter, setAvailTypeFilter] = useState("all");
   const availOrgs = useMemo(() => {
     const set = new Set();
     combinedAvail.forEach(s => s.org_name && set.add(s.org_name));
     return Array.from(set).sort();
   }, [combinedAvail]);
-  const availFiltered = useMemo(
-    () => availOrgFilter === "all" ? combinedAvail : combinedAvail.filter(s => s.org_name === availOrgFilter),
-    [combinedAvail, availOrgFilter]
-  );
+  const availFiltered = useMemo(() => {
+    let list = combinedAvail;
+    if (availTypeFilter !== "all") list = list.filter(s => s.__kind === availTypeFilter);
+    if (availOrgFilter !== "all") list = list.filter(s => s.org_name === availOrgFilter);
+    return list;
+  }, [combinedAvail, availTypeFilter, availOrgFilter]);
+  const availCounts = useMemo(() => ({
+    all: combinedAvail.length,
+    testing: combinedAvail.filter(s => s.__kind === "testing").length,
+    evaluation: combinedAvail.filter(s => s.__kind === "evaluation").length,
+  }), [combinedAvail]);
 
   // Every time slot the person already holds — testing AND evaluation — so any
   // available session (of either kind) that overlaps one is flagged and its Sign Up
@@ -1759,10 +1800,10 @@ function EvaluatorDashboard() {
             ) : (
               <>
                 {isTester && isEvaluator && (
-                  <p className="text-xs text-gray-400 mb-1">Your evaluation and testing commitments, together. Each card is tagged so you can tell them apart.</p>
+                  <SessionTypeTabs value={mineFilter} onChange={setMineFilter} counts={mineCounts} />
                 )}
                 <ScheduleBoard
-                  sessions={combinedMine}
+                  sessions={mineFiltered}
                   storageKey="eval-mine-view"
                   subscribeEndpoint="/api/evaluator/calendar-link"
                   renderRow={(s) => (
@@ -1810,6 +1851,9 @@ function EvaluatorDashboard() {
                   <X size={14} />
                 </button>
               </div>
+            )}
+            {isTester && isEvaluator && (
+              <SessionTypeTabs value={availTypeFilter} onChange={setAvailTypeFilter} counts={availCounts} />
             )}
             {availOrgs.length > 1 && (
               <div className="mb-3 flex items-center gap-2 flex-wrap">
