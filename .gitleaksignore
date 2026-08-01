@@ -1,0 +1,15 @@
+# Findings from commit 8e646029 (2026-03-21): a .env.local, a .next build artifact,
+# and an old vercel.json were briefly committed. ALL of these secrets have since
+# been ROTATED and are DEAD, verified 2026-08-01:
+#   - Neon DATABASE_URL password reset (the old credential now fails authentication)
+#   - Resend API key deleted from the Resend dashboard
+#   - AUTH_SECRET and CRON_SECRET replaced in Vercel
+# These fingerprints are listed so gitleaks treats them as acknowledged/remediated
+# instead of failing every scan on already-dead secrets.
+8e646029a65054652c5a948d325818964ad0653c:.next/server/server-reference-manifest.json:generic-api-key:4
+8e646029a65054652c5a948d325818964ad0653c:.env.local.example:generic-api-key:2
+8e646029a65054652c5a948d325818964ad0653c:.env.local:generic-api-key:3
+8e646029a65054652c5a948d325818964ad0653c:.env.local:generic-api-key:9
+8e646029a65054652c5a948d325818964ad0653c:.env.local:generic-api-key:12
+8e646029a65054652c5a948d325818964ad0653c:vercel.json:generic-api-key:4
+8e646029a65054652c5a948d325818964ad0653c:vercel.json:generic-api-key:8
