@@ -13,7 +13,7 @@ const to24 = (t) => { const s = String(t || "").trim(); if (!s) return null; con
 const toISO = (d) => { const s = String(d || "").trim(); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0]; m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`; m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/); if (m) return `20${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`; return null; };
 const stype = (t) => { const s = String(t || "").toLowerCase(); if (s.includes("test") || s.includes("time trial")) return "testing"; if (s.includes("goalie")) return "goalie_skills"; if (s.includes("scrim") || s.includes("game")) return "scrimmage"; if (s.includes("skill") || s.includes("pre")) return "skills"; return "scrimmage"; };
 
-export function mapColumns(H) {
+function mapColumns(H) {
   const col = (names) => H.findIndex(h => names.some(n => h.includes(n)));
   return {
     div: col(["division"]),

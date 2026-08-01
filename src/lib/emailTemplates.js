@@ -3,7 +3,7 @@ import { DEFAULT_TEMPLATES, renderTemplate } from "@/lib/emailTemplateDefaults";
 
 // Re-exported so existing server callers keep importing from one place, and so
 // the wording lives in exactly one module (emailTemplateDefaults, client-safe).
-export { renderTemplate, DEFAULT_TEMPLATES };
+export { renderTemplate };
 
 // Per-org email copy overrides. Returns null when not set (caller falls back to
 // the built-in template). Safe if the table isn't migrated yet.

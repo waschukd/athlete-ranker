@@ -82,7 +82,3 @@ export const SAMPLE_VARS = {
 };
 
 export const TEMPLATE_KEYS = Object.keys(DEFAULT_TEMPLATES);
-
-export function defaultTemplate(key) {
-  return DEFAULT_TEMPLATES[key] || null;
-}
