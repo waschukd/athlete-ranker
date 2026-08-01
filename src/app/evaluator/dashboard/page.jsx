@@ -1562,8 +1562,11 @@ function EvaluatorDashboard() {
     } catch { setSignupError("Network error — please try again."); }
     finally { setBatchBusy(false); }
   };
-  const upcoming = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
-  const past = mineSessions.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
+  // Counts (and the My Sessions tab badge) reflect the COMBINED list — evaluation
+  // + testing commitments — so they match what's rendered below. Using mineSessions
+  // here under-counted a dual-role person's day by leaving out their testing.
+  const upcoming = combinedMine.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
+  const past = combinedMine.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
 
   // Group My Sessions so unfinished work floats up: Today → Needs scoring → Upcoming → Done
   const _today = localToday();
