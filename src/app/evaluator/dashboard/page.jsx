@@ -1471,6 +1471,23 @@ function EvaluatorDashboard() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["my-capabilities"] }); },
   });
 
+  // Signing up for a TESTING session from the combined available list.
+  const testerSignupMutation = useMutation({
+    mutationFn: async (schedule_id) => {
+      const res = await fetch("/api/tester/sessions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule_id, action: "signup" }),
+      });
+      return { ok: res.ok, ...(await res.json().catch(() => ({}))) };
+    },
+    onSuccess: (data) => {
+      if (!data.ok || data.error) { setSignupError(data.message || data.error || "Couldn't sign up."); return; }
+      setSignupError(null);
+      setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
+      queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
+    },
+  });
+
   const handleJoinCode = async (e) => {
     e.preventDefault();
     setJoiningOrg(true);
@@ -1500,34 +1517,41 @@ function EvaluatorDashboard() {
     ...(capData?.mine || []).map(s => ({ ...s, __kind: "testing" })),
   ], [mineSessions, capData]);
 
-  // Association filter for the available list. Only meaningful for an evaluator
-  // whose available sessions span more than one association (an SP evaluator tied
-  // to a multi-association service provider). Options are drawn straight from the
-  // available sessions, so it can only ever list the evaluator's own accessible
-  // associations. "all" = every association's sessions across all dates.
+  // ONE available list: testing sessions the person can sign up for + (if they hold
+  // evaluator rights) evaluation sessions that DON'T conflict with testing — the
+  // server already hides testing-conflicting evals. Each is tagged so the card can
+  // badge it Testing vs Evaluation. No view to flip, one schedule to sign up from.
+  const combinedAvail = useMemo(() => [
+    ...availSessions.map(s => ({ ...s, __kind: "evaluation" })),
+    ...(capData?.available || []).map(s => ({ ...s, __kind: "testing" })),
+  ], [availSessions, capData]);
+
+  // Association filter — options drawn from the combined available list, so it only
+  // ever lists the person's own accessible associations. "all" = every one.
   const [availOrgFilter, setAvailOrgFilter] = useState("all");
   const availOrgs = useMemo(() => {
     const set = new Set();
-    availSessions.forEach(s => s.org_name && set.add(s.org_name));
+    combinedAvail.forEach(s => s.org_name && set.add(s.org_name));
     return Array.from(set).sort();
-  }, [availSessions]);
+  }, [combinedAvail]);
   const availFiltered = useMemo(
-    () => availOrgFilter === "all" ? availSessions : availSessions.filter(s => s.org_name === availOrgFilter),
-    [availSessions, availOrgFilter]
+    () => availOrgFilter === "all" ? combinedAvail : combinedAvail.filter(s => s.org_name === availOrgFilter),
+    [combinedAvail, availOrgFilter]
   );
 
-  // Time slots the evaluator already holds, so overlapping available sessions can
-  // be flagged (and their Sign Up disabled) — you can't double-book yourself.
+  // Every time slot the person already holds — testing AND evaluation — so any
+  // available session (of either kind) that overlaps one is flagged and its Sign Up
+  // disabled. This is what prevents double-booking across the two, in one place.
   // Two intervals overlap iff a.start < b.end AND b.start < a.end (same day).
-  const myOccupied = useMemo(() => mineSessions
+  const myOccupied = useMemo(() => combinedMine
     .map(s => ({
       dateKey: s.scheduled_date?.toString().split("T")[0],
       start: s.start_time?.toString(),
       end: s.end_time?.toString(),
     }))
-    .filter(x => x.dateKey && x.start && x.end), [mineSessions]);
+    .filter(x => x.dateKey && x.start && x.end), [combinedMine]);
   const availConflict = (s) => {
-    if (s.busy_eval) return true; // server-detected overlap with an existing signup
+    if (s.busy_eval) return true; // server-detected overlap with an existing eval signup
     const dateKey = s.scheduled_date?.toString().split("T")[0];
     const start = s.start_time?.toString();
     const end = s.end_time?.toString();
@@ -1601,8 +1625,7 @@ function EvaluatorDashboard() {
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-0 pt-1">
           <div className="pb-5">
-            <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Evaluator</div>
-            {isTester && isEvaluator && <CapabilityBar active="evaluations" onEvaluations={() => {}} onTesting={() => setCapView("testing")} />}
+            <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{isTester && isEvaluator ? "Evaluator + Tester" : "Evaluator"}</div>
             <div className="flex items-end gap-4 flex-wrap">
               <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">Dashboard</h1>
               <img src="/mark-gold.svg" style={{width:"48px",height:"44px",objectFit:"contain"}} />
@@ -1612,7 +1635,7 @@ function EvaluatorDashboard() {
               <span className="text-gray-300">·</span>
               <span><b className="text-ink">{past.length}</b> past</span>
               <span className="text-gray-300">·</span>
-              <span><b className="text-ink">{availSessions.length}</b> open to sign up</span>
+              <span><b className="text-ink">{combinedAvail.length}</b> open to sign up</span>
             </div>
 
             {/* ── Score Now widget ── */}
@@ -1670,7 +1693,7 @@ function EvaluatorDashboard() {
           <div className="flex gap-1 overflow-x-auto">
             {[
               { id: "mine", label: `My Sessions (${upcoming.length})` },
-              { id: "available", label: `Available (${availSessions.length})` },
+              { id: "available", label: `Available (${combinedAvail.length})` },
               { id: "availability", label: "Availability" },
               { id: "messages", label: "Messages" },
               { id: "pay", label: "Hours & Pay" },
@@ -1743,7 +1766,7 @@ function EvaluatorDashboard() {
                   storageKey="eval-mine-view"
                   subscribeEndpoint="/api/evaluator/calendar-link"
                   renderRow={(s) => (
-                    <SessionCard session={s} mode="mine" kind={s.__kind}
+                    <SessionCard session={s} mode="mine" kind={isTester && isEvaluator ? s.__kind : undefined}
                       onCancel={() => {}}
                       onCancelWithReason={(id, reason) => s.__kind === "testing"
                         ? testerCancelMutation.mutate(id)
@@ -1812,8 +1835,8 @@ function EvaluatorDashboard() {
                 storageKey="eval-avail-view"
                 emptyText="No available sessions right now. Check back soon or edit your availability."
                 renderRow={(s) => (
-                  <SessionCard session={s} mode="available"
-                    onSignup={handleSignup}
+                  <SessionCard session={s} mode="available" kind={isTester && isEvaluator ? s.__kind : undefined}
+                    onSignup={(id) => s.__kind === "testing" ? testerSignupMutation.mutate(id) : handleSignup(id)}
                     conflict={availConflict(s)}
                     onCancel={() => {}} onCancelWithReason={() => {}} />
                 )}

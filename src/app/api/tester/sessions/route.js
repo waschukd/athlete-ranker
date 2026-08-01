@@ -129,6 +129,26 @@ export async function POST(request) {
           error: `That overlaps a session you're already signed up for — ${clash.label} at ${clash.location || "another location"}, ${t(clash.start_time)}–${t(clash.end_time)}. Cancel that one first if you meant to switch.`,
         }, { status: 409 });
       }
+      // Cross-type double-book: a tester who also evaluates can't take a testing slot
+      // that overlaps an EVALUATION they're already signed up for.
+      const [evalClash] = await sql`
+        SELECT es2.start_time, es2.end_time, es2.location, ac.name AS label
+        FROM evaluator_session_signups e
+        JOIN evaluation_schedule es2 ON es2.id = e.schedule_id
+        JOIN evaluation_schedule newes ON newes.id = ${scheduleId}
+        LEFT JOIN age_categories ac ON ac.id = es2.age_category_id
+        WHERE e.user_id = ${cap.userId} AND e.status = 'signed_up'
+          AND es2.scheduled_date = newes.scheduled_date
+          AND es2.start_time IS NOT NULL AND es2.end_time IS NOT NULL
+          AND newes.start_time IS NOT NULL AND newes.end_time IS NOT NULL
+          AND newes.start_time < es2.end_time AND es2.start_time < newes.end_time
+        LIMIT 1`;
+      if (evalClash) {
+        const t = (v) => String(v || "").slice(0, 5);
+        return NextResponse.json({
+          error: `That overlaps an evaluation you're signed up for — ${evalClash.label || "an evaluation"} at ${evalClash.location || "another location"}, ${t(evalClash.start_time)}–${t(evalClash.end_time)}. Cancel that one first if you meant to switch.`,
+        }, { status: 409 });
+      }
       await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status) VALUES (${scheduleId}, ${cap.userId}, 'signed_up')
         ON CONFLICT (schedule_id, user_id) DO UPDATE SET status = 'signed_up'`;
       return NextResponse.json({ success: true });
