@@ -142,8 +142,8 @@ export async function getUserRoles(email) {
 export function roleRedirect(role, orgId) {
   switch (role) {
     case "super_admin": return "/admin/god-mode";
-    case "service_provider_admin":
-    case "goalie_service_provider_admin": return orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
+    case "service_provider_admin": return orgId ? `/service-provider/dashboard?org=${orgId}` : "/service-provider/dashboard";
+    case "goalie_service_provider_admin": return orgId ? `/goalie-provider/dashboard?org=${orgId}` : "/goalie-provider/dashboard";
     case "association_admin": return orgId ? `/association/dashboard?org=${orgId}` : "/association/dashboard";
     case "director": return "/director/dashboard";
     case "service_provider_tester": return "/tester/dashboard";

@@ -1,19 +1,205 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight } from "lucide-react";
+import { useTheme } from "@/lib/useTheme";
+import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 
-// The Goalie Service Provider now uses the SAME Service Provider dashboard,
-// scoped to goalies by org type. This route just forwards there (keeping ?org).
-function Redirect() {
-  const sp = useSearchParams();
-  useEffect(() => {
-    const org = sp.get("org");
-    window.location.replace(`/service-provider/dashboard${org ? `?org=${org}` : ""}`);
-  }, [sp]);
+// The Goalie Service Provider's own dashboard — its own home, separate from the
+// (skater) Service Provider dashboard. It manages its own association connections
+// and views goalie rankings. Goalie data lives entirely here, never on the skater
+// SP dashboard or the association's player dashboard.
+function Inner() {
+  const params = useSearchParams();
+  const org = params.get("org");
+  const [theme, toggleTheme] = useTheme();
+  const [tab, setTab] = useState("overview");
+
+  const withOrg = useCallback((path) => (org ? `${path}${path.includes("?") ? "&" : "?"}org=${org}` : path), [org]);
+
+  const [overview, setOverview] = useState(null);
+  const [managed, setManaged] = useState(null);
+  const loadOverview = useCallback(() => {
+    fetch(withOrg("/api/goalie-provider/overview")).then(r => r.json()).then(setOverview).catch(() => setOverview({ error: "Failed to load" }));
+  }, [withOrg]);
+  const loadManaged = useCallback(() => {
+    fetch(withOrg("/api/goalie-provider/associations")).then(r => r.json()).then(d => setManaged(d.associations || [])).catch(() => setManaged([]));
+  }, [withOrg]);
+  useEffect(() => { loadOverview(); loadManaged(); }, [loadOverview, loadManaged]);
+
+  const spName = overview?.sp?.name || "Goalie Service Provider";
+  const totalAssoc = overview?.total_associations ?? 0;
+  const totalGoalies = overview?.total_goalies ?? 0;
+  const associations = overview?.associations || [];
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex justify-end items-center gap-3">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <NotificationBell />
+          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
+            <LogOut size={14} /> Sign out
+          </button>
+        </div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-1 pb-4">
+          <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Goalie Service Provider</div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none flex items-center gap-3">
+              <Star size={30} className="text-accent" /> {spName}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2 mt-3 text-sm text-gray-500 font-medium">
+            <span><b className="text-ink">{totalAssoc}</b> association{totalAssoc !== 1 ? "s" : ""}</span>
+            <span className="text-gray-300">·</span>
+            <span><b className="text-ink">{totalGoalies}</b> goalie{totalGoalies !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="flex gap-1 mt-4 overflow-x-auto">
+            {[{ id: "overview", label: "Overview" }, { id: "associations", label: "Associations" }].map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {overview?.error ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{overview.error}</div>
+        ) : tab === "overview" ? (
+          <OverviewTab associations={associations} withOrg={withOrg} onGoAssociations={() => setTab("associations")} />
+        ) : (
+          <AssociationsTab managed={managed} onChanged={() => { loadManaged(); loadOverview(); }} withOrg={withOrg} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OverviewTab({ associations, withOrg, onGoAssociations }) {
+  if (associations.length === 0) {
+    return (
+      <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-16 text-center">
+        <Building2 size={40} className="mx-auto text-gray-200 mb-3" />
+        <h3 className="font-semibold text-gray-600">No associations connected yet</h3>
+        <p className="text-sm text-gray-400 mt-1 mb-4">Connect to an association by its code to start evaluating their goalies.</p>
+        <button onClick={onGoAssociations} className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
+          <Plus size={15} /> Connect an association
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {associations.map(a => (
+        <div key={a.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <Building2 size={16} className="text-accent" />
+            <h3 className="font-semibold text-ink">{a.name}</h3>
+          </div>
+          {a.categories.length === 0 ? (
+            <div className="px-5 py-6 text-sm text-gray-400">No categories yet.</div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {a.categories.map(c => (
+                <a key={c.id} href={withOrg(`/goalie-provider/rankings?org=${a.id}`)}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors group">
+                  <span className="text-sm font-medium text-gray-700">{c.name}</span>
+                  <span className="inline-flex items-center gap-3 text-xs text-gray-500">
+                    <span className="inline-flex items-center gap-1"><Users size={12} /> {c.goalie_count} goalie{c.goalie_count !== 1 ? "s" : ""}</span>
+                    <span className="inline-flex items-center gap-1 text-accent font-semibold group-hover:gap-2 transition-all">Rankings <ArrowRight size={13} /></span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AssociationsTab({ managed, onChanged, withOrg }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const connect = async () => {
+    if (!code.trim()) return;
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(withOrg("/api/goalie-provider/associations"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "connect", org_code: code.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) { setMsg({ type: "error", text: d.error || "Couldn't connect." }); }
+      else { setMsg({ type: "success", text: d.alreadyLinked ? `Already connected to ${d.association?.name}.` : `Connected to ${d.association?.name}.` }); setCode(""); onChanged(); }
+    } catch { setMsg({ type: "error", text: "Network error — please try again." }); }
+    setBusy(false);
+  };
+  const disconnect = async (association_id, name) => {
+    setBusy(true); setMsg(null);
+    try {
+      await fetch(withOrg("/api/goalie-provider/associations"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect", association_id }),
+      });
+      setMsg({ type: "success", text: `Disconnected from ${name}.` });
+      onChanged();
+    } catch { setMsg({ type: "error", text: "Couldn't disconnect." }); }
+    setBusy(false);
+  };
+
+  const list = managed || [];
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5"><Link2 size={15} className="text-accent" /> Connect to an association</h3>
+        <p className="text-xs text-gray-400 mt-0.5 mb-3">Ask the association for their association code, then enter it here. This connects you to their existing association — no new setup on their end. They&apos;ll see goalie results in their <b>Manage Goalies</b> view.</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === "Enter") connect(); }}
+            placeholder="ASSOCIATION CODE" autoComplete="off"
+            className="flex-1 min-w-[12rem] border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-wide uppercase focus:outline-none focus:ring-2 focus:ring-accent/40" />
+          <button onClick={connect} disabled={busy || !code.trim()} className="inline-flex items-center gap-1.5 px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:opacity-90">
+            <Plus size={15} /> Connect
+          </button>
+        </div>
+        {msg && <p className={`text-xs font-medium mt-2 ${msg.type === "success" ? "text-green-600" : "text-red-500"}`}>{msg.text}</p>}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">Connected associations</h3>
+        </div>
+        {list.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-gray-400">No associations connected yet. Enter a code above to connect.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {list.map(a => (
+              <div key={a.id} className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="font-medium text-ink">{a.name}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                    <span className="font-mono">{a.org_code}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1"><Users size={11} /> {a.goalie_count} goalie{a.goalie_count !== 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={withOrg(`/goalie-provider/rankings?org=${a.id}`)} className="text-xs px-3 py-1.5 border border-accent/30 text-accent rounded-lg font-semibold hover:bg-accent-soft">Rankings</a>
+                  <button onClick={() => disconnect(a.id, a.name)} disabled={busy} className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 inline-flex items-center gap-1"><X size={12} /> Disconnect</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -21,7 +207,7 @@ function Redirect() {
 export default function GoalieProviderDashboardPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-50" data-theme="premium" />}>
-      <Redirect />
+      <Inner />
     </Suspense>
   );
 }
