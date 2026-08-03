@@ -42,9 +42,25 @@ function GoalieEvalCard({ orgId }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [goalieCats, setGoalieCats] = useState(null);
+  const [newCatName, setNewCatName] = useState("");
+  const [catBusy, setCatBusy] = useState(false);
 
   const load = () => fetch(`/api/organizations/${orgId}/goalie-provider`).then(r => r.json()).then(setData).catch(() => {});
-  useEffect(() => { if (orgId) load(); }, [orgId]); // eslint-disable-line
+  const loadCats = () => fetch(`/api/organizations/${orgId}/goalie-categories`).then(r => r.json()).then(d => setGoalieCats(d.categories || [])).catch(() => setGoalieCats([]));
+  useEffect(() => { if (orgId) { load(); loadCats(); } }, [orgId]); // eslint-disable-line
+
+  const createGoalieCat = async () => {
+    if (!newCatName.trim()) return;
+    setCatBusy(true); setMsg(null);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/goalie-categories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim() }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) setMsg({ type: "err", text: d.error || "Couldn't create category." });
+      else { setNewCatName(""); loadCats(); }
+    } catch { setMsg({ type: "err", text: "Network error." }); }
+    setCatBusy(false);
+  };
 
   const post = async (payload, okMsg) => {
     setBusy(true); setMsg(null);
@@ -110,6 +126,36 @@ function GoalieEvalCard({ orgId }) {
             </div>
             <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Goalie scoring template</h4>
             <GoalieTemplateEditor orgId={orgId} context="association" />
+
+            {/* Goalie-only categories — your own goalie evaluation groups, using the
+                same tools a goalie service provider would. */}
+            <div className="mt-5 pt-4 border-t border-gray-100">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Goalie categories</h4>
+              <p className="text-xs text-gray-400 mb-3">Goalie-only groups (e.g. &quot;U13 Goalies&quot;). Goalies live here — separate from your player categories.</p>
+              <div className="flex items-center gap-2 mb-3">
+                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") createGoalieCat(); }}
+                  placeholder="e.g. U13 Goalies" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                <button onClick={createGoalieCat} disabled={catBusy || !newCatName.trim()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:opacity-90"><Plus size={14} /> Add</button>
+              </div>
+              {goalieCats === null ? (
+                <p className="text-xs text-gray-400">Loading…</p>
+              ) : goalieCats.length === 0 ? (
+                <p className="text-xs text-gray-400">No goalie categories yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {goalieCats.map(c => (
+                    <div key={c.id} className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg text-sm">
+                      <span className="font-medium text-gray-800">{c.name}</span>
+                      <span className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>{c.goalie_count} goalie{c.goalie_count !== 1 ? "s" : ""}</span>
+                        <a href={`/association/dashboard/category/${c.id}/setup?org=${orgId}`} className="text-accent font-semibold hover:opacity-70">Set up</a>
+                        <a href={`/association/dashboard/category/${c.id}?org=${orgId}`} className="text-accent font-semibold hover:opacity-70">Open</a>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {msg && <p className={`text-xs break-words ${msg.type === "ok" ? "text-green-600" : "text-red-500"}`}>{msg.text}</p>}

@@ -20,7 +20,9 @@ export async function GET(request, { params }) {
       FROM age_categories ac
       LEFT JOIN athletes a ON a.age_category_id = ac.id AND a.is_active = true
       LEFT JOIN evaluation_schedule es ON es.age_category_id = ac.id
-      WHERE ac.organization_id = ${params.orgId}
+      -- Goalie-only categories live in the association's Manage Goalies area, not
+      -- the main (player) category list.
+      WHERE ac.organization_id = ${params.orgId} AND COALESCE(ac.goalie_only, false) = false
       GROUP BY ac.id
       ORDER BY ac.name
     `;

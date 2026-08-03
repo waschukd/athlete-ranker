@@ -3,14 +3,24 @@ import sql from "@/lib/db";
 import { getSession, resolveGoalieSpOrgId } from "@/lib/auth";
 import { computeCategoryRankings } from "@/lib/rankings";
 
-// Verify a category belongs to an association linked to this goalie SP (or super_admin).
+// Verify the caller can view this category's goalie rankings: super_admin, a goalie
+// SP linked to the category's association, OR (for in-house goalie categories) an
+// association admin of that association.
 async function authorizeCat(session, orgParam, catId) {
   if (session?.role === "super_admin") return true;
-  const spId = await resolveGoalieSpOrgId(session, orgParam);
-  if (!spId) return false;
   const cat = await sql`SELECT organization_id FROM age_categories WHERE id = ${catId}`;
   if (!cat.length) return false;
-  const linked = await sql`SELECT 1 FROM sp_association_links WHERE service_provider_id = ${spId} AND association_id = ${cat[0].organization_id} AND status = 'active' LIMIT 1`;
+  const orgId = cat[0].organization_id;
+
+  // Association admin viewing their own association's goalie category.
+  const { authorizeOrgAccess } = await import("@/lib/authorize");
+  const orgAuth = await authorizeOrgAccess(session, orgId);
+  if (orgAuth.authorized) return true;
+
+  // Goalie SP linked to this association.
+  const spId = await resolveGoalieSpOrgId(session, orgParam);
+  if (!spId) return false;
+  const linked = await sql`SELECT 1 FROM sp_association_links WHERE service_provider_id = ${spId} AND association_id = ${orgId} AND status = 'active' LIMIT 1`;
   return linked.length > 0;
 }
 
