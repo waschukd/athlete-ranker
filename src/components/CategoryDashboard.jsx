@@ -138,6 +138,8 @@ export default function CategoryDashboard({
   };
   const queryClient = useQueryClient();
   const [positionFilter, setPositionFilter] = useState("all");
+  // A goalie-only category has no skaters — open straight to the goalie rankings.
+  const [posFilterInit, setPosFilterInit] = useState(false);
   const [compareIds, setCompareIds] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
   const [sortBy, setSortBy] = useState(null); // { key, dir }
@@ -260,6 +262,11 @@ export default function CategoryDashboard({
 
   const rankedAthletes = rankingsData?.athletes || [];
   const goalieAthletes = rankingsData?.goalies || [];
+  // Goalie-only category → land on the goalie rankings (once, so the user can still
+  // navigate away). category loads async, hence the one-shot guard.
+  useEffect(() => {
+    if (!posFilterInit && category?.goalie_only) { setPositionFilter("goalie"); setPosFilterInit(true); }
+  }, [category, posFilterInit]);
   const athletes = athletesData?.athletes || [];
   // Send the welcome/onboarding email to every family with an email on file, then
   // refresh setup so welcome_sent_at advances the first-step flow. Shared by the
@@ -339,12 +346,17 @@ export default function CategoryDashboard({
   }, [coachRankingsData]);
   const hasPositions = rankedAthletes.some(a => a.position);
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  // A goalie-only category holds only goalies — its rankings ARE the goalie view.
+  const goalieOnly = !!category?.goalie_only;
   // Rankings position tabs: Overall (skaters) · F · D · G. Goalies rank separately.
-  const positionTabs = [
-    { id: "all", label: "Overall" },
-    ...(hasPositions ? [{ id: "forward", label: "F" }, { id: "defense", label: "D" }] : []),
-    ...(goalieAthletes.length > 0 ? [{ id: "goalie", label: "G" }] : []),
-  ];
+  // A goalie-only category shows just the goalie tab (no skater/F/D tabs).
+  const positionTabs = goalieOnly
+    ? [{ id: "goalie", label: "Goalies" }]
+    : [
+        { id: "all", label: "Overall" },
+        ...(hasPositions ? [{ id: "forward", label: "F" }, { id: "defense", label: "D" }] : []),
+        ...(goalieAthletes.length > 0 ? [{ id: "goalie", label: "G" }] : []),
+      ];
   const sortedAthletes = sortBy ? [...filteredAthletes].sort((a, b) => {
     const dir = sortBy.dir === 'asc' ? 1 : -1;
     if (sortBy.key === 'total') return dir * ((a.weighted_total || 0) - (b.weighted_total || 0));
