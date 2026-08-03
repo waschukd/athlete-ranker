@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight, Clock, MapPin, CalendarDays } from "lucide-react";
+import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight, Clock, MapPin, CalendarDays, UserCheck, Copy, Check } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
@@ -59,7 +59,7 @@ function Inner() {
             <span><b className="text-ink">{totalGoalies}</b> goalie{totalGoalies !== 1 ? "s" : ""}</span>
           </div>
           <div className="flex gap-1 mt-4 overflow-x-auto">
-            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Schedule" }, { id: "associations", label: "Associations" }].map(t => (
+            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Schedule" }, { id: "evaluators", label: "Evaluators" }, { id: "associations", label: "Associations" }].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {t.label}
@@ -76,6 +76,8 @@ function Inner() {
           <OverviewTab associations={associations} withOrg={withOrg} onGoAssociations={() => setTab("associations")} />
         ) : tab === "schedule" ? (
           <ScheduleTab withOrg={withOrg} />
+        ) : tab === "evaluators" ? (
+          <EvaluatorsTab withOrg={withOrg} spId={overview?.sp?.id} />
         ) : (
           <AssociationsTab managed={managed} onChanged={() => { loadManaged(); loadOverview(); }} withOrg={withOrg} />
         )}
@@ -169,6 +171,83 @@ function ScheduleTab({ withOrg }) {
         );
       }}
     />
+  );
+}
+
+function EvaluatorsTab({ withOrg, spId }) {
+  const [data, setData] = useState(null);
+  const [codes, setCodes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const load = useCallback(() => {
+    fetch(withOrg("/api/service-provider/evaluators")).then(r => r.json()).then(setData).catch(() => setData({ evaluators: [] }));
+    if (spId) fetch(`/api/organizations/${spId}/join-codes`).then(r => r.json()).then(setCodes).catch(() => setCodes({ codes: [] }));
+  }, [withOrg, spId]);
+  useEffect(() => { load(); }, [load]);
+
+  const act = async (action, evaluator_id) => {
+    setBusy(true);
+    try { await fetch(withOrg("/api/service-provider/evaluators"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, evaluator_id }) }); } catch {}
+    setBusy(false); load();
+  };
+  const genCode = async () => {
+    if (!spId) return;
+    setBusy(true);
+    try { await fetch(`/api/organizations/${spId}/join-codes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate", max_uses: 100 }) }); } catch {}
+    setBusy(false); load();
+  };
+
+  const evaluators = data?.evaluators || [];
+  const activeCode = (codes?.codes || []).find(c => c.uses < c.max_uses);
+  const signupUrl = activeCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/evaluator/signup?code=${activeCode.code}` : "";
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5"><UserCheck size={15} className="text-accent" /> Invite goalie evaluators</h3>
+        <p className="text-xs text-gray-400 mt-0.5 mb-3">Share a join code — evaluators sign up and appear below for approval.</p>
+        {activeCode ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="px-3 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono font-bold tracking-wide">{activeCode.code}</code>
+            <button onClick={() => { navigator.clipboard?.writeText(signupUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50">{copied ? <><Check size={12} /> Copied link</> : <><Copy size={12} /> Copy signup link</>}</button>
+            <span className="text-xs text-gray-400">{activeCode.uses}/{activeCode.max_uses} used</span>
+          </div>
+        ) : (
+          <button onClick={genCode} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-50 hover:opacity-90"><Plus size={14} /> Generate join code</button>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Your evaluator pool</h3></div>
+        {data === null ? (
+          <div className="px-5 py-10 text-center text-sm text-gray-400">Loading…</div>
+        ) : evaluators.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-gray-400">No evaluators yet — share your join code above.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {evaluators.map(ev => (
+              <div key={ev.id} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-ink flex items-center gap-2">{ev.name || ev.email}
+                    {ev.membership_status === "pending" && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold uppercase">Pending</span>}
+                    {ev.membership_status === "suspended" && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-bold uppercase">Suspended</span>}
+                  </div>
+                  <div className="text-xs text-gray-400">{ev.email} · {ev.total_sessions || 0} sessions</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {ev.membership_status === "pending" && <button onClick={() => act("approve", ev.id)} disabled={busy} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg font-semibold hover:bg-green-200 disabled:opacity-50">Approve</button>}
+                  {ev.membership_status === "suspended"
+                    ? <button onClick={() => act("reinstate", ev.id)} disabled={busy} className="text-xs px-3 py-1.5 border border-green-200 text-green-600 rounded-lg font-medium hover:bg-green-50 disabled:opacity-50">Reinstate</button>
+                    : <button onClick={() => act("suspend", ev.id)} disabled={busy} className="text-xs px-3 py-1.5 border border-amber-200 text-amber-600 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50">Suspend</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

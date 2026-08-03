@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { emailEvaluatorApproved, emailEvaluatorDenied, emailEvaluatorPendingApproval } from "@/lib/email";
 
-const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
+const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
