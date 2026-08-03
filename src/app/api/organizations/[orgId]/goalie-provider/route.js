@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
-import { createAndSendOrgInvite } from "@/lib/invites";
 import { applyGoalieTemplate } from "@/lib/goalieTemplate";
 
 // Re-materialize this association's goalie categories from whoever now owns the
@@ -24,13 +23,25 @@ export async function GET(request, { params }) {
     const auth = await authorizeOrgAccess(session, orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const org = await sql`SELECT goalie_eval_mode FROM organizations WHERE id = ${orgId}`;
-    const providers = await sql`SELECT id, name, contact_email FROM organizations WHERE type = 'goalie_service_provider' ORDER BY name`;
+    const org = await sql`SELECT goalie_eval_mode, org_code FROM organizations WHERE id = ${orgId}`;
+    // The association shares its org_code with a goalie SP to connect. Some older
+    // associations have no code — generate one now so there's always a code to share.
+    let orgCode = org[0]?.org_code || null;
+    if (!orgCode) {
+      for (let i = 0; i < 10; i++) {
+        const c = Math.random().toString(36).substring(2, 8).toUpperCase();
+        if (!(await sql`SELECT id FROM organizations WHERE org_code = ${c}`).length) { orgCode = c; break; }
+      }
+      if (orgCode) await sql`UPDATE organizations SET org_code = ${orgCode} WHERE id = ${orgId} AND org_code IS NULL`;
+    }
+    // The connected goalie SP (if any). Goalie SPs now connect THEMSELVES using the
+    // association's org_code — the association shares that code, it doesn't pick a
+    // provider. So we no longer return a provider list for the association to choose.
     const linked = await sql`
       SELECT o.id, o.name FROM sp_association_links sal
       JOIN organizations o ON o.id = sal.service_provider_id AND o.type = 'goalie_service_provider'
       WHERE sal.association_id = ${orgId} AND sal.status = 'active' LIMIT 1`;
-    return NextResponse.json({ goalie_eval_mode: org[0]?.goalie_eval_mode || "association", providers, linked: linked[0] || null });
+    return NextResponse.json({ goalie_eval_mode: org[0]?.goalie_eval_mode || "association", org_code: orgCode, linked: linked[0] || null });
   } catch (e) {
     console.error("org goalie-provider GET error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -54,43 +65,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, goalie_eval_mode: mode });
     }
 
-    if (body.action === "link") {
-      const spId = parseInt(body.goalie_sp_id);
-      if (!spId) return NextResponse.json({ error: "goalie_sp_id required" }, { status: 400 });
-      const sp = await sql`SELECT id FROM organizations WHERE id = ${spId} AND type = 'goalie_service_provider'`;
-      if (!sp.length) return NextResponse.json({ error: "Not a goalie service provider" }, { status: 400 });
-      const existing = await sql`SELECT id FROM sp_association_links WHERE service_provider_id = ${spId} AND association_id = ${orgId}`;
-      if (!existing.length) await sql`INSERT INTO sp_association_links (service_provider_id, association_id, status) VALUES (${spId}, ${orgId}, 'active')`;
-      else await sql`UPDATE sp_association_links SET status = 'active' WHERE id = ${existing[0].id}`;
-      await sql`UPDATE organizations SET goalie_eval_mode = 'goalie_service_provider' WHERE id = ${orgId}`;
-      await reapplyGoalie(orgId);
-      return NextResponse.json({ success: true, goalie_sp_id: spId });
-    }
-
+    // Note: associations no longer LINK or INVITE goalie SPs from here. A goalie SP
+    // connects itself using the association's org_code (see
+    // /api/goalie-provider/associations). The association can still disconnect one.
     if (body.action === "unlink") {
       const spId = parseInt(body.goalie_sp_id);
       await sql`UPDATE sp_association_links SET status = 'inactive' WHERE service_provider_id = ${spId} AND association_id = ${orgId}`;
       await reapplyGoalie(orgId);
       return NextResponse.json({ success: true });
-    }
-
-    if (body.action === "invite") {
-      const name = (body.name || "").trim();
-      const email = (body.email || "").trim();
-      if (!name || !email) return NextResponse.json({ error: "Company name and contact email are required" }, { status: 400 });
-      let orgCode = null;
-      for (let i = 0; i < 10; i++) {
-        const c = Math.random().toString(36).substring(2, 8).toUpperCase();
-        if (!(await sql`SELECT id FROM organizations WHERE org_code = ${c}`).length) { orgCode = c; break; }
-      }
-      const [created] = await sql`INSERT INTO organizations (name, type, contact_email, org_code) VALUES (${name}, 'goalie_service_provider', ${email}, ${orgCode}) RETURNING *`;
-      await sql`INSERT INTO sp_association_links (service_provider_id, association_id, status) VALUES (${created.id}, ${orgId}, 'active')`;
-      await sql`UPDATE organizations SET goalie_eval_mode = 'goalie_service_provider' WHERE id = ${orgId}`;
-      let invite = null;
-      try { invite = await createAndSendOrgInvite({ organizationId: created.id, email, name: null, orgName: name, orgType: "goalie_service_provider" }); }
-      catch (e) { console.error("org goalie SP invite error:", e); invite = { sent: false, url: null }; }
-      await reapplyGoalie(orgId);
-      return NextResponse.json({ success: true, goalie_sp_id: created.id, name: created.name, invite });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

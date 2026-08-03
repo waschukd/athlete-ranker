@@ -3,9 +3,8 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload, Shield } from "lucide-react";
+import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
-import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
 import { colorForOrg, buildOrgColorMap, paletteFromHex, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
@@ -399,10 +398,7 @@ function ScheduleFormModal({ title, subtitle, form, setForm, showSessionGroup, b
             <div><label className={labelCls}>End time</label><input type="time" value={form.end_time || ""} onChange={set("end_time")} className={inputCls} /></div>
           </div>
           <div><label className={labelCls}>Location</label><input type="text" placeholder="Arena / rink" value={form.location || ""} onChange={set("location")} className={inputCls} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Player evaluators</label><input type="number" min="0" value={form.evaluators_required} onChange={set("evaluators_required")} className={inputCls} /></div>
-            <div><label className={labelCls}>Goalie evaluators</label><input type="number" min="0" value={form.goalie_evaluators_required ?? 0} onChange={set("goalie_evaluators_required")} className={inputCls} /></div>
-          </div>
+          <div><label className={labelCls}>Player evaluators</label><input type="number" min="0" value={form.evaluators_required} onChange={set("evaluators_required")} className={inputCls} /></div>
           {error && <p className="text-xs font-medium text-red-500">{error}</p>}
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} disabled={busy} className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm disabled:opacity-50">Cancel</button>
@@ -1372,7 +1368,6 @@ function SPDashboard() {
   const setScheduleView = (v) => { setScheduleViewRaw(v); try { window.localStorage.setItem("sp-schedule-view", v); } catch {} };
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [calLinks, setCalLinks] = useState(null);
-  const [showGoalieTemplate, setShowGoalieTemplate] = useState(false);
   // Persisted so the date selection is retained across tab navigation (and reloads).
   const [scheduleSelectedDate, setScheduleSelectedDateState] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -1587,7 +1582,7 @@ function SPDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-1">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="min-w-0">
-              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">{sp?.type === "goalie_service_provider" ? "Goalie Service Provider" : "Service Provider"}</div>
+              <div className="font-display text-xs font-bold tracking-[0.2em] uppercase text-accent mb-2">Service Provider</div>
               <div className="flex items-end gap-4 flex-wrap">
                 <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">{sp?.name || "Service Provider"}</h1>
                 <img src="/mark-gold.svg" style={{width:"48px",height:"44px",objectFit:"contain"}} alt="Sideline Star" />
@@ -1733,27 +1728,11 @@ function SPDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Client Associations</h2>
               <div className="flex items-center gap-3">
                 <p className="text-sm text-gray-400">{associations.length} clients</p>
-                <button onClick={() => setShowGoalieTemplate(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
-                  <Shield size={15} /> Goalie template
-                </button>
                 <button onClick={() => { setShowNewClient(true); setNewClientMsg(null); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <Plus size={15} /> New Client
                 </button>
               </div>
             </div>
-
-            {showGoalieTemplate && sp?.id && (
-              <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setShowGoalieTemplate(false)}>
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 mt-10 mb-10">
-                  <div className="flex items-start justify-between mb-1">
-                    <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Goalie template</h3>
-                    <button onClick={() => setShowGoalieTemplate(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-                  </div>
-                  <p className="text-xs text-gray-400 mb-4">Your standard goalie scoring setup — scale, skills, sessions. Saving applies it to every association you evaluate goalies for.</p>
-                  <GoalieTemplateEditor orgId={sp.id} context="sp" onSaved={() => queryClient.invalidateQueries({ queryKey: ["sp-schedule", orgParam] })} />
-                </div>
-              </div>
-            )}
 
             {showNewClient && (
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -1861,43 +1840,34 @@ function SPDashboard() {
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.athletes || 0}</div><div className="text-xs text-gray-400">Athletes</div></div>
                         <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assocSessions.length}</div><div className="text-xs text-gray-400">Upcoming</div></div>
                       </div>
-                      {sp?.type !== "goalie_service_provider" && (
-                        <label className="flex items-start gap-2.5 mb-3 px-3 py-2.5 bg-gray-50 rounded-lg cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!!assoc.allow_association_evaluators}
-                            onChange={async (e) => {
-                              const allow = e.target.checked;
-                              try {
-                                const res = await fetch(`/api/service-provider/associations${sp?.id ? `?org=${sp.id}` : ""}`, {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ action: "set_evaluator_access", association_id: assoc.id, allow }),
-                                });
-                                if (!res.ok) throw new Error();
-                                queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
-                              } catch {
-                                queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
-                              }
-                            }}
-                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0b5cd6] focus:ring-[#0b5cd6]/30"
-                          />
-                          <span className="text-xs text-gray-600 leading-snug">
-                            <span className="font-semibold text-gray-800">Let them add their own evaluators</span><br />
-                            Their coaches' scores show as a <b>comparison only</b> — your evaluators' scores stay the official ranking.
-                          </span>
-                        </label>
-                      )}
-                      {/* Both SP types open the FULL association dashboard (a goalie SP
-                          is scoped to goalies). Goalie SPs also get a quick rankings link. */}
+                      <label className="flex items-start gap-2.5 mb-3 px-3 py-2.5 bg-gray-50 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!assoc.allow_association_evaluators}
+                          onChange={async (e) => {
+                            const allow = e.target.checked;
+                            try {
+                              const res = await fetch(`/api/service-provider/associations${sp?.id ? `?org=${sp.id}` : ""}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "set_evaluator_access", association_id: assoc.id, allow }),
+                              });
+                              if (!res.ok) throw new Error();
+                              queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
+                            } catch {
+                              queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
+                            }
+                          }}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0b5cd6] focus:ring-[#0b5cd6]/30"
+                        />
+                        <span className="text-xs text-gray-600 leading-snug">
+                          <span className="font-semibold text-gray-800">Let them add their own evaluators</span><br />
+                          Their coaches' scores show as a <b>comparison only</b> — your evaluators' scores stay the official ranking.
+                        </span>
+                      </label>
                       <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                         <ExternalLink size={14} /> Open Dashboard
                       </a>
-                      {sp?.type === "goalie_service_provider" && (
-                        <a href={`/goalie-provider/rankings?org=${assoc.id}`} className="w-full mt-2 flex items-center justify-center gap-2 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-                          <Star size={14} /> Goalie rankings
-                        </a>
-                      )}
                     </div>
                   );
                 })}
