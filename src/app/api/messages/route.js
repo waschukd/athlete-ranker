@@ -73,10 +73,18 @@ export async function POST(request) {
         ? await sql`SELECT DISTINCT em.user_id FROM evaluator_memberships em JOIN users u ON u.id = em.user_id WHERE em.status='active' AND u.role = ANY(${[...EVAL_ROLES]})`
         : await sql`SELECT DISTINCT em.user_id FROM evaluator_memberships em JOIN users u ON u.id = em.user_id WHERE em.organization_id = ANY(${orgFilter}) AND em.status='active' AND u.role = ANY(${[...EVAL_ROLES]})`;
       const allowed = new Set(pool.map(p => p.user_id));
-      if (bodyJson.to_all_pool) {
+      // The tester pool is a separate group, keyed by the is_tester flag (not role).
+      const testerPool = orgFilter === null
+        ? await sql`SELECT DISTINCT user_id FROM evaluator_memberships WHERE status='active' AND is_tester = true`
+        : await sql`SELECT DISTINCT user_id FROM evaluator_memberships WHERE organization_id = ANY(${orgFilter}) AND status='active' AND is_tester = true`;
+      const allowedTesters = new Set(testerPool.map(p => p.user_id));
+      if (bodyJson.to_all_testers) {
+        recipientIds = [...allowedTesters];
+      } else if (bodyJson.to_all_pool) {
         recipientIds = [...allowed];
       } else if (Array.isArray(bodyJson.to_user_ids)) {
-        recipientIds = bodyJson.to_user_ids.map(Number).filter(id => allowed.has(id));
+        // A directed message can target either pool (evaluators or testers).
+        recipientIds = bodyJson.to_user_ids.map(Number).filter(id => allowed.has(id) || allowedTesters.has(id));
       }
     } else if (EVAL_ROLES.has(session.role)) {
       // Evaluator → admins of their org(s)

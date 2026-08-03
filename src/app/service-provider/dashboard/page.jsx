@@ -205,6 +205,8 @@ function TestersTab({ spUrl, spName }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
+  const [showSetRates, setShowSetRates] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const [actErr, setActErr] = useState(null);
   const act = async (body) => {
@@ -251,20 +253,27 @@ function TestersTab({ spUrl, spName }) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Testers ({testers.length})</h3></div>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="text-sm font-semibold text-gray-900">Testers ({testers.length})</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowSetRates(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">$ Set rates</button>
+            <button onClick={() => setComposeOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90"><MessageSquare size={14} /> Message all testers</button>
+          </div>
+        </div>
         {testers.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-gray-400">No testers yet — share your join code above.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr><th className="text-left px-5 py-2.5">Name</th><th className="text-left px-4 py-2.5">Email</th><th className="text-left px-4 py-2.5">Upcoming</th><th className="text-right px-5 py-2.5">Actions</th></tr>
+                <tr><th className="text-left px-5 py-2.5">Name</th><th className="text-left px-4 py-2.5">Email</th><th className="text-left px-4 py-2.5">Rate</th><th className="text-left px-4 py-2.5">Upcoming</th><th className="text-right px-5 py-2.5">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {testers.map(t => (
                   <tr key={t.id}>
                     <td className="px-5 py-3 font-medium text-ink">{t.name}{t.status === "pending" && <span className="ml-2 text-[11px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-semibold">Pending</span>}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
                     <td className="px-4 py-3 text-gray-500">{t.email}</td>
+                    <td className="px-4 py-3 text-gray-600 tabular-nums">{t.hourly_rate != null ? `$${t.hourly_rate}/hr` : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">{t.upcoming_signups || 0}</td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
                       {t.status === "pending" && <button onClick={() => act({ action: "approve", tester_id: t.id })} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><CheckCircle size={12} /> Approve</button>}
@@ -319,6 +328,24 @@ function TestersTab({ spUrl, spName }) {
           </div>
         </div>
       </details>
+
+      {showSetRates && (
+        <SetRatesModal
+          evaluators={testers}
+          postUrl={spUrl("/api/service-provider/testers")}
+          idKey="tester_id"
+          title="Tester hourly rates"
+          noun="tester"
+          onClose={() => setShowSetRates(false)}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["sp-testers"] })}
+        />
+      )}
+      {composeOpen && (
+        <ComposeMessageModal
+          recipient={{ to_all_testers: true, noun: "tester", label: "To everyone in your tester pool" }}
+          onClose={() => setComposeOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1057,7 +1084,7 @@ function LeadsSection({ spUrl, orgParam, associations }) {
 // evaluators: full list (all non-deleted/non-suspended as caller prefers)
 // onClose: () => void
 // onSaved: () => void  (caller refetches + shows banner)
-function SetRatesModal({ evaluators, onClose, onSaved }) {
+function SetRatesModal({ evaluators, onClose, onSaved, postUrl = "/api/service-provider/evaluators", idKey = "evaluator_id", title = "Evaluator hourly rates", noun = "evaluator" }) {
   // Seed local map: evaluatorId (string) → input string value
   const [rates, setRates] = useState(() => {
     const m = {};
@@ -1081,11 +1108,11 @@ function SetRatesModal({ evaluators, onClose, onSaved }) {
         return rates[String(ev.id)] !== orig;
       })
       .map(ev => ({
-        evaluator_id: ev.id,
+        [idKey]: ev.id,
         hourly_rate: rates[String(ev.id)] === "" ? null : parseFloat(rates[String(ev.id)]),
       }));
     if (changed.length === 0) { onClose(); return; }
-    const res = await fetch("/api/service-provider/evaluators", {
+    const res = await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "set_rates", rates: changed }),
@@ -1101,13 +1128,13 @@ function SetRatesModal({ evaluators, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col" style={{ maxHeight: "90vh" }}>
         <div className="flex items-start justify-between mb-1 flex-shrink-0">
-          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Evaluator hourly rates</h3>
+          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">{title}</h3>
           <button onClick={onClose} disabled={saving} className="text-gray-400 hover:text-gray-600 disabled:opacity-50"><X size={18} /></button>
         </div>
-        <p className="text-xs text-gray-400 mb-4 flex-shrink-0">Enter $/hour for each evaluator. Blank = no rate.</p>
+        <p className="text-xs text-gray-400 mb-4 flex-shrink-0">Enter $/hour for each {noun}. Blank = no rate.</p>
 
         {evaluators.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">No active evaluators.</p>
+          <p className="text-sm text-gray-400 py-4 text-center">No active {noun}s.</p>
         ) : (
           <div className="overflow-y-auto flex-1 divide-y divide-gray-100 -mx-6 px-6">
             {evaluators.map(ev => (
@@ -1162,7 +1189,9 @@ function ComposeMessageModal({ recipient, initialSubject = "", onClose, onSent }
   const send = async () => {
     setSending(true);
     setError(null);
-    const payload = recipient.to_all_pool
+    const payload = recipient.to_all_testers
+      ? { subject, body, to_all_testers: true }
+      : recipient.to_all_pool
       ? { subject, body, to_all_pool: true }
       : { subject, body, to_user_ids: recipient.to_user_ids };
     const res = await fetch("/api/messages", {
@@ -1182,13 +1211,13 @@ function ComposeMessageModal({ recipient, initialSubject = "", onClose, onSent }
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && !sending && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-start justify-between mb-1">
-          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Message evaluators</h3>
+          <h3 className="font-display font-extrabold tracking-tight text-ink text-lg leading-tight">Message {recipient.noun ? `${recipient.noun}s` : "evaluators"}</h3>
           <button onClick={onClose} disabled={sending} className="text-gray-400 hover:text-gray-600 disabled:opacity-50"><X size={18} /></button>
         </div>
         <p className="text-xs text-gray-400 mb-4">{recipient.label}</p>
         {sentCount !== null ? (
           <div className="text-center py-4">
-            <p className="font-semibold text-ink mb-3">Sent to {sentCount} evaluator{sentCount === 1 ? "" : "s"}.</p>
+            <p className="font-semibold text-ink mb-3">Sent to {sentCount} {recipient.noun || "evaluator"}{sentCount === 1 ? "" : "s"}.</p>
             <button onClick={onClose} className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">Done</button>
           </div>
         ) : (
@@ -1602,7 +1631,7 @@ function SPDashboard() {
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
-            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Master Schedule" }, { id: "associations", label: "Associations" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "testers", label: "Testers" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
+            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Master Schedule" }, { id: "associations", label: "Associations" }, { id: "evaluators", label: "Evaluator Pool" }, { id: "testers", label: "Tester Pool" }, { id: "leads", label: "Leads" }, { id: "reports", label: "Reports" }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {tab.label}
               </button>
