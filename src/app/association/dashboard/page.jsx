@@ -31,15 +31,17 @@ function fmtTime(t) {
   return `${hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr)}:${m} ${hr >= 12 ? "PM" : "AM"}`;
 }
 
-// Association-wide goalie evaluation: set once, every category inherits it.
+// Association-side "Manage Goalies". The association picks how goalies are
+// evaluated when it's NOT using an outside goalie service provider (in-house or
+// its own SP), and manages the scoring template for those. When a goalie service
+// provider is involved, the association no longer picks or invites one — the goalie
+// SP connects ITSELF using the association's code (shown here to share), and the
+// association simply views the connection and the resulting goalie rankings.
 function GoalieEvalCard({ orgId }) {
   const [data, setData] = useState(null);
-  const [q, setQ] = useState("");
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const load = () => fetch(`/api/organizations/${orgId}/goalie-provider`).then(r => r.json()).then(setData).catch(() => {});
   useEffect(() => { if (orgId) load(); }, [orgId]); // eslint-disable-line
@@ -52,21 +54,14 @@ function GoalieEvalCard({ orgId }) {
     setMsg({ type: "err", text: d.error || "Failed" }); return null;
   };
   const setMode = (m) => post({ action: "set_mode", goalie_eval_mode: m });
-  const link = (id) => post({ action: "link", goalie_sp_id: id }, "Connected ✓");
-  const invite = async () => {
-    if (!inviteName || !inviteEmail) return;
-    const d = await post({ action: "invite", name: inviteName, email: inviteEmail }, (r) => r.invite?.url ? `Invited ${r.name}. Invite link: ${r.invite.url}` : `Invited ${r.name}.`);
-    if (d) { setShowInvite(false); setInviteName(""); setInviteEmail(""); }
-  };
+  const unlink = () => { if (linked) post({ action: "unlink", goalie_sp_id: linked.id }, "Disconnected."); };
 
   const mode = data?.goalie_eval_mode || "association";
-  const providers = data?.providers || [];
   const linked = data?.linked || null;
-  const filtered = providers.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
+  const orgCode = data?.org_code || null;
   const OPTIONS = [
     { value: "association", label: "We evaluate in-house" },
     { value: "service_provider", label: "Our service provider does it" },
-    { value: "goalie_service_provider", label: "A goalie service provider does it" },
   ];
 
   return (
@@ -74,54 +69,50 @@ function GoalieEvalCard({ orgId }) {
       <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
         <Shield size={16} className="text-accent" />
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Goalie Evaluation</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Set once — every age category inherits this.</p>
+          <h3 className="text-sm font-semibold text-gray-900">Manage Goalies</h3>
+          <p className="text-xs text-gray-400 mt-0.5">How your goalies are evaluated, and your connected goalie provider.</p>
         </div>
       </div>
-      <div className="p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-          {OPTIONS.map(o => (
-            <button key={o.value} onClick={() => setMode(o.value)} disabled={busy} className={`text-left p-3 rounded-lg border-2 text-sm transition-all ${mode === o.value ? "border-accent bg-accent-soft" : "border-gray-200 hover:border-gray-300"}`}>
-              <div className="flex items-center justify-between"><span className="font-medium text-gray-800">{o.label}</span>{mode === o.value && <Check size={14} className="text-accent" />}</div>
-            </button>
-          ))}
-        </div>
-
-        {mode !== "goalie_service_provider" && (
-          <div className="border-t border-gray-100 pt-4">
-            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Goalie scoring template</h4>
-            <GoalieTemplateEditor orgId={orgId} context="association" />
-          </div>
-        )}
-
-        {mode === "goalie_service_provider" && (
-          <div className="border-t border-gray-100 pt-4">
-            {linked && <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm"><span className="text-green-800 font-medium flex items-center gap-1.5"><Check size={14} /> Connected: {linked.name}</span></div>}
-            <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search goalie service providers…" className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" /></div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {filtered.length === 0 && <p className="text-xs text-gray-400 px-1">No matches — invite one below.</p>}
-              {filtered.map(p => (
-                <button key={p.id} onClick={() => link(p.id)} disabled={busy} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left text-sm ${linked?.id === p.id ? "border-accent bg-accent-soft" : "border-gray-200 hover:border-gray-300"}`}>
-                  <span className="font-medium text-gray-800">{p.name}</span>
-                  {linked?.id === p.id ? <span className="text-xs text-accent font-semibold flex items-center gap-1"><Check size={13} /> Connected</span> : <span className="text-xs text-gray-400">Connect</span>}
-                </button>
-              ))}
+      <div className="p-5 space-y-5">
+        {/* Connected goalie SP (they connect themselves via your code) */}
+        {linked ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-sm text-green-800 font-medium flex items-center gap-1.5"><Check size={14} /> Goalie provider connected: {linked.name}</span>
+              <button onClick={unlink} disabled={busy} className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50">Disconnect</button>
             </div>
-            {!showInvite ? (
-              <button onClick={() => setShowInvite(true)} className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent hover:opacity-70 font-medium"><Plus size={13} /> Not listed? Add &amp; invite a goalie SP</button>
-            ) : (
-              <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
-                <input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Company name" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="Admin email" type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-                <div className="flex gap-2">
-                  <button onClick={() => setShowInvite(false)} className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs">Cancel</button>
-                  <button onClick={invite} disabled={busy || !inviteName || !inviteEmail} className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-50">{busy ? "Inviting…" : "Create & invite"}</button>
-                </div>
+            <p className="text-xs text-green-700/80 mt-2">They evaluate your goalies and their rankings appear in your goalie categories, separate from your player evaluations.</p>
+          </div>
+        ) : (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-3">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Using an outside goalie provider?</h4>
+            <p className="text-xs text-gray-500 mb-2">Share your association code with them — they connect from their own dashboard. No setup needed on your end.</p>
+            {orgCode && (
+              <div className="flex items-center gap-2">
+                <code className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-mono font-bold tracking-wide">{orgCode}</code>
+                <button onClick={() => { navigator.clipboard?.writeText(orgCode); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+                  className="text-xs px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50">{copied ? "Copied ✓" : "Copy code"}</button>
               </div>
             )}
           </div>
         )}
-        {msg && <p className={`text-xs mt-3 break-words ${msg.type === "ok" ? "text-green-600" : "text-red-500"}`}>{msg.text}</p>}
+
+        {/* In-house / own-SP goalie evaluation (only relevant when no goalie SP is connected) */}
+        {!linked && (
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Or evaluate goalies yourself</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+              {OPTIONS.map(o => (
+                <button key={o.value} onClick={() => setMode(o.value)} disabled={busy} className={`text-left p-3 rounded-lg border-2 text-sm transition-all ${mode === o.value ? "border-accent bg-accent-soft" : "border-gray-200 hover:border-gray-300"}`}>
+                  <div className="flex items-center justify-between"><span className="font-medium text-gray-800">{o.label}</span>{mode === o.value && <Check size={14} className="text-accent" />}</div>
+                </button>
+              ))}
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">Goalie scoring template</h4>
+            <GoalieTemplateEditor orgId={orgId} context="association" />
+          </div>
+        )}
+        {msg && <p className={`text-xs break-words ${msg.type === "ok" ? "text-green-600" : "text-red-500"}`}>{msg.text}</p>}
       </div>
     </section>
   );
@@ -407,7 +398,7 @@ function Dashboard() {
           </a>
           <button onClick={() => setGoalieEvalOpen(true)}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
-            <Shield size={15} /> Goalie Evaluation
+            <Shield size={15} /> Manage Goalies
           </button>
           <button onClick={() => { setShowInvite(true); setInviteResult(null); }}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">

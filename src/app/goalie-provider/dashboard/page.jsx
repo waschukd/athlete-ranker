@@ -2,10 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight } from "lucide-react";
+import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight, Clock, MapPin, CalendarDays } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
+import ScheduleBoard from "@/components/ScheduleBoard";
 
 // The Goalie Service Provider's own dashboard — its own home, separate from the
 // (skater) Service Provider dashboard. It manages its own association connections
@@ -58,7 +59,7 @@ function Inner() {
             <span><b className="text-ink">{totalGoalies}</b> goalie{totalGoalies !== 1 ? "s" : ""}</span>
           </div>
           <div className="flex gap-1 mt-4 overflow-x-auto">
-            {[{ id: "overview", label: "Overview" }, { id: "associations", label: "Associations" }].map(t => (
+            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Schedule" }, { id: "associations", label: "Associations" }].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {t.label}
@@ -73,6 +74,8 @@ function Inner() {
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{overview.error}</div>
         ) : tab === "overview" ? (
           <OverviewTab associations={associations} withOrg={withOrg} onGoAssociations={() => setTab("associations")} />
+        ) : tab === "schedule" ? (
+          <ScheduleTab withOrg={withOrg} />
         ) : (
           <AssociationsTab managed={managed} onChanged={() => { loadManaged(); loadOverview(); }} withOrg={withOrg} />
         )}
@@ -121,6 +124,51 @@ function OverviewTab({ associations, withOrg, onGoAssociations }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function ScheduleTab({ withOrg }) {
+  const [sessions, setSessions] = useState(null);
+  useEffect(() => {
+    // The shared SP schedule API is goalie-scoped by resolveSpContext, so it
+    // already returns only goalie-relevant slots (goalie skills + scrimmages) with
+    // is_goalie_sp + goalie-evaluator staffing counts.
+    fetch(withOrg("/api/service-provider/schedule")).then(r => r.json()).then(d => setSessions(d.schedule || [])).catch(() => setSessions([]));
+  }, [withOrg]);
+
+  if (sessions === null) return <div className="py-12 text-center text-gray-400 text-sm">Loading schedule…</div>;
+
+  const fmt = (t) => { if (!t) return ""; const [h, m] = t.toString().split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; const h12 = h % 12 === 0 ? 12 : h % 12; return `${h12}:${String(m || 0).padStart(2, "0")} ${ap}`; };
+
+  return (
+    <ScheduleBoard
+      sessions={sessions}
+      storageKey="goalie-sp-schedule-view"
+      emptyText="No goalie sessions yet. Connect an association and they'll appear here once its schedule is set."
+      renderRow={(s) => {
+        const need = parseInt(s.goalie_evaluators_required || 0);
+        const open = parseInt(s.spots_open || 0);
+        return (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-sm font-semibold text-ink truncate">{s.org_name}</span>
+                {s.category_name && <span className="text-xs text-gray-500">· {s.category_name}</span>}
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-accent-soft text-accent">goalie</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                {s.start_time && <span className="flex items-center gap-1"><Clock size={11} />{fmt(s.start_time)}{s.end_time ? ` – ${fmt(s.end_time)}` : ""}</span>}
+                {s.location && <span className="flex items-center gap-1"><MapPin size={11} />{s.location}</span>}
+                {need > 0 && <span className="flex items-center gap-1"><Users size={11} />{need - open}/{need} goalie evaluators</span>}
+              </div>
+            </div>
+            {open > 0 && need > 0 && (
+              <span className="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold whitespace-nowrap">{open} spot{open !== 1 ? "s" : ""} open</span>
+            )}
+          </div>
+        );
+      }}
+    />
   );
 }
 
