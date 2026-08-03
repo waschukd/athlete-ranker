@@ -24,6 +24,16 @@ export async function GET(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const org = await sql`SELECT goalie_eval_mode, org_code FROM organizations WHERE id = ${orgId}`;
+    // The association shares its org_code with a goalie SP to connect. Some older
+    // associations have no code — generate one now so there's always a code to share.
+    let orgCode = org[0]?.org_code || null;
+    if (!orgCode) {
+      for (let i = 0; i < 10; i++) {
+        const c = Math.random().toString(36).substring(2, 8).toUpperCase();
+        if (!(await sql`SELECT id FROM organizations WHERE org_code = ${c}`).length) { orgCode = c; break; }
+      }
+      if (orgCode) await sql`UPDATE organizations SET org_code = ${orgCode} WHERE id = ${orgId} AND org_code IS NULL`;
+    }
     // The connected goalie SP (if any). Goalie SPs now connect THEMSELVES using the
     // association's org_code — the association shares that code, it doesn't pick a
     // provider. So we no longer return a provider list for the association to choose.
@@ -31,7 +41,7 @@ export async function GET(request, { params }) {
       SELECT o.id, o.name FROM sp_association_links sal
       JOIN organizations o ON o.id = sal.service_provider_id AND o.type = 'goalie_service_provider'
       WHERE sal.association_id = ${orgId} AND sal.status = 'active' LIMIT 1`;
-    return NextResponse.json({ goalie_eval_mode: org[0]?.goalie_eval_mode || "association", org_code: org[0]?.org_code || null, linked: linked[0] || null });
+    return NextResponse.json({ goalie_eval_mode: org[0]?.goalie_eval_mode || "association", org_code: orgCode, linked: linked[0] || null });
   } catch (e) {
     console.error("org goalie-provider GET error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
