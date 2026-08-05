@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { appUserId } from "@/lib/notify";
 import { eligibleNoteCount, getNoteBonusRate } from "@/lib/reportBonus";
+import { recomputeTesterHours } from "@/lib/testerHours";
 
 // The evaluator's own hours + pay, per organization. Pay = (approved + paid)
 // hours × the rate the org set for them. Degrades to [] if the wages column
@@ -13,6 +14,10 @@ export async function GET() {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = await appUserId(session);
     if (!userId) return NextResponse.json({ orgs: [] });
+
+    // Refresh this user's auto tester hours from their schedule before summing, so
+    // their pay reflects the true span. No-op for non-testers. Never blocks the read.
+    try { await recomputeTesterHours(userId); } catch (e) { console.error("tester hours recompute:", e?.message); }
 
     try {
       // Each logged hour is TESTING or EVALUATION, decided by the session its hours

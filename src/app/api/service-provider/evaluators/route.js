@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
+import { recomputeTesterHours } from "@/lib/testerHours";
 
 export async function GET(request) {
   try {
@@ -9,6 +10,13 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
+
+    // Refresh auto tester hours for this SP's testers so their (span-based) pending
+    // hours are up to date for the SP to approve. Best-effort — never blocks the read.
+    try {
+      const testers = await sql`SELECT user_id FROM evaluator_memberships WHERE organization_id = ${spId} AND is_tester = true AND status = 'active'`;
+      for (const t of testers) await recomputeTesterHours(t.user_id);
+    } catch (e) { console.error("SP tester hours recompute:", e?.message); }
     const evaluators = await sql`
       SELECT u.id, u.name, u.email, u.role, em.created_at as joined_at, em.status as membership_status, em.hourly_rate,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.status = 'signed_up' OR ess.status = 'completed') as total_sessions,

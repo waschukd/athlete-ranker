@@ -103,10 +103,11 @@ export default function TesterDashboard() {
         </div>
         {mineRow ? (
           <div className="flex items-center gap-2">
-            {isPast && <LogHours scheduleId={s.schedule_id} onSaved={load} />}
-            <button onClick={() => act(s.schedule_id, "cancel")} disabled={busyId === `cancel-${s.schedule_id}`} className="text-xs px-4 py-2 border border-red-200 text-red-500 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50">
-              {busyId === `cancel-${s.schedule_id}` ? "…" : "Cancel"}
-            </button>
+            {isPast
+              ? <span className="text-xs text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} /> Hours auto-logged</span>
+              : <button onClick={() => act(s.schedule_id, "cancel")} disabled={busyId === `cancel-${s.schedule_id}`} className="text-xs px-4 py-2 border border-red-200 text-red-500 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50">
+                  {busyId === `cancel-${s.schedule_id}` ? "…" : "Cancel"}
+                </button>}
           </div>
         ) : conflict ? (
           <span title={`You're already booked ${conflict.label}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-semibold whitespace-nowrap cursor-not-allowed">
@@ -196,35 +197,13 @@ export default function TesterDashboard() {
   );
 }
 
-// Log hours for a past testing session → shared evaluator_hours (pending).
-function LogHours({ scheduleId, onSaved }) {
-  const [open, setOpen] = useState(false);
-  const [hours, setHours] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const save = async () => {
-    if (!(parseFloat(hours) > 0)) return;
-    setBusy(true);
-    try { const r = await fetch("/api/tester/hours", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: scheduleId, hours: parseFloat(hours) }) }); if (r.ok) { setDone(true); setOpen(false); onSaved?.(); } } catch {}
-    setBusy(false);
-  };
-  if (done) return <span className="text-xs text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} /> Hours logged</span>;
-  if (!open) return <button onClick={() => setOpen(true)} className="text-xs px-3 py-2 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-gray-50">Log hours</button>;
-  return (
-    <div className="inline-flex items-center gap-1.5">
-      <input type="number" min="0" step="0.5" value={hours} onChange={e => setHours(e.target.value)} placeholder="hrs" className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center" />
-      <button onClick={save} disabled={busy} className="text-xs px-3 py-2 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">{busy ? "…" : "Save"}</button>
-    </div>
-  );
-}
-
 // Reuses the evaluator pay summary — it reads by membership, so a tester's hours
 // and rate (on their SP membership) surface here with no separate endpoint.
 function HoursPay() {
   const [orgs, setOrgs] = useState(null);
   useEffect(() => { fetch("/api/evaluator/pay").then(r => r.json()).then(d => setOrgs(d.orgs || [])).catch(() => setOrgs([])); }, []);
   if (!orgs) return <div className="py-10 text-center text-gray-400 text-sm">Loading…</div>;
-  if (!orgs.length) return <div className="py-10 text-center bg-white border border-dashed border-gray-200 rounded-xl text-sm text-gray-400">No hours yet. Log hours on a past session in <b>My Sessions</b>; your SP approves and pays them.</div>;
+  if (!orgs.length) return <div className="py-10 text-center bg-white border border-dashed border-gray-200 rounded-xl text-sm text-gray-400">No hours yet. Once you&apos;ve worked a testing session, your hours are calculated automatically from your schedule; your SP approves and pays them.</div>;
   return (
     <div className="space-y-3">
       {orgs.map(o => (
