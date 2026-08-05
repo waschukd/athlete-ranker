@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle, LayoutGrid, Table2 } from "lucide-react";
 import { groupDetailedScores, toScoreGrid } from "@/lib/scoreGrouping";
 
-export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
+export default function ScoreEditor({ catId, canEdit, requireReason = false, showAudit = true }) {
   const [subTab, setSubTab] = useState("edit");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "grid"
   const [search, setSearch] = useState("");
@@ -143,25 +143,28 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Sub-tab toggle */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setSubTab("edit")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            subTab === "edit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          <Edit3 size={14} /> Edit Scores
-        </button>
-        <button
-          onClick={() => setSubTab("audit")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            subTab === "audit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          <History size={14} /> Audit Trail
-        </button>
-      </div>
+      {/* Sub-tab toggle — the Audit Trail is hidden when showAudit is false
+          (e.g. directors, who may edit but not view the audit). */}
+      {showAudit && (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setSubTab("edit")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              subTab === "edit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <Edit3 size={14} /> Edit Scores
+          </button>
+          <button
+            onClick={() => setSubTab("audit")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              subTab === "audit" ? "bg-[#0b5cd6] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <History size={14} /> Audit Trail
+          </button>
+        </div>
+      )}
 
       {/* ─── Edit Sub-Tab ──────────────────────────────────── */}
       {subTab === "edit" && (

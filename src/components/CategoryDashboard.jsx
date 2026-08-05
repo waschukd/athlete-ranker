@@ -123,7 +123,6 @@ export default function CategoryDashboard({
   const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
   const [scheduleDay, setScheduleDay] = useState(null); // selected day for Day view
   const [theme, toggleTheme] = useTheme();
-  const [scoresOpen, setScoresOpen] = useState(false);
   const [analysisView, setAnalysisView] = useState("insights"); // insights | reports
   // Shared search box used by Rankings + Athletes tabs. Client-side filter
   // over the already-loaded list — no API call needed since both tabs hold
@@ -456,10 +455,12 @@ export default function CategoryDashboard({
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
     { id: "athletes", label: "Athletes", icon: Users },
-    // Edit & Audit — score corrections + the integrity trail of every change,
-    // attributed to the person. Association admins and the SP only (role
-    // "association"); directors and evaluators never see it.
-    ...(role === "association" ? [{ id: "audit", label: "Edit & Audit", icon: History }] : []),
+    // Edit & Audit — score corrections + the integrity trail of every change.
+    // Association admins + SP (role "association") get Edit AND Audit. Directors
+    // get Edit only (no audit — the label reflects that). Evaluators: neither.
+    ...(role === "association" || role === "director"
+      ? [{ id: "audit", label: role === "association" ? "Edit & Audit" : "Edit Scores", icon: History }]
+      : []),
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -638,15 +639,13 @@ export default function CategoryDashboard({
               {positionTabs.length > 1 ? (
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                   {positionTabs.map(v => (
-                    <button key={v.id} onClick={() => setPositionFilter(v.id)} disabled={scoresOpen} title={v.id === "goalie" ? "Goalies — ranked separately" : v.id === "all" ? "All skaters" : undefined} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${positionFilter === v.id && !scoresOpen ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"} ${scoresOpen ? "opacity-40 cursor-not-allowed" : ""}`}>{v.label}</button>
+                    <button key={v.id} onClick={() => setPositionFilter(v.id)} title={v.id === "goalie" ? "Goalies — ranked separately" : v.id === "all" ? "All skaters" : undefined} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${positionFilter === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>{v.label}</button>
                   ))}
                 </div>
               ) : <div />}
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setScoresOpen(v => !v)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${scoresOpen ? "border border-gray-300 text-gray-700 hover:bg-gray-50" : "bg-[#0b5cd6] text-white hover:bg-[#0F4FCC]"}`}>
-                  {scoresOpen ? "← Back to Rankings" : "Edit Scores"}
-                </button>
-                {!scoresOpen && hasScores && (
+                {/* Score editing lives in the dedicated Edit & Audit tab now. */}
+                {hasScores && (
                   <button onClick={exportRankingsCSV} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold">
                     <Download size={14} /> Export
                   </button>
@@ -655,9 +654,7 @@ export default function CategoryDashboard({
               </div>
             </div>
 
-            {scoresOpen ? (
-              <ScoreEditor catId={catId} canEdit={canManage || role === "director"} requireReason={role === "director"} />
-            ) : positionFilter === "goalie" ? (
+            {positionFilter === "goalie" ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                   <div>
@@ -1871,15 +1868,15 @@ export default function CategoryDashboard({
           </div>
         )}
 
-        {activeTab === "audit" && role === "association" && (
+        {activeTab === "audit" && (role === "association" || role === "director") && (
           <div className="space-y-4">
             <div>
-              <h2 className="font-display text-lg font-extrabold tracking-tight text-ink flex items-center gap-2"><History size={18} className="text-accent" /> Edit &amp; Audit</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Correct scores when an evaluator is off (e.g. compressed into soft floors/ceilings), and review the full trail of every change — each edit is logged with who made it and why.</p>
+              <h2 className="font-display text-lg font-extrabold tracking-tight text-ink flex items-center gap-2"><History size={18} className="text-accent" /> {role === "association" ? "Edit & Audit" : "Edit Scores"}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Correct scores when an evaluator is off (e.g. compressed into soft floors/ceilings){role === "association" ? ", and review the full trail of every change" : ""} — each edit is logged with who made it and why.</p>
             </div>
-            {/* Full score editor (Edit + Audit sub-tabs). Admin/SP can edit; every
-                override requires a reason so the audit trail stays meaningful. */}
-            <ScoreEditor catId={catId} canEdit requireReason />
+            {/* Full score editor. Admin/SP get Edit + Audit; directors get Edit only
+                (showAudit=false). Every override requires a reason for the trail. */}
+            <ScoreEditor catId={catId} canEdit requireReason showAudit={role === "association"} />
           </div>
         )}
 
