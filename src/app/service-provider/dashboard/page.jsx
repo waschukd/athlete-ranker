@@ -1389,6 +1389,7 @@ function SPDashboard() {
   const queryClient = useQueryClient();
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all"); // "all" | "testing" | "eval"
+  const [scheduleAssocFilter, setScheduleAssocFilter] = useState("all"); // "all" | <org_id>
   const [scheduleView, setScheduleViewRaw] = useState("week"); // "week" | "month" | "list"
   useEffect(() => {
     const saved = typeof window !== "undefined" && window.localStorage.getItem("sp-schedule-view");
@@ -1596,7 +1597,9 @@ function SPDashboard() {
     : scheduleTypeFilter === "testing"
       ? s.session_type === "testing"
       : s.session_type !== "testing";
-  const visibleDates = visibleDatesRaw.filter(d => (byDate[d] || []).some(matchesType));
+  const matchesAssoc = (s) => scheduleAssocFilter === "all" || String(s.org_id) === String(scheduleAssocFilter);
+  const matchesFilters = (s) => matchesType(s) && matchesAssoc(s);
+  const visibleDates = visibleDatesRaw.filter(d => (byDate[d] || []).some(matchesFilters));
 
   return (
     <div className="min-h-screen bg-gray-50" data-theme={theme}>
@@ -1977,6 +1980,17 @@ function SPDashboard() {
                     </button>
                   ))}
                 </div>
+                {/* Association filter — narrow the schedule to one client association */}
+                {associations.length > 1 && (
+                  <select
+                    value={scheduleAssocFilter}
+                    onChange={e => setScheduleAssocFilter(e.target.value)}
+                    className={`text-xs font-medium px-2.5 py-1.5 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30 ${scheduleAssocFilter !== "all" ? "border-[#0b5cd6] bg-[#0b5cd6]/5 text-[#0b5cd6]" : "border-gray-200 bg-white text-gray-600"}`}
+                  >
+                    <option value="all">All associations</option>
+                    {associations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                )}
                 {/* Subscribe — add the master schedule to Google/Apple Calendar */}
                 <button
                   onClick={async () => {
@@ -2110,7 +2124,7 @@ function SPDashboard() {
                         <div className="h-px flex-1 bg-gray-200" />
                       </div>
                       <div className="space-y-2">
-                        {byDate[date].filter(matchesType).map(entry => {
+                        {byDate[date].filter(matchesFilters).map(entry => {
                           const palette = scheduleOrgPalette(entry.org_name);
                           return (
                             <div
