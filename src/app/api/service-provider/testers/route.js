@@ -29,13 +29,14 @@ export async function GET(request) {
     if (g.error) return g.error;
     const { spId } = g;
     const testers = await sql`
-      SELECT u.id, u.name, u.email, em.created_at as joined_at, em.status, em.is_evaluator, em.hourly_rate,
+      SELECT u.id, u.name, u.email, em.created_at as joined_at, em.status, em.is_evaluator,
+        em.tester_hourly_rate, em.hourly_rate AS eval_hourly_rate,
         COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as upcoming_signups
       FROM evaluator_memberships em
       JOIN users u ON u.id = em.user_id
       LEFT JOIN tester_session_signups tss ON tss.user_id = u.id
       WHERE em.organization_id = ${spId} AND em.is_tester = true AND em.status != 'deleted'
-      GROUP BY u.id, em.created_at, em.status, em.is_evaluator, em.hourly_rate
+      GROUP BY u.id, em.created_at, em.status, em.is_evaluator, em.tester_hourly_rate, em.hourly_rate
       ORDER BY u.name
     `;
     const codes = await sql`
@@ -74,7 +75,9 @@ export async function POST(request) {
       return NextResponse.json({ success: true, code: c });
     }
 
-    // Set per-tester hourly rates (mirrors the evaluator pool's set_rates).
+    // Set per-tester TESTING rates → tester_hourly_rate, separate from their
+    // evaluation rate (hourly_rate). A dual-role person's testing rate is usually
+    // lower, so the two must not overwrite each other.
     if (action === "set_rates") {
       const rows = Array.isArray(body.rates) ? body.rates : [];
       for (const r of rows) {
@@ -82,7 +85,7 @@ export async function POST(request) {
         if (!tid) continue;
         const rate = r.hourly_rate === null || r.hourly_rate === "" ? null : parseFloat(r.hourly_rate);
         if (rate !== null && !(rate >= 0)) continue;
-        await sql`UPDATE evaluator_memberships SET hourly_rate = ${rate} WHERE user_id = ${tid} AND organization_id = ${spId} AND is_tester = true`;
+        await sql`UPDATE evaluator_memberships SET tester_hourly_rate = ${rate} WHERE user_id = ${tid} AND organization_id = ${spId} AND is_tester = true`;
       }
       return NextResponse.json({ success: true });
     }

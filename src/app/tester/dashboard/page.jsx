@@ -231,7 +231,7 @@ function HoursPay() {
         <div key={o.org_id} className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-ink">{o.org_name}</h3>
-            {o.hourly_rate != null && <span className="text-xs px-2 py-0.5 rounded-full bg-accent-soft text-accent font-semibold">${o.hourly_rate}/hr</span>}
+            {o.tester_hourly_rate != null && <span className="text-xs px-2 py-0.5 rounded-full bg-accent-soft text-accent font-semibold" title="Testing rate">${o.tester_hourly_rate}/hr</span>}
           </div>
           <div className="grid grid-cols-3 gap-2 text-center mb-3">
             <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-amber-600">{o.pending_hours}</div><div className="text-xs text-gray-400">Pending</div></div>

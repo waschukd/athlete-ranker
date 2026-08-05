@@ -274,7 +274,7 @@ function TestersTab({ spUrl, spName }) {
                   <tr key={t.id}>
                     <td className="px-5 py-3 font-medium text-ink">{t.name}{t.status === "pending" && <span className="ml-2 text-[11px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-semibold">Pending</span>}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
                     <td className="px-4 py-3 text-gray-500">{t.email}</td>
-                    <td className="px-4 py-3 text-gray-600 tabular-nums">{t.hourly_rate != null ? `$${t.hourly_rate}/hr` : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 text-gray-600 tabular-nums">{t.tester_hourly_rate != null ? `$${t.tester_hourly_rate}/hr` : <span className="text-gray-300">—</span>}{t.is_evaluator && t.eval_hourly_rate != null && <span className="ml-1 text-[10px] text-gray-400">(eval ${t.eval_hourly_rate})</span>}</td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">{t.upcoming_signups || 0}</td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
                       {t.status === "pending" && <button onClick={() => act({ action: "approve", tester_id: t.id })} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium mr-2 inline-flex items-center gap-1"><CheckCircle size={12} /> Approve</button>}
@@ -335,6 +335,7 @@ function TestersTab({ spUrl, spName }) {
           evaluators={testers}
           postUrl={spUrl("/api/service-provider/testers")}
           idKey="tester_id"
+          rateKey="tester_hourly_rate"
           title="Tester hourly rates"
           noun="tester"
           onClose={() => setShowSetRates(false)}
@@ -1085,12 +1086,13 @@ function LeadsSection({ spUrl, orgParam, associations }) {
 // evaluators: full list (all non-deleted/non-suspended as caller prefers)
 // onClose: () => void
 // onSaved: () => void  (caller refetches + shows banner)
-function SetRatesModal({ evaluators, onClose, onSaved, postUrl = "/api/service-provider/evaluators", idKey = "evaluator_id", title = "Evaluator hourly rates", noun = "evaluator" }) {
-  // Seed local map: evaluatorId (string) → input string value
+function SetRatesModal({ evaluators, onClose, onSaved, postUrl = "/api/service-provider/evaluators", idKey = "evaluator_id", rateKey = "hourly_rate", title = "Evaluator hourly rates", noun = "evaluator" }) {
+  // Seed local map: id (string) → input string value, from the chosen rate field
+  // (hourly_rate for evaluators, tester_hourly_rate for testers).
   const [rates, setRates] = useState(() => {
     const m = {};
     for (const ev of evaluators) {
-      m[String(ev.id)] = ev.hourly_rate != null ? String(ev.hourly_rate) : "";
+      m[String(ev.id)] = ev[rateKey] != null ? String(ev[rateKey]) : "";
     }
     return m;
   });
@@ -1105,7 +1107,7 @@ function SetRatesModal({ evaluators, onClose, onSaved, postUrl = "/api/service-p
     // Only send rows where value changed vs. original
     const changed = evaluators
       .filter(ev => {
-        const orig = ev.hourly_rate != null ? String(ev.hourly_rate) : "";
+        const orig = ev[rateKey] != null ? String(ev[rateKey]) : "";
         return rates[String(ev.id)] !== orig;
       })
       .map(ev => ({
@@ -1536,6 +1538,11 @@ function SPDashboard() {
   const upcomingDates = showPastSessions ? allDates : allDates.filter(d => d >= today);
   const pastCount = allDates.filter(d => d < today).length;
   const needsEvaluators = schedule.filter(s => s.spots_open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
+  // Total OPEN SPOTS across upcoming sessions (the sum of remaining evaluator slots),
+  // not the count of understaffed sessions — clearer for "how many more do I need".
+  const openSpots = schedule
+    .filter(s => s.scheduled_date?.toString().split("T")[0] >= today)
+    .reduce((sum, s) => sum + Math.max(0, parseInt(s.spots_open) || 0), 0);
   const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
 
   // ── Overview (home) data ──
@@ -1626,7 +1633,7 @@ function SPDashboard() {
                 <span className="text-gray-300">·</span>
                 <span><b className="text-ink">{totalUpcoming}</b> upcoming session{totalUpcoming === 1 ? "" : "s"}</span>
                 <span className="text-gray-300">·</span>
-                <span><b className="text-ink">{needsEvaluators}</b> need{needsEvaluators === 1 ? "s" : ""} evaluators</span>
+                <span><b className="text-ink">{openSpots}</b> open spot{openSpots === 1 ? "" : "s"}</span>
                 <span className="text-gray-300">·</span>
                 <span><b className="text-ink">{evaluatorStats.total_evaluators || 0}</b> evaluators in pool</span>
               </div>
@@ -1657,7 +1664,7 @@ function SPDashboard() {
                 { label: "Client Associations", value: associations.length, Icon: Building2 },
                 { label: "Sessions Today", value: todaySessions.length, Icon: CalendarDays, gold: true },
                 { label: "Upcoming Sessions", value: totalUpcoming, Icon: Calendar },
-                { label: "Need Evaluators", value: needsEvaluators, Icon: AlertTriangle, amber: needsEvaluators > 0 },
+                { label: "Open Spots", value: openSpots, Icon: AlertTriangle, amber: openSpots > 0 },
               ].map((c, i) => (
                 <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
                   <div className="flex items-center justify-between">
