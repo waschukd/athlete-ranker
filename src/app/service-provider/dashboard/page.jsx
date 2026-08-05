@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
+import SessionRosterModal from "@/components/SessionRosterModal";
 import { colorForOrg, buildOrgColorMap, paletteFromHex, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
 import { useTrackPageView } from "@/lib/useAnalytics";
@@ -1390,6 +1391,7 @@ function SPDashboard() {
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all"); // "all" | "testing" | "eval"
   const [scheduleAssocFilter, setScheduleAssocFilter] = useState("all"); // "all" | <org_id>
+  const [rosterScheduleId, setRosterScheduleId] = useState(null); // open the per-session roster modal
   const [scheduleView, setScheduleViewRaw] = useState("week"); // "week" | "month" | "list"
   useEffect(() => {
     const saved = typeof window !== "undefined" && window.localStorage.getItem("sp-schedule-view");
@@ -2149,20 +2151,20 @@ function SPDashboard() {
                                 {entry.status !== "cancelled" && (
                                   <>
                                     {entry.is_goalie_sp ? (
-                                      <div className="text-center">
+                                      <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
                                         <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.goalie_evaluators_required}</div>
-                                        <div className="text-xs text-gray-400">goalie eval</div>
-                                      </div>
+                                        <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">goalie eval</div>
+                                      </button>
                                     ) : entry.session_type === 'testing' ? (
                                       entry.is_goalie_sp
                                         ? <div className="text-center"><div className="text-sm font-bold text-gray-400">—</div><div className="text-xs text-gray-400">no evaluators needed</div></div>
                                         : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} />
                                     ) : (
                                       <>
-                                        <div className="text-center">
+                                        <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
                                           <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                                          <div className="text-xs text-gray-400">player eval</div>
-                                        </div>
+                                          <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">player eval</div>
+                                        </button>
                                         {parseInt(entry.goalie_evaluators_required) > 0 && (
                                           <div className="text-center">
                                             <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
@@ -2501,6 +2503,12 @@ function SPDashboard() {
               />
             )}
           </div>
+        )}
+
+        {/* Per-session roster — opened by clicking a session's evaluator count in the
+            Master Schedule. Shows who's signed up and lets the SP add/remove. */}
+        {rosterScheduleId && (
+          <SessionRosterModal scheduleId={rosterScheduleId} onClose={() => { setRosterScheduleId(null); refetchSchedule(); }} />
         )}
       </div>
     </div>
