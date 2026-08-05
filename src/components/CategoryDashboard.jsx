@@ -7,7 +7,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -219,6 +219,20 @@ export default function CategoryDashboard({
     queryKey: ["category-athletes", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/athletes`); return res.json(); },
     enabled: !!catId,
+  });
+
+  // Audit trail (association + SP only). Loaded when the Audit tab is open.
+  const [auditOffset, setAuditOffset] = useState(0);
+  const [auditActionFilter, setAuditActionFilter] = useState("");
+  const { data: auditData, isLoading: auditLoading } = useQuery({
+    queryKey: ["category-audit", catId, auditOffset, auditActionFilter],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ limit: "50", offset: String(auditOffset) });
+      if (auditActionFilter) qs.set("action", auditActionFilter);
+      const res = await fetch(`/api/categories/${catId}/audit?${qs}`);
+      return res.json();
+    },
+    enabled: !!catId && activeTab === "audit" && role === "association",
   });
 
   const { data: directorsData, refetch: refetchDirectors } = useQuery({
@@ -455,6 +469,9 @@ export default function CategoryDashboard({
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
     { id: "athletes", label: "Athletes", icon: Users },
+    // Audit trail — integrity view of every change, attributed to the person.
+    // Association admins and the SP see it (role "association"); directors do not.
+    ...(role === "association" ? [{ id: "audit", label: "Audit", icon: History }] : []),
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -1863,6 +1880,70 @@ export default function CategoryDashboard({
               )}
             </div>
           )}
+          </div>
+        )}
+
+        {activeTab === "audit" && role === "association" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-display text-lg font-extrabold tracking-tight text-ink flex items-center gap-2"><History size={18} className="text-accent" /> Audit Trail</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Every change in this category, attributed to who made it. {auditData?.total != null ? `${auditData.total} entr${auditData.total === 1 ? "y" : "ies"}.` : ""}</p>
+              </div>
+              {(auditData?.actions?.length > 0) && (
+                <select value={auditActionFilter} onChange={e => { setAuditActionFilter(e.target.value); setAuditOffset(0); }}
+                  className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent/30">
+                  <option value="">All actions</option>
+                  {auditData.actions.map(a => <option key={a} value={a}>{a.replace(/_/g, " ")}</option>)}
+                </select>
+              )}
+            </div>
+            {auditLoading ? (
+              <div className="py-12 text-center text-gray-400 text-sm">Loading…</div>
+            ) : !auditData?.entries?.length ? (
+              <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-sm text-gray-400">No changes recorded yet.</div>
+            ) : (
+              <>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        <th className="text-left px-4 py-2.5 whitespace-nowrap">When</th>
+                        <th className="text-left px-4 py-2.5">Who</th>
+                        <th className="text-left px-4 py-2.5">Action</th>
+                        <th className="text-left px-4 py-2.5">Athlete</th>
+                        <th className="text-center px-3 py-2.5">Old</th>
+                        <th className="text-center px-3 py-2.5">New</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {auditData.entries.map(e => {
+                        let notes = {}; try { notes = JSON.parse(e.notes || "{}"); } catch { notes = {}; }
+                        return (
+                          <tr key={e.id}>
+                            <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{new Date(e.created_at).toLocaleDateString()} {new Date(e.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                            <td className="px-4 py-2.5"><div className="text-xs font-medium text-ink">{e.editor_name || "System"}</div>{e.editor_role && <div className="text-[10px] text-gray-400">{e.editor_role.replace(/_/g, " ")}</div>}</td>
+                            <td className="px-4 py-2.5 text-xs text-gray-600">{(e.action || "").replace(/_/g, " ")}{e.field_changed ? ` · ${e.field_changed}` : ""}</td>
+                            <td className="px-4 py-2.5 text-xs text-gray-600">{e.athlete_first_name ? `${e.athlete_first_name} ${e.athlete_last_name || ""}` : (notes.evaluator_name || "—")}</td>
+                            <td className="px-3 py-2.5 text-center">{e.old_value ? <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded text-xs font-mono">{e.old_value}</span> : <span className="text-gray-300">—</span>}</td>
+                            <td className="px-3 py-2.5 text-center">{e.new_value ? <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-mono">{e.new_value}</span> : <span className="text-gray-300">—</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {auditData.total > auditData.limit && (
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>Showing {auditOffset + 1}–{Math.min(auditOffset + auditData.limit, auditData.total)} of {auditData.total}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setAuditOffset(Math.max(0, auditOffset - 50))} disabled={auditOffset === 0} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40">Newer</button>
+                      <button onClick={() => setAuditOffset(auditOffset + 50)} disabled={auditOffset + auditData.limit >= auditData.total} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40">Older</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
