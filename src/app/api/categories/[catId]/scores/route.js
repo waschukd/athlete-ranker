@@ -15,7 +15,45 @@ export async function PATCH(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const editorId = await getAppUserId(session);
-    const { athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason } = await request.json();
+    const body = await request.json();
+    const { athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason } = body;
+
+    // ── Bulk bump: shift ALL of one player's scores up/down by a whole number of
+    // levels (delta), clamped to the scale. For correcting a player an evaluator
+    // mis-placed. Optionally scoped to one evaluator and/or session. Audited.
+    if (body.action === "bump") {
+      const delta = parseFloat(body.delta);
+      if (!athlete_id || !Number.isFinite(delta) || delta === 0) {
+        return NextResponse.json({ error: "athlete_id and a non-zero delta are required" }, { status: 400 });
+      }
+      if (session.role === "director" && !(reason && String(reason).trim())) {
+        return NextResponse.json({ error: "A reason is required for a director score adjustment" }, { status: 400 });
+      }
+      const [cat] = await sql`SELECT scoring_scale FROM age_categories WHERE id = ${catId}`;
+      const scale = parseFloat(cat?.scoring_scale || 10);
+      const evId = body.evaluator_id ? parseInt(body.evaluator_id) : null;
+      const sess = body.session_number ? parseInt(body.session_number) : null;
+      const rows = await sql`
+        SELECT id, score FROM category_scores
+        WHERE athlete_id = ${athlete_id} AND age_category_id = ${catId}
+          AND (${evId}::int IS NULL OR evaluator_id = ${evId})
+          AND (${sess}::int IS NULL OR session_number = ${sess})`;
+      let changed = 0;
+      for (const r of rows) {
+        const oldS = parseFloat(r.score);
+        const newS = Math.max(0, Math.min(scale, Math.round((oldS + delta) * 100) / 100));
+        if (newS !== oldS) {
+          await sql`UPDATE category_scores SET score = ${newS}, updated_at = NOW() WHERE id = ${r.id}`;
+          changed++;
+        }
+      }
+      await sql`
+        INSERT INTO audit_log (user_id, action, entity_type, entity_id, field_changed, old_value, new_value, notes, age_category_id)
+        VALUES (${editorId}, 'score_bump', 'athlete', ${athlete_id}, 'all scores',
+          ${(delta > 0 ? "+" : "") + delta + " levels"}, ${changed + " scores"},
+          ${JSON.stringify({ delta, changed, evaluator_id: evId, session_number: sess, reason: reason || null, editor_role: session.role })}, ${catId})`;
+      return NextResponse.json({ success: true, changed, delta });
+    }
 
     if (!athlete_id || !evaluator_id || !scoring_category_id || !session_number || new_score === undefined) {
       return NextResponse.json({ error: "athlete_id, evaluator_id, scoring_category_id, session_number, new_score required" }, { status: 400 });

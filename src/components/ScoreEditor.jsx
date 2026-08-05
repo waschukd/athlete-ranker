@@ -84,6 +84,34 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
     },
   });
 
+  // ── Bulk bump: shift ALL of one player's scores up/down N levels, clamped to
+  // the scale. Respects the active evaluator/session filters so "bump" affects
+  // exactly what's on screen. Requires a reason when requireReason is set.
+  const [bumpBusy, setBumpBusy] = useState(null); // `${athleteId}:${delta}`
+  const bumpPlayer = async (athlete, delta) => {
+    let reason = null;
+    if (requireReason) {
+      reason = typeof window !== "undefined" ? window.prompt(`Reason for ${delta > 0 ? "raising" : "dropping"} ${athlete.name}'s scores by ${Math.abs(delta)}:`) : null;
+      if (!reason || !reason.trim()) return;
+      reason = reason.trim();
+    }
+    const scope = [evaluatorFilter && "this evaluator", sessionFilter && `session ${sessionFilter}`].filter(Boolean).join(" · ") || "all their scores";
+    if (typeof window !== "undefined" && !window.confirm(`${delta > 0 ? "Raise" : "Drop"} ${athlete.name}'s scores by ${Math.abs(delta)} (${scope})?`)) return;
+    setBumpBusy(`${athlete.id}:${delta}`);
+    try {
+      const res = await fetch(`/api/categories/${catId}/scores`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bump", athlete_id: athlete.id, delta, reason, evaluator_id: evaluatorFilter || null, session_number: sessionFilter || null }),
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["score-search", catId] });
+        queryClient.invalidateQueries({ queryKey: ["category-rankings", catId] });
+        queryClient.invalidateQueries({ queryKey: ["score-audit", catId] });
+      }
+    } catch {}
+    setBumpBusy(null);
+  };
+
   // ── Grid save: each cell saves itself. Deliberately does NOT invalidate the
   // score-search query so the spreadsheet doesn't refetch/reset out from under
   // rapid edits — the cell keeps its own value; rankings/audit still refresh.
@@ -243,16 +271,28 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
             <div className="space-y-3">
               {athletes.map(athlete => (
                 <div key={athlete.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  {/* Athlete header */}
-                  <button
-                    onClick={() => toggleExpand(athlete.id)}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    {expanded.has(athlete.id) ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
-                    <span className="text-sm font-semibold text-gray-900">{athlete.name}</span>
-                    {athlete.jersey && <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">#{athlete.jersey}</span>}
-                    <span className="text-xs text-gray-400 ml-auto">{Object.keys(athlete.sessions).length} session(s)</span>
-                  </button>
+                  {/* Athlete header — expand toggle + quick bump controls */}
+                  <div className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                    <button onClick={() => toggleExpand(athlete.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                      {expanded.has(athlete.id) ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />}
+                      <span className="text-sm font-semibold text-gray-900 truncate">{athlete.name}</span>
+                      {athlete.jersey && <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded flex-shrink-0">#{athlete.jersey}</span>}
+                      <span className="text-xs text-gray-400 hidden sm:inline">{Object.keys(athlete.sessions).length} session(s)</span>
+                    </button>
+                    {canEdit && (
+                      <div className="flex items-center gap-1 flex-shrink-0" title={`Bump ${athlete.name}'s scores up/down by whole levels${(evaluatorFilter || sessionFilter) ? " (current filter only)" : ""}`}>
+                        {[-3, -2, -1].map(d => (
+                          <button key={d} onClick={() => bumpPlayer(athlete, d)} disabled={bumpBusy === `${athlete.id}:${d}`}
+                            className="w-7 h-7 rounded-md border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 disabled:opacity-40">{d}</button>
+                        ))}
+                        <span className="w-px h-4 bg-gray-200 mx-0.5" />
+                        {[1, 2, 3].map(d => (
+                          <button key={d} onClick={() => bumpPlayer(athlete, d)} disabled={bumpBusy === `${athlete.id}:${d}`}
+                            className="w-7 h-7 rounded-md border border-green-200 text-green-700 text-xs font-bold hover:bg-green-50 disabled:opacity-40">+{d}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Expanded: per-session, per-evaluator scores */}
                   {expanded.has(athlete.id) && (
