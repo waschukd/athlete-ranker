@@ -170,6 +170,18 @@ function Dashboard() {
   const orgId = searchParams.get("org");
   useTrackPageView("dashboard.association.viewed", { orgId });
 
+  // Self-heal: if we landed here without an ?org (bookmark, direct nav, an older
+  // login path), resolve the signed-in user's association and put it in the URL,
+  // rather than showing an empty "No organization selected" page.
+  useEffect(() => {
+    if (orgId) return;
+    let alive = true;
+    fetch("/api/auth/my-association").then(r => r.json()).then(d => {
+      if (alive && d?.orgId) router.replace(`/association/dashboard?org=${d.orgId}`);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [orgId, router]);
+
   const { data: joinCodeData, refetch: refetchCodes } = useQuery({
     queryKey: ["assoc-join-codes", orgId],
     queryFn: async () => {
@@ -363,9 +375,11 @@ function Dashboard() {
     </div>
   );
 
+  // No ?org yet — the self-heal effect above is resolving the user's association and
+  // redirecting. Show a spinner rather than an empty "nothing here" page.
   if (!orgId) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium">
-      <p className="text-gray-500">No organization selected.</p>
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent" />
     </div>
   );
 

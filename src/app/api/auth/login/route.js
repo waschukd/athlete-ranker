@@ -108,8 +108,22 @@ export async function POST(request) {
       role,
     });
 
+    // Resolve the admin's org for the post-login redirect. contact_email covers the
+    // ORIGINAL owner; an invited co-admin (linked via user_organization_roles, e.g.
+    // Mike invites Brian to KC North) is NOT the contact_email, so fall back to their
+    // org role. Without this they'd land on /association/dashboard with no ?org and
+    // see an empty page on every login after the first (the invite-accept redirect).
     const orgRow = await sql`SELECT id FROM organizations WHERE contact_email = ${email} LIMIT 1`;
-    const orgId = orgRow[0]?.id;
+    let orgId = orgRow[0]?.id;
+    if (!orgId && appUser?.id && (role === "association_admin" || role === "service_provider_admin" || role === "goalie_service_provider_admin")) {
+      const wantType = role === "association_admin" ? "association" : role === "goalie_service_provider_admin" ? "goalie_service_provider" : "service_provider";
+      const uor = await sql`
+        SELECT uor.organization_id FROM user_organization_roles uor
+        JOIN organizations o ON o.id = uor.organization_id
+        WHERE uor.user_id = ${appUser.id} AND o.type = ${wantType}
+        ORDER BY uor.organization_id LIMIT 1`;
+      orgId = uor[0]?.organization_id;
+    }
 
     let redirectTo = "/evaluator/dashboard";
     if (role === "super_admin") redirectTo = "/admin/god-mode";
