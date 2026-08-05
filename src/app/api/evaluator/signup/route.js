@@ -186,7 +186,10 @@ export async function POST(request) {
     // SIGN UP
     const scheduleInfo = await sql`
       SELECT sch.*,
-        COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+        -- Per-session cap (sch.evaluators_required) wins, matching what the schedule
+        -- DISPLAY uses. Omitting it here let a 4th sign up when a session was capped
+        -- to 3 via the UI while cs/ac still read 4.
+        COALESCE(sch.evaluators_required, cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
         COUNT(DISTINCT ess.id) as signed_up_count
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
