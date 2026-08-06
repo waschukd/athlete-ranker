@@ -107,15 +107,16 @@ export async function POST(request, { params }) {
           ${a.start_time || null}, ${a.end_time || null}, ${a.location || null}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, ${matchup}, 'scheduled'
         ) RETURNING *
       `;
-      await ensureSessionGroup(catId, session_number, group_number);
-      await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup);
-      const { notified } = await notifySessionChange({
-        catId, scheduleRow: row, scheduleId: row.id, changeType: "added",
-        summary: "A new session was added to the schedule.", initiator: initiatorOf(session),
-      });
-      // Recruit evaluators for the new session automatically
-      const offer = await offerOpenSession({ catId, scheduleRow: row });
-      return NextResponse.json({ success: true, session: row, notified, offered: offer.offered });
+      // The session row is created above. Everything below is a best-effort
+      // side-effect (group setup, matchup, notification emails, evaluator
+      // recruitment) — a failure in any of them (e.g. an email hiccup) must NOT
+      // fail the add or the session would silently not appear for the user.
+      try { await ensureSessionGroup(catId, session_number, group_number); } catch (e) { console.error("add: ensureSessionGroup", e?.message); }
+      try { await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup); } catch (e) { console.error("add: applyMatchup", e?.message); }
+      let notified = 0, offered = 0;
+      try { ({ notified } = await notifySessionChange({ catId, scheduleRow: row, scheduleId: row.id, changeType: "added", summary: "A new session was added to the schedule.", initiator: initiatorOf(session) })); } catch (e) { console.error("add: notifySessionChange", e?.message); }
+      try { const offer = await offerOpenSession({ catId, scheduleRow: row }); offered = offer?.offered || 0; } catch (e) { console.error("add: offerOpenSession", e?.message); }
+      return NextResponse.json({ success: true, session: row, notified, offered });
     }
 
     // ── Bulk upload / replace (CSV) ───────────────────────────────────────────

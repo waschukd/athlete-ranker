@@ -177,6 +177,7 @@ export default function CategoryDashboard({
   const [scheduleAddOpen, setScheduleAddOpen] = useState(false);
   const [scheduleAddForm, setScheduleAddForm] = useState({ session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" });
   const [scheduleAddSaving, setScheduleAddSaving] = useState(false);
+  const [scheduleAddErr, setScheduleAddErr] = useState("");
   const [scheduleCancelTarget, setScheduleCancelTarget] = useState(null); // entry to cancel
   const [scheduleCancelBusy, setScheduleCancelBusy] = useState(false);
   const [scheduleMsg, setScheduleMsg] = useState("");
@@ -1346,25 +1347,35 @@ export default function CategoryDashboard({
                   <input type="number" min="0" value={scheduleAddForm.evaluators_required} onChange={e => setScheduleAddForm(f => ({ ...f, evaluators_required: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
                 </div>
               </div>
+              {scheduleAddErr && <p className="mt-4 text-sm text-red-600">{scheduleAddErr}</p>}
               <div className="flex gap-3 mt-6 justify-end">
                 <button onClick={() => setScheduleAddOpen(false)} disabled={scheduleAddSaving} className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
                 <button
                   disabled={scheduleAddSaving || !scheduleAddForm.session_number || !scheduleAddForm.scheduled_date}
                   onClick={async () => {
                     setScheduleAddSaving(true);
-                    const res = await fetch(`/api/categories/${catId}/schedule`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ add: { session_number: Number(scheduleAddForm.session_number), group_number: Number(scheduleAddForm.group_number) || 1, scheduled_date: scheduleAddForm.scheduled_date, day_of_week: scheduleAddForm.day_of_week, start_time: scheduleAddForm.start_time, end_time: scheduleAddForm.end_time, location: scheduleAddForm.location, evaluators_required: Number(scheduleAddForm.evaluators_required) || 4 } })
-                    });
-                    const data = await res.json();
-                    setScheduleAddSaving(false);
-                    if (data.success || res.ok) {
-                      setScheduleAddOpen(false);
-                      setScheduleMsg("Saved — everyone tied to this session was notified.");
+                    setScheduleAddErr("");
+                    try {
+                      const res = await fetch(`/api/categories/${catId}/schedule`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ add: { session_number: Number(scheduleAddForm.session_number), group_number: Number(scheduleAddForm.group_number) || 1, scheduled_date: scheduleAddForm.scheduled_date, day_of_week: scheduleAddForm.day_of_week, start_time: scheduleAddForm.start_time, end_time: scheduleAddForm.end_time, location: scheduleAddForm.location, evaluators_required: Number(scheduleAddForm.evaluators_required) || 4 } })
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      // Always refresh so the new session shows even if a side-effect (email) hiccuped.
                       refetchSchedule(); refetchRankings();
-                      setTimeout(() => setScheduleMsg(""), 5000);
+                      if (res.ok || data.success) {
+                        setScheduleAddOpen(false);
+                        setScheduleMsg("Session added — everyone tied to it was notified.");
+                        setTimeout(() => setScheduleMsg(""), 5000);
+                      } else {
+                        setScheduleAddErr(data.error || "Couldn't add the session. Please try again.");
+                      }
+                    } catch {
+                      setScheduleAddErr("Network error — please try again.");
+                      refetchSchedule();
                     }
+                    setScheduleAddSaving(false);
                   }}
                   className="px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >{scheduleAddSaving ? "Saving…" : "Add Session"}</button>
