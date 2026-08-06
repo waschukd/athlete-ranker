@@ -163,7 +163,7 @@ export default function CategoryDashboard({
   const [volunteerSending, setVolunteerSending] = useState(false);
   const [volunteerMsg, setVolunteerMsg] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "" });
+  const [athleteForm, setAthleteForm] = useState({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "", non_contact: false });
   const [athleteSaving, setAthleteSaving] = useState(false);
   const [athleteMsg, setAthleteMsg] = useState("");
   const [showImport, setShowImport] = useState(false);
@@ -1494,6 +1494,14 @@ export default function CategoryDashboard({
                       <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
                     </select>
                   </div>
+                  {u15Plus && (
+                    <div><label className="block text-xs font-medium text-gray-500 mb-1">Registration</label>
+                      <select value={athleteForm.non_contact ? "nbc" : "bc"} onChange={e => setAthleteForm(f => ({ ...f, non_contact: e.target.value === "nbc" }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6] bg-white">
+                        <option value="bc">Body checking (BC)</option>
+                        <option value="nbc">Non-body checking (NBC)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm">Cancel</button>
@@ -1502,7 +1510,7 @@ export default function CategoryDashboard({
                     setAthleteSaving(true);
                     await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: [athleteForm] }) });
                     setAthleteMsg(`${athleteForm.first_name} ${athleteForm.last_name} added`);
-                    setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "" });
+                    setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "", non_contact: false });
                     setShowAdd(false); refetchAthletes(); refetchRankings(); setAthleteSaving(false); setTimeout(() => setAthleteMsg(""), 3000);
                   }} disabled={!athleteForm.first_name || !athleteForm.last_name || athleteSaving} className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{athleteSaving ? "Saving..." : "Add Player"}</button>
                 </div>
