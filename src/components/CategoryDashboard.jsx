@@ -612,7 +612,7 @@ export default function CategoryDashboard({
             : na.kind === "make_teams" ? "Make Teams →"
             : "Make Testing Groups →"; // make_groups
           const isButton = na.kind === "add_players" || na.kind === "welcome_players";
-          const onBtn = na.kind === "add_players" ? () => setActiveTab("athletes") : sendWelcome;
+          const onBtn = na.kind === "add_players" ? () => setActiveTab("athletes") : () => sendWelcome();
           return (
             <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-accent/25 bg-accent-soft px-5 py-4">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -651,7 +651,6 @@ export default function CategoryDashboard({
                     <Download size={14} /> Export
                   </button>
                 )}
-                <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
               </div>
             </div>
 
@@ -947,7 +946,6 @@ export default function CategoryDashboard({
 
             <div className="flex justify-end gap-2">
               <a href={`/association/dashboard/category/${catId}/planner?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">Final Session Planner</a>
-              <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-shadow">Create Final Teams →</a>
             </div>
             </>
             )}
@@ -1229,6 +1227,12 @@ export default function CategoryDashboard({
                   </div>
                 );
               })
+            )}
+            {/* Create final teams — after the last session on the schedule */}
+            {schedule.length > 0 && (
+              <div className="flex justify-end pt-2 border-t border-gray-100">
+                <a href={`/association/dashboard/category/${catId}/teams?org=${orgId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">Create Final Teams →</a>
+              </div>
             )}
           </div>
         )}

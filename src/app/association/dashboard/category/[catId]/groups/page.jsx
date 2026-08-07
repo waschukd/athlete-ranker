@@ -486,6 +486,7 @@ function GroupsManagerInner() {
                 </button>
               )}
               {groups.length > 0 && assignments.length > 0 && (<><button onClick={exportCSV} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Download size={14} /> CSV</button><button onClick={exportPrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50"><Printer size={14} /> Print / PDF</button></>)}
+              {selectedSession && <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} locked={locked} />}
             </div>
           </div>
         </div>
@@ -905,10 +906,8 @@ function GroupsManagerInner() {
               {!locked ? (
                 <button onClick={() => setLock(true)} disabled={finalizeBusy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC] disabled:opacity-50">{finalizeBusy ? "Locking…" : "Confirm & lock groups"}</button>
               ) : (
-                <span className="text-sm text-green-700 font-medium inline-flex items-center gap-1">🔒 Locked</span>
+                <span className="text-sm text-green-700 font-medium inline-flex items-center gap-1">🔒 Locked — use “Email Parents” up top to send</span>
               )}
-              <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} locked={locked} />
-              {!locked && <span className="text-xs text-gray-400 w-full sm:w-auto">Lock the groups to enable Email Parents.</span>}
             </div>
           </div>
         )}
