@@ -15,7 +15,7 @@ const STATUS = {
   no_email: { label: "No email", cls: "bg-gray-100 text-gray-500" },
 };
 
-export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount = 0 }) {
+export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount = 0, locked = true }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -69,8 +69,8 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
-        <Mail size={14} /> Email group assignments
+      <button onClick={() => setOpen(true)} disabled={!locked} title={locked ? "Email each parent their child's date, time & rink" : "Lock the groups first, then email parents"} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+        <Mail size={14} /> Email Parents
       </button>
 
       {open && (

@@ -905,11 +905,10 @@ function GroupsManagerInner() {
               {!locked ? (
                 <button onClick={() => setLock(true)} disabled={finalizeBusy} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC] disabled:opacity-50">{finalizeBusy ? "Locking…" : "Confirm & lock groups"}</button>
               ) : (
-                <>
-                  <span className="text-sm text-green-700 font-medium inline-flex items-center gap-1">🔒 Locked</span>
-                  <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} />
-                </>
+                <span className="text-sm text-green-700 font-medium inline-flex items-center gap-1">🔒 Locked</span>
               )}
+              <GroupEmailDialog catId={catId} sessionNumber={selectedSession} unassignedCount={unassigned.length} locked={locked} />
+              {!locked && <span className="text-xs text-gray-400 w-full sm:w-auto">Lock the groups to enable Email Parents.</span>}
             </div>
           </div>
         )}

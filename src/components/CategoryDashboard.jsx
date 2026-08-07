@@ -288,23 +288,6 @@ export default function CategoryDashboard({
     } catch { setMsg("Failed to send"); }
     finally { setWelcomeSending(false); setTimeout(() => setMsg(""), 5000); }
   };
-  // Emails every family the evaluation dates (Session N · date · Group & time TBD).
-  // Lives on both the Schedule tab and the Athletes-tab Parent Notifications card.
-  const [evalDatesSending, setEvalDatesSending] = useState(null); // holds the sessionNum currently sending
-  const sendEvalDates = async (setMsg, sessionNum) => {
-    const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
-    if (!withEmail.length) { setMsg("No parent emails on file yet — add them first."); setTimeout(() => setMsg(""), 5000); return; }
-    if (!confirm(`Email ${withEmail.length} families the date for Session ${sessionNum}? (Group & exact ice time follow from Manage Groups.)`)) return;
-    setEvalDatesSending(sessionNum);
-    try {
-      const res = await fetch(`/api/categories/${catId}/notify-parents`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "schedule", session_number: sessionNum }),
-      });
-      const data = await res.json();
-      setMsg(data.success ? `Session ${sessionNum} date sent to ${data.sent} families` : "Failed to send");
-    } catch { setMsg("Failed to send"); }
-    finally { setEvalDatesSending(null); setTimeout(() => setMsg(""), 5000); }
-  };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
   const calSessions = useMemo(() => schedule.map(e => ({
@@ -1125,9 +1108,6 @@ export default function CategoryDashboard({
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
                         <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">Manage Groups</a>
-                        {canEditSchedule && (
-                          <button onClick={() => sendEvalDates(setScheduleMsg, Number(sessionNum))} disabled={evalDatesSending !== null} className="text-xs px-3 py-1.5 bg-blue-50 text-[#0b5cd6] border border-blue-200 rounded-lg font-medium hover:bg-blue-100 disabled:opacity-40 inline-flex items-center gap-1"><Mail size={12} /> {evalDatesSending === Number(sessionNum) ? "Sending…" : "Email Parents"}</button>
-                        )}
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         {sess?.session_type === "testing" && (
                           <label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">
