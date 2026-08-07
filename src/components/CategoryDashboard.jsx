@@ -1228,9 +1228,13 @@ export default function CategoryDashboard({
                                   ) : (
                                     <button
                                       onClick={async () => {
-                                        const res = await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, status: "scheduled" }) });
-                                        const data = await res.json();
-                                        if (data.success || res.ok) { setScheduleMsg("Session reinstated."); refetchSchedule(); setTimeout(() => setScheduleMsg(""), 4000); }
+                                        try {
+                                          const res = await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, status: "scheduled" }) });
+                                          const data = await res.json().catch(() => ({}));
+                                          if (data.success || res.ok) { setScheduleMsg("Session reinstated."); refetchSchedule(); }
+                                          else setScheduleMsg("Couldn't reinstate — please try again.");
+                                        } catch { setScheduleMsg("Network error — please try again."); }
+                                        finally { setTimeout(() => setScheduleMsg(""), 4000); }
                                       }}
                                       className="text-xs px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 transition-colors"
                                     >Reinstate</button>
@@ -1318,12 +1322,13 @@ export default function CategoryDashboard({
                     if (scheduleEditForm.end_time !== (orig.end_time || "")) patch.end_time = scheduleEditForm.end_time;
                     if (scheduleEditForm.location !== (orig.location || "")) patch.location = scheduleEditForm.location;
                     if (String(scheduleEditForm.evaluators_required) !== String(orig.evaluators_required ?? 4)) patch.evaluators_required = Number(scheduleEditForm.evaluators_required);
-                    await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-                    setScheduleEditRow(null);
-                    setScheduleEditSaving(false);
-                    setScheduleMsg("Saved — everyone tied to this session was notified.");
-                    refetchSchedule(); refetchRankings();
-                    setTimeout(() => setScheduleMsg(""), 5000);
+                    try {
+                      await fetch(`/api/categories/${catId}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+                      setScheduleEditRow(null);
+                      setScheduleMsg("Saved — everyone tied to this session was notified.");
+                      refetchSchedule(); refetchRankings();
+                    } catch { setScheduleMsg("Network error — changes not saved. Please try again."); }
+                    finally { setScheduleEditSaving(false); setTimeout(() => setScheduleMsg(""), 5000); }
                   }}
                   className="px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >{scheduleEditSaving ? "Saving…" : "Save Changes"}</button>
@@ -1422,12 +1427,13 @@ export default function CategoryDashboard({
           onCancel={() => setScheduleCancelTarget(null)}
           onConfirm={async () => {
             setScheduleCancelBusy(true);
-            await fetch(`/api/categories/${catId}/schedule?id=${scheduleCancelTarget.id}`, { method: "DELETE" });
-            setScheduleCancelTarget(null);
-            setScheduleCancelBusy(false);
-            setScheduleMsg("Saved — everyone tied to this session was notified.");
-            refetchSchedule(); refetchRankings();
-            setTimeout(() => setScheduleMsg(""), 5000);
+            try {
+              await fetch(`/api/categories/${catId}/schedule?id=${scheduleCancelTarget.id}`, { method: "DELETE" });
+              setScheduleCancelTarget(null);
+              setScheduleMsg("Saved — everyone tied to this session was notified.");
+              refetchSchedule(); refetchRankings();
+            } catch { setScheduleMsg("Network error — please try again."); }
+            finally { setScheduleCancelBusy(false); setTimeout(() => setScheduleMsg(""), 5000); }
           }}
         />
 

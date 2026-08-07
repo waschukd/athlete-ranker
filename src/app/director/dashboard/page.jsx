@@ -49,7 +49,7 @@ function DirectorDashboardInner() {
   };
 
   const signOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* redirect regardless */ }
     window.location.href = "/account/signin";
   };
 
