@@ -2,67 +2,49 @@ import sql from "@/lib/db";
 import { computeCategoryRankings } from "@/lib/rankings";
 
 // ── Coaches (Team Development) Report ────────────────────────────────────────
-// A season-planning read for a coach, built from the full evaluation dataset —
-// WITHOUT giving away the paid parent report's value. It never prints a score,
-// a percentile, or a field/category ranking. Instead it turns the underlying
-// signals into narrative a coach can act on:
-//   • a "coach's read" summary,
-//   • data-driven takeaways ("the data suggests …"),
-//   • prioritized development focus (from evaluator notes),
-//   • the team's relative skill identity (which of the 4 skills it leans on /
-//     needs — order only, never numbers), roster shape, and within-team spread,
-//   • the within-team ranking (teammates ordered relative to each other).
+// A season-planning read for a coach, from the full evaluation dataset — WITHOUT
+// giving away the paid parent report (never a score, percentile, or field rank).
+// It turns the signals into things a coach can act on: development priorities
+// pulled from evaluator notes, the team's skill identity (only when it's real),
+// roster shape, and the within-team ranking.
 
-const STOPWORDS = new Set(
-  ("a an the and or but of to in on for with at by from as is are was were be been being " +
-   "he she they his her their him them it its this that these those who whom which what " +
-   "will would can could should may might must has have had do does did not no yet still " +
-   "more most less least very much many few some any each every both all more into out up " +
-   "down over under again then than so too also just like well good great needs need needs " +
-   "player players kid skater work working works focus area areas keep keeps kept get gets " +
-   "getting show shows showing continue continues improving improve improves session sessions")
-    .split(/\s+/)
-);
-const PHRASES = [
-  "puck control", "puck protection", "first step", "gap control", "body position",
-  "compete level", "battle level", "net front", "board battles", "stick handling",
-  "shot release", "edge work", "back check", "fore check", "defensive zone",
-  "puck touches", "one on one", "small area",
+// Development concepts: evaluator notes are matched to these curated coaching
+// areas (by keyword), and we count how many PLAYERS on the team touch each one.
+// That yields "First-step quickness — 9 players", never a raw word fragment.
+const CONCEPTS = [
+  { label: "Skating & edges", keywords: ["skat", "edge", "stride", "crossover", "pivot", "mobility", "agility", "footwork"], focus: "edgework, tight turns, and backward mobility" },
+  { label: "First-step quickness", keywords: ["first step", "first-step", "quick", "explosiv", "accelerat", "burst", "jump"], focus: "starts-and-stops and explosive three-stride drills" },
+  { label: "Puck control", keywords: ["puck control", "stickhandl", "handling", "puck skill", "dangle", "deke", "soft hands", "puck touch"], focus: "small-area stickhandling and puck-touch reps under pressure" },
+  { label: "Puck protection", keywords: ["protect", "shield", "fend", "puck protection", "hold onto", "hang on"], focus: "protecting the puck through contact — wall and shield work" },
+  { label: "Shooting & release", keywords: ["shot", "shoot", "release", "one-timer", "wrist", "snap", "finish around the net", "scoring"], focus: "quick-release shooting and net-front finish" },
+  { label: "Passing & vision", keywords: ["pass", "playmak", "vision", "distribut", "feed", "saucer", "heads up", "heads-up"], focus: "give-and-go and heads-up passing games" },
+  { label: "Compete & battle", keywords: ["compete", "battl", " hard", "physical", "board", "net front", "net-front", "wall", "intensit", "motor", "tenacit", "grit", "forecheck"], focus: "1-on-1 battles, net-front, and board work" },
+  { label: "Hockey sense", keywords: ["sense", "hockey iq", " iq", "position", "read", "anticipat", "aware", "support", "gap", "angle", "decision"], focus: "situational small games and positional reads" },
+  { label: "Confidence & consistency", keywords: ["confiden", "consisten", "inconsist", "tentativ", "hesitan", "assertive"], focus: "reps that reward decisiveness and build in-game confidence" },
+  { label: "Conditioning & pace", keywords: ["condition", "pace", "tempo", "fitness", "tired", "gas", "shift length"], focus: "pace-of-play drills and shift-length conditioning" },
 ];
 
-function extractThemes(notes, limit = 8) {
-  const blob = notes.map(n => (n || "").toLowerCase()).join("  •  ");
-  if (!blob.trim()) return [];
-  const counts = new Map();
-  for (const p of PHRASES) {
-    let from = 0, c = 0, i;
-    while ((i = blob.indexOf(p, from)) !== -1) { c++; from = i + p.length; }
-    if (c > 0) counts.set(p, (counts.get(p) || 0) + c * 2);
+function extractConcepts(perPlayerNotes) {
+  const hits = CONCEPTS.map(c => ({ label: c.label, focus: c.focus, count: 0 }));
+  for (const blob of perPlayerNotes) {
+    const b = " " + blob.toLowerCase() + " ";
+    hits.forEach((h, i) => { if (CONCEPTS[i].keywords.some(k => b.includes(k))) h.count++; });
   }
-  for (const raw of blob.split(/[^a-z]+/)) {
-    if (raw.length < 4 || STOPWORDS.has(raw)) continue;
-    counts.set(raw, (counts.get(raw) || 0) + 1);
-  }
-  return [...counts.entries()]
-    .filter(([, c]) => c >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([theme, count]) => ({ theme: theme.replace(/\b\w/g, m => m.toUpperCase()), count }));
+  return hits.filter(c => c.count >= 2).sort((a, b) => b.count - a.count);
 }
 
-// Maps a skill name to plain coaching language + a practice focus. Keyed by a
-// loose match so it survives the small naming variants across categories.
 function skillGuide(name) {
   const n = (name || "").toLowerCase();
-  if (n.includes("skat")) return { noun: "skating and pace", focus: "edgework, transitions, and first-step quickness" };
-  if (n.includes("puck")) return { noun: "puck skills", focus: "small-area puck-touch reps and protecting the puck under pressure" };
-  if (n.includes("iq") || n.includes("sense") || n.includes("aware") || n.includes("anticip")) return { noun: "hockey sense", focus: "situational small games and positional reads" };
-  if (n.includes("compete") || n.includes("effort") || n.includes("battle")) return { noun: "compete level", focus: "battle drills, net-front presence, and board work" };
-  return { noun: name || "skills", focus: "targeted skill reps" };
+  if (n.includes("skat")) return "skating and pace";
+  if (n.includes("puck")) return "puck skills";
+  if (n.includes("iq") || n.includes("sense") || n.includes("aware") || n.includes("anticip")) return "hockey sense";
+  if (n.includes("compete") || n.includes("effort") || n.includes("battle")) return "compete level";
+  return name || "skills";
 }
 
 const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 const stdev = (xs) => { const m = mean(xs); return (m == null || xs.length < 2) ? 0 : Math.sqrt(xs.reduce((s, v) => s + (v - m) ** 2, 0) / xs.length); };
+const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 const listWords = (arr) => arr.length <= 1 ? (arr[0] || "") : arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
 
 export async function buildCoachesReport(catId) {
@@ -88,17 +70,16 @@ export async function buildCoachesReport(catId) {
   const rosterByTeam = {};
   for (const r of rosters) (rosterByTeam[r.team_id] ||= []).push(r);
 
-  // Per-skill (scoring_category) average per athlete — INTERNAL ONLY. Used to
-  // derive relative skill identity; the numbers themselves never leave here.
+  // Per-skill average per athlete — INTERNAL ONLY (to derive skill identity).
   const skillRows = await sql`
-    SELECT cs.scoring_category_id, sc.name AS skill, sc.display_order, cs.athlete_id, AVG(cs.score) AS avg_score
+    SELECT sc.name AS skill, sc.display_order, cs.athlete_id, AVG(cs.score) AS avg_score
     FROM category_scores cs JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
     WHERE cs.age_category_id = ${catId}
-    GROUP BY cs.scoring_category_id, sc.name, sc.display_order, cs.athlete_id`;
+    GROUP BY sc.name, sc.display_order, cs.athlete_id`;
   const skillMap = {};
   for (const r of skillRows) {
-    const s = (skillMap[r.scoring_category_id] ||= { name: r.skill, order: r.display_order, byAthlete: {} });
-    s.byAthlete[r.athlete_id] = parseFloat(r.avg_score) / scale; // 0..1, internal
+    const s = (skillMap[r.skill] ||= { name: r.skill, order: r.display_order, byAthlete: {} });
+    s.byAthlete[r.athlete_id] = parseFloat(r.avg_score) / scale;
   }
   const skaterIds = new Set((rankData.athletes || []).map(a => a.id));
   const skills = Object.values(skillMap)
@@ -129,90 +110,61 @@ export async function buildCoachesReport(catId) {
     }
     let shapeNote = null;
     const skatersN = shape.forwards + shape.defense;
-    if (skatersN >= 6) {
-      if (shape.defense > 0 && shape.forwards / shape.defense > 2.6) shapeNote = "blue-line-light — plan a structure that protects a thin back end and leans on forward support down low";
-      else if (shape.defense > 0 && shape.forwards / shape.defense < 1.6) shapeNote = "deep on the blue line — you can run an active D and rotate pairings hard";
-      else shapeNote = "a balanced forward/defence split — you have the pieces to run four lines evenly";
+    if (skatersN >= 6 && shape.defense > 0) {
+      const ratio = shape.forwards / shape.defense;
+      if (ratio > 2.6) shapeNote = "blue-line-light — plan a structure that protects a thin back end";
+      else if (ratio < 1.6) shapeNote = "deep on the blue line — you can run an active D and rotate pairings hard";
     }
 
-    // Relative skill identity (order only — never numbers). Two tiers: a firm
-    // "strength/growth" when the skills clearly separate, a soft "leans toward"
-    // when the group is fairly even but still tilts one way.
-    let strengths = [], growth = [], skillStrong = false;
-    if (skills.length >= 3 && ids.length >= 3) {
+    // Skill identity — ONLY when the skills genuinely separate (no noise leans).
+    let strengths = [], growth = [];
+    if (skills.length >= 3 && ids.length >= 4) {
       const ranked = skills
         .map(s => ({ name: s.name, avg: mean(ids.map(id => s.byAthlete[id]).filter(v => v != null)) }))
         .filter(s => s.avg != null)
         .sort((a, b) => b.avg - a.avg);
-      if (ranked.length >= 3) {
-        const spread = ranked[0].avg - ranked[ranked.length - 1].avg;
-        if (spread >= 0.006) {
-          skillStrong = spread >= 0.025;
-          strengths = ranked.slice(0, (skillStrong && ranked.length >= 4) ? 2 : 1).map(s => s.name);
-          growth = [ranked[ranked.length - 1].name];
-        }
+      if (ranked.length >= 3 && (ranked[0].avg - ranked[ranked.length - 1].avg) >= 0.05) {
+        strengths = [...new Set(ranked.slice(0, ranked.length >= 4 ? 2 : 1).map(s => skillGuide(s.name)))];
+        growth = [...new Set([skillGuide(ranked[ranked.length - 1].name)])].filter(g => !strengths.includes(g));
       }
     }
 
-    // Within-team spread shape (from internal totals; no numbers exposed)
-    let spreadLabel = null, spreadNote = null;
+    // Within-team spread — only surface the actionable case (a clear top tier).
+    let clearTopTier = false;
     const totals = ids.map(id => totalById[id]).filter(v => v != null);
-    if (totals.length >= 4) {
-      const cv = mean(totals) > 0 ? stdev(totals) / mean(totals) : 0;
-      if (cv < 0.08) { spreadLabel = "a tightly matched group"; spreadNote = "roll your lines evenly — there's no steep drop-off to hide"; }
-      else if (cv > 0.18) { spreadLabel = "a clear top tier over a development group"; spreadNote = "you can lean on your top unit in tight games, but build in reps that pull the development group up"; }
-      else { spreadLabel = "a balanced spread top to bottom"; spreadNote = "you have flexibility to match lines to situations"; }
+    if (totals.length >= 5 && mean(totals) > 0 && stdev(totals) / mean(totals) > 0.18) clearTopTier = true;
+
+    // Development priorities (real concepts, counted by player)
+    const perPlayer = ids.map(id => (notesByAthlete[id] || []).join(" ")).filter(Boolean);
+    const concepts = extractConcepts(perPlayer);
+    const themes = concepts.slice(0, 6).map(c => ({ theme: c.label, count: c.count }));
+
+    // ── Coach's read ───────────────────────────────────────────────────
+    const readParts = [];
+    if (concepts.length >= 2) {
+      readParts.push(`The evaluation notes point to a few shared priorities for this group: ${listWords(concepts.slice(0, 3).map(c => lower(c.label)))}.`);
+    } else if (concepts.length === 1) {
+      readParts.push(`The evaluation notes most consistently flag ${lower(concepts[0].label)}.`);
     }
+    if (strengths.length && growth.length) readParts.push(`On the ice, the group's identity leans to ${listWords(strengths)}, with ${growth[0]} the clearest area to build.`);
+    else if (strengths.length) readParts.push(`On the ice, the group's identity leans to ${listWords(strengths)}.`);
+    if (clearTopTier) readParts.push(`It sits as a clear top tier over a development group — keep early-season reps pulling the bottom half up.`);
+    const summary = readParts.join(" ");
 
-    // Themes
-    const themes = extractThemes(ids.flatMap(id => notesByAthlete[id] || []));
-
-    // ── Takeaways ("the data suggests …") ──────────────────────────────
+    // ── Takeaways (specific, actionable) ───────────────────────────────
     const takeaways = [];
-    if (strengths.length) {
-      const gs = strengths.map(s => skillGuide(s).noun);
-      takeaways.push(skillStrong
-        ? `This group's calling card is ${listWords(gs)} — build a game plan that plays to it and lets them dictate pace.`
-        : `Across an even group, the team leans slightly toward ${listWords(gs)} — a modest edge to build early identity around.`);
+    for (const c of concepts.slice(0, 3)) {
+      takeaways.push(`Prioritize ${lower(c.label)} — ${c.focus}. Flagged on ${c.count} of ${ids.length} players.`);
     }
-    if (growth.length) {
-      const g = skillGuide(growth[0]);
-      takeaways.push(skillStrong
-        ? `The clearest shared growth area is ${g.noun}. The data suggests carving out dedicated early-season reps on ${g.focus}.`
-        : `${g.noun[0].toUpperCase() + g.noun.slice(1)} grades out as the softest area of an otherwise even group — worth prioritizing ${g.focus} early.`);
-    }
-    if (themes.length) {
-      const t2 = themes.slice(0, 2).map(x => x.theme.toLowerCase());
-      takeaways.push(`Across the group, evaluators most often flagged ${listWords(t2)} — make it a recurring weekly practice theme rather than a one-off.`);
-    }
+    if (growth.length) takeaways.push(`Skill-wise, ${growth[0]} is the group's clearest development area — give it dedicated early-season ice.`);
     if (shapeNote) takeaways.push(`Roster shape: you're ${shapeNote}.`);
-    if (spreadNote) takeaways.push(`This is ${spreadLabel} — ${spreadNote}.`);
-
-    // ── Coach's read (2–3 sentence synthesis) ──────────────────────────
-    let summary = "";
-    if (strengths.length || growth.length || themes.length) {
-      let s1 = "";
-      if (strengths.length && growth.length) {
-        s1 = `${skillStrong ? "Built around" : "Leaning slightly on"} ${listWords(strengths.map(s => skillGuide(s).noun))}, with ${skillGuide(growth[0]).noun} the area to develop.`;
-      } else if (strengths.length) {
-        s1 = `${skillStrong ? "Built around" : "Leaning slightly on"} ${listWords(strengths.map(s => skillGuide(s).noun))}.`;
-      } else if (growth.length) {
-        s1 = `Its main area to develop is ${skillGuide(growth[0]).noun}.`;
-      }
-      let s2 = themes.length ? ` Evaluators kept coming back to ${listWords(themes.slice(0, 3).map(x => x.theme.toLowerCase()))} — that's where a season plan should start.` : "";
-      let s3 = spreadLabel ? ` It profiles as ${spreadLabel}.` : "";
-      summary = (s1 + s2 + s3).trim();
-    }
+    if (clearTopTier) takeaways.push(`There's a real gap top-to-bottom — build reps that keep the development group progressing, not just the top unit.`);
 
     return {
       id: t.id, name: t.name, coach_name: t.coach_name, coach_email: t.coach_email,
       rank_order: t.rank_order, is_top: topTeam && t.id === topTeam.id,
       player_count: ranking.length,
-      summary, takeaways,
-      strengths: strengths.map(s => skillGuide(s).noun),
-      growth: growth.map(s => skillGuide(s).noun),
-      shape, shapeNote, spreadLabel,
-      themes, ranking,
+      summary, takeaways, strengths, growth, shape, shapeNote, themes, ranking,
     };
   };
 
