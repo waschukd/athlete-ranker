@@ -76,17 +76,19 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                 </div>
               )}
 
-              <RosterGroup
-                title="Evaluators" kind="evaluator"
-                people={data.evaluators} required={s.evaluators_required}
-                canManage={data.canManage} addable={data.addable?.evaluators || []}
-                addOpen={addKind === "evaluator"} onOpenAdd={() => setAddKind(addKind === "evaluator" ? null : "evaluator")}
-                onAdd={(uid) => act("POST", uid, "evaluator")} onRemove={(uid) => act("DELETE", uid, "evaluator")}
-                busy={busy}
-              />
+              {(s.evaluators_required > 0 || data.evaluators.length > 0) && (
+                <RosterGroup
+                  title="Evaluators" kind="evaluator"
+                  people={data.evaluators} required={s.evaluators_required}
+                  canManage={data.canManage} addable={data.addable?.evaluators || []}
+                  addOpen={addKind === "evaluator"} onOpenAdd={() => setAddKind(addKind === "evaluator" ? null : "evaluator")}
+                  onAdd={(uid) => act("POST", uid, "evaluator")} onRemove={(uid) => act("DELETE", uid, "evaluator")}
+                  busy={busy}
+                />
+              )}
 
               {(s.testers_required > 0 || data.testers.length > 0) && (
-                <div className="mt-5">
+                <div className={s.evaluators_required > 0 || data.evaluators.length > 0 ? "mt-5" : ""}>
                   <RosterGroup
                     title="Testers" kind="tester"
                     people={data.testers} required={s.testers_required}
@@ -96,6 +98,10 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                     busy={busy}
                   />
                 </div>
+              )}
+
+              {s.evaluators_required <= 0 && data.evaluators.length === 0 && s.testers_required <= 0 && data.testers.length === 0 && (
+                <div className="text-sm text-gray-400 py-4 text-center">Nobody's signed up to this session yet.</div>
               )}
             </>
           )}

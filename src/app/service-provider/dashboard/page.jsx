@@ -159,7 +159,7 @@ function JoinCodesPanel({ orgId, data, refetch }) {
 }
 
 // Inline SP-private tester staffing on a testing row: signed-up / needed, editable.
-function TesterStaffingControl({ entry, spUrl, onSaved }) {
+function TesterStaffingControl({ entry, spUrl, onSaved, onOpenRoster }) {
   const [val, setVal] = useState(String(entry.testers_required ?? 0));
   const [saving, setSaving] = useState(false);
   const signed = parseInt(entry.testers_signed_up || 0);
@@ -180,9 +180,9 @@ function TesterStaffingControl({ entry, spUrl, onSaved }) {
   return (
     <div className="text-center">
       <div className={`text-sm font-bold ${short ? "text-amber-600" : signed > 0 ? "text-green-600" : "text-gray-400"}`}>
-        {signed}/<input type="number" min="0" value={val} onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} className="w-9 text-center bg-transparent border-b border-gray-200 focus:outline-none focus:border-accent" />
+        <button type="button" onClick={onOpenRoster} title="See who's signed up to test this session" className="underline decoration-dotted underline-offset-2 hover:opacity-70">{signed}</button>/<input type="number" min="0" value={val} onChange={e => setVal(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} className="w-9 text-center bg-transparent border-b border-gray-200 focus:outline-none focus:border-accent" />
       </div>
-      <div className="text-xs text-gray-400">{saving ? "saving…" : "testers"}</div>
+      <button type="button" onClick={onOpenRoster} className="text-xs text-gray-400 underline decoration-dotted underline-offset-2 hover:opacity-70">testers</button>
       {short && <button onClick={notify} className="mt-1 text-[11px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full hover:bg-amber-200 font-medium">{notified ? "Notified ✓" : "Notify testers"}</button>}
     </div>
   );
@@ -2244,7 +2244,7 @@ function SPDashboard() {
                                     ) : entry.session_type === 'testing' ? (
                                       entry.is_goalie_sp
                                         ? <div className="text-center"><div className="text-sm font-bold text-gray-400">—</div><div className="text-xs text-gray-400">no evaluators needed</div></div>
-                                        : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} />
+                                        : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} onOpenRoster={() => setRosterScheduleId(entry.schedule_id)} />
                                     ) : (
                                       <>
                                         <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
