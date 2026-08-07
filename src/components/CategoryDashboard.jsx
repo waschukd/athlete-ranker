@@ -273,9 +273,9 @@ export default function CategoryDashboard({
   // refresh setup so welcome_sent_at advances the first-step flow. Shared by the
   // Athletes-tab button and the "Welcome players & families" next-step banner.
   const [welcomeSending, setWelcomeSending] = useState(false);
-  const sendWelcome = async () => {
+  const sendWelcome = async (setMsg = setAthleteMsg) => {
     const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
-    if (!withEmail.length) { setAthleteMsg("No parent emails on file yet — add them first."); setTimeout(() => setAthleteMsg(""), 5000); return; }
+    if (!withEmail.length) { setMsg("No parent emails on file yet — add them first."); setTimeout(() => setMsg(""), 5000); return; }
     if (!confirm(`Send the welcome email to ${withEmail.length} ${withEmail.length === 1 ? "family" : "families"}?`)) return;
     setWelcomeSending(true);
     try {
@@ -283,27 +283,27 @@ export default function CategoryDashboard({
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding" }),
       });
       const data = await res.json();
-      setAthleteMsg(data.success ? `Welcome email sent to ${data.sent} ${data.sent === 1 ? "family" : "families"}` : "Failed to send");
+      setMsg(data.success ? `Welcome email sent to ${data.sent} ${data.sent === 1 ? "family" : "families"}` : "Failed to send");
       if (data.success) refetchSetup();
-    } catch { setAthleteMsg("Failed to send"); }
-    finally { setWelcomeSending(false); setTimeout(() => setAthleteMsg(""), 5000); }
+    } catch { setMsg("Failed to send"); }
+    finally { setWelcomeSending(false); setTimeout(() => setMsg(""), 5000); }
   };
   // Emails every family the evaluation dates (Session N · date · Group & time TBD).
   // Lives on both the Schedule tab and the Athletes-tab Parent Notifications card.
-  const [evalDatesSending, setEvalDatesSending] = useState(false);
-  const sendEvalDates = async (setMsg) => {
+  const [evalDatesSending, setEvalDatesSending] = useState(null); // holds the sessionNum currently sending
+  const sendEvalDates = async (setMsg, sessionNum) => {
     const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
     if (!withEmail.length) { setMsg("No parent emails on file yet — add them first."); setTimeout(() => setMsg(""), 5000); return; }
-    if (!confirm(`Email the evaluation dates to ${withEmail.length} families? (Groups & times stay TBD — the exact ice time goes out per session.)`)) return;
-    setEvalDatesSending(true);
+    if (!confirm(`Email ${withEmail.length} families the date for Session ${sessionNum}? (Group & exact ice time follow from Manage Groups.)`)) return;
+    setEvalDatesSending(sessionNum);
     try {
       const res = await fetch(`/api/categories/${catId}/notify-parents`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "schedule" }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "schedule", session_number: sessionNum }),
       });
       const data = await res.json();
-      setMsg(data.success ? `Evaluation dates sent to ${data.sent} families` : "Failed to send");
+      setMsg(data.success ? `Session ${sessionNum} date sent to ${data.sent} families` : "Failed to send");
     } catch { setMsg("Failed to send"); }
-    finally { setEvalDatesSending(false); setTimeout(() => setMsg(""), 5000); }
+    finally { setEvalDatesSending(null); setTimeout(() => setMsg(""), 5000); }
   };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
@@ -1069,12 +1069,12 @@ export default function CategoryDashboard({
                     setImporting(false); e.target.value = ""; setTimeout(() => setUploadMsg(""), 4000);
                   }} />
                 </label>
-                {canEditSchedule && schedule.length > 0 && (
+                {canEditSchedule && (
                   <button
-                    onClick={() => sendEvalDates(setScheduleMsg)}
-                    disabled={evalDatesSending}
+                    onClick={() => sendWelcome(setScheduleMsg)}
+                    disabled={welcomeSending}
                     className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-blue-50"
-                  ><Mail size={14} /> {evalDatesSending ? "Sending…" : "Email Parents"}</button>
+                  ><Mail size={14} /> {welcomeSending ? "Sending…" : "Send Welcome Email"}</button>
                 )}
                 {canEditSchedule && (
                   <button
@@ -1125,6 +1125,9 @@ export default function CategoryDashboard({
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
                         <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">Manage Groups</a>
+                        {canEditSchedule && (
+                          <button onClick={() => sendEvalDates(setScheduleMsg, Number(sessionNum))} disabled={evalDatesSending !== null} className="text-xs px-3 py-1.5 bg-blue-50 text-[#0b5cd6] border border-blue-200 rounded-lg font-medium hover:bg-blue-100 disabled:opacity-40 inline-flex items-center gap-1"><Mail size={12} /> {evalDatesSending === Number(sessionNum) ? "Sending…" : "Email Parents"}</button>
+                        )}
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         {sess?.session_type === "testing" && (
                           <label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">
@@ -1479,7 +1482,7 @@ export default function CategoryDashboard({
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={sendWelcome}
+                      onClick={() => sendWelcome()}
                       disabled={!withEmail.length || welcomeSending}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
                     >
