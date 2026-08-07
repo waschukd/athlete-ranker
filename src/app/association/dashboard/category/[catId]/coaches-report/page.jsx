@@ -18,7 +18,7 @@ function CoachesReportInner() {
   const [theme, toggleTheme] = useTheme();
   const [teamFilter, setTeamFilter] = useState("all");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["coaches-report", catId],
     queryFn: async () => {
       const res = await fetch(`/api/categories/${catId}/coaches-report`);
@@ -26,6 +26,21 @@ function CoachesReportInner() {
       return res.json();
     },
   });
+
+  const [generatingId, setGeneratingId] = useState(null);
+  const [genErr, setGenErr] = useState("");
+  const generateBriefing = async (teamId) => {
+    setGeneratingId(teamId); setGenErr("");
+    try {
+      const res = await fetch(`/api/categories/${catId}/coach-briefing`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teamId }),
+      });
+      const d = await res.json();
+      if (!res.ok) setGenErr(d.error || "Couldn't generate the briefing.");
+      else await refetch();
+    } catch { setGenErr("Network error — please try again."); }
+    finally { setGeneratingId(null); setTimeout(() => setGenErr(""), 6000); }
+  };
 
   const teams = data?.teams || [];
   const shown = teamFilter === "all" ? teams : teams.filter(t => String(t.id) === teamFilter);
@@ -71,6 +86,7 @@ function CoachesReportInner() {
         ) : (
           <>
             {data.unrostered > 0 && <p className="text-xs text-gray-400">{data.unrostered} evaluated skater{data.unrostered === 1 ? "" : "s"} not yet on a team.</p>}
+            {genErr && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{genErr}</div>}
             {shown.map(t => (
               <div key={t.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden break-inside-avoid">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-start justify-between flex-wrap gap-3">
@@ -82,7 +98,7 @@ function CoachesReportInner() {
                     <p className="text-xs text-gray-400 mt-0.5">{t.coach_name ? `Coach ${t.coach_name} · ` : ""}{t.player_count} players</p>
                   </div>
                 </div>
-                <TeamReportBody t={t} />
+                <TeamReportBody t={t} onGenerate={generateBriefing} generating={generatingId === t.id} />
               </div>
             ))}
           </>

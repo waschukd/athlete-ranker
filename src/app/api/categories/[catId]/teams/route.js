@@ -6,6 +6,7 @@ import { snakeDistribute } from "@/lib/teamInsights";
 import { computeCategoryRankings } from "@/lib/rankings";
 import { sendEmail, parentEmails, esc, parentTeamPlacementHtml, emailWrapper } from "@/lib/email";
 import { signCoachReportToken } from "@/lib/calendar-token";
+import { generateCoachBriefing } from "@/lib/coachBriefing";
 
 // Default team-placement message. {player} and {team} merge per athlete; the
 // association can edit it before sending (e.g. add a TeamLinkt note).
@@ -252,11 +253,15 @@ export async function POST(request, { params }) {
       if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
       const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.sidelinestar.com";
       const teamRows = await sql`
-        SELECT id, name, coach_name, coach_email FROM teams
+        SELECT id, name, coach_name, coach_email, coach_briefing FROM teams
         WHERE age_category_id = ${catId} AND coach_email IS NOT NULL AND coach_email <> ''`;
       let sent = 0, skipped = 0;
       for (const t of teamRows) {
         try {
+          // Make sure the emailed link will show a full written briefing —
+          // best-effort; a failed/absent AI call just falls back to the
+          // deterministic sections.
+          if (!t.coach_briefing) { try { await generateCoachBriefing(catId, t.id); } catch (e) { console.error("briefing pregen failed", t.id, e?.message); } }
           const link = `${base}/coach-report/${signCoachReportToken(t.id)}`;
           const html = emailWrapper(`
             <h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">${esc(t.name)} — Team Development Report</h2>
