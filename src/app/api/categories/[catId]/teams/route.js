@@ -4,7 +4,8 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { snakeDistribute } from "@/lib/teamInsights";
 import { computeCategoryRankings } from "@/lib/rankings";
-import { sendEmail, parentEmails, esc, parentTeamPlacementHtml } from "@/lib/email";
+import { sendEmail, parentEmails, esc, parentTeamPlacementHtml, emailWrapper } from "@/lib/email";
+import { signCoachReportToken } from "@/lib/calendar-token";
 
 // Default team-placement message. {player} and {team} merge per athlete; the
 // association can edit it before sending (e.g. add a TeamLinkt note).
@@ -221,6 +222,57 @@ export async function POST(request, { params }) {
       if (!teamId || !name) return NextResponse.json({ error: "team_id and name required" }, { status: 400 });
       await sql`UPDATE teams SET name = ${name} WHERE id = ${teamId} AND age_category_id = ${catId}`;
       return NextResponse.json({ success: true });
+    }
+
+    // Assign (or clear) a team's coach. Blank email = no report will be sent.
+    if (action === "set_coach") {
+      const teamId = parseInt(body.team_id);
+      if (!teamId) return NextResponse.json({ error: "team_id required" }, { status: 400 });
+      // Update only the field(s) supplied, so the name and email inputs can each
+      // save on their own blur without clobbering the other.
+      if ("coach_name" in body) {
+        const name = String(body.coach_name || "").trim().slice(0, 120) || null;
+        await sql`UPDATE teams SET coach_name = ${name} WHERE id = ${teamId} AND age_category_id = ${catId}`;
+      }
+      if ("coach_email" in body) {
+        const email = String(body.coach_email || "").trim().slice(0, 200) || null;
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          return NextResponse.json({ error: "That doesn't look like a valid email." }, { status: 400 });
+        }
+        await sql`UPDATE teams SET coach_email = ${email} WHERE id = ${teamId} AND age_category_id = ${catId}`;
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Email each ASSIGNED coach a private link to their own team's development
+    // report. Teams with no coach email are skipped (never auto-sent). Can be run
+    // now or any time later.
+    if (action === "email_coach_reports") {
+      const [cat] = await sql`SELECT ac.name AS category_name, o.name AS org_name FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}`;
+      if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.sidelinestar.com";
+      const teamRows = await sql`
+        SELECT id, name, coach_name, coach_email FROM teams
+        WHERE age_category_id = ${catId} AND coach_email IS NOT NULL AND coach_email <> ''`;
+      let sent = 0, skipped = 0;
+      for (const t of teamRows) {
+        try {
+          const link = `${base}/coach-report/${signCoachReportToken(t.id)}`;
+          const html = emailWrapper(`
+            <h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">${esc(t.name)} — Team Development Report</h2>
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">Hi${t.coach_name ? " " + esc(t.coach_name.split(" ")[0]) : ""}, your ${esc(cat.category_name)} team has been finalized. Here's a private development report to help you plan the season — how your roster ranked among teammates, and the development themes evaluators flagged most across the group.</p>
+            <p style="margin:0 0 24px;"><a href="${link}" style="display:inline-block;background:#0b5cd6;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:14px;">View your team report →</a></p>
+            <p style="margin:0;font-size:12px;color:#9aa0aa;line-height:1.6;">This link is private to you — please don't forward it. Sent by ${esc(cat.org_name)}.</p>`);
+          await sendEmail(t.coach_email, `${t.name} — Team Development Report (${cat.category_name})`, html);
+          sent++;
+        } catch (e) {
+          console.error("Coach report email failed for team " + t.id + ":", e?.message || e);
+          skipped++;
+        }
+      }
+      const [{ total }] = await sql`SELECT COUNT(*)::int total FROM teams WHERE age_category_id = ${catId}`;
+      const without = total - teamRows.length;
+      return NextResponse.json({ success: true, sent, skipped, without_coach: without });
     }
 
     // Return the default message + recipient count so the modal can preview before sending.

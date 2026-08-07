@@ -88,6 +88,30 @@ export function verifySessionIcsToken(token) {
   return id;
 }
 
+// Coach's team-development report link, emailed to an assigned coach (who is not
+// a logged-in user). Signs the TEAM id; the report it unlocks carries only that
+// team's within-team ranking + development themes — never scores. Distinct
+// namespace so it can't be replayed against any other feed. Unauthenticated
+// route → constant-time compare.
+const COACH_REPORT_KEY = SECRET_BASE + "/coach-report";
+
+export function signCoachReportToken(teamId) {
+  const sig = crypto.createHmac("sha256", COACH_REPORT_KEY).update(String(teamId)).digest("hex").slice(0, 32);
+  return `${teamId}.${sig}`;
+}
+
+export function verifyCoachReportToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const [idStr, sig] = token.split(".");
+  const id = parseInt(idStr, 10);
+  if (!id || !sig) return null;
+  const expected = signCoachReportToken(id).split(".")[1];
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return id;
+}
+
 // Per-category schedule feed (association / director view). Distinct namespace.
 const CAT_KEY = SECRET_BASE + "/schedule-cal-feed";
 

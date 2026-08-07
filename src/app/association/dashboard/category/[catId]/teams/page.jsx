@@ -149,6 +149,32 @@ function TeamGeneratorInner() {
     refetchTeams();
   };
 
+  // Save one coach field (name or email) for a team; each input saves on blur.
+  const setCoach = async (teamId, field, value) => {
+    await fetch(`/api/categories/${catId}/teams`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_coach", team_id: teamId, [field]: value }),
+    });
+    refetchTeams();
+  };
+
+  const [coachEmailMsg, setCoachEmailMsg] = useState("");
+  const [coachEmailBusy, setCoachEmailBusy] = useState(false);
+  const emailCoachReports = async () => {
+    const assigned = teams.filter(t => t.coach_email).length;
+    if (!assigned) { setCoachEmailMsg("No coaches assigned yet — add a coach email to a team first."); setTimeout(() => setCoachEmailMsg(""), 5000); return; }
+    if (!confirm(`Email the team development report to ${assigned} assigned coach${assigned === 1 ? "" : "es"}? Teams with no coach email are skipped.`)) return;
+    setCoachEmailBusy(true);
+    try {
+      const res = await fetch(`/api/categories/${catId}/teams`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "email_coach_reports" }),
+      });
+      const d = await res.json();
+      setCoachEmailMsg(d.success ? `Report sent to ${d.sent} coach${d.sent === 1 ? "" : "es"}${d.without_coach ? ` · ${d.without_coach} team${d.without_coach === 1 ? "" : "s"} had no coach` : ""}.` : (d.error || "Failed to send"));
+    } catch { setCoachEmailMsg("Network error — please try again."); }
+    finally { setCoachEmailBusy(false); setTimeout(() => setCoachEmailMsg(""), 6000); }
+  };
+
   const openNotify = async () => {
     setShowNotify(true); setNotifyResult(null);
     const res = await fetch(`/api/categories/${catId}/teams`, {
@@ -414,6 +440,27 @@ function TeamGeneratorInner() {
                         <div className="px-4 py-8 text-center text-xs text-gray-300">Drop players here</div>
                       )}
                     </div>
+                    {/* Coach — assign to email this team's development report */}
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60 space-y-1.5">
+                      <label className="block text-[11px] font-semibold text-gray-500">Coach <span className="font-normal text-gray-400">— assign to email them this team's report</span></label>
+                      <input
+                        key={`cn-${team.id}-${team.coach_name || ""}`}
+                        defaultValue={team.coach_name || ""}
+                        placeholder="Coach name"
+                        onBlur={e => { const v = e.target.value.trim(); if (v !== (team.coach_name || "")) setCoach(team.id, "coach_name", v); }}
+                        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      />
+                      <input
+                        key={`ce-${team.id}-${team.coach_email || ""}`}
+                        type="email"
+                        defaultValue={team.coach_email || ""}
+                        placeholder="coach@email.com"
+                        onBlur={e => { const v = e.target.value.trim(); if (v !== (team.coach_email || "")) setCoach(team.id, "coach_email", v); }}
+                        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -450,12 +497,17 @@ function TeamGeneratorInner() {
               </div>
             )}
 
+            {coachEmailMsg && <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">{coachEmailMsg}</div>}
             {/* Actions */}
             <div className="flex flex-wrap justify-end gap-3">
               <a href={`/association/dashboard/category/${catId}/coaches-report?org=${orgId}`}
                 className="inline-flex items-center gap-2 px-6 py-3 border border-[#0b5cd6] text-[#0b5cd6] rounded-xl font-semibold hover:bg-blue-50 transition-colors">
                 <ClipboardList size={16} /> Coaches Report
               </a>
+              <button onClick={emailCoachReports} disabled={coachEmailBusy}
+                className="inline-flex items-center gap-2 px-6 py-3 border border-[#0b5cd6] text-[#0b5cd6] rounded-xl font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50">
+                <Mail size={16} /> {coachEmailBusy ? "Sending…" : "Email reports to coaches"}
+              </button>
               <button onClick={exportTeamSheet}
                 className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
                 <Download size={16} /> Export Team Sheets CSV
