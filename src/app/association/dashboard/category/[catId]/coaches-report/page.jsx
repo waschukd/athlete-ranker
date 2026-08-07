@@ -3,68 +3,12 @@
 import { Suspense, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ArrowLeft, Printer, Users, Target, ListOrdered } from "lucide-react";
+import { ArrowLeft, Printer, Users } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import { TeamReportBody } from "@/components/CoachReportBody";
 
 const qc = new QueryClient();
-
-const POS_SHORT = { forward: "F", defense: "D", goalie: "G" };
-
-function TeamSection({ t }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden break-inside-avoid">
-      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-display text-xl font-black text-ink">{t.name}</h3>
-            {t.is_top && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Top team</span>}
-          </div>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {t.coach_name ? `Coach ${t.coach_name} · ` : ""}{t.player_count} players
-          </p>
-        </div>
-      </div>
-
-      <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Within-team ranking */}
-        <div>
-          <div className="flex items-center gap-2 mb-2 text-gray-700"><ListOrdered size={15} className="text-[#0b5cd6]" /><h4 className="text-sm font-bold">Team ranking</h4></div>
-          <p className="text-xs text-gray-400 mb-3">How the roster ordered relative to their own teammates through the evaluation process.</p>
-          <ol className="rounded-xl border border-gray-100 divide-y divide-gray-50">
-            {t.ranking.map(p => (
-              <li key={p.within_rank} className="flex items-center gap-3 px-3 py-2">
-                <span className="w-6 text-center text-xs font-bold text-[#0b5cd6] tabular-nums">{p.within_rank}</span>
-                <span className="flex-1 text-sm font-medium text-gray-900">{p.name}</span>
-                {p.position && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">{POS_SHORT[p.position] || p.position}</span>}
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        {/* Development themes */}
-        <div>
-          <div className="flex items-center gap-2 mb-2 text-gray-700"><Target size={15} className="text-[#0b5cd6]" /><h4 className="text-sm font-bold">Development themes</h4></div>
-          {t.themes.length ? (
-            <>
-              <p className="text-xs text-gray-400 mb-3">What evaluators flagged most across this team — the bigger the chip, the more it came up. Plan the season's focus around these.</p>
-              <div className="flex flex-wrap gap-2">
-                {t.themes.map(th => (
-                  <span key={th.theme} className="inline-flex items-center gap-1.5 rounded-full border border-[#0b5cd6]/20 bg-[#0b5cd6]/5 text-[#0b5cd6] font-medium"
-                    style={{ padding: "6px 12px", fontSize: `${Math.min(15, 11 + th.count / 3)}px` }}>
-                    {th.theme}<span className="text-gray-400 text-xs">{th.count}</span>
-                  </span>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-gray-400 italic">No written evaluator notes for this team yet — themes appear once evaluators add observations.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CoachesReportInner() {
   const params = useParams();
@@ -127,7 +71,20 @@ function CoachesReportInner() {
         ) : (
           <>
             {data.unrostered > 0 && <p className="text-xs text-gray-400">{data.unrostered} evaluated skater{data.unrostered === 1 ? "" : "s"} not yet on a team.</p>}
-            {shown.map(t => <TeamSection key={t.id} t={t} />)}
+            {shown.map(t => (
+              <div key={t.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden break-inside-avoid">
+                <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-start justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-xl font-black text-ink">{t.name}</h3>
+                      {t.is_top && <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Top team</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{t.coach_name ? `Coach ${t.coach_name} · ` : ""}{t.player_count} players</p>
+                  </div>
+                </div>
+                <TeamReportBody t={t} />
+              </div>
+            ))}
           </>
         )}
       </div>
