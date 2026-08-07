@@ -12,6 +12,7 @@ function CoachReportInner() {
   const { token } = useParams();
   const { data, isLoading, error } = useQuery({
     queryKey: ["coach-report-token", token],
+    retry: false,
     queryFn: async () => {
       const res = await fetch(`/api/coach-report/${token}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "This link is no longer valid.");

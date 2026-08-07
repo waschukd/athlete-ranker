@@ -20,9 +20,11 @@ function CoachesReportInner() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["coaches-report", catId],
+    retry: false,
     queryFn: async () => {
       const res = await fetch(`/api/categories/${catId}/coaches-report`);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load");
+      if (res.status === 403) throw new Error("You don't have access to this category's report — open a category your account manages (or sign in with the account that owns it).");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load the report.");
       return res.json();
     },
   });
