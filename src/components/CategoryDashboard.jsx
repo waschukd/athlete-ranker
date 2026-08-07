@@ -7,7 +7,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -287,6 +287,23 @@ export default function CategoryDashboard({
       if (data.success) refetchSetup();
     } catch { setAthleteMsg("Failed to send"); }
     finally { setWelcomeSending(false); setTimeout(() => setAthleteMsg(""), 5000); }
+  };
+  // Emails every family the evaluation dates (Session N · date · Group & time TBD).
+  // Lives on both the Schedule tab and the Athletes-tab Parent Notifications card.
+  const [evalDatesSending, setEvalDatesSending] = useState(false);
+  const sendEvalDates = async (setMsg) => {
+    const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
+    if (!withEmail.length) { setMsg("No parent emails on file yet — add them first."); setTimeout(() => setMsg(""), 5000); return; }
+    if (!confirm(`Email the evaluation dates to ${withEmail.length} families? (Groups & times stay TBD — the exact ice time goes out per session.)`)) return;
+    setEvalDatesSending(true);
+    try {
+      const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "schedule" }),
+      });
+      const data = await res.json();
+      setMsg(data.success ? `Evaluation dates sent to ${data.sent} families` : "Failed to send");
+    } catch { setMsg("Failed to send"); }
+    finally { setEvalDatesSending(false); setTimeout(() => setMsg(""), 5000); }
   };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
@@ -1052,6 +1069,13 @@ export default function CategoryDashboard({
                     setImporting(false); e.target.value = ""; setTimeout(() => setUploadMsg(""), 4000);
                   }} />
                 </label>
+                {canEditSchedule && schedule.length > 0 && (
+                  <button
+                    onClick={() => sendEvalDates(setScheduleMsg)}
+                    disabled={evalDatesSending}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-blue-50"
+                  ><Mail size={14} /> {evalDatesSending ? "Sending…" : "Email Parents"}</button>
+                )}
                 {canEditSchedule && (
                   <button
                     onClick={() => { setScheduleAddForm({ session_number: "", group_number: "1", scheduled_date: "", day_of_week: "", start_time: "", end_time: "", location: "", evaluators_required: "4" }); setScheduleAddOpen(true); }}
@@ -1462,20 +1486,11 @@ export default function CategoryDashboard({
                       {welcomeSending ? "Sending…" : "Send Welcome Email"}
                     </button>
                     <button
-                      onClick={async () => {
-                        if (!confirm(`Email the evaluation dates to ${withEmail.length} families? (Groups & times stay TBD — the exact ice time goes out per session.)`)) return;
-                        const res = await fetch(`/api/categories/${catId}/notify-parents`, {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "schedule" }),
-                        });
-                        const data = await res.json();
-                        setAthleteMsg(data.success ? `Evaluation dates sent to ${data.sent} families` : "Failed to send");
-                        setTimeout(() => setAthleteMsg(""), 5000);
-                      }}
-                      disabled={!withEmail.length}
+                      onClick={() => sendEvalDates(setAthleteMsg)}
+                      disabled={!withEmail.length || evalDatesSending}
                       className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
                     >
-                      Send Eval Dates
+                      {evalDatesSending ? "Sending…" : "Send Eval Dates"}
                     </button>
                   </div>
                 </div>
