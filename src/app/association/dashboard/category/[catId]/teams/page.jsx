@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp, Mail, ClipboardList } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -452,6 +452,10 @@ function TeamGeneratorInner() {
 
             {/* Actions */}
             <div className="flex flex-wrap justify-end gap-3">
+              <a href={`/association/dashboard/category/${catId}/coaches-report?org=${orgId}`}
+                className="inline-flex items-center gap-2 px-6 py-3 border border-[#0b5cd6] text-[#0b5cd6] rounded-xl font-semibold hover:bg-blue-50 transition-colors">
+                <ClipboardList size={16} /> Coaches Report
+              </a>
               <button onClick={exportTeamSheet}
                 className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
                 <Download size={16} /> Export Team Sheets CSV
