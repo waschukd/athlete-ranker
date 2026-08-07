@@ -1485,13 +1485,6 @@ export default function CategoryDashboard({
                     >
                       {welcomeSending ? "Sending…" : "Send Welcome Email"}
                     </button>
-                    <button
-                      onClick={() => sendEvalDates(setAthleteMsg)}
-                      disabled={!withEmail.length || evalDatesSending}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-blue-50"
-                    >
-                      {evalDatesSending ? "Sending…" : "Send Eval Dates"}
-                    </button>
                   </div>
                 </div>
               );
