@@ -99,8 +99,8 @@ export function parseNonContact(cell, header = "") {
   const v = norm(cell);
   const h = norm(header);
   if (!v) return false;
-  if (/\bnon ?contact\b/.test(v) || v === "nc" || v === "non") return true;
-  if (v === "contact" || v === "full" || v === "full contact" || v === "body contact" || v === "checking") return false;
+  if (/\bnon ?contact\b/.test(v) || v === "nc" || v === "nbc" || v === "non") return true;
+  if (v === "contact" || v === "bc" || v === "full" || v === "full contact" || v === "body contact" || v === "body checking" || v === "checking") return false;
   const truthy = ["yes", "y", "true", "1", "x"].includes(v);
   const falsy = ["no", "n", "false", "0"].includes(v);
   const headerIsNonContact = /\bnon ?contact\b/.test(h);

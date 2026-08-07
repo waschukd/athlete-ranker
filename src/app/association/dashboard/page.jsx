@@ -360,10 +360,13 @@ function Dashboard() {
   // ── Needs-attention items (association-wide, derived from data on hand) ──
   const needSetup = categories.filter(c => !c.setup_complete);
   const understaffed = upcoming.filter(s => (parseInt(s.evaluators_required) || 0) > 0 && (parseInt(s.signups) || 0) < (parseInt(s.evaluators_required) || 0));
+  // Categories that don't yet have a workable roster (fewer than 20 athletes).
+  const needAthletes = categories.filter(c => (parseInt(c.athletes_count) || 0) < 20);
   // "Ready to make teams" now lives in the live-computed "Up Next" card (driven by
   // next_action), so it's dropped from here to avoid a stale, duplicated nudge.
   const attention = [
     needSetup.length > 0 && { icon: AlertTriangle, tone: "amber", text: `${needSetup.length} categor${needSetup.length === 1 ? "y" : "ies"} need setup`, anchor: "categories" },
+    needAthletes.length > 0 && { icon: Users, tone: "amber", text: `${needAthletes.length} age categor${needAthletes.length === 1 ? "y needs" : "ies need"} athletes (fewer than 20 added)`, anchor: "categories" },
     !serviceProvider && understaffed.length > 0 && { icon: Calendar, tone: "amber", text: `${understaffed.length} upcoming session${understaffed.length === 1 ? "" : "s"} need evaluators`, anchor: "categories" },
   ].filter(Boolean);
 

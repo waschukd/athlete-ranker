@@ -115,6 +115,9 @@ function DirectorDashboardInner() {
                 </div>
                 <div className="font-display text-xl font-black text-ink">{a.category_name}</div>
                 <div className="text-sm text-gray-500 mt-2"><b className="text-ink">{a.athletes_count ?? 0}</b> athletes · <b className="text-ink">{a.sessions_count ?? 0}</b> sessions</div>
+                {(a.athletes_count ?? 0) < 20 && (
+                  <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600"><AlertCircle size={11} /> Athletes have not yet been added</div>
+                )}
                 <div className="mt-4 text-sm font-semibold text-[#0b5cd6]">Open dashboard →</div>
               </button>
             ))}

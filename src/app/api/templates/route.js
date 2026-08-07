@@ -5,11 +5,13 @@ export async function GET(request) {
   const type = searchParams.get("type");
 
   if (type === "athletes") {
+    // Contact column (BC = body checking, NBC = non-body-checking) is optional and
+    // only matters for U15+; leave it blank and everyone imports as body-checking.
     const csv = [
-      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #",
-      "John,Smith,HC-123456,Forward,2008,parent@email.com,,",
-      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,",
-      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234",
+      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC)",
+      "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC",
+      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC",
+      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234,",
     ].join("\n");
 
     return new NextResponse(csv, {
@@ -70,10 +72,10 @@ export async function GET(request) {
 
   if (type === "bulk-roster") {
     const csv = [
-      "Division,First Name,Last Name,Position,Birth Year,HC#,Parent Email,Parent Email 2,Helmet #",
-      "U11 AA,John,Smith,Forward,2015,HC-123456,parent@email.com,,",
-      "U11 AA,Jane,Doe,Defense,2015,HC-123457,jane.mom@email.com,jane.dad@email.com,",
-      "U13 House,Mike,Johnson,Goalie,2013,HC-123458,mike.parent@email.com,,1234",
+      "Division,First Name,Last Name,Position,Birth Year,HC#,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC)",
+      "U11 AA,John,Smith,Forward,2015,HC-123456,parent@email.com,,,",
+      "U15 AA,Jane,Doe,Defense,2011,HC-123457,jane.mom@email.com,jane.dad@email.com,,NBC",
+      "U13 House,Mike,Johnson,Goalie,2013,HC-123458,mike.parent@email.com,,1234,",
     ].join("\n");
     return new NextResponse(csv, { headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=bulk_roster_template.csv" } });
   }
