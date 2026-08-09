@@ -39,6 +39,20 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
     setBusy(false);
   };
 
+  const reopen = async (user_id) => {
+    setBusy(true); setErr("");
+    try {
+      const res = await fetch(`/api/schedule/${scheduleId}/roster`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reopen", user_id }),
+      });
+      const d = await res.json();
+      if (!res.ok) setErr(d.error || "Couldn't reopen.");
+      else await load();
+    } catch { setErr("Couldn't reopen."); }
+    setBusy(false);
+  };
+
   const s = data?.session;
   const fmtTime = (t) => { if (!t) return ""; const [h, m] = String(t).split(":"); const hr = parseInt(h); return `${hr % 12 === 0 ? 12 : hr % 12}:${m} ${hr >= 12 ? "PM" : "AM"}`; };
   const fmtDate = (d) => d ? new Date(String(d).split("T")[0] + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
@@ -83,6 +97,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                   canManage={data.canManage} addable={data.addable?.evaluators || []}
                   addOpen={addKind === "evaluator"} onOpenAdd={() => setAddKind(addKind === "evaluator" ? null : "evaluator")}
                   onAdd={(uid) => act("POST", uid, "evaluator")} onRemove={(uid) => act("DELETE", uid, "evaluator")}
+                  onReopen={reopen}
                   busy={busy}
                 />
               )}
@@ -111,7 +126,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
   );
 }
 
-function RosterGroup({ title, people, required, canManage, addable, addOpen, onOpenAdd, onAdd, onRemove, busy }) {
+function RosterGroup({ title, people, required, canManage, addable, addOpen, onOpenAdd, onAdd, onRemove, onReopen, busy }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -135,11 +150,18 @@ function RosterGroup({ title, people, required, canManage, addable, addOpen, onO
               <div className="min-w-0">
                 <span className="text-sm text-gray-800">{p.name || p.email}</span>
                 {p.assigned && <span className="ml-2 text-[10px] uppercase tracking-wide text-accent bg-accent-soft rounded px-1.5 py-0.5">assigned</span>}
+                {p.closed && <span className="ml-2 text-[10px] uppercase tracking-wide text-green-700 bg-green-100 rounded px-1.5 py-0.5">closed</span>}
               </div>
-              {canManage && (
-                <button onClick={() => onRemove(p.user_id)} disabled={busy}
-                  className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40 flex-shrink-0">Remove</button>
-              )}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {canManage && onReopen && p.closed && (
+                  <button onClick={() => onReopen(p.user_id)} disabled={busy}
+                    className="text-xs font-semibold text-accent hover:opacity-70 disabled:opacity-40">Reopen</button>
+                )}
+                {canManage && (
+                  <button onClick={() => onRemove(p.user_id)} disabled={busy}
+                    className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40">Remove</button>
+                )}
+              </div>
             </div>
           ))}
         </div>

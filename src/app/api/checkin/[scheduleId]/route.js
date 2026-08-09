@@ -185,6 +185,22 @@ export async function GET(request, { params }) {
 
     const helmet_mode = await resolveHelmetMode(sched.category_id);
 
+    // Whether the requesting evaluator has closed (locked) their own session —
+    // the scoring page uses this to go read-only. Only meaningful for a signed-in
+    // evaluator; anon check-in volunteers don't score.
+    let my_closed = false;
+    try {
+      const _s = await getSession();
+      if (_s?.email) {
+        const [u] = await sql`SELECT id FROM users WHERE email = ${_s.email}`;
+        if (u) {
+          const [sig] = await sql`SELECT closed_at FROM evaluator_session_signups WHERE schedule_id = ${scheduleId} AND user_id = ${u.id}`;
+          my_closed = !!sig?.closed_at;
+        }
+      }
+    } catch { /* non-fatal */ }
+    sched.my_closed = my_closed;
+
     return NextResponse.json({
       schedule: sched,
       checkinSession: { ...checkinSession[0], team_colors: teamColors },

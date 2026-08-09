@@ -232,6 +232,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
   const isToday = dateStr === todayStr;
   const isPast = dateStr < todayStr;
   const badge = mode !== "mine" ? null
+    : session.closed ? { t: "Closed ✓", c: "bg-green-100 text-green-700" }
     : isTesting
       ? (isToday ? { t: "Today", c: "bg-accent-soft text-accent" } : isPast ? { t: "Past", c: "bg-gray-100 text-gray-500" } : { t: "Upcoming", c: "bg-gray-100 text-gray-500" })
     : isToday ? { t: scored ? "Today · Scored ✓" : "Today", c: "bg-accent-soft text-accent" }
@@ -298,6 +299,12 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
 
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap mt-3 sm:mt-0">
             {mode === "mine" ? (
+              session.closed ? (
+                <a href={`/evaluator/score/${session.schedule_id}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                  <ClipboardList size={14} /> View (closed)
+                </a>
+              ) : (
               <>
                 <a href={`/evaluator/score/${session.schedule_id}`}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
@@ -322,6 +329,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                   </button>
                 )}
               </>
+              )
             ) : conflict ? (
               <button
                 disabled

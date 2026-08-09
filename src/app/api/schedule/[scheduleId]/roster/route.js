@@ -40,7 +40,8 @@ async function loadSession(scheduleId) {
 
 async function rosterFor(scheduleId) {
   const evaluators = await sql`
-    SELECT ess.user_id, u.name, u.email, ess.status, (ess.assigned_by IS NOT NULL) AS assigned
+    SELECT ess.user_id, u.name, u.email, ess.status, (ess.assigned_by IS NOT NULL) AS assigned,
+      (ess.closed_at IS NOT NULL) AS closed
     FROM evaluator_session_signups ess
     JOIN users u ON u.id = ess.user_id
     WHERE ess.schedule_id = ${scheduleId} AND ess.status != 'cancelled'
@@ -133,7 +134,25 @@ export async function POST(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const scheduleId = parseInt(params.scheduleId);
-    const { user_id, kind } = await request.json();
+    const body = await request.json();
+    const { user_id, kind } = body;
+
+    // Reopen a closed evaluator session (SP or association manager) — clears the
+    // lock so that evaluator can edit again. Their session reappears on their
+    // dashboard as active.
+    if (body.action === "reopen") {
+      if (!scheduleId || !user_id) return NextResponse.json({ error: "scheduleId and user_id required" }, { status: 400 });
+      const auth = await authorizeManage(session, scheduleId);
+      if (!auth.ok) return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+      const actorId = await getAppUserId(session);
+      await sql`UPDATE evaluator_session_signups SET closed_at = NULL, closed_by = NULL WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+      try {
+        await sql`INSERT INTO audit_log (age_category_id, user_id, action, entity_type, entity_id, new_value)
+          VALUES (${auth.s.age_category_id}, ${actorId}, 'reopen_evaluator_session', 'schedule', ${scheduleId}, ${JSON.stringify({ evaluator_id: user_id })})`;
+      } catch { /* best-effort */ }
+      return NextResponse.json({ ok: true, reopened: true });
+    }
+
     if (!scheduleId || !user_id || !["evaluator", "tester"].includes(kind)) {
       return NextResponse.json({ error: "scheduleId, user_id and kind (evaluator|tester) required" }, { status: 400 });
     }

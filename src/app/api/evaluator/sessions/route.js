@@ -32,6 +32,7 @@ export async function GET(request) {
           es.status as signup_status,
           es.created_at as signed_up_at,
           es.calendar_exported,
+          (es.closed_at IS NOT NULL) as closed,
           sch.id as schedule_id,
           sch.scheduled_date,
           sch.day_of_week,

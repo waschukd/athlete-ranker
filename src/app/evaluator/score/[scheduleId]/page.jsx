@@ -95,6 +95,8 @@ function ScoringInterface() {
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [reviewedFlags, setReviewedFlags] = useState(new Set());
   const [closing, setClosing] = useState(false);
+  const [excusalNeeded, setExcusalNeeded] = useState(null); // [{athlete_id, name, position}] awaiting a reason
+  const [excusals, setExcusals] = useState({});             // { athlete_id: 'absent' | 'injured' }
   const [voiceStatus, setVoiceStatus] = useState("");
   const [voiceMode, setVoiceMode] = useState('checking'); // checking | live | degraded | unavailable
   const [notesMode, setNotesMode] = useState(false);
@@ -250,6 +252,9 @@ function ScoringInterface() {
   const idOf = (a) => helmetMode ? (a?.helmet_number || "?") : (a?.jersey_number ?? "?");
   const anonLabel = (a) => `${teamLabel(a)} ${idOf(a)}`;
   const scheduleData = sessionData?.schedule;
+  // Read-only when this evaluator has closed (locked) their own session. The
+  // server also rejects edits — this just keeps the UI honest.
+  const readOnly = !!scheduleData?.my_closed;
 
   // ── Cross-device hydrate ─────────────────────────────────────────────
   // Pull this evaluator's existing scores + notes for THIS session from the
@@ -668,6 +673,7 @@ function ScoringInterface() {
   //   final transcript twice when a recognition session restarts; with
   //   toggling on, the duplicate call would clear a just-spoken score.
   const updateScore = useCallback((athleteId, catId, value, { allowToggle = true } = {}) => {
+    if (readOnly) return;
     setScores(prev => {
       const existing = prev[athleteId]?.cats?.[catId];
       const newVal = allowToggle && existing === value ? null : value;
@@ -687,6 +693,7 @@ function ScoringInterface() {
   }, [scheduleId, debouncedSync]);
 
   const updateNotes = useCallback((athleteId, text) => {
+    if (readOnly) return;
     setScores(prev => {
       const updated = {
         ...prev,
@@ -945,23 +952,49 @@ function ScoringInterface() {
     setConsensusLoading(false);
   };
 
-  const closeSession = async () => {
-    setClosing(true);
+  // After the lock is set, run the existing consensus/flag-review notify and leave.
+  const finishClose = async () => {
     const flagged = consensusData?.athletes?.filter(a => a.flagged) || [];
     const unreviewed = flagged.filter(a => !reviewedFlags.has(a.athlete_id));
-    await fetch(`/api/categories/${catId}/consensus`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "close_session",
-        schedule_id: scheduleId,
-        session_number: scheduleData?.session_number,
-        unreviewed_flags: unreviewed.map(a => ({ first_name: a.first_name, last_name: a.last_name, overall_agreement: a.overall_agreement })),
-      }),
-    });
-    setClosing(false);
-    alert("Session closed successfully.");
+    try {
+      await fetch(`/api/categories/${catId}/consensus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "close_session",
+          schedule_id: scheduleId,
+          session_number: scheduleData?.session_number,
+          unreviewed_flags: unreviewed.map(a => ({ first_name: a.first_name, last_name: a.last_name, overall_agreement: a.overall_agreement })),
+        }),
+      });
+    } catch { /* integrity notify is best-effort; the lock is already set */ }
     window.location.href = "/evaluator/dashboard";
+  };
+
+  // Server-authoritative close: it tells us if any checked-in player is neither
+  // scored nor excused. If so, we prompt for a reason (absent/injured); once
+  // every player is scored-or-excused, it locks the session.
+  const attemptClose = async (exc) => {
+    setClosing(true);
+    try {
+      const source = exc || excusals;
+      const excArr = Object.entries(source).map(([athlete_id, reason]) => ({ athlete_id: Number(athlete_id), reason }));
+      const res = await fetch("/api/evaluator/close-session", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule_id: scheduleId, excusals: excArr }),
+      });
+      const d = await res.json();
+      if (d.need_marking?.length) { setExcusalNeeded(d.need_marking); setClosing(false); return; }
+      if (!res.ok || !d.success) { alert(d.error || "Couldn't close the session. Please try again."); setClosing(false); return; }
+      setExcusalNeeded(null);
+      await finishClose();
+    } catch { alert("Couldn't close — check your connection and try again."); setClosing(false); }
+  };
+
+  // Entry point from the consensus modal's "Close Session" button.
+  const closeSession = async () => {
+    if (!confirm("Save and close this session? Once closed you won't be able to edit it unless your SP or association reopens it.")) return;
+    await attemptClose();
   };
 
   const stopVoice = useCallback(() => {
@@ -1096,6 +1129,12 @@ function ScoringInterface() {
   return (
     <div className="min-h-screen bg-gray-50 text-ink flex flex-col" style={{ paddingBottom: "80px" }} data-theme={theme}>
 
+      {readOnly && (
+        <div className="bg-green-600 text-white text-center text-xs sm:text-sm font-semibold px-3 py-2">
+          ✓ Session closed — read-only. Ask your SP or association to reopen it to make changes.
+        </div>
+      )}
+
       {/* ── Top bar ────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="flex items-center justify-between px-3 py-3">
@@ -1214,12 +1253,14 @@ function ScoringInterface() {
               {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
             </button>
           ))}
-          <button
-            onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
-            className="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-600 rounded-lg text-xs font-semibold hover:bg-amber-100"
-          >
-            Consensus
-          </button>
+          {!readOnly && (
+            <button
+              onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
+              className="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-600 rounded-lg text-xs font-semibold hover:bg-amber-100"
+            >
+              Consensus
+            </button>
+          )}
         </div>
           <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
             <div className="relative">
@@ -1786,6 +1827,42 @@ function ScoringInterface() {
                 </div>
               </>
             )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Excusal step: mark unscored players absent/injured before closing ── */}
+      {excusalNeeded && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style={{ maxHeight: "85vh" }}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-display font-extrabold text-ink text-lg leading-tight">Before you close</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {excusalNeeded.length} player{excusalNeeded.length === 1 ? "" : "s"} {excusalNeeded.length === 1 ? "has" : "have"} no score. Mark why for each — that's the only way to close a player out without scoring them.
+              </p>
+            </div>
+            <div className="overflow-y-auto px-5 py-2 flex-1 divide-y divide-gray-50">
+              {excusalNeeded.map(a => (
+                <div key={a.athlete_id} className="py-2.5 flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-gray-900 min-w-0 truncate">{a.name}</span>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    {[["absent", "Not here"], ["injured", "Got hurt"]].map(([val, label]) => (
+                      <button key={val} onClick={() => setExcusals(e => ({ ...e, [a.athlete_id]: val }))}
+                        className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium ${excusals[a.athlete_id] === val ? "bg-accent text-white border-accent" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+              <button onClick={() => setExcusalNeeded(null)} disabled={closing} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium disabled:opacity-50">Back to scoring</button>
+              <button onClick={() => attemptClose(excusals)} disabled={closing || excusalNeeded.some(a => !excusals[a.athlete_id])}
+                className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                {closing ? "Closing…" : "Confirm & close"}
+              </button>
             </div>
           </div>
         </div>

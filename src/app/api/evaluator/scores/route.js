@@ -145,13 +145,16 @@ export async function POST(request) {
     const auth = await authorizeCategoryAccess(session, category_id);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Verify evaluator is signed up for this schedule (skip for admins)
+    // Verify evaluator is signed up for this schedule (skip for admins), and that
+    // they haven't closed it — a closed session is read-only until an SP/
+    // association reopens it. Admins edit via the Edit & Audit tab, unaffected.
     if (schedule_id && !["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
       const signup = await sql`
-        SELECT id FROM evaluator_session_signups
+        SELECT id, closed_at FROM evaluator_session_signups
         WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
       `;
       if (!signup.length) return NextResponse.json({ error: "Not signed up for this session" }, { status: 403 });
+      if (signup[0].closed_at) return NextResponse.json({ error: "This session is closed — ask your SP or association to reopen it to make changes.", closed: true }, { status: 403 });
     }
 
     // Verify athlete is checked in for this session
