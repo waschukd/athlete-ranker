@@ -50,7 +50,11 @@ function formatDate(d) {
 function sessionStaffing(s) {
   const isTesting = s.session_type === "testing" && !s.is_goalie_sp;
   if (isTesting) {
-    return { isTesting: true, open: parseInt(s.tester_spots_open) || 0, req: parseInt(s.testers_required) || 0, noun: "tester" };
+    // The server only puts tester_spots_open on its byDate; the flat `schedule`
+    // the dashboard uses carries the raw counts, so compute the gap here.
+    const req = parseInt(s.testers_required) || 0;
+    const signed = parseInt(s.testers_signed_up) || 0;
+    return { isTesting: true, open: Math.max(0, req - signed), req, noun: "tester" };
   }
   return { isTesting: false, open: parseInt(s.spots_open) || 0, req: null, noun: "evaluator" };
 }
