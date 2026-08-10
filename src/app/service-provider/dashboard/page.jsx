@@ -44,9 +44,20 @@ function formatDate(d) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
+// Relevant staffing for a session: testing sessions are staffed by TESTERS, not
+// evaluators — so a testing session with 0 evaluators required must not read as
+// "Staffed" just because it needs no evaluators.
+function sessionStaffing(s) {
+  const isTesting = s.session_type === "testing" && !s.is_goalie_sp;
+  if (isTesting) {
+    return { isTesting: true, open: parseInt(s.tester_spots_open) || 0, req: parseInt(s.testers_required) || 0, noun: "tester" };
+  }
+  return { isTesting: false, open: parseInt(s.spots_open) || 0, req: null, noun: "evaluator" };
+}
+
 // Compact session line used on the Overview (home) tab for Today's / Upcoming lists.
 function SessionRow({ s, showDate }) {
-  const spots = s.spots_open;
+  const st = sessionStaffing(s);
   return (
     <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
       <div className="min-w-0 flex-1">
@@ -58,8 +69,10 @@ function SessionRow({ s, showDate }) {
           {s.location && <><span className="text-gray-300">·</span><span className="inline-flex items-center gap-1"><MapPin size={11} />{s.location}</span></>}
         </div>
       </div>
-      {spots > 0
-        ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">{spots} spot{spots === 1 ? "" : "s"} open</span>
+      {st.isTesting && st.req === 0
+        ? <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full font-medium flex-shrink-0">Set testers</span>
+        : st.open > 0
+        ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">needs {st.open} more {st.noun}{st.open === 1 ? "" : "s"}</span>
         : <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium flex-shrink-0">Staffed</span>}
       {s.is_goalie_sp
         ? <a href={`/evaluator/score/${s.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md flex-shrink-0 inline-flex items-center gap-1.5"><Star size={12} /> Evaluate</a>
@@ -1615,12 +1628,13 @@ function SPDashboard() {
   const allDates = Object.keys(byDate).sort();
   const upcomingDates = showPastSessions ? allDates : allDates.filter(d => d >= today);
   const pastCount = allDates.filter(d => d < today).length;
-  const needsEvaluators = schedule.filter(s => s.spots_open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
-  // Total OPEN SPOTS across upcoming sessions (the sum of remaining evaluator slots),
-  // not the count of understaffed sessions — clearer for "how many more do I need".
+  const needsEvaluators = schedule.filter(s => sessionStaffing(s).open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
+  // Total OPEN SPOTS across upcoming sessions — remaining EVALUATOR slots on eval
+  // sessions plus remaining TESTER slots on testing sessions (what "how many more
+  // people do I need" really means).
   const openSpots = schedule
     .filter(s => s.scheduled_date?.toString().split("T")[0] >= today)
-    .reduce((sum, s) => sum + Math.max(0, parseInt(s.spots_open) || 0), 0);
+    .reduce((sum, s) => sum + sessionStaffing(s).open, 0);
   const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
 
   // ── Overview (home) data ──
@@ -1630,7 +1644,7 @@ function SPDashboard() {
   const todaySessions = liveSessions.filter(s => dateOf(s) === today).sort(byDateTime);
   const upcomingSessions = liveSessions.filter(s => dateOf(s) > today).sort(byDateTime).slice(0, 8);
   const needsAttention = liveSessions
-    .filter(s => s.spots_open > 0 && dateOf(s) >= today)
+    .filter(s => sessionStaffing(s).open > 0 && dateOf(s) >= today)
     .sort(byDateTime)
     .slice(0, 6);
   const topEvaluators = [...evaluators]
@@ -1798,7 +1812,7 @@ function SPDashboard() {
               <div className="space-y-6">
                 <div className="bg-white border border-gray-200 rounded-2xl p-5">
                   <h3 className="font-display font-bold text-ink text-lg leading-tight flex items-center gap-2"><AlertTriangle size={16} className="text-amber-500" /> Needs attention</h3>
-                  <p className="text-xs text-gray-400 mt-0.5 mb-3">{needsEvaluators} session{needsEvaluators === 1 ? "" : "s"} short on evaluators</p>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-3">{needsEvaluators} session{needsEvaluators === 1 ? "" : "s"} short on staff</p>
                   {needsAttention.length === 0 ? (
                     <p className="text-sm text-gray-400 py-3">All upcoming sessions are fully staffed.</p>
                   ) : (
@@ -1808,7 +1822,7 @@ function SPDashboard() {
                           <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm text-ink truncate">{s.org_name} · {s.category_name}</div>
-                            <div className="text-xs text-gray-400">{formatDate(s.scheduled_date)} · needs {s.spots_open} more</div>
+                            <div className="text-xs text-gray-400">{formatDate(s.scheduled_date)} · needs {sessionStaffing(s).open} more {sessionStaffing(s).noun}{sessionStaffing(s).open === 1 ? "" : "s"}</div>
                           </div>
                         </div>
                       ))}
