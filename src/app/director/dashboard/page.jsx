@@ -6,6 +6,7 @@ import { AlertCircle } from "lucide-react";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 import CategoryDashboard from "@/components/CategoryDashboard";
 
 const qc = new QueryClient();
@@ -96,6 +97,7 @@ function DirectorDashboardInner() {
               <p className="text-sm text-gray-500 mt-0.5">{assignments.length} categories{orgCount > 1 ? ` across ${orgCount} associations` : `${assignments[0]?.org_name ? ` · ${assignments[0].org_name}` : ""}`}</p>
             </div>
             <div className="flex items-center gap-2">
+              <InstallAppButton />
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <button onClick={signOut} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 whitespace-nowrap">Sign out</button>
             </div>

@@ -13,6 +13,7 @@ import { SPLinksTab } from "@/components/GodMode/SPLinksTab";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 
 const queryClient = new QueryClient();
 
@@ -178,6 +179,7 @@ export default function GodModeDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <InstallAppButton />
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
                      style={{ background: "var(--gm-accent-soft)", border: "1px solid var(--gm-accent-bd)" }}>

@@ -14,6 +14,7 @@ import BulkOnboard from "@/components/BulkOnboard";
 import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 
 const qc = new QueryClient();
 
@@ -532,11 +533,13 @@ function Dashboard() {
               </div>
             </div>
             {/* Desktop: theme toggle top-right (consistent with other pages) */}
-            <div className="hidden lg:flex items-center">
+            <div className="hidden lg:flex items-center gap-2">
+              <InstallAppButton />
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
             {/* Mobile-only actions (sidebar holds these on desktop) */}
             <div className="flex lg:hidden items-center gap-2 flex-wrap">
+              <InstallAppButton />
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
               {myOrgs.length > 1 && (
                 <select value={orgId || ""} onChange={(e) => router.push(`/association/dashboard?org=${e.target.value}`)}

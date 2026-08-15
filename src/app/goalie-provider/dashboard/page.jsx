@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Star, Building2, Users, LogOut, Plus, Link2, X, ArrowRight, Clock, MapPin, CalendarDays, UserCheck, Copy, Check } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
 import NotificationBell from "@/components/NotificationBell";
 import ScheduleBoard from "@/components/ScheduleBoard";
 
@@ -40,6 +41,7 @@ function Inner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex justify-end items-center gap-3">
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <InstallAppButton />
           <NotificationBell />
           <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
