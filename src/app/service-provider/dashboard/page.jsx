@@ -85,6 +85,25 @@ function SessionRow({ s, showDate }) {
   );
 }
 
+// Compact banner atop the Evaluator/Tester Pool tabs — "how many spots need
+// filled" is the first thing an SP wants to know before triaging the roster.
+function OpenSpotsTracker({ open, sessions, noun }) {
+  if (open <= 0) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+        <CheckCircle size={16} className="flex-shrink-0" />
+        <span>All upcoming {noun} sessions are fully staffed.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+      <AlertTriangle size={16} className="flex-shrink-0" />
+      <span><b>{open}</b> open {noun} spot{open === 1 ? "" : "s"} across <b>{sessions}</b> upcoming session{sessions === 1 ? "" : "s"}.</span>
+    </div>
+  );
+}
+
 // Per-association colour picker for the SP master schedule. Presets match the
 // built-in palette; a custom hex or "Auto" (clear) are also available.
 function AssocColorPicker({ assoc, spId, onSaved }) {
@@ -208,7 +227,7 @@ function TesterStaffingControl({ entry, spUrl, onSaved, onOpenRoster }) {
 // Testing crew management — mirrors the evaluator pool, but a separate pool that
 // associations never see. Testers join via a tester-flavoured code; the SP can
 // approve a tester as an evaluator (one-directional) or remove them.
-function TestersTab({ spUrl, spName }) {
+function TestersTab({ spUrl, spName, openSpots, sessionsNeeding }) {
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["sp-testers"],
@@ -253,6 +272,8 @@ function TestersTab({ spUrl, spName }) {
 
   return (
     <div className="space-y-6">
+      <OpenSpotsTracker open={openSpots} sessions={sessionsNeeding} noun="tester" />
+
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -1640,6 +1661,12 @@ function SPDashboard() {
     .filter(s => s.scheduled_date?.toString().split("T")[0] >= today)
     .reduce((sum, s) => sum + sessionStaffing(s).open, 0);
   const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
+  // Split by pool — what the Evaluator Pool / Tester Pool tabs each show up top.
+  const upcomingSchedule = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today);
+  const evaluatorOpenSpots = upcomingSchedule.filter(s => !sessionStaffing(s).isTesting).reduce((sum, s) => sum + sessionStaffing(s).open, 0);
+  const evaluatorSessionsNeeding = upcomingSchedule.filter(s => !sessionStaffing(s).isTesting && sessionStaffing(s).open > 0).length;
+  const testerOpenSpots = upcomingSchedule.filter(s => sessionStaffing(s).isTesting).reduce((sum, s) => sum + sessionStaffing(s).open, 0);
+  const testerSessionsNeeding = upcomingSchedule.filter(s => sessionStaffing(s).isTesting && sessionStaffing(s).open > 0).length;
 
   // ── Overview (home) data ──
   const dateOf = (s) => s.scheduled_date?.toString().split("T")[0];
@@ -1750,7 +1777,7 @@ function SPDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {activeTab === "testers" && <TestersTab spUrl={spUrl} spName={sp?.name} />}
+        {activeTab === "testers" && <TestersTab spUrl={spUrl} spName={sp?.name} openSpots={testerOpenSpots} sessionsNeeding={testerSessionsNeeding} />}
         {activeTab === "payroll" && <PayrollTab spUrl={spUrl} />}
 
         {activeTab === "overview" && (
@@ -2331,6 +2358,8 @@ function SPDashboard() {
                 </button>
               </div>
             </div>
+
+            <OpenSpotsTracker open={evaluatorOpenSpots} sessions={evaluatorSessionsNeeding} noun="evaluator" />
 
             {bulkDeleteMsg && (() => {
               const isErr = bulkDeleteMsg.startsWith("⚠️");
