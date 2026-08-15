@@ -211,7 +211,7 @@ function CancelModal({ scheduleId, onClose, onConfirm, isPending }) {
   );
 }
 
-function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode, conflict, kind }) {
+function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPending, mode, conflict, kind, signedUp }) {
   // kind ("evaluation" | "testing") is set in the combined My Sessions list so one
   // card can render either commitment. It drives the badge, the staffing wording,
   // and which staffing count to read (testers_* vs evaluators_*).
@@ -252,7 +252,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
   return (
     <>
       <div className={`bg-white border rounded-xl p-5 hover:shadow-md transition-all ${
-        mode === "mine" ? "border-[#0b5cd6]/30 bg-orange-50/20" : "border-gray-200"
+        mode === "mine" ? "border-[#0b5cd6]/30 bg-orange-50/20" : signedUp ? "border-green-300 bg-green-50/30" : "border-gray-200"
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -330,6 +330,13 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                 )}
               </>
               )
+            ) : signedUp ? (
+              // Just signed up from this list — the card stays put (no reflow, no
+              // scroll jump) and flips to a confirmation. It clears on the next
+              // real refresh of the tab; by then it lives in My Sessions.
+              <span className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-50 text-green-700 border border-green-300 rounded-lg text-sm font-semibold">
+                <Check size={14} /> Signed up
+              </span>
             ) : conflict ? (
               <button
                 disabled
@@ -958,6 +965,13 @@ function EvaluatorDashboard() {
     },
   });
 
+  // Sessions signed up for from the Available list THIS visit, keyed
+  // "kind:schedule_id" → session snapshot. The refetch after signup drops them
+  // from the server list; we re-insert the snapshot so the card stays exactly
+  // where it was (flipped to "Signed up ✓") instead of the list reflowing and
+  // losing the person's scroll spot. Cleared on any tab switch.
+  const [justSignedUp, setJustSignedUp] = useState(() => new Map());
+
   const signupMutation = useMutation({
     mutationFn: async (schedule_id) => {
       const res = await fetch("/api/evaluator/signup", {
@@ -968,7 +982,7 @@ function EvaluatorDashboard() {
       const data = await res.json();
       return { ok: res.ok, ...data };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, schedule_id) => {
       // Server returned an error (409 conflict, 400 no spots, etc) — surface
       // it as a banner instead of treating it as a successful signup.
       if (!data.ok || data.error) {
@@ -976,6 +990,7 @@ function EvaluatorDashboard() {
         return;
       }
       setSignupError(null);
+      markSignedUp("evaluation", schedule_id);
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
       if (data.ical) {
@@ -986,8 +1001,8 @@ function EvaluatorDashboard() {
         a.download = "session.ics";
         a.click();
       }
-      // Stay on the available list so they can keep signing up; the session they
-      // just took drops off automatically. Confirm with a quick banner.
+      // Stay on the available list so they can keep signing up; the card they
+      // just took stays in place marked "Signed up ✓". Confirm with a banner.
       setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
     },
   });
@@ -1032,9 +1047,10 @@ function EvaluatorDashboard() {
       });
       return { ok: res.ok, ...(await res.json().catch(() => ({}))) };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, schedule_id) => {
       if (!data.ok || data.error) { setSignupError(data.message || data.error || "Couldn't sign up."); return; }
       setSignupError(null);
+      markSignedUp("testing", schedule_id);
       setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
       queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
     },
@@ -1090,6 +1106,23 @@ function EvaluatorDashboard() {
     ...(capData?.available || []).map(s => ({ ...s, __kind: "testing" })),
   ], [availSessions, capData]);
 
+  // Snapshot a session at signup time so its card can keep rendering after the
+  // refetch removes it from the server's available list.
+  const markSignedUp = (kind, id) => {
+    const snap = combinedAvail.find(s => s.__kind === kind && s.schedule_id === id);
+    if (snap) setJustSignedUp(m => new Map(m).set(`${kind}:${id}`, snap));
+  };
+  const isJustSignedUp = (s) => justSignedUp.has(`${s.__kind}:${s.schedule_id}`);
+  // What the Available tab renders: the fresh server list + just-signed-up
+  // snapshots re-inserted (ScheduleBoard sorts by date/time, so each lands back
+  // in its original visual spot — no reflow, no lost scroll position).
+  const availDisplay = useMemo(() => {
+    if (justSignedUp.size === 0) return combinedAvail;
+    const present = new Set(combinedAvail.map(s => `${s.__kind}:${s.schedule_id}`));
+    const extras = [...justSignedUp.entries()].filter(([k]) => !present.has(k)).map(([, s]) => s);
+    return [...combinedAvail, ...extras];
+  }, [combinedAvail, justSignedUp]);
+
   // Association filter — options drawn from the combined available list, so it only
   // ever lists the person's own accessible associations. "all" = every one.
   const [availOrgFilter, setAvailOrgFilter] = useState("all");
@@ -1100,11 +1133,11 @@ function EvaluatorDashboard() {
     return Array.from(set).sort();
   }, [combinedAvail]);
   const availFiltered = useMemo(() => {
-    let list = combinedAvail;
+    let list = availDisplay;
     if (availTypeFilter !== "all") list = list.filter(s => s.__kind === availTypeFilter);
     if (availOrgFilter !== "all") list = list.filter(s => s.org_name === availOrgFilter);
     return list;
-  }, [combinedAvail, availTypeFilter, availOrgFilter]);
+  }, [availDisplay, availTypeFilter, availOrgFilter]);
   const availCounts = useMemo(() => ({
     all: combinedAvail.length,
     testing: combinedAvail.filter(s => s.__kind === "testing").length,
@@ -1149,6 +1182,7 @@ function EvaluatorDashboard() {
         const res = await fetch("/api/evaluator/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
         const d = await res.json().catch(() => ({}));
         if (!res.ok || d.error) { failed = d.message || d.error || "Some sessions in the block couldn't be added."; break; }
+        markSignedUp("evaluation", sid);
       }
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
@@ -1268,7 +1302,7 @@ function EvaluatorDashboard() {
               { id: "pay", label: "Hours & Pay" },
               { id: "join", label: "Join Organization" },
             ].map(tab => (
-              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSignupOk(null); setSignupError(null); }}
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSignupOk(null); setSignupError(null); setJustSignedUp(new Map()); }}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id ? "border-[#0b5cd6] text-[#0b5cd6]" : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}>
@@ -1409,7 +1443,8 @@ function EvaluatorDashboard() {
                 renderRow={(s) => (
                   <SessionCard session={s} mode="available" kind={isTester && isEvaluator ? s.__kind : undefined}
                     onSignup={(id) => s.__kind === "testing" ? testerSignupMutation.mutate(id) : handleSignup(id)}
-                    conflict={availConflict(s)}
+                    signedUp={isJustSignedUp(s)}
+                    conflict={!isJustSignedUp(s) && availConflict(s)}
                     onCancel={() => {}} onCancelWithReason={() => {}} />
                 )}
               />

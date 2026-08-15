@@ -33,12 +33,22 @@ export default function TesterDashboard() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Sessions signed up for THIS visit (schedule_id → snapshot). After load()
+  // drops them from the server's available list, we re-insert the snapshot so
+  // the card stays exactly where it was — flipped to "Signed up ✓" — instead of
+  // the list reflowing and losing the person's scroll spot. Cleared on tab switch.
+  const [justSignedUp, setJustSignedUp] = useState(() => new Map());
+
   const act = async (schedule_id, action) => {
     setBusyId(`${action}-${schedule_id}`); setActMsg(null);
     try {
       const res = await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id, action }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.error) setActMsg({ type: "error", text: d.error || "Something went wrong." });
+      else if (action === "signup") {
+        const snap = (data?.available || []).find(s => s.schedule_id === schedule_id);
+        if (snap) setJustSignedUp(m => new Map(m).set(schedule_id, snap));
+      }
       await load();
     } catch { setActMsg({ type: "error", text: "Network error — please try again." }); }
     setBusyId(null);
@@ -46,6 +56,10 @@ export default function TesterDashboard() {
 
   const mine = data?.mine || [];
   const available = data?.available || [];
+  // What the Available tab renders: fresh server list + just-signed-up snapshots
+  // re-inserted (ScheduleBoard sorts by date/time, so each lands back in place).
+  const availDisplay = justSignedUp.size === 0 ? available
+    : [...available, ...[...justSignedUp.entries()].filter(([id]) => !available.some(s => s.schedule_id === id)).map(([, s]) => s)];
 
   // Flag an available session that overlaps one you're already signed up for —
   // you can't be at two testing sessions at once.
@@ -77,8 +91,12 @@ export default function TesterDashboard() {
         const res = await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id: sid, action: "signup" }) });
         const d = await res.json().catch(() => ({}));
         if (!res.ok || d.error) { failed = d.error || "Some sessions in the block couldn't be added."; break; }
+        const snap = available.find(s => s.schedule_id === sid);
+        if (snap) setJustSignedUp(m => new Map(m).set(sid, snap));
       }
-      await load(); setBatchPrompt(null); setTab("mine");
+      // Stay on Available, in place — the cards flip to "Signed up ✓" instead
+      // of the page jumping to My Sessions.
+      await load(); setBatchPrompt(null);
       if (failed) setActMsg({ type: "error", text: failed });
     } finally { setBatchBusy(false); }
   };
@@ -86,9 +104,10 @@ export default function TesterDashboard() {
   const Row = ({ s, mineRow }) => {
     const filled = parseInt(s.testers_signed_up || 0), need = parseInt(s.testers_required || 0);
     const isPast = (s.scheduled_date?.toString().split("T")[0] || "") < todayKey();
-    const conflict = !mineRow ? conflictFor(s) : null;
+    const signedUp = !mineRow && justSignedUp.has(s.schedule_id);
+    const conflict = !mineRow && !signedUp ? conflictFor(s) : null;
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap">
+      <div className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${signedUp ? "border-green-300 bg-green-50/30" : "border-gray-200"}`}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-sm font-semibold text-ink truncate">{s.org_name}</span>
@@ -109,6 +128,10 @@ export default function TesterDashboard() {
                   {busyId === `cancel-${s.schedule_id}` ? "…" : "Cancel"}
                 </button>}
           </div>
+        ) : signedUp ? (
+          <span className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-green-50 text-green-700 border border-green-300 rounded-lg font-semibold whitespace-nowrap">
+            <Check size={14} /> Signed up
+          </span>
         ) : conflict ? (
           <span title={`You're already booked ${conflict.label}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg font-semibold whitespace-nowrap cursor-not-allowed">
             <AlertTriangle size={13} /> Busy at this time
@@ -169,7 +192,7 @@ export default function TesterDashboard() {
             )}
             <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
               {tabs.map(t => (
-                <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
+                <button key={t.id} onClick={() => { setTab(t.id); setJustSignedUp(new Map()); }} className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
               ))}
             </div>
 
@@ -178,7 +201,7 @@ export default function TesterDashboard() {
                 emptyText="You haven't signed up for any testing sessions yet — check Available." renderRow={(s) => <Row s={s} mineRow />} />
             )}
             {tab === "available" && (
-              <ScheduleBoard sessions={available} storageKey="tester-avail-view"
+              <ScheduleBoard sessions={availDisplay} storageKey="tester-avail-view"
                 emptyText="No open testing sessions right now." renderRow={(s) => <Row s={s} />} />
             )}
             {tab === "pay" && <HoursPay />}
