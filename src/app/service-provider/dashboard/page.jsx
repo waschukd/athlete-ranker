@@ -2267,7 +2267,7 @@ function SPDashboard() {
                               className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.status === "cancelled" ? "border-gray-200 opacity-60" : entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
                               style={{ borderLeft: `4px solid ${palette.hex}` }}
                             >
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-[9rem]">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
                                   <OrgChip name={entry.org_name} palette={palette} />
                                   <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
