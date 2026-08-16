@@ -65,7 +65,7 @@ function SessionRow({ s, showDate }) {
   const st = sessionStaffing(s);
   return (
     <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[10rem] flex-1">
         <div className="text-sm font-semibold text-gray-900 truncate">{s.org_name} · {s.category_name}</div>
         <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
           <span>S{s.session_number}{s.group_number ? ` · G${s.group_number}` : ""}</span>
