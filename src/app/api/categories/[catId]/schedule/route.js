@@ -225,15 +225,23 @@ export async function PATCH(request, { params }) {
     const goalie_evaluators_required = body.goalie_evaluators_required != null ? parseInt(body.goalie_evaluators_required) : prev.goalie_evaluators_required;
     const reinstating = body.status === "scheduled" && prev.status === "cancelled";
     const status = body.status ?? prev.status;
+    // Round-robin: setting/changing the matchup ("White vs Gold") immediately
+    // resolves it against the category's current teams and fills this game's
+    // roster — same as CSV import, just from the schedule-tab picker instead.
+    const matchup = body.matchup !== undefined ? (body.matchup || null) : prev.matchup;
 
     const [row] = await sql`
       UPDATE evaluation_schedule SET
         scheduled_date = ${scheduled_date}, day_of_week = ${day_of_week},
         start_time = ${start_time}, end_time = ${end_time},
         location = ${location}, evaluators_required = ${evaluators_required},
-        goalie_evaluators_required = ${goalie_evaluators_required}, status = ${status}
+        goalie_evaluators_required = ${goalie_evaluators_required}, status = ${status},
+        matchup = ${matchup}
       WHERE id = ${id} RETURNING *
     `;
+    if (body.matchup !== undefined && matchup !== prev.matchup) {
+      await applyMatchup(catId, row.session_number, row.group_number, matchup);
+    }
 
     // Build a short human summary of what changed
     const changes = [];

@@ -72,22 +72,60 @@ export async function moveAthlete(catId, athleteId, toTeamId) {
   await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${toTeamId}, ${athleteId}) ON CONFLICT DO NOTHING`;
 }
 
-// Resolve a team letter (A/B/…) to its id for a category — for matchup import.
+// Rename a team — directors aren't stuck with "Team A/B/C"; real names ("White",
+// "Gold Rush") set the tone for the whole evaluation. Matchup resolution below
+// matches by whatever the name currently is, so this is safe at any time; any
+// already-stored matchup text just needs "Apply to schedule" re-run afterward
+// to pick up the new name.
+export async function renameTeam(catId, teamId, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return;
+  await sql`UPDATE scrimmage_teams SET name = ${trimmed} WHERE id = ${teamId} AND age_category_id = ${catId}`;
+}
+
+// Resolve a team letter (A/B/…) to its id for a category — legacy fallback for
+// older CSV imports still using the bare-letter convention.
 export async function teamIdByLetter(catId, letter) {
   const name = "Team " + String(letter || "").trim().toUpperCase();
   const rows = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} AND name = ${name} LIMIT 1`;
   return rows[0]?.id || null;
 }
 
-// Parse a matchup label ("A vs B", "A/B", "Bubble A/B", "Team A vs Team C") into
-// the two scrimmage-team ids for this category. Returns [] if it can't resolve
-// both (so the caller just leaves the game's roster to be set manually).
+// Find a team by its CURRENT name (case-insensitive, exact) — the primary
+// resolution path now that teams can be renamed to anything ("White", "Gold
+// Rush"), not just letters. Falls back to the legacy "single letter -> Team X"
+// convention so older imports/templates still work.
+async function findTeamByLabel(catId, label) {
+  const trimmed = String(label || "").trim();
+  if (!trimmed) return null;
+  const rows = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} AND lower(name) = lower(${trimmed}) LIMIT 1`;
+  if (rows[0]) return rows[0].id;
+  if (/^[A-F]$/i.test(trimmed)) return teamIdByLetter(catId, trimmed);
+  return null;
+}
+
+// Parse a matchup label ("White vs Gold", "A vs B", "Bubble A/B") into the two
+// scrimmage-team ids for this category, matching against each team's CURRENT
+// name. Returns [] if it can't resolve both (so the caller just leaves the
+// game's roster to be set manually).
 export async function resolveMatchupTeams(catId, matchup) {
-  const letters = String(matchup || "").toUpperCase().match(/\b([A-F])\b/g);
-  if (!letters || letters.length < 2) return [];
-  const a = await teamIdByLetter(catId, letters[0]);
-  const b = await teamIdByLetter(catId, letters[1]);
+  const s = String(matchup || "").trim();
+  if (!s) return [];
+  const m = s.match(/^(.+?)\s*(?:vs\.?|\/)\s*(.+)$/i);
+  if (!m) return [];
+  const a = await findTeamByLabel(catId, m[1]);
+  const b = await findTeamByLabel(catId, m[2]);
   return a && b ? [a, b] : [];
+}
+
+// Build a canonical matchup label from two team ids, using their current names
+// — what the schedule's team picker writes, so the stored text always matches
+// reality (never a stale letter that no longer means anything after a rename).
+export async function matchupLabel(catId, teamAId, teamBId) {
+  const rows = await sql`SELECT id, name FROM scrimmage_teams WHERE age_category_id = ${catId} AND id = ANY(${[teamAId, teamBId]})`;
+  const a = rows.find(r => r.id === teamAId)?.name;
+  const b = rows.find(r => r.id === teamBId)?.name;
+  return a && b ? `${a} vs ${b}` : null;
 }
 
 // Populate a game's session group with both teams' players so the existing

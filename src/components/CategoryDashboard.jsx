@@ -47,6 +47,68 @@ function fmtDayLabel(d) {
   return new Date(y, m - 1, dd).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+// Round-robin schedule tab: pick which two teams play a given game. Writes a
+// canonical "TeamA vs TeamB" label built from the teams' CURRENT names (never
+// a stale letter), which the schedule PATCH resolves and fills the roster from
+// immediately. Nothing here assumes every team appears in every session — each
+// game is fully independent, so an odd team count (A-B, A-C, B-C) just works.
+function MatchupPicker({ entry, teams, catId, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [saving, setSaving] = useState(false);
+  const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
+
+  const startEdit = () => {
+    // Best-effort preselect: if the current matchup text names two teams that
+    // still exist under those names, default the pickers to them.
+    const found = teams.filter(t => (entry.matchup || "").toLowerCase().includes(String(t.name).toLowerCase()));
+    setA(found[0]?.id ? String(found[0].id) : "");
+    setB(found[1]?.id ? String(found[1].id) : "");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (!a || !b || a === b) return;
+    setSaving(true);
+    const teamA = teams.find(t => String(t.id) === a);
+    const teamB = teams.find(t => String(t.id) === b);
+    const matchup = teamA && teamB ? `${teamA.name} vs ${teamB.name}` : null;
+    try {
+      await fetch(`/api/categories/${catId}/schedule`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id, matchup }),
+      });
+      onSaved?.();
+    } finally { setSaving(false); setEditing(false); }
+  };
+
+  if (!editing) {
+    return (
+      <button onClick={startEdit} className="text-left hover:opacity-70" title="Set which teams play this game">
+        {entry.matchup
+          ? <span className="text-sm font-medium text-ink">{entry.matchup}</span>
+          : <span className="text-xs text-gray-400 italic">Set matchup…</span>}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <select value={a} onChange={e => setA(e.target.value)} className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
+        <option value="">Team…</option>
+        {teams.map(t => <option key={t.id} value={t.id} disabled={String(t.id) === b}>{teamLabel(t.name)}</option>)}
+      </select>
+      <span className="text-xs text-gray-400">vs</span>
+      <select value={b} onChange={e => setB(e.target.value)} className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
+        <option value="">Team…</option>
+        {teams.map(t => <option key={t.id} value={t.id} disabled={String(t.id) === a}>{teamLabel(t.name)}</option>)}
+      </select>
+      <button onClick={save} disabled={!a || !b || a === b || saving} className="text-accent disabled:opacity-40" title="Save"><Check size={14} /></button>
+      <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600" title="Cancel"><X size={14} /></button>
+    </div>
+  );
+}
+
 /**
  * Shared dashboard used by both the association category page and the director
  * dashboard. The two routes pass their own header context plus a `role`; from
@@ -215,6 +277,15 @@ export default function CategoryDashboard({
     enabled: !!catId,
   });
 
+  // Round-robin only — powers the schedule tab's matchup picker (which two
+  // teams play a given game). Same source ScrimmageTeams itself reads.
+  const { data: scrimmageTeamsData, refetch: refetchScrimmageTeams } = useQuery({
+    queryKey: ["scrimmage-teams", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/scrimmage-teams`); return res.json(); },
+    enabled: !!catId && setupData?.category?.eval_format === "round_robin",
+  });
+  const scrimmageTeams = scrimmageTeamsData?.teams || [];
+
   const { data: athletesData, refetch: refetchAthletes } = useQuery({
     queryKey: ["category-athletes", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/athletes`); return res.json(); },
@@ -242,6 +313,7 @@ export default function CategoryDashboard({
   const sessions = setupData?.sessions || [];
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
+  const isTournament = category?.eval_format === "round_robin";
 
   // Pre-fill the placement note with the association's template so the admin sees
   // (and can tweak) the exact wording, rather than a blank box that silently
@@ -1020,7 +1092,7 @@ export default function CategoryDashboard({
           <div className="space-y-4">
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <h2 className="font-display text-xl font-extrabold tracking-tight text-ink flex items-center gap-2"><Users size={18} className="text-accent" /> Teams</h2>
-              <p className="text-sm text-gray-500 mt-1">Assign players to teams (A/B/C/D). Seed then drag to adjust, then <b>Apply to schedule</b> to fill upcoming matchup games. Already-played games are never changed, and moving a player never affects their past scores.</p>
+              <p className="text-sm text-gray-500 mt-1">Rename teams (click a team name) and seed players, then drag to adjust. Set who plays whom on the <b>Schedule</b> tab — or use <b>Apply to schedule</b> here to fill every game at once. Already-played games are never changed, and moving a player never affects their past scores.</p>
             </div>
             <ScrimmageTeams catId={catId} />
           </div>
@@ -1161,11 +1233,18 @@ export default function CategoryDashboard({
                       </div>
                     </div>
                     <table className="w-full text-sm">
-                      <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Group</th><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Day</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Check-in</th>{canEditSchedule && <th className="px-4 py-2 text-left">Actions</th>}</tr></thead>
+                      <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">{isTournament ? "Game" : "Group"}</th>{isTournament && <th className="px-4 py-2 text-left">Matchup</th>}<th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Day</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Check-in</th>{canEditSchedule && <th className="px-4 py-2 text-left">Actions</th>}</tr></thead>
                       <tbody className="divide-y divide-gray-50">
                         {entries.sort((a, b) => (a.group_number || 0) - (b.group_number || 0)).map((e, i) => (
                           <tr key={i} className={`hover:bg-gray-50 ${e.status === "cancelled" ? "opacity-60" : ""}`}>
-                            <td className="px-4 py-2.5 font-medium text-gray-700">{e.group_number ? `Group ${e.group_number}` : "-"}</td>
+                            <td className="px-4 py-2.5 font-medium text-gray-700">{e.group_number ? `${isTournament ? "Game" : "Group"} ${e.group_number}` : "-"}</td>
+                            {isTournament && (
+                              <td className="px-4 py-2.5">
+                                {canEditSchedule
+                                  ? <MatchupPicker entry={e} teams={scrimmageTeams} catId={catId} onSaved={refetchSchedule} />
+                                  : (e.matchup ? <span className="text-sm font-medium text-ink">{e.matchup}</span> : <span className="text-xs text-gray-300">-</span>)}
+                              </td>
+                            )}
                             <td className="px-4 py-2.5"><span className="inline-block px-2.5 py-1 rounded-lg bg-accent-soft text-accent text-sm font-bold whitespace-nowrap">{fmtDayLabel(e.scheduled_date)}</span></td>
                             <td className="px-4 py-2.5 text-gray-500">{e.day_of_week || "-"}</td>
                             <td className="px-4 py-2.5 text-gray-500">{e.start_time && e.end_time ? `${e.start_time} – ${e.end_time}` : "-"}</td>

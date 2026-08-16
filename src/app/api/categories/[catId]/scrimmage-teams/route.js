@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { getScrimmageTeams, createTeams, seedTeams, moveAthlete, applyAllMatchups } from "@/lib/scrimmageTeams";
+import { getScrimmageTeams, createTeams, seedTeams, moveAthlete, applyAllMatchups, renameTeam } from "@/lib/scrimmageTeams";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -51,6 +51,12 @@ export async function POST(request, { params }) {
     if (body.action === "move_player") {
       await moveAthlete(params.catId, parseInt(body.athlete_id), parseInt(body.to_team_id));
       return NextResponse.json({ success: true });
+    }
+    if (body.action === "rename") {
+      if (!body.team_id || !body.name) return NextResponse.json({ error: "team_id and name required" }, { status: 400 });
+      await renameTeam(params.catId, parseInt(body.team_id), body.name);
+      const teams = await getScrimmageTeams(params.catId);
+      return NextResponse.json({ success: true, teams });
     }
     if (body.action === "apply_matchups") {
       const r = await applyAllMatchups(params.catId);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Shuffle, Loader2, GripVertical } from "lucide-react";
+import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon } from "lucide-react";
 
 // Team assignment for a Tournament category. Seed teams without scores
 // (alphabetical or even), then move players between teams — drag the grip handle
@@ -20,6 +20,8 @@ export default function ScrimmageTeams({ catId }) {
   const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
   const [overTeam, setOverTeam] = useState(null); // team id currently under the pointer
   const [applied, setApplied] = useState(null);
+  const [renamingId, setRenamingId] = useState(null);
+  const [nameDraft, setNameDraft] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/categories/${catId}/scrimmage-teams`);
@@ -33,6 +35,14 @@ export default function ScrimmageTeams({ catId }) {
     setBusy(true);
     try { await fetch(`/api/categories/${catId}/scrimmage-teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); await load(); } catch {}
     setBusy(false);
+  };
+
+  const startRename = (team) => { setRenamingId(team.id); setNameDraft(teamLabel(team.name)); };
+  const saveRename = async (teamId) => {
+    const name = nameDraft.trim();
+    setRenamingId(null);
+    if (!name) return;
+    await post({ action: "rename", team_id: teamId, name });
   };
 
   const applyMatchups = async () => {
@@ -125,9 +135,27 @@ export default function ScrimmageTeams({ catId }) {
           return (
             <div key={team.id} data-teamid={team.id}
               className={`bg-white border rounded-xl p-3 min-h-[120px] transition-colors ${overTeam === team.id ? "border-accent ring-2 ring-accent/30 bg-accent-soft/40" : drag ? "border-dashed border-accent/40" : "border-gray-200"}`}>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-bold text-ink">{team.name}</h4>
-                <span className="text-[11px] text-gray-400">{team.members.length} · {f}F/{d}D</span>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                {renamingId === team.id ? (
+                  <span className="inline-flex items-center gap-1 min-w-0 flex-1">
+                    <input
+                      autoFocus
+                      value={nameDraft}
+                      onChange={e => setNameDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") saveRename(team.id); if (e.key === "Escape") setRenamingId(null); }}
+                      onBlur={() => saveRename(team.id)}
+                      maxLength={40}
+                      className="min-w-0 flex-1 text-sm font-bold text-ink border border-accent/40 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <button onClick={() => saveRename(team.id)} className="text-accent flex-shrink-0" title="Save name"><CheckIcon size={14} /></button>
+                  </span>
+                ) : (
+                  <button onClick={() => startRename(team)} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:opacity-70 min-w-0" title="Rename team">
+                    <span className="truncate">{team.name}</span>
+                    <Pencil size={11} className="text-gray-300 flex-shrink-0" />
+                  </button>
+                )}
+                <span className="text-[11px] text-gray-400 flex-shrink-0">{team.members.length} · {f}F/{d}D</span>
               </div>
               <div className="space-y-1.5">
                 {team.members.map(a => <Player key={a.id} a={a} teamId={team.id} />)}
