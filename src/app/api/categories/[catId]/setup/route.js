@@ -1,9 +1,13 @@
 import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { logEvent } from "@/lib/analytics";
+import { notifySessionChange } from "@/lib/scheduleNotify";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+
+const SESSION_TYPE_LABEL = { testing: "Testing", scrimmage: "Scrimmage", goalie_skills: "Goalie Skills", skills: "Skills" };
+const typeLabel = (t) => SESSION_TYPE_LABEL[t] || t;
 
 export async function GET(request, { params }) {
   try {
@@ -71,14 +75,46 @@ export async function POST(request, { params }) {
 
     switch (step) {
       case "sessions": {
+        // Snapshot the current session types before replacing, so a genuine type
+        // change (e.g. Scrimmage -> Testing) can notify everyone attached to it
+        // after the swap -- same reach as an edited/cancelled schedule row
+        // (evaluators signed up, the SP + its admins, all association admins,
+        // and the category's directors). Only fires for an already-launched
+        // category; nobody's signed up to anything yet during initial setup.
+        const beforeTypes = wasComplete
+          ? Object.fromEntries((await sql`SELECT session_number, session_type FROM category_sessions WHERE age_category_id = ${catId}`).map(s => [s.session_number, s.session_type]))
+          : {};
+
         // Delete existing sessions and recreate
         await sql`DELETE FROM category_sessions WHERE age_category_id = ${catId}`;
-        for (const session of data.sessions) {
+        for (const sess of data.sessions) {
           await sql`
             INSERT INTO category_sessions (age_category_id, session_number, name, session_type, weight_percentage)
-            VALUES (${catId}, ${session.session_number}, ${session.name}, ${session.session_type}, ${session.weight_percentage})
+            VALUES (${catId}, ${sess.session_number}, ${sess.name}, ${sess.session_type}, ${sess.weight_percentage})
           `;
         }
+
+        if (wasComplete) {
+          const changedNums = data.sessions
+            .filter(sess => beforeTypes[sess.session_number] && beforeTypes[sess.session_number] !== sess.session_type)
+            .map(sess => ({ num: sess.session_number, from: beforeTypes[sess.session_number], to: sess.session_type }));
+          if (changedNums.length) {
+            const initiator = { name: session.name || session.email, role: session.role };
+            for (const c of changedNums) {
+              try {
+                const rows = await sql`SELECT * FROM evaluation_schedule WHERE age_category_id = ${catId} AND session_number = ${c.num} AND status <> 'cancelled'`;
+                for (const row of rows) {
+                  await notifySessionChange({
+                    catId, scheduleRow: row, scheduleId: row.id, changeType: "edited",
+                    summary: `Session ${c.num}'s type changed from ${typeLabel(c.from)} to ${typeLabel(c.to)}.`,
+                    initiator,
+                  });
+                }
+              } catch (e) { console.error("sessions: type-change notify", e?.message); }
+            }
+          }
+        }
+
         return NextResponse.json({ success: true });
       }
 
