@@ -69,7 +69,7 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
 
   return (
     <>
-      <button onClick={() => setOpen(true)} disabled={!locked} title={locked ? "Email each parent their child's date, time & rink" : "Lock the groups first, then email parents"} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+      <button onClick={() => setOpen(true)} title="Email each parent their child's date, time & rink" className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
         <Mail size={14} /> Email Parents
       </button>
 
@@ -91,6 +91,12 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{error}</div>
               ) : (
                 <>
+                  {!locked && (
+                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
+                      <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
+                      <span>Groups aren't locked yet. Confirm &amp; lock groups on the page behind this dialog first, so the roster you email is final — then come back here to send.</span>
+                    </div>
+                  )}
                   {/* Delivery summary (after a send) */}
                   {hasSent && (
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -152,7 +158,7 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
                   <button onClick={send} disabled={sending} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Send size={14} /> {sending ? "Sending…" : "Confirm send"}</button>
                 </div>
               ) : (
-                <button onClick={() => setConfirm(true)} disabled={!totalRecipients || loading} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                <button onClick={() => setConfirm(true)} disabled={!totalRecipients || loading || !locked} title={!locked ? "Lock the groups first, then send" : ""} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
                   <Send size={14} /> {hasSent ? "Re-send all" : "Send emails"}
                 </button>
               )}
