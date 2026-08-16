@@ -16,9 +16,9 @@ import { canManageSessionAssignments } from "@/lib/authorize";
 import { eligiblePeople, eligibilityOf } from "@/lib/sessionRoster";
 
 // Resolve the schedule row to its association org (+ session context). SP-owned
-// testing events carry a NULL category and hang off the SP; those aren't the
-// association-evaluator sessions this manages, so they resolve to no org and are
-// treated as unmanageable here.
+// testing events carry a NULL category and hang off the SP instead — organization_id
+// comes back null for those; governingOrgId() below falls back to service_provider_id
+// so they're still manageable, just by the owning SP rather than an association.
 async function loadSession(scheduleId) {
   const [row] = await sql`
     SELECT es.id, es.age_category_id, es.session_number, es.group_number,
@@ -36,6 +36,14 @@ async function loadSession(scheduleId) {
     WHERE es.id = ${scheduleId}
   `;
   return row || null;
+}
+
+// SP-owned testing events (age_category_id NULL) resolve to no association org
+// via the joins above — govern those by the owning SP itself instead, since
+// the SP is who actually runs and staffs them. Falling through to null here
+// (both ids absent) shouldn't happen for a real row, but is handled by callers.
+function governingOrgId(s) {
+  return s.organization_id || s.service_provider_id || null;
 }
 
 async function rosterFor(scheduleId) {
@@ -67,7 +75,7 @@ export async function GET(request, { params }) {
 
     // Anyone who can view the org's schedule can see the roster; management is a
     // stricter check surfaced as canManage.
-    const orgId = s.organization_id;
+    const orgId = governingOrgId(s);
     const manage = orgId ? await canManageSessionAssignments(session, orgId) : { authorized: false };
 
     // Gate the read to people with some access to this org (managers, or org
@@ -123,10 +131,11 @@ export async function GET(request, { params }) {
 async function authorizeManage(session, scheduleId) {
   const s = await loadSession(scheduleId);
   if (!s) return { ok: false, status: 404, error: "Session not found" };
-  if (!s.organization_id) return { ok: false, status: 400, error: "This session isn't a manageable association session" };
-  const manage = await canManageSessionAssignments(session, s.organization_id);
+  const orgId = governingOrgId(s);
+  if (!orgId) return { ok: false, status: 400, error: "This session isn't a manageable session" };
+  const manage = await canManageSessionAssignments(session, orgId);
   if (!manage.authorized) return { ok: false, status: 403, error: "Forbidden", reason: manage.reason };
-  return { ok: true, s };
+  return { ok: true, s, orgId };
 }
 
 export async function POST(request, { params }) {
@@ -162,7 +171,7 @@ export async function POST(request, { params }) {
 
     // The person being placed must be eligible to work this association (member
     // of it, or of an SP serving it) with the right capability.
-    const elig = await eligibilityOf(auth.s.organization_id, user_id);
+    const elig = await eligibilityOf(auth.orgId, user_id);
     if (kind === "evaluator" && !elig.evaluator) return NextResponse.json({ error: "That person isn't an evaluator for this association." }, { status: 400 });
     if (kind === "tester" && !elig.tester) return NextResponse.json({ error: "That person isn't a tester for this association." }, { status: 400 });
 
