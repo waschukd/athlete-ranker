@@ -10,6 +10,7 @@ import {
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import GroupEmailDialog from "@/components/GroupEmailDialog";
+import MatchupPicker from "@/components/MatchupPicker";
 
 const qc = new QueryClient();
 
@@ -88,6 +89,122 @@ function FlagInfo({ dir, why, priority }) {
   );
 }
 
+// Tournament format: "Manage Groups" becomes "Select teams" — group membership
+// is a snapshot of two teams' rosters (built by MatchupPicker/assignMatchupRoster),
+// never a manual per-player split, so there's no auto-assign, no drag-between-
+// groups, and no ranking-based movement flags here. Cards come from the
+// schedule (one per game), not session_groups — a fresh tournament category has
+// no session_groups rows at all until the first matchup is picked.
+function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved }) {
+  const games = scheduleRows
+    .filter(r => r.session_number === selectedSession)
+    .sort((a, b) => (a.group_number || 0) - (b.group_number || 0));
+
+  if (!games.length) {
+    return (
+      <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
+        <Users size={48} className="mx-auto text-gray-200 mb-4" />
+        <h3 className="font-semibold text-gray-700 mb-2">No games scheduled for this session</h3>
+        <p className="text-sm text-gray-400">Upload or add schedule rows for Session {selectedSession} first.</p>
+      </div>
+    );
+  }
+
+  if (!teams.length) {
+    return (
+      <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
+        <Users size={48} className="mx-auto text-gray-200 mb-4" />
+        <h3 className="font-semibold text-gray-700 mb-2">No teams created yet</h3>
+        <p className="text-sm text-gray-400">Create teams on the Teams tab before picking matchups here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {games.map(row => {
+        const group = groups.find(g => g.session_number === selectedSession && g.group_number === row.group_number);
+        const players = group ? (groupPlayers[group.id] || []) : [];
+        return (
+          <div key={row.id} className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex-wrap gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-sm font-bold">
+                  {row.group_number}
+                </div>
+                <div className="min-w-0">
+                  <MatchupPicker entry={row} teams={teams} catId={catId} onSaved={onMatchupSaved} />
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {row.scheduled_date ? new Date(String(row.scheduled_date).slice(0, 10) + "T00:00:00").toLocaleDateString() : ""}
+                    {row.start_time ? ` · ${row.start_time}` : ""}{row.location ? ` · ${row.location}` : ""}
+                  </div>
+                </div>
+              </div>
+              {row.checkin_code && (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="font-mono text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{row.checkin_code}</span>
+                  <button onClick={() => navigator.clipboard.writeText(row.checkin_code)} className="p-1 text-gray-400 hover:text-gray-600 rounded" title="Copy code"><Copy size={11} /></button>
+                  <a href={`/checkin/${row.id}`} target="_blank" className="p-1 text-[#0b5cd6] hover:text-[#0F4FCC] rounded" title="Open check-in"><ExternalLink size={11} /></a>
+                </div>
+              )}
+            </div>
+
+            <div className="divide-y divide-gray-50">
+              {!row.matchup ? (
+                <div className="py-8 text-center text-xs text-gray-400">Pick both teams above to build the roster.</div>
+              ) : players.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400">Resolving roster…</div>
+              ) : (
+                players.map((player, idx) => (
+                  <div key={player.athlete_id} className={`flex items-center gap-3 px-3 py-2.5 ${player.checked_in ? "bg-green-50/30" : ""}`}>
+                    <div
+                      onClick={() => setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White")}
+                      title="Click to switch jersey colour (White / Dark)"
+                      style={player.team_color === "White"
+                        ? { background: "#ffffff", color: "#111827", border: "2px solid #d1d5db" }
+                        : player.team_color === "Dark"
+                        ? { background: "#1f2937", color: "#ffffff", border: "2px solid #d1d5db" }
+                        : { background: "#f3f4f6", color: "#4b5563", border: "2px solid #e5e7eb" }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
+                      {player.jersey_number || (idx + 1)}
+                    </div>
+                    {jerseyMode && (
+                      <input
+                        type="number" min="0" max="99"
+                        key={`jn-${player.athlete_id}-${player.jersey_number ?? ""}`}
+                        defaultValue={player.jersey_number ?? ""}
+                        onBlur={e => { const v = e.target.value.trim(); if (v !== String(player.jersey_number ?? "")) setJerseyNumber(player.athlete_id, player.schedule_id, v); }}
+                        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        placeholder="#"
+                        title="Jersey number (carries to check-in)"
+                        className="w-11 px-1 py-0.5 border border-gray-200 rounded text-xs text-center flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]/30"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{player.last_name}, {player.first_name}</div>
+                      {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#0b5cd6]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
+                    </div>
+                    {player.position && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${POSITION_COLORS[player.position] || "bg-gray-100 text-gray-600"}`}>
+                        {POSITION_SHORT[player.position] || player.position}
+                      </span>
+                    )}
+                    {player.checked_in && (
+                      <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <Check size={10} className="text-white" />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function GroupsManagerInner() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -135,6 +252,23 @@ function GroupsManagerInner() {
     enabled: !!catId,
   });
   const rankedAthletes = rankingsData?.athletes || [];
+
+  // Tournament format: this page becomes "pick which two teams play each game"
+  // instead of drag/auto-assign — group membership is a snapshot of the two
+  // teams' rosters (set via the matchup picker), not a manually built split.
+  const isTournament = setupData?.category?.eval_format === "round_robin";
+  const { data: scrimmageTeamsData } = useQuery({
+    queryKey: ["scrimmage-teams", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/scrimmage-teams`); return res.json(); },
+    enabled: !!catId && isTournament,
+  });
+  const tournamentTeams = scrimmageTeamsData?.teams || [];
+  const { data: scheduleData, refetch: refetchSchedule } = useQuery({
+    queryKey: ["groups-schedule", catId],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/schedule`); return res.json(); },
+    enabled: !!catId && isTournament,
+  });
+  const scheduleRows = scheduleData?.schedule || [];
 
   const { data: anchorData, refetch: refetchAnchors } = useQuery({
     queryKey: ["anchors", catId, selectedSession],
@@ -569,34 +703,50 @@ function GroupsManagerInner() {
             <div className="flex items-center gap-3">
               <div className="text-sm text-gray-600">
                 <span className="font-semibold text-gray-900">{assignments.length}</span> athletes ·{" "}
-                <span className="font-semibold text-gray-900">{groups.length}</span> groups ·{" "}
+                <span className="font-semibold text-gray-900">{groups.length}</span> {isTournament ? "games" : "groups"} ·{" "}
                 <span className="font-semibold text-green-600">{checkedInCount}</span> checked in
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => autoAssign("alphabetical", false)}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                <Shuffle size={14} /> A–Z
-              </button>
-              <button
-                onClick={() => autoAssign("ranking", false)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
-              >
-                <Shuffle size={14} /> By Ranking
-              </button>
-              <button
-                onClick={() => autoAssign("ranking", true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
-              >
-                <Shuffle size={14} /> Position Balanced (3:2 F:D)
-              </button>
-            </div>
+            {!isTournament && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => autoAssign("alphabetical", false)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <Shuffle size={14} /> A–Z
+                </button>
+                <button
+                  onClick={() => autoAssign("ranking", false)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
+                >
+                  <Shuffle size={14} /> By Ranking
+                </button>
+                <button
+                  onClick={() => autoAssign("ranking", true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-700 text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow"
+                >
+                  <Shuffle size={14} /> Position Balanced (3:2 F:D)
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {groupsLoading ? (
+        {isTournament ? (
+          <TournamentGamesGrid
+            catId={catId}
+            selectedSession={selectedSession}
+            scheduleRows={scheduleRows}
+            teams={tournamentTeams}
+            groups={groups}
+            groupPlayers={groupPlayers}
+            rankMap={rankMap}
+            jerseyMode={jerseyMode}
+            setColor={setColor}
+            setJerseyNumber={setJerseyNumber}
+            onMatchupSaved={() => { refetchSchedule(); refetch(); }}
+          />
+        ) : groupsLoading ? (
           <div className="py-12 text-center text-gray-400">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b5cd6] mx-auto mb-3" />
             Loading groups...
