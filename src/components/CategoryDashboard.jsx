@@ -410,7 +410,11 @@ export default function CategoryDashboard({
   const evalDesignations = evaluatorsData?.designations || [];
   const evalCandidates = evaluatorsData?.candidates || [];
   const evalCoaches = evalDesignations.filter(d => d.kind === "coach");
-  const evalGoalies = evalDesignations.filter(d => d.kind === "goalie");
+  // Goalie evaluator invites only make sense when this category actually runs
+  // goalie evaluation (evaluates_goalies, set during setup's goalie steps) --
+  // otherwise there's no goalie scoring pipeline for them to score into.
+  const categoryEvaluatesGoalies = !!category?.evaluates_goalies;
+  const evalGoalies = categoryEvaluatesGoalies ? evalDesignations.filter(d => d.kind === "goalie") : [];
   // athlete_id → coach rank (only fetched when "Compare coaches" is on)
   const coachRankMap = useMemo(() => {
     const map = {};
@@ -773,8 +777,8 @@ export default function CategoryDashboard({
                   className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50/60 transition-colors"
                 >
                   <div>
-                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Coach &amp; Goalie evaluators</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Coaches&apos; scores don&apos;t count toward results; goalie evaluators only see goalies.</p>
+                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">{categoryEvaluatesGoalies ? "Coach & Goalie evaluators" : "Coach evaluators"}</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">{categoryEvaluatesGoalies ? "Coaches' scores don't count toward results; goalie evaluators only see goalies." : "Their scores don't count toward results."}</p>
                   </div>
                   <span className="flex items-center gap-2 text-xs font-semibold text-accent">
                     {(evalCoaches.length + evalGoalies.length) > 0 && (
@@ -787,8 +791,8 @@ export default function CategoryDashboard({
                 {evaluatorsOpen && (
                   <div className="border-t border-gray-100 px-5 py-5 space-y-5">
                     {/* Current designations grouped by kind */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {[{ key: "coach", label: "Coaches", list: evalCoaches }, { key: "goalie", label: "Goalie evaluators", list: evalGoalies }].map(group => (
+                    <div className={`grid grid-cols-1 gap-5 ${categoryEvaluatesGoalies ? "md:grid-cols-2" : ""}`}>
+                      {[{ key: "coach", label: "Coaches", list: evalCoaches }, ...(categoryEvaluatesGoalies ? [{ key: "goalie", label: "Goalie evaluators", list: evalGoalies }] : [])].map(group => (
                         <div key={group.key}>
                           <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">{group.label} ({group.list.length})</div>
                           {group.list.length === 0 ? (
@@ -842,17 +846,19 @@ export default function CategoryDashboard({
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
                           />
                         </div>
-                        <div className="min-w-[120px]">
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Role</label>
-                          <select
-                            value={evalAddKind}
-                            onChange={e => setEvalAddKind(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
-                          >
-                            <option value="coach">Coach</option>
-                            <option value="goalie">Goalie</option>
-                          </select>
-                        </div>
+                        {categoryEvaluatesGoalies && (
+                          <div className="min-w-[120px]">
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Role</label>
+                            <select
+                              value={evalAddKind}
+                              onChange={e => setEvalAddKind(e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            >
+                              <option value="coach">Coach</option>
+                              <option value="goalie">Goalie</option>
+                            </select>
+                          </div>
+                        )}
                         <button
                           onClick={addEvaluator}
                           disabled={evalAdding || (!evalAddUserId && !evalAddEmail.trim())}

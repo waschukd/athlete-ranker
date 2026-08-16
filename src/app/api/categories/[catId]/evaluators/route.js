@@ -71,9 +71,12 @@ export async function POST(request, { params }) {
     }
 
     const catInfo = await sql`
-      SELECT ac.name AS category_name, o.name AS org_name FROM age_categories ac
+      SELECT ac.name AS category_name, ac.evaluates_goalies, o.name AS org_name FROM age_categories ac
       JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
     `;
+    if (kind === "goalie" && !catInfo[0]?.evaluates_goalies) {
+      return NextResponse.json({ error: "This category doesn't evaluate goalies — nothing for a goalie evaluator to score" }, { status: 400 });
+    }
     const categoryName = catInfo[0]?.category_name || "the category";
     const orgName = catInfo[0]?.org_name || "";
 
