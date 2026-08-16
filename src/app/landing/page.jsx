@@ -1,9 +1,25 @@
 "use client";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   ArrowRight, Mic, FileText, Sparkles,
   Upload, CalendarDays, ClipboardCheck, TrendingUp,
 } from "lucide-react";
+
+// Mirrors the role->dashboard mapping in /api/auth/login — a signed-in
+// visitor landing back on the marketing page (e.g. clicking the logo) should
+// never be sent through the sign-in form again; every CTA here routes them
+// straight back to their dashboard instead.
+const DASHBOARD_BY_ROLE = {
+  super_admin: "/admin/god-mode",
+  service_provider_admin: "/service-provider/dashboard",
+  goalie_service_provider_admin: "/goalie-provider/dashboard",
+  association_admin: "/association/dashboard",
+  director: "/director/dashboard",
+  service_provider_evaluator: "/evaluator/dashboard",
+  association_evaluator: "/evaluator/dashboard",
+  volunteer: "/checkin",
+};
 
 const STEPS = [
   { icon: Upload, title: "Import your roster", desc: "Pull straight from RAMP, TeamSnap, or TeamLinkt — or add athletes by hand." },
@@ -13,6 +29,17 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
+  // null = signed out (or not checked yet) -> every CTA below falls back to
+  // "/account/signin" and its original wording, unchanged from before.
+  const [dashboardHref, setDashboardHref] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/me").then(r => r.json()).then(d => {
+      if (alive && d.user) setDashboardHref(DASHBOARD_BY_ROLE[d.user.role] || "/evaluator/dashboard");
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 text-ink font-sans" data-theme="premium">
 
@@ -31,8 +58,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="ss-reveal ss-d2 flex items-center flex-shrink-0">
-            <Link href="/account/signin" className="px-4 sm:px-6 py-2 sm:py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-gray-200 border border-white/20 hover:border-accent/50 hover:text-ink rounded whitespace-nowrap transition-colors">
-              Sign In
+            <Link href={dashboardHref || "/account/signin"} className="px-4 sm:px-6 py-2 sm:py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-gray-200 border border-white/20 hover:border-accent/50 hover:text-ink rounded whitespace-nowrap transition-colors">
+              {dashboardHref ? "Dashboard" : "Sign In"}
             </Link>
           </div>
         </div>
@@ -62,7 +89,7 @@ export default function LandingPage() {
             </p>
 
             <div className="ss-reveal ss-d5 mt-10 flex justify-center">
-              <Link href="/account/signin" className="inline-flex px-8 py-3.5 bg-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform">
+              <Link href={dashboardHref || "/account/signin"} className="inline-flex px-8 py-3.5 bg-accent rounded font-mono font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform">
                 Get Started
               </Link>
             </div>
@@ -205,11 +232,11 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-5xl font-display font-black text-ink mb-6 tracking-tight">Stop guessing. Start evaluating.</h2>
           <p className="text-lg text-gray-500 mb-10 max-w-lg mx-auto">Bring your next evaluation onto the platform the people who run them actually built.</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link href="/account/signin" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-accent font-semibold text-lg hover:opacity-90 transition-opacity">
+            <Link href={dashboardHref || "/account/signin"} className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-accent font-semibold text-lg hover:opacity-90 transition-opacity">
               Get Started <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link href="/account/signin" className="inline-flex items-center px-6 py-4 rounded-xl border border-accent/30 text-accent font-mono text-[11px] uppercase tracking-[0.18em] hover:bg-accent/10 transition-colors">
-              Sign in
+            <Link href={dashboardHref || "/account/signin"} className="inline-flex items-center px-6 py-4 rounded-xl border border-accent/30 text-accent font-mono text-[11px] uppercase tracking-[0.18em] hover:bg-accent/10 transition-colors">
+              {dashboardHref ? "Dashboard" : "Sign in"}
             </Link>
           </div>
         </div>
