@@ -72,6 +72,18 @@ export async function moveAthlete(catId, athleteId, toTeamId) {
   await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${toTeamId}, ${athleteId}) ON CONFLICT DO NOTHING`;
 }
 
+// Dissolve one team (e.g. after cuts consolidate 3 teams down to 2). Its
+// members just drop back into the pool — no reassignment here, a director
+// drags them onto the remaining teams. Cut/released players never reappear:
+// the pool query already filters cut_at IS NULL, and that's untouched by this
+// (a cut player's membership row is gone regardless of which team dissolves).
+// Already-played games are unaffected — their rosters are athlete snapshots,
+// never linked back to scrimmage_teams.
+export async function removeTeam(catId, teamId) {
+  await sql`DELETE FROM scrimmage_team_members WHERE scrimmage_team_id = ${teamId}`;
+  await sql`DELETE FROM scrimmage_teams WHERE id = ${teamId} AND age_category_id = ${catId}`;
+}
+
 // Rename a team — directors aren't stuck with "Team A/B/C"; real names ("White",
 // "Gold Rush") set the tone for the whole evaluation. Matchup resolution below
 // matches by whatever the name currently is, so this is safe at any time; any

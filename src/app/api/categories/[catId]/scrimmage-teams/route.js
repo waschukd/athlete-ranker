@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { getScrimmageTeams, createTeams, seedTeams, moveAthlete, applyAllMatchups, renameTeam } from "@/lib/scrimmageTeams";
+import { getScrimmageTeams, createTeams, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -55,6 +55,14 @@ export async function POST(request, { params }) {
     if (body.action === "rename") {
       if (!body.team_id || !body.name) return NextResponse.json({ error: "team_id and name required" }, { status: 400 });
       await renameTeam(params.catId, parseInt(body.team_id), body.name);
+      const teams = await getScrimmageTeams(params.catId);
+      return NextResponse.json({ success: true, teams });
+    }
+    if (body.action === "remove_team") {
+      if (!body.team_id) return NextResponse.json({ error: "team_id required" }, { status: 400 });
+      const existing = await getScrimmageTeams(params.catId);
+      if (existing.length <= 2) return NextResponse.json({ error: "At least 2 teams are required — remove players instead, or start over with a new team count." }, { status: 400 });
+      await removeTeam(params.catId, parseInt(body.team_id));
       const teams = await getScrimmageTeams(params.catId);
       return NextResponse.json({ success: true, teams });
     }

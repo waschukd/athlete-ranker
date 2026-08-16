@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon } from "lucide-react";
+import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon, Trash2 } from "lucide-react";
 
 // Team assignment for a Tournament category. Seed teams without scores
 // (alphabetical or even), then move players between teams — drag the grip handle
@@ -43,6 +43,14 @@ export default function ScrimmageTeams({ catId }) {
     setRenamingId(null);
     if (!name) return;
     await post({ action: "rename", team_id: teamId, name });
+  };
+
+  const removeTeam = (team) => {
+    if (teams.length <= 2) return;
+    const withPlayers = team.members.length ? ` Its ${team.members.length} player${team.members.length === 1 ? "" : "s"} will go back to the unassigned pool — drag them onto the remaining teams.` : "";
+    if (confirm(`Remove ${teamLabel(team.name)}?${withPlayers} This can't be undone (you'd need to re-add and re-seed).`)) {
+      post({ action: "remove_team", team_id: team.id });
+    }
   };
 
   const applyMatchups = async () => {
@@ -156,6 +164,11 @@ export default function ScrimmageTeams({ catId }) {
                   </button>
                 )}
                 <span className="text-[11px] text-gray-400 flex-shrink-0">{team.members.length} · {f}F/{d}D</span>
+                {teams.length > 2 && (
+                  <button onClick={() => removeTeam(team)} disabled={busy} className="text-gray-300 hover:text-red-500 flex-shrink-0 disabled:opacity-40" title={`Remove ${teamLabel(team.name)}`}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
               <div className="space-y-1.5">
                 {team.members.map(a => <Player key={a.id} a={a} teamId={team.id} />)}
