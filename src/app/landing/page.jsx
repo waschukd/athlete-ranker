@@ -16,8 +16,12 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gray-50 text-ink font-sans" data-theme="premium">
 
-      {/* ─── Fixed header ─── */}
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-black/40 border-b border-accent/20">
+      {/* ─── Fixed header ───
+          top offset reads --session-bar-height (published by SessionBar, the
+          global signed-in bar) so a logged-in visitor's SessionBar doesn't
+          sit on top of / hide this header — 0px when SessionBar isn't
+          rendered (the common, logged-out case), unchanged from before. */}
+      <header className="fixed top-[var(--session-bar-height,0px)] inset-x-0 z-40 backdrop-blur-md bg-black/40 border-b border-accent/20">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10 h-16 sm:h-24 flex items-center justify-between gap-3">
           <div className="ss-reveal ss-d1 flex items-center gap-2.5 sm:gap-3.5 min-w-0">
             <img src="/mark-gold.svg" alt="Sideline Star" className="h-9 w-10 sm:h-11 sm:w-12 object-contain flex-shrink-0" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LogOut, ChevronDown, Check, Pencil } from "lucide-react";
 import GodJump from "@/components/GodJump";
 
@@ -30,6 +30,7 @@ export default function SessionBar() {
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const barRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +38,22 @@ export default function SessionBar() {
     fetch("/api/auth/roles").then(r => r.json()).then(d => { if (alive) { setRoles(d.roles || []); setActive(d.active || null); } }).catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // Publish our real height as a CSS var so any page with its own fixed/sticky
+  // header (e.g. the public landing page) can offset below us instead of
+  // colliding — this bar renders on top (z-50) of everything, and a page's
+  // own top-0 header would otherwise sit hidden underneath it for signed-in
+  // visitors. Stays 0 (no offset) for the common case: logged-out, no bar.
+  useEffect(() => {
+    const setVar = (h) => document.documentElement.style.setProperty("--session-bar-height", `${h}px`);
+    if (!user || !barRef.current) { setVar(0); return; }
+    const el = barRef.current;
+    setVar(el.offsetHeight);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setVar(el.offsetHeight));
+    ro.observe(el);
+    return () => { ro.disconnect(); setVar(0); };
+  }, [user]);
 
   if (!user) return null;
 
@@ -92,6 +109,7 @@ export default function SessionBar() {
 
   return (
     <div
+      ref={barRef}
       className="print:hidden sticky top-0 z-50 flex items-center justify-between gap-3 px-4 py-1.5 text-[13px]"
       style={{ background: "#111114", borderBottom: "1px solid #2a2a30", color: "#e5e5e7" }}
     >
