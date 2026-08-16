@@ -199,6 +199,12 @@ function Dashboard() {
   const [inviteResult, setInviteResult] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [adminRows, setAdminRows] = useState([{ name: "", email: "" }, { name: "", email: "" }]);
+  const [showBulkDirector, setShowBulkDirector] = useState(false);
+  const [bulkDirectorName, setBulkDirectorName] = useState("");
+  const [bulkDirectorEmail, setBulkDirectorEmail] = useState("");
+  const [bulkDirectorCatIds, setBulkDirectorCatIds] = useState(new Set());
+  const [bulkDirectorLoading, setBulkDirectorLoading] = useState(false);
+  const [bulkDirectorResult, setBulkDirectorResult] = useState(null);
   const [goalieEvalOpen, setGoalieEvalOpen] = useState(false);
   const [showBulkOnboard, setShowBulkOnboard] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
@@ -302,6 +308,20 @@ function Dashboard() {
     setInviteResult(data);
     setInviteLoading(false);
     if (data.success) refetchAdmins();
+  };
+
+  const sendBulkDirectorInvite = async () => {
+    const name = bulkDirectorName.trim(), email = bulkDirectorEmail.trim();
+    if (!name || !email || !bulkDirectorCatIds.size) return;
+    setBulkDirectorLoading(true);
+    const res = await fetch(`/api/organizations/${orgId}/bulk-invite-director`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, category_ids: [...bulkDirectorCatIds] }),
+    });
+    const data = await res.json();
+    setBulkDirectorResult(data);
+    setBulkDirectorLoading(false);
   };
 
   const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; };
@@ -467,6 +487,10 @@ function Dashboard() {
           <button onClick={() => { setShowInvite(true); setInviteResult(null); }}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
             <Mail size={15} /> Invite Admin
+          </button>
+          <button onClick={() => { setShowBulkDirector(true); setBulkDirectorResult(null); setBulkDirectorName(""); setBulkDirectorEmail(""); setBulkDirectorCatIds(new Set()); }}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
+            <UserCheck size={15} /> Assign Director (bulk)
           </button>
           <button onClick={signOut} className="w-full inline-flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1.5">
             <LogOut size={14} /> Sign out
@@ -1003,6 +1027,64 @@ function Dashboard() {
                 <div className="flex gap-3 pt-3">
                   <button type="button" onClick={() => setShowInvite(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
                   <button type="button" onClick={sendInvite} disabled={inviteLoading || !adminRows.some(r => r.email.trim())} className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{inviteLoading ? "Sending…" : "Send Invites"}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showBulkDirector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowBulkDirector(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-gray-900">Assign Director (bulk)</h2>
+              <button onClick={() => setShowBulkDirector(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">One director, assigned to every category you check below — e.g. all AA categories, or all House categories. One invite email listing everything they're assigned to.</p>
+            {bulkDirectorResult ? (
+              <div className="text-center py-4">
+                {bulkDirectorResult.success ? (
+                  <>
+                    <Check className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                    <p className="font-semibold text-gray-900 mb-2">{bulkDirectorResult.message}</p>
+                    <button onClick={() => setShowBulkDirector(false)} className="mt-4 px-5 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90">Done</button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-red-600 font-medium">{bulkDirectorResult.error || bulkDirectorResult.message}</p>
+                    <button onClick={() => setBulkDirectorResult(null)} className="mt-3 text-sm text-gray-500 hover:text-gray-700">Try again</button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input type="text" value={bulkDirectorName} onChange={e => setBulkDirectorName(e.target.value)} placeholder="Their full name" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                  <input type="email" value={bulkDirectorEmail} onChange={e => setBulkDirectorEmail(e.target.value)} placeholder="director@email.com" className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Categories ({bulkDirectorCatIds.size} selected)</span>
+                    <button type="button" onClick={() => setBulkDirectorCatIds(bulkDirectorCatIds.size === categories.length ? new Set() : new Set(categories.map(c => c.id)))} className="text-xs font-semibold text-accent hover:underline">
+                      {bulkDirectorCatIds.size === categories.length ? "Clear all" : "Select all"}
+                    </button>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                    {categories.map(c => (
+                      <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={bulkDirectorCatIds.has(c.id)}
+                          onChange={() => setBulkDirectorCatIds(prev => { const next = new Set(prev); next.has(c.id) ? next.delete(c.id) : next.add(c.id); return next; })}
+                          className="rounded border-gray-300 text-accent focus:ring-accent" />
+                        {c.name}
+                      </label>
+                    ))}
+                    {!categories.length && <p className="px-3 py-3 text-xs text-gray-400">No categories yet.</p>}
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-3">
+                  <button type="button" onClick={() => setShowBulkDirector(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+                  <button type="button" onClick={sendBulkDirectorInvite} disabled={bulkDirectorLoading || !bulkDirectorName.trim() || !bulkDirectorEmail.trim() || !bulkDirectorCatIds.size} className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{bulkDirectorLoading ? "Sending…" : "Assign & Notify"}</button>
                 </div>
               </div>
             )}
