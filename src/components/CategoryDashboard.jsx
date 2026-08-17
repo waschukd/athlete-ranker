@@ -7,7 +7,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -120,6 +120,38 @@ export default function CategoryDashboard({
       await fetch(`/api/categories/${catId}/athletes`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athlete_id: athleteId, non_contact: val }) });
       refetchAthletes();
     } catch {}
+  };
+  // Edit / delete a single athlete — e.g. correcting a name browser autofill
+  // mangled on manual add, which there was previously no way to fix at all.
+  const [editAthlete, setEditAthlete] = useState(null); // athlete being edited, or null
+  const [editForm, setEditForm] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deleteAthleteTarget, setDeleteAthleteTarget] = useState(null);
+  const [deleteAthleteBusy, setDeleteAthleteBusy] = useState(false);
+  const openEditAthlete = (a) => {
+    setEditAthlete(a);
+    setEditForm({
+      first_name: a.first_name || "", last_name: a.last_name || "", external_id: a.external_id || "",
+      position: a.position || "", birth_year: a.birth_year || "", parent_email: a.parent_email || "", parent_email_2: a.parent_email_2 || "",
+    });
+  };
+  const saveAthleteEdit = async () => {
+    if (!editAthlete || !editForm.first_name.trim() || !editForm.last_name.trim()) return;
+    setEditSaving(true);
+    try {
+      await fetch(`/api/categories/${catId}/athletes`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athlete_id: editAthlete.id, ...editForm }) });
+      setEditAthlete(null); setEditForm(null);
+      refetchAthletes(); refetchRankings();
+    } finally { setEditSaving(false); }
+  };
+  const deleteAthlete = async () => {
+    if (!deleteAthleteTarget) return;
+    setDeleteAthleteBusy(true);
+    try {
+      await fetch(`/api/categories/${catId}/athletes?athlete_id=${deleteAthleteTarget.id}`, { method: "DELETE" });
+      setDeleteAthleteTarget(null);
+      refetchAthletes(); refetchRankings();
+    } finally { setDeleteAthleteBusy(false); }
   };
   const [rankingsView, setRankingsView] = useState("skaters"); // skaters | goalies
   const [scheduleView, setScheduleView] = useState("list"); // list | day | week | month
@@ -1563,15 +1595,16 @@ export default function CategoryDashboard({
                 </div>
               )}
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th>{u15Plus && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>}</tr></thead>
+                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Parent Email</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th>{u15Plus && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registration</th>}<th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {athletes.length === 0 ? <tr><td colSpan={u15Plus ? 7 : 6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={u15Plus ? 7 : 6} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
+                  {athletes.length === 0 ? <tr><td colSpan={u15Plus ? 9 : 8} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={u15Plus ? 9 : 8} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{a.last_name}, {a.first_name}</td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{a.external_id || "-"}</td>
                       <td className="px-4 py-3">{a.position ? <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{a.position}</span> : "-"}</td>
                       <td className="px-4 py-3 text-gray-500">{a.birth_year || "-"}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{a.parent_email || <span className="text-gray-300 italic">none on file</span>}{a.parent_email_2 ? ", " + a.parent_email_2 : ""}</td>
                       <td className="px-4 py-3">
                         <input inputMode="numeric" placeholder="—"
                           value={helmetDraft[a.id] ?? (a.helmet_number || "")}
@@ -1590,6 +1623,10 @@ export default function CategoryDashboard({
                           </button>
                         </td>
                       )}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => openEditAthlete(a)} title="Edit player" className="p-1.5 text-gray-400 hover:text-[#0b5cd6] hover:bg-gray-100 rounded-lg"><Pencil size={14} /></button>
+                        <button onClick={() => setDeleteAthleteTarget(a)} title="Delete player" className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1597,6 +1634,42 @@ export default function CategoryDashboard({
             </div>
           </div>
         )}
+
+        {editAthlete && editForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setEditAthlete(null)}>
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Edit Player</h3>
+                <button onClick={() => setEditAthlete(null)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                {[{ key: "first_name", label: "First Name *" }, { key: "last_name", label: "Last Name *" }, { key: "external_id", label: "HC#" }, { key: "birth_year", label: "Birth Year" }, { key: "parent_email", label: "Parent Email" }, { key: "parent_email_2", label: "Parent Email 2" }].map(({ key, label }) => (
+                  <div key={key}><label className="block text-xs font-medium text-gray-500 mb-1">{label}</label><input type="text" value={editForm[key]} onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]" /></div>
+                ))}
+                <div><label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
+                  <select value={editForm.position} onChange={e => setEditForm(f => ({ ...f, position: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
+                    <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setEditAthlete(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium">Cancel</button>
+                <button onClick={saveAthleteEdit} disabled={!editForm.first_name.trim() || !editForm.last_name.trim() || editSaving} className="flex-1 py-2.5 bg-[#0b5cd6] text-white rounded-xl text-sm font-semibold disabled:opacity-50">{editSaving ? "Saving…" : "Save Changes"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={!!deleteAthleteTarget}
+          title="Delete this player?"
+          message={deleteAthleteTarget ? `${deleteAthleteTarget.first_name} ${deleteAthleteTarget.last_name} will be removed from the roster and their check-ins/group assignments cleared. Existing scores are kept.` : ""}
+          confirmLabel="Delete"
+          danger={true}
+          busy={deleteAthleteBusy}
+          onCancel={() => setDeleteAthleteTarget(null)}
+          onConfirm={deleteAthlete}
+        />
 
         {activeTab === "analysis" && analysisView === "reports" && (
           <div className="space-y-6">

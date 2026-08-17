@@ -164,6 +164,39 @@ export async function PATCH(request, { params }) {
     if ("non_contact" in body) {
       await sql`UPDATE athletes SET non_contact = ${body.non_contact === true} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
     }
+    // Full-edit fields (name, HC#, position, birth year, parent contact) —
+    // fixes e.g. a manually-added player whose name got mangled by browser
+    // autofill, with no way to correct it after the fact.
+    if ("first_name" in body) {
+      const v = String(body.first_name || "").trim();
+      if (!v) return NextResponse.json({ error: "First name is required" }, { status: 400 });
+      await sql`UPDATE athletes SET first_name = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("last_name" in body) {
+      const v = String(body.last_name || "").trim();
+      if (!v) return NextResponse.json({ error: "Last name is required" }, { status: 400 });
+      await sql`UPDATE athletes SET last_name = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("external_id" in body) {
+      const v = String(body.external_id || "").trim() || null;
+      await sql`UPDATE athletes SET external_id = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("position" in body) {
+      const v = normalizePosition(body.position) || null;
+      await sql`UPDATE athletes SET position = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("birth_year" in body) {
+      const v = extractBirthYear(body.birth_year);
+      await sql`UPDATE athletes SET birth_year = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("parent_email" in body) {
+      const v = String(body.parent_email || "").trim() || null;
+      await sql`UPDATE athletes SET parent_email = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
+    if ("parent_email_2" in body) {
+      const v = String(body.parent_email_2 || "").trim() || null;
+      await sql`UPDATE athletes SET parent_email_2 = ${v} WHERE id = ${athleteId} AND age_category_id = ${params.catId}`;
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
