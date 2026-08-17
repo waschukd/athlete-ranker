@@ -167,6 +167,21 @@ export async function emailOrgInvite({ name, email, orgName, orgType, inviteUrl 
   return await sendEmail(email, `You're invited to manage ${orgName} on Sideline Star`, html);
 }
 
+// Same click-a-link-set-your-password flow as emailOrgInvite, for directors --
+// no temp password ever changes hands, so there's nothing to mismatch/expire.
+export async function emailDirectorInvite({ name, email, orgName, categoryNames, inviteUrl }) {
+  const catList = categoryNames.map(n => `<li>${esc(n)}</li>`).join("");
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#101113;">You're invited as a Director</h2>
+    <p style="margin:0 0 16px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${esc(name || "there")}</strong>, you've been assigned as director for <strong style="color:#101113;">${categoryNames.length}</strong> categor${categoryNames.length === 1 ? "y" : "ies"} at <strong style="color:#101113;">${esc(orgName)}</strong>:</p>
+    <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;color:#374151;line-height:1.8;">${catList}</ul>
+    <p style="margin:0 0 20px;font-size:14px;color:#5b606b;line-height:1.6;">Click below to set your password and finish setting up your account.</p>
+    <div style="text-align:center;margin:28px 0;">${btn(inviteUrl, "Finish setting up →")}</div>
+    <p style="font-size:12px;color:#9aa0aa;text-align:center;margin:0;">This link expires in 7 days. If you didn't expect this invitation, you can ignore it.</p>
+  `);
+  return await sendEmail(email, `You're invited as a Director — ${orgName}`, html);
+}
+
 export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">You've been approved!</h2>

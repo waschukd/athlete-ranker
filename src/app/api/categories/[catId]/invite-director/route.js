@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { hashPassword } from "@/lib/password";
 import { FROM } from "@/lib/email";
+import { createAndSendDirectorInvite } from "@/lib/invites";
 
 // Guard against bad route params (e.g. "/api/categories/null/...") reaching an
 // integer column — parse to a positive int or treat as missing.
@@ -71,113 +71,23 @@ export async function POST(request, { params }) {
     if (!catInfo.length) return NextResponse.json({ error: "Category not found" }, { status: 404 });
     const cat = catInfo[0];
 
-    // Invite (or re-assign) one director: create the account + email credentials
-    // if new, otherwise notify, then assign to this category.
+    // Invite (or re-assign) one director. A brand new person gets the same
+    // click-a-link-set-your-password flow as an org admin invite -- no temp
+    // password ever changes hands, and the category assignment lands once
+    // they actually accept (mirrors admin_invites/accept-invite exactly).
+    // Someone who already has a working login just gets notified and
+    // assigned immediately -- there's nothing for them to "accept".
     async function inviteOne(name, email) {
-    // Check if user already exists
-    let appUser = await sql`SELECT id FROM users WHERE email = ${email}`;
+      const appUser = await sql`SELECT id FROM users WHERE email = ${email}`;
 
-    if (!appUser.length) {
-      // Create new director account with temp password
-      const tempPassword = Math.random().toString(36).slice(-8) + "!A1";
-
-      const [authUser] = await sql`
-        INSERT INTO auth_users (email, name, "emailVerified")
-        VALUES (${email}, ${name}, NOW())
-        ON CONFLICT (email) DO UPDATE SET name = ${name}
-        RETURNING *
-      `;
-      // Manual upsert, not ON CONFLICT -- there's no unique constraint on
-      // (userId, provider), so a re-invite (e.g. the "users" row didn't exist
-      // yet even though login credentials already did) used to silently
-      // INSERT a second credentials row instead of updating the first, and
-      // login would pick whichever row came back first -- not necessarily the
-      // one matching the password that just got emailed out.
-      const existingAcct = await sql`SELECT id FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
-      if (existingAcct.length) {
-        await sql`UPDATE auth_accounts SET password = ${await hashPassword(tempPassword)} WHERE id = ${existingAcct[0].id}`;
-      } else {
-        await sql`
-          INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-          VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(tempPassword)})
-        `;
+      if (!appUser.length) {
+        await createAndSendDirectorInvite({
+          organizationId: cat.org_id, email, name, orgName: cat.org_name,
+          categories: [{ id: catId, name: cat.name }],
+        });
+        return { ok: true };
       }
-      const [newUser] = await sql`
-        INSERT INTO users (email, name, role)
-        VALUES (${email}, ${name}, 'director')
-        ON CONFLICT (email) DO UPDATE SET role = 'director'
-        RETURNING *
-      `;
-      appUser = [newUser];
 
-      // Send invite email with temp password
-      const loginUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/account/signin`;
-      await sendEmail(email, `You've been invited as a Director — ${cat.name} at ${cat.org_name}`,
-        `<!DOCTYPE html>
-        <html>
-        <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
-            <tr><td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                
-                <!-- Header -->
-                <tr>
-                  <td style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:32px 40px;text-align:center;">
-                    <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Sideline Star</div>
-                    <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Athlete Evaluation Platform</div>
-                  </td>
-                </tr>
-
-                <!-- Body -->
-                <tr>
-                  <td style="padding:40px;">
-                    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">You're invited as a Director</h1>
-                    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
-                      Hi <strong style="color:#111827;">${name}</strong>, you've been assigned as a director for <strong style="color:#111827;">${cat.name}</strong> at <strong style="color:#111827;">${cat.org_name}</strong>.
-                    </p>
-
-                    <!-- Credentials box -->
-                    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
-                      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin-bottom:12px;">Your Login Credentials</div>
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding:6px 0;font-size:14px;color:#6b7280;width:120px;">Email</td>
-                          <td style="padding:6px 0;font-size:14px;font-weight:600;color:#111827;">${email}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding:6px 0;font-size:14px;color:#6b7280;">Temp Password</td>
-                          <td style="padding:6px 0;">
-                            <code style="font-size:14px;font-weight:700;color:#0b5cd6;background:#fff7f4;border:1px solid #fed7c3;padding:3px 8px;border-radius:6px;">${tempPassword}</code>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Please sign in and update your password when prompted.</p>
-
-                    <!-- CTA Button -->
-                    <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
-                      Sign In to Sideline Star →
-                    </a>
-                    <p style="margin:16px 0 0;font-size:13px;color:#374151;">Or open this link directly: <a href="${loginUrl}" style="color:#0b5cd6;text-decoration:underline;font-weight:600;word-break:break-all;">${loginUrl}</a></p>
-                  </td>
-                </tr>
-
-                <!-- Footer -->
-                <tr>
-                  <td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center;">
-                    <p style="margin:0;font-size:12px;color:#9ca3af;">© Sideline Star · You received this because you were invited by ${cat.org_name}</p>
-                  </td>
-                </tr>
-
-              </table>
-            </td></tr>
-          </table>
-        </body>
-        </html>`
-      );
-    } else {
-      // Existing user — just notify
       const dashUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/director/dashboard`;
       await sendEmail(email, `Director Assignment — ${cat.name} at ${cat.org_name}`,
         `<!DOCTYPE html>
@@ -215,16 +125,14 @@ export async function POST(request, { params }) {
         </body>
         </html>`
       );
-    }
 
-    // Assign to category
-    await sql`
-      INSERT INTO director_assignments (user_id, age_category_id, organization_id, status)
-      VALUES (${appUser[0].id}, ${catId}, ${cat.org_id}, 'active')
-      ON CONFLICT (user_id, age_category_id) DO UPDATE SET status = 'active'
-    `;
+      await sql`
+        INSERT INTO director_assignments (user_id, age_category_id, organization_id, status)
+        VALUES (${appUser[0].id}, ${catId}, ${cat.org_id}, 'active')
+        ON CONFLICT (user_id, age_category_id) DO UPDATE SET status = 'active'
+      `;
       return { ok: true };
-    } // end inviteOne
+    }
 
     const results = [];
     for (const d of dedup) {
