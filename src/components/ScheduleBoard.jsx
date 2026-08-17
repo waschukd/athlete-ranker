@@ -74,7 +74,10 @@ export default function ScheduleBoard({ sessions, renderRow, subscribeEndpoint, 
       {sessions.length === 0 ? (
         <div className="py-12 text-center bg-white border border-dashed border-gray-200 rounded-xl text-sm text-gray-400">{emptyText}</div>
       ) : view === "day" ? (
-        <DayView sessions={sessions} initialDate={day} onOpen={() => {}} {...calProps} />
+        // Day/Week/Month are read-only browsing (no action buttons) -- opening
+        // a session here is the only way out, so route it to List (which does
+        // have actions, e.g. Cancel) instead of leaving it a dead-end no-op.
+        <DayView sessions={sessions} initialDate={day} onOpen={() => setView("list")} {...calProps} />
       ) : view === "week" ? (
         <WeekGrid sessions={sessions} onSelect={toDay} onOpen={(s) => toDay(dateKeyOf(s))} {...calProps} />
       ) : view === "month" ? (
