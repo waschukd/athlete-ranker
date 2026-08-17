@@ -87,11 +87,21 @@ export async function POST(request, { params }) {
         ON CONFLICT (email) DO UPDATE SET name = ${name}
         RETURNING *
       `;
-      await sql`
-        INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-        VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(tempPassword)})
-        ON CONFLICT DO NOTHING
-      `;
+      // Manual upsert, not ON CONFLICT -- there's no unique constraint on
+      // (userId, provider), so a re-invite (e.g. the "users" row didn't exist
+      // yet even though login credentials already did) used to silently
+      // INSERT a second credentials row instead of updating the first, and
+      // login would pick whichever row came back first -- not necessarily the
+      // one matching the password that just got emailed out.
+      const existingAcct = await sql`SELECT id FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
+      if (existingAcct.length) {
+        await sql`UPDATE auth_accounts SET password = ${await hashPassword(tempPassword)} WHERE id = ${existingAcct[0].id}`;
+      } else {
+        await sql`
+          INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
+          VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(tempPassword)})
+        `;
+      }
       const [newUser] = await sql`
         INSERT INTO users (email, name, role)
         VALUES (${email}, ${name}, 'director')

@@ -80,13 +80,20 @@ export async function POST(request) {
     }
     const authUser = authUsers[0];
 
-    const accounts = await sql`SELECT password FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
-    if (!accounts.length || !accounts[0].password) {
+    // A user can end up with more than one credentials row (e.g. re-invited
+    // before their app-role row existed yet, so the invite flow treated them
+    // as brand new and minted a second one) -- check every row rather than
+    // assuming accounts[0] is the one holding the current password.
+    const accounts = await sql`SELECT password FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials' AND password IS NOT NULL`;
+    if (!accounts.length) {
       await recordFailure(ip, email);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
-    const storedHash = accounts[0].password;
-    if (!(await verifyPassword(password, storedHash))) {
+    let storedHash = null;
+    for (const acct of accounts) {
+      if (await verifyPassword(password, acct.password)) { storedHash = acct.password; break; }
+    }
+    if (!storedHash) {
       await recordFailure(ip, email);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
