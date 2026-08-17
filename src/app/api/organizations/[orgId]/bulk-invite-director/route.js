@@ -113,7 +113,7 @@ export async function POST(request, { params }) {
                     <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
                       Sign In to Sideline Star →
                     </a>
-                    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Button not working? Copy this link: <a href="${loginUrl}" style="color:#0b5cd6;word-break:break-all;">${loginUrl}</a></p>
+                    <p style="margin:16px 0 0;font-size:13px;color:#374151;">Or open this link directly: <a href="${loginUrl}" style="color:#0b5cd6;text-decoration:underline;font-weight:600;word-break:break-all;">${loginUrl}</a></p>
                   </td>
                 </tr>
                 <tr>
@@ -154,7 +154,7 @@ export async function POST(request, { params }) {
                     <a href="${dashUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;">
                       View Dashboard →
                     </a>
-                    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Button not working? Copy this link: <a href="${dashUrl}" style="color:#0b5cd6;word-break:break-all;">${dashUrl}</a></p>
+                    <p style="margin:16px 0 0;font-size:13px;color:#374151;">Or open this link directly: <a href="${dashUrl}" style="color:#0b5cd6;text-decoration:underline;font-weight:600;word-break:break-all;">${dashUrl}</a></p>
                   </td>
                 </tr>
                 <tr>

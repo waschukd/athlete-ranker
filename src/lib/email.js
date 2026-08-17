@@ -5,7 +5,7 @@
 const SENDER_NAME = process.env.EMAIL_FROM_NAME || "Sideline Star";
 const RAW_FROM = process.env.EMAIL_FROM || "updates@sidelinestar.com";
 export const FROM = RAW_FROM.includes("<") ? RAW_FROM : `${SENDER_NAME} <${RAW_FROM}>`;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
 // Escape user-controlled values before interpolating into email HTML. Names,
 // org names, notes, locations, etc. come from rosters/admins and must never be
@@ -100,8 +100,12 @@ export function emailWrapper(content) {
   </html>`;
 }
 
+// Every button ships with a plain, always-visible link underneath — some
+// email clients strip or mangle a styled/gradient <a> so it never registers
+// as clickable, and a button with no working fallback just looks broken.
 function btn(url, label) {
-  return `<a href="${url}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:14px 32px;background:${GOLD};color:#1b1505;text-decoration:none;border-radius:99px;font-size:14px;font-weight:800;letter-spacing:0.01em;">${label}</a>`;
+  return `<a href="${url}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:14px 32px;background:${GOLD};color:#1b1505;text-decoration:none;border-radius:99px;font-size:14px;font-weight:800;letter-spacing:0.01em;">${label}</a>
+    <p style="margin:14px 0 0;font-size:13px;color:#5b606b;">Or open this link directly: <a href="${url}" style="color:#0b5cd6;text-decoration:underline;font-weight:600;word-break:break-all;">${url}</a></p>`;
 }
 
 function credBox(rows) {
