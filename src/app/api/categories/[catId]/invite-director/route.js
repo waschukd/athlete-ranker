@@ -101,7 +101,7 @@ export async function POST(request, { params }) {
       appUser = [newUser];
 
       // Send invite email with temp password
-      const loginUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/signin`;
+      const loginUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/account/signin`;
       await sendEmail(email, `You've been invited as a Director — ${cat.name} at ${cat.org_name}`,
         `<!DOCTYPE html>
         <html>
@@ -149,6 +149,7 @@ export async function POST(request, { params }) {
                     <a href="${loginUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
                       Sign In to Sideline Star →
                     </a>
+                    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Button not working? Copy this link: <a href="${loginUrl}" style="color:#0b5cd6;word-break:break-all;">${loginUrl}</a></p>
                   </td>
                 </tr>
 
@@ -167,7 +168,7 @@ export async function POST(request, { params }) {
       );
     } else {
       // Existing user — just notify
-      const dashUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/director/dashboard`;
+      const dashUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/director/dashboard`;
       await sendEmail(email, `Director Assignment — ${cat.name} at ${cat.org_name}`,
         `<!DOCTYPE html>
         <html>
@@ -190,6 +191,7 @@ export async function POST(request, { params }) {
                     <a href="${dashUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:15px;font-weight:600;">
                       View Dashboard →
                     </a>
+                    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">Button not working? Copy this link: <a href="${dashUrl}" style="color:#0b5cd6;word-break:break-all;">${dashUrl}</a></p>
                   </td>
                 </tr>
                 <tr>
