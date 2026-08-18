@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { resolveReportProvider, isPurchasable, purchaseBlockedReason, platformFeeCents } from "@/lib/reportProvider";
 
 // Charge currency. Defaults to usd to preserve existing behaviour — the one
@@ -31,7 +31,7 @@ const WINDOW_MINUTES = 60;
 
 export async function POST(request) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!stripeConfigured()) {
       return NextResponse.json({ error: "Payment service not configured" }, { status: 503 });
     }
 

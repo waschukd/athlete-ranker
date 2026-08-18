@@ -4,7 +4,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
-import { resolveMatchupTeams, assignMatchupRoster } from "@/lib/scrimmageTeams";
+import { resolveMatchupTeams, assignMatchupRoster, matchupLabel } from "@/lib/scrimmageTeams";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 // Round-robin: if a row carries a matchup label ("A vs B"), populate that game's
@@ -234,7 +234,12 @@ export async function PATCH(request, { params }) {
     // Round-robin: setting/changing the matchup ("White vs Gold") immediately
     // resolves it against the category's current teams and fills this game's
     // roster — same as CSV import, just from the schedule-tab picker instead.
-    const matchup = body.matchup !== undefined ? (body.matchup || null) : prev.matchup;
+    // The picker sends team ids (not client-built text) so the label always
+    // reflects each team's CURRENT name, not whatever was loaded on the page.
+    let matchup = body.matchup !== undefined ? (body.matchup || null) : prev.matchup;
+    if (body.team_a_id != null && body.team_b_id != null) {
+      matchup = await matchupLabel(catId, parseInt(body.team_a_id), parseInt(body.team_b_id));
+    }
 
     const [row] = await sql`
       UPDATE evaluation_schedule SET

@@ -9,9 +9,6 @@
 import sql from "@/lib/db";
 import { getAppUserId } from "@/lib/auth";
 
-export const TESTER_ROLE = "service_provider_tester";
-export const SP_EVALUATOR_ROLE = "service_provider_evaluator";
-
 // What the logged-in person can actually do, from their active SP memberships.
 // Returns { userId, isTester, isEvaluator, testerOrgIds, evaluatorOrgIds, spOrgIds }.
 export async function getSpCapabilities(session) {

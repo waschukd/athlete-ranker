@@ -25,13 +25,13 @@ export default function MatchupPicker({ entry, teams, catId, onSaved }) {
   const save = async () => {
     if (!a || !b || a === b) return;
     setSaving(true);
-    const teamA = teams.find(t => String(t.id) === a);
-    const teamB = teams.find(t => String(t.id) === b);
-    const matchup = teamA && teamB ? `${teamA.name} vs ${teamB.name}` : null;
     try {
+      // Send team ids, not a client-built "A vs B" string -- the server
+      // resolves the label from each team's current name (matchupLabel), so
+      // it can't go stale if a team was renamed since this page loaded.
       await fetch(`/api/categories/${catId}/schedule`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: entry.id, matchup }),
+        body: JSON.stringify({ id: entry.id, team_a_id: a, team_b_id: b }),
       });
       onSaved?.();
     } finally { setSaving(false); setEditing(false); }

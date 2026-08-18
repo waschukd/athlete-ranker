@@ -2,11 +2,11 @@
 // or the synchronous API response.
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, stripeConfigured } from "@/lib/stripe";
 
 export async function POST(request) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    if (!stripeConfigured() || !process.env.STRIPE_WEBHOOK_SECRET) {
       return NextResponse.json({ error: "Not configured" }, { status: 503 });
     }
 

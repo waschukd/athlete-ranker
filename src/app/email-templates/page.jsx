@@ -56,7 +56,15 @@ function TemplatesInner() {
     setSaving(false);
   };
 
-  const restore = () => { setSubject(def.subject); setBody(def.body); setSaved(false); };
+  // If there's a saved override, actually delete it (not just reset the local
+  // form) so the restore survives a reload instead of silently re-appearing.
+  const restore = async () => {
+    if (!isDefault && orgId) {
+      await fetch(`/api/email-templates?org=${orgId}&key=${key}`, { method: "DELETE" });
+      setIsDefault(true);
+    }
+    setSubject(def.subject); setBody(def.body); setSaved(false);
+  };
 
   const preview = str => renderTemplate(str, SAMPLE_VARS) || "";
   const dirty = subject !== def.subject || body !== def.body;
