@@ -4,6 +4,12 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { computeCategoryRankings } from "@/lib/rankings";
 
+// authorizeCategoryAccess alone also admits plain evaluators -- this dumps
+// every evaluator's notes and un-anonymized rankings in one payload, which is
+// exactly what evaluators_anonymous mode exists to keep from a plain
+// evaluator elsewhere in the app.
+const EXPORT_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin", "director"]);
+
 // Camp-bridge export: one JSON payload per category with everything the
 // CT Camp dashboard needs to import results — per-criterion averages,
 // official rank, per-test bests, and evaluator notes. Read-only.
@@ -13,6 +19,7 @@ export async function GET(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!EXPORT_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);

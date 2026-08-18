@@ -48,10 +48,16 @@ export async function GET(request, { params }) {
   }
 }
 
+// authorizeCategoryAccess alone also admits plain evaluators/directors --
+// every step here does a destructive delete-and-recreate of live category
+// config (sessions, scoring categories, format), so it needs the admin check.
+const SETUP_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SETUP_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);

@@ -48,10 +48,15 @@ export async function GET(request, { params }) {
   }
 }
 
+// authorizeOrgAccess alone also admits plain evaluators/directors -- changing
+// who evaluates goalies org-wide, or disconnecting a goalie SP, is admin-only.
+const GOALIE_MODE_ROLES = new Set(["super_admin", "association_admin"]);
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!GOALIE_MODE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { orgId } = params;
     const auth = await authorizeOrgAccess(session, orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
