@@ -50,7 +50,7 @@ describe("SP leads POST — security", () => {
   });
 
   it("400 when email or association_ids missing/empty", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]); // admin id lookup
     const { POST } = await import("@/app/api/service-provider/leads/route");
@@ -60,7 +60,7 @@ describe("SP leads POST — security", () => {
   });
 
   it("403 + NO writes when a requested association_id is not in the SP's linked set", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);              // admin id lookup
     sql.mockResolvedValueOnce([{ association_id: "A" }]);       // linked set: only A
@@ -74,7 +74,7 @@ describe("SP leads POST — security", () => {
 
 describe("SP leads POST — happy path (existing user)", () => {
   it("inserts user_organization_roles for each association and returns success+count", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);                                   // admin id lookup
     sql.mockResolvedValueOnce([{ association_id: "A" }, { association_id: "B" }]);   // linked set covers A,B
@@ -93,7 +93,7 @@ describe("SP leads POST — happy path (existing user)", () => {
   });
 
   it("leaves a service_provider_admin user's role unchanged (no role UPDATE)", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);                       // admin id lookup
     sql.mockResolvedValueOnce([{ association_id: "A" }]);                // linked set
@@ -111,7 +111,7 @@ describe("SP leads POST — happy path (existing user)", () => {
 
 describe("SP leads POST — create path (new user)", () => {
   it("creates auth_users + auth_accounts + users(association_admin) then assigns roles", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);            // admin id lookup
     sql.mockResolvedValueOnce([{ association_id: "A" }]);     // linked set
@@ -137,7 +137,7 @@ describe("SP leads DELETE — security", () => {
   }
 
   it("403 when the association is not linked to the SP", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]); // admin id lookup
     sql.mockResolvedValueOnce([]);                 // link check → not linked
@@ -148,7 +148,7 @@ describe("SP leads DELETE — security", () => {
   });
 
   it("deletes the role row when the association is linked", async () => {
-    getSession.mockResolvedValue({ email: "spadmin@test" });
+    getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);          // admin id lookup
     sql.mockResolvedValueOnce([{ association_id: "A" }]);   // link check → linked

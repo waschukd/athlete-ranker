@@ -38,7 +38,10 @@ export async function POST(request, { params }) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { catId } = params;
-    const { action, athlete_id, session_number } = await request.json();
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const body = await request.json();
+    const { action, athlete_id, session_number, correction_factors, enabled } = body;
     const userRes = await sql`SELECT id FROM users WHERE email = ${session.email}`;
     const userId = userRes[0]?.id;
 
@@ -111,7 +114,6 @@ export async function POST(request, { params }) {
     }
 
     if (action === "approve") {
-      const { correction_factors } = await request.json().catch(() => ({})) || {};
       // Store approved correction in evaluation_config
       const cat = await sql`SELECT evaluation_config FROM age_categories WHERE id = ${catId}`;
       const config = cat[0]?.evaluation_config || {};
@@ -122,7 +124,6 @@ export async function POST(request, { params }) {
     }
 
     if (action === "toggle_calibration") {
-      const { enabled } = await request.json().catch(() => ({})) || {};
       const cat = await sql`SELECT evaluation_config FROM age_categories WHERE id = ${catId}`;
       const config = cat[0]?.evaluation_config || {};
       config.anchor_calibration_enabled = enabled;

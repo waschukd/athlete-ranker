@@ -4,12 +4,18 @@ import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { createAndSendOrgInvite } from "@/lib/invites";
 
+// authorizeOrgAccess alone also admits plain evaluators/directors via
+// membership -- this creates a brand-new org and grants it an active service
+// link, so it needs the stronger admin check, not just "belongs to this org".
+const GOALIE_INVITE_ROLES = new Set(["super_admin", "association_admin"]);
+
 // An association invites a Goalie Service Provider: creates the goalie SP org,
 // links it to the association, and emails the accept-invite link (existing flow).
 export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!GOALIE_INVITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { association_id, name, email } = await request.json();
     if (!association_id || !name || !email) {
       return NextResponse.json({ error: "association_id, name and email are required" }, { status: 400 });

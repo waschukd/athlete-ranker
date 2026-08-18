@@ -3,10 +3,18 @@ import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { recomputeTesterHours } from "@/lib/testerHours";
 
+// resolveSpContext resolves for ANY member of the SP's evaluator pool, not just
+// admins (it exists to answer "does this person belong to this SP", used by
+// plain evaluators reading their own dashboard elsewhere) -- pay rates, payroll
+// approval, suspensions, and account deletion need the stronger "is this
+// person an admin of it" check on top.
+const SP_ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SP_ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const { orgId: spId } = await resolveSpContext(session, searchParams.get("org"));
     if (!spId) return NextResponse.json({ error: "Not a service provider" }, { status: 403 });
@@ -67,6 +75,7 @@ export async function POST(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SP_ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
     const { action, evaluator_id, schedule_id, hours_id, rating, notes, flag_id } = body;
     const asArray = (arr, single) => Array.isArray(arr) ? arr : (single != null ? [single] : []);

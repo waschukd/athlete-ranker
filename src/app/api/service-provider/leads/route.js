@@ -15,9 +15,18 @@ const UPGRADEABLE_ROLES = new Set([
 
 // Shared auth for all three handlers: 401 if no session, 403 if not an SP
 // admin, then resolve the SP admin's own users.id.
+//
+// resolveSpOrgId alone resolves for ANY member of the SP's evaluator pool
+// (its own doc comment says so), not just admins -- the "403 if not an SP
+// admin" claimed below was never actually enforced, letting a plain evaluator
+// name themselves lead and grant themselves full association_admin. The role
+// check below is the real gate.
 async function spContext(request) {
   const session = await getSession();
   if (!session) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (session.role !== "service_provider_admin" && session.role !== "super_admin") {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
   const { searchParams } = new URL(request.url);
   // SKATER SPs only. Leads grants association_admin (full skater access), so a
   // goalie SP must never reach this — resolveSpOrgId only matches type='service_provider'.

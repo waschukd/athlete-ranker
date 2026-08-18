@@ -22,6 +22,14 @@ export async function GET(request) {
     const catId = searchParams.get("category_id");
     const sessionNumber = searchParams.get("session_number");
 
+    // Neither branch below checked this before -- catId/scheduleId came
+    // straight from query params, so any logged-in user could pull the
+    // checked-in roster (names, position, jersey/helmet number) for any
+    // session in the system by guessing an id, cross-tenant.
+    if (!catId) return NextResponse.json({ error: "category_id required" }, { status: 400 });
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     // ── New shape (`?hydrate=1`): just this evaluator's scores + notes for this
     // session, keyed by athlete_id. Returned in the exact format the scoring
     // page's local `scores` state uses, so cross-device hydration is a merge.
@@ -145,20 +153,28 @@ export async function POST(request) {
     const auth = await authorizeCategoryAccess(session, category_id);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Verify evaluator is signed up for this schedule (skip for admins), and that
-    // they haven't closed it — a closed session is read-only until an SP/
-    // association reopens it. Admins edit via the Edit & Audit tab, unaffected.
-    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
+    // Verify evaluator is signed up for this schedule (skip for admins), that
+    // they haven't closed it, and that the athlete is checked in — a closed
+    // session is read-only until an SP/association reopens it. Admins edit via
+    // the Edit & Audit tab, unaffected. schedule_id used to be optional, which
+    // skipped all three checks below for everyone, admin or not -- it's now
+    // required for non-admin roles so there's no way to submit a score without
+    // being signed up, checked in, and pointed at a schedule row that actually
+    // belongs to this category.
+    const isAdminRole = ["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role);
+    if (!isAdminRole) {
+      if (!schedule_id) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
+
       const signup = await sql`
         SELECT id, closed_at FROM evaluator_session_signups
         WHERE user_id = ${appUserId} AND schedule_id = ${schedule_id}
       `;
       if (!signup.length) return NextResponse.json({ error: "Not signed up for this session" }, { status: 403 });
       if (signup[0].closed_at) return NextResponse.json({ error: "This session is closed — ask your SP or association to reopen it to make changes.", closed: true }, { status: 403 });
-    }
 
-    // Verify athlete is checked in for this session
-    if (schedule_id && !["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"].includes(session.role)) {
+      const schedRow = await sql`SELECT id FROM evaluation_schedule WHERE id = ${schedule_id} AND age_category_id = ${category_id}`;
+      if (!schedRow.length) return NextResponse.json({ error: "Session does not belong to this category" }, { status: 400 });
+
       const checkin = await sql`
         SELECT id FROM player_checkins
         WHERE athlete_id = ${athlete_id} AND schedule_id = ${schedule_id} AND checked_in = true

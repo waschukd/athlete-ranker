@@ -12,7 +12,7 @@ function makeReq(body) {
   });
 }
 function authOk() {
-  getSession.mockResolvedValue({ email: "spadmin@test" });
+  getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
   resolveSpContext.mockResolvedValue({ orgId: "sp1", isGoalie: false, type: "service_provider" });
   sql.mockResolvedValueOnce([{ id: "admin1" }]); // admin lookup (first sql call in POST)
 }

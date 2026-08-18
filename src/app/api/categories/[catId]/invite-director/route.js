@@ -9,6 +9,12 @@ import { createAndSendDirectorInvite } from "@/lib/invites";
 // integer column — parse to a positive int or treat as missing.
 const intId = (v) => { const n = parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 
+// authorizeCategoryAccess alone also admits plain evaluators (and directors
+// themselves) -- inviting someone into an active director role needs the
+// stronger "is this person an admin" check, matching what the client already
+// hides this action behind (canManage = role === "association" only).
+const DIRECTOR_INVITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
+
 async function sendEmail(to, subject, html) {
   if (!process.env.RESEND_API_KEY) return;
   await fetch("https://api.resend.com/emails", {
@@ -46,6 +52,7 @@ export async function POST(request, { params }) {
     if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!DIRECTOR_INVITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { getNoteBonusRate, setNoteBonusRate } from "@/lib/reportBonus";
 
+// resolveSpContext resolves for any pool member, not just admins -- viewing/
+// setting the org-wide bonus rate needs the stronger admin check.
+const SP_ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 // SP-level setting: flat bonus (cents) per evaluator note that lands in a sold report.
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!SP_ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const orgId = (await resolveSpContext(session, null)).orgId;
   if (!orgId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({ note_bonus_cents: await getNoteBonusRate(orgId) });
@@ -14,6 +19,7 @@ export async function GET() {
 export async function PUT(request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!SP_ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const orgId = (await resolveSpContext(session, null)).orgId;
   if (!orgId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => ({}));

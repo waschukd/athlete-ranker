@@ -4,11 +4,19 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+// This whole route is the admin/director score-management tool (override,
+// bulk delta, delete, manual-upload import) -- authorizeCategoryAccess alone
+// also admits plain evaluators, who should only ever submit their OWN scores
+// through the separate live-scoring path (evaluator/scores). Every handler
+// below needs this on top of authorizeCategoryAccess.
+const SCORE_MANAGE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin", "director"]);
+
 // ── PATCH: Edit a single evaluator score (admin/director override) ────────
 export async function PATCH(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
@@ -122,6 +130,7 @@ export async function DELETE(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
@@ -168,6 +177,7 @@ export async function GET(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
@@ -258,6 +268,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);

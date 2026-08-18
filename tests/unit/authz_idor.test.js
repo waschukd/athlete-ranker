@@ -182,6 +182,10 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
 
   // HOLE 2: rate_evaluator on an evaluator_id not in the SP org.
   it("POST /api/service-provider/evaluators rate_evaluator — foreign evaluator → 403, no rating INSERT", async () => {
+    // This route now requires an actual SP-admin role (not just SP-context
+    // resolution) before it does anything -- override the file's default
+    // association_admin so this test still reaches the IDOR guard it's for.
+    getSession.mockResolvedValue({ email: "admin@spA.test", role: "service_provider_admin" });
     resolveSpContext.mockResolvedValue({ orgId: "spA", isGoalie: false, type: "service_provider" });        // caller's SP org
     sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
     sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403
@@ -201,6 +205,7 @@ describe("IDOR regression: cross-org / cross-category id smuggling", () => {
 
   // HOLE 2b: reinstate on an evaluator_id not in the SP org.
   it("POST /api/service-provider/evaluators reinstate — foreign evaluator → 403, no flag/signup UPDATE", async () => {
+    getSession.mockResolvedValue({ email: "admin@spA.test", role: "service_provider_admin" });
     resolveSpContext.mockResolvedValue({ orgId: "spA", isGoalie: false, type: "service_provider" });        // caller's SP org
     sql.mockResolvedValueOnce([{ id: "adminA" }]);  // admin lookup
     sql.mockResolvedValueOnce([]);                   // evaluator membership guard: not in spA → 403

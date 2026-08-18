@@ -3,11 +3,16 @@ import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { getNoteBonusRate, eligibleNoteCount } from "@/lib/reportBonus";
 
+// resolveSpContext resolves for any pool member, not just admins -- this
+// exposes every evaluator's individual payout, so it needs the admin check.
+const SP_ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 // Per-SP bonus overview: the rate + each evaluator's eligible notes and bonus.
 export async function GET(request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!SP_ADMIN_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const orgId = (await resolveSpContext(session, new URL(request.url).searchParams.get("org"))).orgId;
     if (!orgId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
