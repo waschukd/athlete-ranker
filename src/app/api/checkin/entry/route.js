@@ -20,12 +20,17 @@ const CHECKIN_TTL_SECONDS = 8 * 60 * 60; // 8h — long enough for a tryout day
 
 export async function POST(request) {
   try {
-    // Throttle by IP before the code lookup — stops check-in code
-    // brute-force and keeps volunteer_checkins log bloat in check.
+    // Throttle by IP before the code lookup — courtesy backstop against a
+    // scripted hammering of this endpoint, not the primary defense: the
+    // 6-char code keyspace (~1.3B combinations, see generateCheckinCode)
+    // already makes brute force impractical regardless of this limit. Set
+    // generously — a busy venue can have several check-in stations all
+    // redeeming a code within the same minute, and multiple venues never
+    // share an IP so they never compete for the same bucket.
     const { allowed } = await checkAndRecord({
       endpoint: "checkin_entry",
       identifier: clientIp(request),
-      max: 12,
+      max: 60,
       windowMins: 1,
     });
     if (!allowed) {

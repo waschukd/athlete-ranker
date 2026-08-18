@@ -43,7 +43,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { allowed } = await checkAndRecord({ endpoint: "evaluator_register", identifier: clientIp(request), max: 8, windowMins: 60 });
+    // Per-IP: several evaluators can register from the same venue WiFi in a
+    // burst (e.g. an on-site onboarding rush), so this needs headroom.
+    const { allowed } = await checkAndRecord({ endpoint: "evaluator_register", identifier: clientIp(request), max: 30, windowMins: 60 });
     if (!allowed) return NextResponse.json({ error: "Too many attempts, please wait a moment." }, { status: 429 });
 
     const { name, email: bodyEmail, password, code, invite } = await request.json();
