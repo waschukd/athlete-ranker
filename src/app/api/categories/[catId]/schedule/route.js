@@ -24,8 +24,13 @@ const DEFAULT_TESTING_TESTERS = 7;
 function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const prefix = `S${session}G${group}`;
+  // 6 random chars (33^6 ~= 1.3B) rather than the old 4 (33^4 ~= 1.2M) -- the
+  // /checkin/entry endpoint is unauthenticated by design and only rate-limits
+  // by IP (12/min), so a multi-IP attacker had a realistically reachable
+  // keyspace at 4 chars. Matches the 6-char length already used everywhere
+  // else in the codebase (join codes, org codes, tester codes).
   let suffix = "";
-  for (let i = 0; i < 4; i++) suffix += chars[crypto.randomInt(0, chars.length)];
+  for (let i = 0; i < 6; i++) suffix += chars[crypto.randomInt(0, chars.length)];
   return `${prefix}-${suffix}`;
 }
 
