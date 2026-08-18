@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
+import { esc } from "@/lib/email";
 
 function generateEvaluatorId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -118,9 +119,9 @@ export async function POST(request) {
       await sendEmail(email, `You're in — welcome to ${orgName}`,
         `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
           <h2 style="color:#111;">You're all set!</h2>
-          <p style="color:#555;">Hi ${name}, your ${noun} account with <strong>${orgName}</strong> is active — no approval needed since you were invited directly.</p>
+          <p style="color:#555;">Hi ${esc(name)}, your ${noun} account with <strong>${esc(orgName)}</strong> is active — no approval needed since you were invited directly.</p>
           <p style="color:#555;">Sign in to start signing up for ${isTester ? "testing" : "evaluation"} sessions.</p>
-          <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/signin" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#0b5cd6;color:white;text-decoration:none;border-radius:8px;font-weight:600;">Sign In →</a>
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/account/signin" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#0b5cd6;color:white;text-decoration:none;border-radius:8px;font-weight:600;">Sign In →</a>
         </div>`);
       return NextResponse.json({ success: true, active: true, is_tester: isTester, evaluator_id: evaluatorId, org_name: orgName,
         message: `You're in! Your ${noun} account with ${orgName} is active — sign in to get started.` });
@@ -134,14 +135,14 @@ export async function POST(request) {
         UNION
         SELECT o.contact_email FROM organizations o JOIN sp_association_links sal ON sal.service_provider_id = o.id WHERE sal.association_id = ${orgId})`;
     const dashboardUrl = orgType === "service_provider"
-      ? `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/service-provider/dashboard`
-      : `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/association/dashboard?org=${orgId}`;
+      ? `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/service-provider/dashboard`
+      : `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/association/dashboard?org=${orgId}`;
     for (const admin of admins) {
       await sendEmail(admin.email, `New ${noun} pending approval — ${name}`,
         `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
           <h2 style="color:#111;">New ${noun} signup</h2>
-          <p style="color:#555;"><strong>${name}</strong> (${email}) has signed up to join <strong>${orgName}</strong> as a ${noun}.</p>
-          <p style="color:#555;">Their ID is: <strong style="font-family: monospace; background:#f0f0f0; padding:2px 6px; border-radius:4px;">${evaluatorId}</strong></p>
+          <p style="color:#555;"><strong>${esc(name)}</strong> (${esc(email)}) has signed up to join <strong>${esc(orgName)}</strong> as a ${noun}.</p>
+          <p style="color:#555;">Their ID is: <strong style="font-family: monospace; background:#f0f0f0; padding:2px 6px; border-radius:4px;">${esc(evaluatorId)}</strong></p>
           <p style="color:#555;">Please log in to approve or deny their access.</p>
           <a href="${dashboardUrl}" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#0b5cd6;color:white;text-decoration:none;border-radius:8px;font-weight:600;">Review Now →</a>
         </div>`);
@@ -149,8 +150,8 @@ export async function POST(request) {
     await sendEmail(email, `Welcome to Sideline Star — pending approval`,
       `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h2 style="color:#111;">You're almost in!</h2>
-        <p style="color:#555;">Hi ${name}, your ${noun} account has been created and is pending approval from <strong>${orgName}</strong>.</p>
-        <p style="color:#555;">Your ID is: <strong style="font-family: monospace; background:#f0f0f0; padding:2px 6px; border-radius:4px;">${evaluatorId}</strong></p>
+        <p style="color:#555;">Hi ${esc(name)}, your ${noun} account has been created and is pending approval from <strong>${esc(orgName)}</strong>.</p>
+        <p style="color:#555;">Your ID is: <strong style="font-family: monospace; background:#f0f0f0; padding:2px 6px; border-radius:4px;">${esc(evaluatorId)}</strong></p>
         <p style="color:#555;">You'll receive another email once you've been approved.</p>
       </div>`);
 

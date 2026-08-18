@@ -136,7 +136,7 @@ export async function POST(request) {
           AND u.id NOT IN (SELECT user_id FROM tester_session_signups WHERE schedule_id = ${schedule_id} AND status != 'cancelled')
       `;
       const sessionDate = sched.scheduled_date?.toString().split("T")[0];
-      const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard`;
+      const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
       let sent = 0;
       if (process.env.RESEND_API_KEY) {
         for (const t of testers) {
@@ -191,7 +191,7 @@ export async function POST(request) {
     `;
 
     const sessionDate = sched.scheduled_date?.toString().split("T")[0];
-    const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard`;
+    const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
 
     let sent = 0;
     if (process.env.RESEND_API_KEY) {

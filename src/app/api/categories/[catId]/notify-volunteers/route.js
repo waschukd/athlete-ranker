@@ -14,7 +14,7 @@ export async function POST(request, { params }) {
     const { emails, sessionNum, entries, categoryName } = await request.json();
     if (!emails?.length) return NextResponse.json({ error: "No emails provided" }, { status: 400 });
 
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
     const groupLines = entries.map(e => {
       const time = e.start_time && e.end_time ? e.start_time + " - " + e.end_time : e.start_time || "";

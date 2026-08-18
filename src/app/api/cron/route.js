@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc } from "@/lib/email";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
 
 async function getSessionStaffing(orgId, daysAhead) {

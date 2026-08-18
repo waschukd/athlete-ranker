@@ -162,7 +162,7 @@ export async function POST(request) {
     }
 
     const org = orgName || "your organization";
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
     const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
     const roleLabel = ROLE_LABELS[role] || role;
 
@@ -235,7 +235,7 @@ export async function PATCH(request) {
 
       // Send email only for resend_credentials
       if (action === "resend_credentials" && process.env.RESEND_API_KEY) {
-        const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+        const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
         const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
         const roleLabel = ROLE_LABELS[user.role] || user.role;
         const html = buildWelcomeEmailHtml({ name: user.name, email: user.email, roleLabel, tempPassword, baseUrl: BASE_URL });

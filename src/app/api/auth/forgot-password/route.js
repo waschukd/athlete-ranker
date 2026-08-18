@@ -98,7 +98,7 @@ export async function POST(request) {
       await sql`INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (${email}, ${token}, ${expiresAt})`;
     });
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account/reset-password?token=${token}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/account/reset-password?token=${token}`;
 
     await sendEmail(email, "Reset your Sideline Star password", `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">

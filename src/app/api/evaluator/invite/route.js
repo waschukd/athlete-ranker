@@ -19,7 +19,7 @@ export async function POST(request) {
     const auth = await authorizeCategoryAccess(session, sched[0].age_category_id);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/evaluator/dashboard`;
+    const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
 
     // Send via Resend if configured
     if (process.env.RESEND_API_KEY) {
