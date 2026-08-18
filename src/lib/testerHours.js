@@ -65,21 +65,26 @@ export async function recomputeTesterHours(userId) {
     groups.get(key).rows.push({ schedule_id: s.schedule_id, start: toMin(s.start_time), end: toMin(s.end_time) });
   }
 
+  // Each upsert targets a distinct schedule_id (the ON CONFLICT key), so none of
+  // these can race each other -- safe to fire concurrently instead of one round
+  // trip per session.
   const keepIds = new Set();
+  const upserts = [];
   for (const { org_id, day, rows } of groups.values()) {
     const hoursBy = computeDayHours(rows);
     for (const [sid, hrs] of Object.entries(hoursBy)) {
       keepIds.add(Number(sid));
       if (!(hrs > 0)) continue;
       // Upsert as pending, but don't disturb an already approved/paid entry.
-      await sql`
+      upserts.push(sql`
         INSERT INTO evaluator_hours (evaluator_id, organization_id, schedule_id, session_date, hours_worked, status, source)
         VALUES (${userId}, ${org_id}, ${Number(sid)}, ${day}, ${hrs}, 'pending', 'tester_auto')
         ON CONFLICT (evaluator_id, schedule_id) DO UPDATE
           SET hours_worked = ${hrs}, organization_id = ${org_id}, session_date = ${day}
-          WHERE evaluator_hours.status = 'pending'`;
+          WHERE evaluator_hours.status = 'pending'`);
     }
   }
+  await Promise.all(upserts);
 
   // Drop stale auto pending rows for testing sessions no longer signed up.
   const keep = [...keepIds];
