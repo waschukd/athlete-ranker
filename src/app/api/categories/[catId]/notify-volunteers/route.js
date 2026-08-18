@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, esc } from "@/lib/email";
 
 export async function POST(request, { params }) {
   try {
@@ -24,8 +24,8 @@ export async function POST(request, { params }) {
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500;">Group ${e.group_number || "-"}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${e.scheduled_date?.toString().split("T")[0] || "-"}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${time || "-"}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${e.location || "-"}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${e.checkin_code ? '<code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px;">' + e.checkin_code + '</code>' : "-"}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#555;">${esc(e.location) || "-"}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${e.checkin_code ? '<code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px;">' + esc(e.checkin_code) + '</code>' : "-"}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">${checkinUrl ? '<a href="' + checkinUrl + '" style="color:#0b5cd6;font-size:13px;">Open Check-in</a>' : "-"}</td>
         </tr>
       `;
@@ -38,7 +38,7 @@ export async function POST(request, { params }) {
         </div>
         <div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
           <h2 style="margin:0 0 8px;font-size:18px;color:#111;">You've been assigned as a volunteer</h2>
-          <p style="color:#555;font-size:14px;margin:0 0 24px;">You're assigned to check-in duty for <strong>${categoryName}</strong> — Session ${sessionNum}. Use the links below to access check-in for your group.</p>
+          <p style="color:#555;font-size:14px;margin:0 0 24px;">You're assigned to check-in duty for <strong>${esc(categoryName)}</strong> — Session ${esc(sessionNum)}. Use the links below to access check-in for your group.</p>
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
               <tr style="background:#f9fafb;">

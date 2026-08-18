@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getAccessibleOrgIds } from "@/lib/authorize";
 import { appUserId, createNotification } from "@/lib/notify";
-import { sendEmail, emailWrapper } from "@/lib/email";
+import { sendEmail, emailWrapper, esc } from "@/lib/email";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin", "director"]);
 const EVAL_ROLES = new Set(["association_evaluator", "service_provider_evaluator", "service_provider_tester"]);
@@ -129,9 +129,9 @@ export async function POST(request) {
         link: EVAL_ROLES.has(session.role) ? "/service-provider/dashboard" : "/evaluator/dashboard",
       });
       const html = emailWrapper(`
-        <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#101113;">${subject}</h2>
-        <p style="margin:0 0 6px;font-size:12px;color:#9aa0aa;">From ${fromName}${orgName ? ` · ${orgName}` : ""}</p>
-        <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:14px 0;font-size:14px;color:#101113;line-height:1.6;white-space:pre-wrap;">${text.replace(/</g, "&lt;")}</div>
+        <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#101113;">${esc(subject)}</h2>
+        <p style="margin:0 0 6px;font-size:12px;color:#9aa0aa;">From ${esc(fromName)}${orgName ? ` · ${esc(orgName)}` : ""}</p>
+        <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:14px 0;font-size:14px;color:#101113;line-height:1.6;white-space:pre-wrap;">${esc(text)}</div>
         <p style="font-size:12px;color:#9aa0aa;margin:0;">Reply from your Sideline Star dashboard.</p>
       `);
       await sendEmail(r.email, `Message from ${fromName} — Sideline Star`, html);

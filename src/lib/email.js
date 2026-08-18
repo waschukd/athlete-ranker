@@ -186,7 +186,7 @@ export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">You've been approved!</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, your evaluator application for <strong style="color:#111827;">${esc(orgName)}</strong> has been approved.</p>
-    ${credBox([["Evaluator ID", evaluatorId], ["Organization", orgName]])}
+    ${credBox([["Evaluator ID", evaluatorId], ["Organization", esc(orgName)]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in to view your upcoming sessions.</p>
     ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}
   `);
@@ -206,7 +206,7 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Evaluator Application</h2>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(adminName)}</strong>, a new evaluator has applied to join <strong style="color:#111827;">${esc(orgName)}</strong>.</p>
-    ${credBox([["Name", evalName], ["Email", evalEmail]])}
+    ${credBox([["Name", esc(evalName)], ["Email", evalEmail]])}
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Review and approve or deny their application.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "Review Application →")}
   `);
@@ -216,7 +216,7 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
 export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, spName, assocName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Association Linked</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${spAdminName}</strong>, <strong style="color:#111827;">${assocName}</strong> has been linked to <strong style="color:#111827;">${esc(spName)}</strong> on Sideline Star.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(spAdminName)}</strong>, <strong style="color:#111827;">${esc(assocName)}</strong> has been linked to <strong style="color:#111827;">${esc(spName)}</strong> on Sideline Star.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "View Dashboard →")}
   `);
   await sendEmail(spAdminEmail, `New Association Linked — ${assocName}`, html);
@@ -254,7 +254,7 @@ export async function emailLateCancel48hr({ adminEmail, adminName, evalName, ses
     <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;width:140px;">Evaluator</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(evalName)}</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Session</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(groupName)} — ${sessionDate} ${sessionTime}</td></tr>
+        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Session</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(groupName)} — ${esc(sessionDate)} ${esc(sessionTime)}</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Spots Now Open</td><td style="font-size:13px;font-weight:700;color:#dc2626;">${spotsOpen}</td></tr>
         <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Still Signed Up</td><td style="font-size:13px;color:#111827;">${remainingEvals}</td></tr>
       </table>
@@ -272,10 +272,10 @@ export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName
 
   const sessionRows = sessions.map(s => {
     const status = s.signed_up >= s.required ? '🟢' : s.signed_up > 0 ? '🟡' : '🔴';
-    const evalList = s.evaluators?.map(e => e.name).join(", ") || "None";
+    const evalList = esc(s.evaluators?.map(e => e.name).join(", ") || "None");
     return `<tr style="border-bottom:1px solid #f3f4f6;">
-      <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">${s.date} ${s.time}</td>
-      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${s.group}</td>
+      <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">${esc(s.date)} ${esc(s.time)}</td>
+      <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.group)}</td>
       <td style="padding:10px 0;font-size:13px;text-align:center;">${status} ${s.signed_up}/${s.required}</td>
       <td style="padding:10px 0;font-size:13px;color:#6b7280;">${evalList}</td>
     </tr>`;
@@ -320,9 +320,9 @@ export async function emailDailyStaffingAlert({ adminEmail, adminName, orgName, 
 
   const rows = openSessions.map(s => `
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-      <div style="font-size:14px;font-weight:700;color:#111827;">${s.date} at ${s.time} — ${s.group}</div>
+      <div style="font-size:14px;font-weight:700;color:#111827;">${esc(s.date)} at ${esc(s.time)} — ${esc(s.group)}</div>
       <div style="font-size:13px;color:#d97706;margin-top:4px;">${s.required - s.signed_up} spot${s.required - s.signed_up !== 1 ? "s" : ""} still needed · ${s.signed_up}/${s.required} filled</div>
-      ${s.signed_up > 0 ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">Signed up: ${s.evaluators?.map(e => e.name).join(", ")}</div>` : ""}
+      ${s.signed_up > 0 ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">Signed up: ${esc(s.evaluators?.map(e => e.name).join(", "))}</div>` : ""}
     </div>
   `).join("");
 
@@ -339,8 +339,8 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
   // Send to all evaluators in pool about open sessions
   const rows = openSessions.map(s => `
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-      <div style="font-size:14px;font-weight:700;color:#111827;">${s.date} at ${s.time}</div>
-      <div style="font-size:13px;color:#6b7280;margin-top:3px;">${s.group} · ${s.required - s.signed_up} spot${s.required - s.signed_up !== 1 ? "s" : ""} available</div>
+      <div style="font-size:14px;font-weight:700;color:#111827;">${esc(s.date)} at ${esc(s.time)}</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:3px;">${esc(s.group)} · ${s.required - s.signed_up} spot${s.required - s.signed_up !== 1 ? "s" : ""} available</div>
     </div>
   `).join("");
 
