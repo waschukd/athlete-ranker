@@ -13,24 +13,26 @@ async function getSessionStaffing(orgId, daysAhead = 7) {
   cutoff.setDate(cutoff.getDate() + daysAhead);
 
   const sessions = await sql`
-    SELECT 
+    SELECT
       es.id, es.session_number, es.group_number, es.scheduled_date,
       es.start_time, es.end_time, es.location,
-      ac.name as category_name, ac.evaluators_required,
+      ac.name as category_name,
+      COALESCE(es.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
       o.name as org_name,
       COUNT(DISTINCT ess.user_id) FILTER (WHERE ess.status = 'signed_up' AND ess.no_show IS NOT TRUE) as signed_up,
-      JSON_AGG(DISTINCT jsonb_build_object('name', u.name, 'email', u.email)) 
+      JSON_AGG(DISTINCT jsonb_build_object('name', u.name, 'email', u.email))
         FILTER (WHERE ess.user_id IS NOT NULL AND ess.status = 'signed_up') as evaluators
     FROM evaluation_schedule es
     JOIN age_categories ac ON ac.id = es.age_category_id
     JOIN organizations o ON o.id = ac.organization_id
+    LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
     LEFT JOIN sp_association_links sal ON sal.association_id = o.id AND sal.service_provider_id = ${orgId}
     LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id
     LEFT JOIN users u ON u.id = ess.user_id
     WHERE (sal.service_provider_id = ${orgId} OR o.id = ${orgId})
       AND es.scheduled_date >= CURRENT_DATE
       AND es.scheduled_date <= ${cutoff.toISOString().split("T")[0]}
-    GROUP BY es.id, ac.name, ac.evaluators_required, o.name
+    GROUP BY es.id, ac.name, es.evaluators_required, cs.evaluators_required, o.name
     ORDER BY es.scheduled_date, es.start_time
   `;
 

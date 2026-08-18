@@ -171,15 +171,17 @@ export async function POST(request) {
       SELECT sch.*,
         -- Per-session cap (sch.evaluators_required) wins, matching what the schedule
         -- DISPLAY uses. Omitting it here let a 4th sign up when a session was capped
-        -- to 3 via the UI while cs/ac still read 4.
-        COALESCE(sch.evaluators_required, cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+        -- to 3 via the UI while cs still read 4. (age_categories.evaluators_required
+        -- is never written anywhere, so it's not part of this chain — see
+        -- organizations/[orgId]/schedule for the same fallback shape.)
+        COALESCE(sch.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
         COUNT(DISTINCT ess.id) as signed_up_count
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
       LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
       LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
       WHERE sch.id = ${schedule_id}
-      GROUP BY sch.id, cs.evaluators_required, ac.evaluators_required
+      GROUP BY sch.id, cs.evaluators_required
     `;
 
     if (!scheduleInfo.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });

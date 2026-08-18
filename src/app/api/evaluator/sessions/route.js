@@ -111,7 +111,7 @@ export async function GET(request) {
           o.name as org_name,
           cs.session_type,
           cs.name as session_name,
-          COALESCE(cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+          COALESCE(cs.evaluators_required, 4) as evaluators_required,
           COUNT(DISTINCT ess.id) as evaluators_signed_up,
           COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) as already_signed_up,
           -- Overlaps another evaluation this user is already signed up for.
@@ -151,8 +151,8 @@ export async function GET(request) {
                   WHERE sal.status = 'active'))
               )
           )
-        GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required, ac.evaluators_required
-        HAVING COUNT(DISTINCT ess.id) < COALESCE(cs.evaluators_required, ac.evaluators_required, 4)
+        GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required
+        HAVING COUNT(DISTINCT ess.id) < COALESCE(cs.evaluators_required, 4)
           AND COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) = 0
         ORDER BY sch.scheduled_date, sch.start_time
       `;

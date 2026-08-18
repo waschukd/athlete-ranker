@@ -15,7 +15,6 @@ export async function GET() {
         da.age_category_id, da.organization_id,
         ac.name as category_name, ac.setup_complete, ac.status,
         ac.scoring_scale, ac.scoring_increment, ac.position_tagging,
-        ac.evaluators_required,
         o.name as org_name,
         (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = ac.id AND a.is_active = true)::int AS athletes_count,
         (SELECT COUNT(*) FROM evaluation_schedule es WHERE es.age_category_id = ac.id)::int AS sessions_count

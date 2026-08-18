@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
         es.location, es.session_number, es.group_number, es.status,
         ac.id as age_category_id, ac.id as category_id, ac.name as category_name,
         cs.session_type, cs.name as session_name,
-        COALESCE(es.evaluators_required, cs.evaluators_required, ac.evaluators_required, 4) as evaluators_required,
+        COALESCE(es.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
         COALESCE(es.goalie_evaluators_required, 0) as goalie_evaluators_required,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.status = 'signed_up') as evaluators_signed_up
       FROM age_categories ac
@@ -36,7 +36,7 @@ export async function GET(request, { params }) {
       LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id AND ess.status != 'cancelled'
       WHERE ac.organization_id = ${params.orgId}
         AND es.scheduled_date BETWEEN ${from} AND ${to}
-      GROUP BY es.id, ac.id, ac.name, cs.session_type, cs.name, cs.evaluators_required, ac.evaluators_required
+      GROUP BY es.id, ac.id, ac.name, cs.session_type, cs.name, cs.evaluators_required
       ORDER BY es.scheduled_date, es.start_time, ac.name
     `;
 
