@@ -3,7 +3,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, esc } from "@/lib/email";
 import { getTier } from "@/lib/scoring";
 
 export async function GET(request, { params }) {
@@ -176,6 +176,13 @@ export async function POST(request, { params }) {
     const { action, schedule_id, session_number, unreviewed_flags } = body;
 
     if (action === "close_session") {
+      // schedule_id must actually belong to the authorized category -- without
+      // this, closing a session, flagging evaluators, and emailing another
+      // org's SP admins were all reachable via a body-supplied id from a
+      // completely unrelated category.
+      const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${schedule_id} AND age_category_id = ${catId}`;
+      if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
       // Mark session as closed
       await sql`
         UPDATE evaluator_session_signups
@@ -320,10 +327,10 @@ export async function POST(request, { params }) {
             WHERE sal.association_id = ${s.org_id}
           `;
 
-          const playerList = unreviewed_flags.map(p => `- ${p.first_name} ${p.last_name} — ${p.overall_agreement}% agreement`).join("\n");
+          const playerList = unreviewed_flags.map(p => `- ${esc(p.first_name)} ${esc(p.last_name)} — ${esc(p.overall_agreement)}% agreement`).join("\n");
           const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
             <h2 style="color:#f59e0b;">⚠️ Consensus Not Reviewed</h2>
-            <p>Evaluators closed <strong>${s.category_name} — Group ${s.group_number}</strong> on ${s.scheduled_date?.toString().split("T")[0]} without reviewing all flagged players.</p>
+            <p>Evaluators closed <strong>${esc(s.category_name)} — Group ${esc(s.group_number)}</strong> on ${s.scheduled_date?.toString().split("T")[0]} without reviewing all flagged players.</p>
             <p><strong>Unreviewed players (below 80% agreement):</strong></p>
             <pre style="background:#f9fafb;padding:12px;border-radius:8px;font-size:13px;">${playerList}</pre>
             <p style="color:#6b7280;font-size:13px;">These players may require additional review or re-evaluation.</p>

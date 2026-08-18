@@ -148,6 +148,18 @@ export async function POST(request, { params }) {
     if (action === "move_player") {
       const { athlete_id, from_team_id, to_team_id } = body;
 
+      // Both teams must belong to this category -- without this, a caller
+      // authorized for their own category could move a player into (or out
+      // of) another organization's team by guessing a sequential id.
+      if (from_team_id) {
+        const owned = await sql`SELECT id FROM teams WHERE id = ${from_team_id} AND age_category_id = ${catId}`;
+        if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (to_team_id) {
+        const owned = await sql`SELECT id FROM teams WHERE id = ${to_team_id} AND age_category_id = ${catId}`;
+        if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       if (from_team_id) {
         await sql`DELETE FROM team_rosters WHERE athlete_id = ${athlete_id} AND team_id = ${from_team_id}`;
       }
@@ -171,6 +183,8 @@ export async function POST(request, { params }) {
 
     if (action === "assign_goalie") {
       const { athlete_id, team_id } = body;
+      const owned = await sql`SELECT id FROM teams WHERE id = ${team_id} AND age_category_id = ${catId}`;
+      if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       const maxRank = await sql`SELECT COALESCE(MAX(team_rank), 0) as max FROM team_rosters WHERE team_id = ${team_id}`;
       await sql`
         INSERT INTO team_rosters (team_id, athlete_id, team_rank, age_category_id)

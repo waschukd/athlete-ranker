@@ -42,8 +42,10 @@ beforeEach(() => {
 describe("add_existing", () => {
   it("rejects an athlete from a different age category with 403 and no writes", async () => {
     mockAuthPass("catX");
-    // athlete lookup returns a DIFFERENT category → guard must fire
-    sql.mockResolvedValueOnce([{ id: "ath9", age_category_id: "catOTHER" }]); // call 3
+    // The guard's query filters by category in SQL (WHERE id=... AND
+    // age_category_id=...) rather than fetching then comparing in JS, so a
+    // real mismatch comes back empty, not a row naming the other category.
+    sql.mockResolvedValueOnce([]); // call 3: athlete lookup, filtered out
 
     const { POST } = await import("@/app/api/checkin/[scheduleId]/route");
     const res = await POST(makeReq({ action: "add_existing", athlete_id: "ath9" }), {

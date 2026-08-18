@@ -8,6 +8,10 @@ import { TEMPLATE_KEYS } from "@/lib/emailTemplateDefaults";
 // row nothing ever reads. Only accept keys that have a built-in counterpart.
 const validKey = k => TEMPLATE_KEYS.includes(k);
 
+// authorizeOrgAccess alone also admits plain evaluators/directors -- rewriting
+// the automated emails sent to every parent needs the stronger admin check.
+const TEMPLATE_EDIT_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function GET(request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,6 +29,7 @@ export async function GET(request) {
 export async function PUT(request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!TEMPLATE_EDIT_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   const orgId = body.organization_id;
   const key = body.key || "welcome";

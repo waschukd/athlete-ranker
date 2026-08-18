@@ -230,6 +230,17 @@ export async function POST(request, { params }) {
     const body = await request.json();
     const { action, athlete_id, jersey_number, team_color } = body;
 
+    // Every action below except add_player/find_existing takes athlete_id from
+    // the client and writes straight to player_checkins or the athletes row --
+    // without this, a walk-up volunteer's session-scoped token (or any caller)
+    // could point it at an athlete from a completely different organization and
+    // edit their record. add_player always creates a fresh in-scope athlete;
+    // find_existing has no athlete_id yet.
+    if (athlete_id && !["add_player", "find_existing"].includes(action)) {
+      const ath = await sql`SELECT id FROM athletes WHERE id = ${athlete_id} AND age_category_id = ${auth.ageCategoryId}`;
+      if (!ath.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     if (action === "checkin") {
       const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
@@ -389,14 +400,8 @@ export async function POST(request, { params }) {
 
     if (action === "add_existing") {
       if (!athlete_id) return NextResponse.json({ error: "athlete_id required" }, { status: 400 });
-
-      // Guard: the athlete must belong to this schedule's category. Prevents
-      // pulling an arbitrary athlete from another org/category via a guessed id.
-      const ath = await sql`SELECT id, age_category_id FROM athletes WHERE id = ${athlete_id}`;
-      if (!ath.length) return NextResponse.json({ error: "Athlete not found" }, { status: 404 });
-      if (ath[0].age_category_id !== auth.ageCategoryId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+      // Category-membership guard already ran above, shared with every other
+      // athlete_id-bearing action.
 
       const schedInfo = await sql`
         SELECT session_number, group_number FROM evaluation_schedule WHERE id = ${scheduleId}

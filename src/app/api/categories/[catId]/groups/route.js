@@ -338,8 +338,12 @@ export async function POST(request, { params }) {
 
     if (action === "move_player") {
       const { athlete_id, from_group_id, to_group_id } = body;
-      const oldGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${from_group_id}`;
-      const newGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${to_group_id}`;
+      // Both groups must belong to this category -- without this, a caller
+      // authorized for their own category could redirect a player into another
+      // organization's group by guessing a sequential id.
+      const oldGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${from_group_id} AND age_category_id = ${catId}`;
+      const newGroup = await sql`SELECT group_number FROM session_groups WHERE id = ${to_group_id} AND age_category_id = ${catId}`;
+      if (!oldGroup.length || !newGroup.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
       // Keep the player's display_order (their rank) so they slot into the correct
       // ranked position within the destination group — not the bottom.
@@ -375,6 +379,8 @@ export async function POST(request, { params }) {
       const scheduleId = parseInt(body.schedule_id);
       const color = body.color === "White" || body.color === "Dark" ? body.color : null;
       if (!athleteId || !scheduleId) return NextResponse.json({ error: "athlete_id and schedule_id required" }, { status: 400 });
+      const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
+      if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
       if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
       await sql`
@@ -391,6 +397,8 @@ export async function POST(request, { params }) {
       const raw = String(body.jersey_number ?? "").trim();
       const num = /^\d{1,3}$/.test(raw) ? parseInt(raw) : null;
       if (!athleteId || !scheduleId) return NextResponse.json({ error: "athlete_id and schedule_id required" }, { status: 400 });
+      const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
+      if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
       if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
       await sql`
@@ -402,7 +410,10 @@ export async function POST(request, { params }) {
 
     if (action === "assign_goalie") {
       const { athlete_id, group_id } = body;
-      const group = await sql`SELECT * FROM session_groups WHERE id = ${group_id}`;
+      const group = await sql`SELECT * FROM session_groups WHERE id = ${group_id} AND age_category_id = ${catId}`;
+      if (!group.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const athleteOwned = await sql`SELECT id FROM athletes WHERE id = ${athlete_id} AND age_category_id = ${catId}`;
+      if (!athleteOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       const existingGoalie = await sql`SELECT id FROM player_group_assignments WHERE athlete_id = ${athlete_id} AND session_group_id = ${group_id}`;
       if (!existingGoalie.length) {
         await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athlete_id}, ${group_id}, 99)`;
