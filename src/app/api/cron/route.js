@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc } from "@/lib/email";
 
@@ -46,9 +47,13 @@ export async function GET(request) {
   if (!CRON_SECRET) {
     return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
   }
-  // Verify cron secret via Authorization header (Vercel sends this automatically)
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${CRON_SECRET}`) {
+  // Verify cron secret via Authorization header (Vercel sends this automatically).
+  // Constant-time compare: this route is reachable unauthenticated.
+  const authHeader = request.headers.get("authorization") || "";
+  const expected = `Bearer ${CRON_SECRET}`;
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -37,7 +37,9 @@ export function verifyCalendarToken(token) {
   const userId = parseInt(userIdStr, 10);
   if (!userId || !sig) return null;
   const expected = signCalendarToken(userId).split(".")[1];
-  if (sig !== expected) return null;
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return userId;
 }
 
@@ -57,7 +59,9 @@ export function verifySpCalendarToken(token) {
   const orgId = parseInt(orgIdStr, 10);
   if (!orgId || !sig) return null;
   const expected = signSpCalendarToken(orgId).split(".")[1];
-  if (sig !== expected) return null;
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return orgId;
 }
 
@@ -126,6 +130,8 @@ export function verifyScheduleToken(token) {
   const catId = parseInt(catIdStr, 10);
   if (!catId || !sig) return null;
   const expected = signScheduleToken(catId).split(".")[1];
-  if (sig !== expected) return null;
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return catId;
 }
