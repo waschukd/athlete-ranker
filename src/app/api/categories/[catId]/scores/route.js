@@ -325,6 +325,30 @@ export async function POST(request, { params }) {
           DO UPDATE SET score = ${score}, notes = ${notes || null}, scored_via = 'manual_upload', updated_at = NOW()
         `;
       }
+
+      // category_scores.notes above is write-only -- every report/export reads
+      // free-form notes from player_notes instead (the live-scoring path writes
+      // both). Without this, a note entered via bulk upload silently never
+      // appears anywhere.
+      if (notes?.trim()) {
+        const existingNote = await sql`
+          SELECT id, note_text FROM player_notes
+          WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
+            AND session_number = ${sessionNumber} AND evaluator_id = ${evaluatorId}
+          ORDER BY created_at DESC LIMIT 1
+        `;
+        if (existingNote.length) {
+          if (existingNote[0].note_text !== notes.trim()) {
+            await sql`UPDATE player_notes SET note_text = ${notes}, scored_via = 'manual_upload', updated_at = NOW() WHERE id = ${existingNote[0].id}`;
+          }
+        } else {
+          await sql`
+            INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via)
+            VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${notes}, 'manual_upload')
+          `;
+        }
+      }
+
       imported++;
     }
 

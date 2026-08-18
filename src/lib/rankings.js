@@ -10,18 +10,25 @@ import { getCoachUserIds } from "@/lib/categoryEvaluators";
 // opts.scope: "official" (default) excludes COACH evaluators' scores; "coach"
 // ranks using ONLY coach scores (the parallel coaches' ranking for compare).
 export async function computeCategoryRankings(catId, opts = {}) {
-  const coachIds = await getCoachUserIds(catId);
   const coachScope = opts.scope === "coach";
+
+  // Four independent reads -- none depends on another's result -- run as one
+  // round trip instead of four sequential ones. This function is polled every
+  // 120s per open dashboard tab and re-run per athlete during player
+  // comparison, so its query count matters more than most.
+  const [coachIds, sessions, categoryRes, athletes] = await Promise.all([
+    getCoachUserIds(catId),
+    sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`,
+    sql`SELECT * FROM age_categories WHERE id = ${catId}`,
+    sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true ORDER BY last_name, first_name`,
+  ]);
   // onlyIds: when coach-scope, restrict to coaches. exclIds: official excludes coaches.
   const onlyIds = coachScope ? coachIds : null;   // null = no include-restriction
   const onlyGuard = onlyIds ? 0 : 1;              // 1 → include everyone; 0 → only onlyArr
   const onlyArr = onlyIds ?? [];
   const exclIds = coachScope ? [] : coachIds;     // official excludes coaches
 
-  const sessions = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
-  const categoryRes = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
   const category = categoryRes[0];
-  const athletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true ORDER BY last_name, first_name`;
 
   if (!athletes.length) {
     return { athletes: [], has_scores: false, phase: "pre_session", sessions, category };
@@ -30,9 +37,11 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const N = athletes.length;
   const scale = parseFloat(category?.scoring_scale || 10);
 
-  // Check for any scores
-  const scoreCheck = await sql`SELECT COUNT(*) as count FROM category_scores WHERE age_category_id = ${catId}`;
-  const testingCheck = await sql`SELECT COUNT(*) as count FROM testing_drill_results WHERE age_category_id = ${catId}`;
+  // Check for any scores — independent of each other, run together.
+  const [scoreCheck, testingCheck] = await Promise.all([
+    sql`SELECT COUNT(*) as count FROM category_scores WHERE age_category_id = ${catId}`,
+    sql`SELECT COUNT(*) as count FROM testing_drill_results WHERE age_category_id = ${catId}`,
+  ]);
   const hasScores = parseInt(scoreCheck[0].count) > 0 || parseInt(testingCheck[0].count) > 0;
 
   if (!hasScores) {
@@ -50,13 +59,34 @@ export async function computeCategoryRankings(catId, opts = {}) {
   }
 
   // ── Calculate inter-rater agreement per athlete ────────────────────────
-  const allEvalScores = await sql`
-    SELECT athlete_id, scoring_category_id, score
-    FROM category_scores
-    WHERE age_category_id = ${catId}
-      AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
-      AND evaluator_id <> ALL(${exclIds})
-  `;
+  // allEvalScores, sessionScores, and testingRanks below are three independent
+  // reads (different aggregations of category_scores, plus a separate table) --
+  // batched together rather than run one after another.
+  const [allEvalScores, sessionScores, testingRanks] = await Promise.all([
+    sql`
+      SELECT athlete_id, scoring_category_id, score
+      FROM category_scores
+      WHERE age_category_id = ${catId}
+        AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
+        AND evaluator_id <> ALL(${exclIds})
+    `,
+    sql`
+      SELECT athlete_id, session_number,
+        AVG(score) as avg_score,
+        COUNT(DISTINCT evaluator_id) as evaluator_count
+      FROM category_scores
+      WHERE age_category_id = ${catId}
+        AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
+        AND evaluator_id <> ALL(${exclIds})
+      GROUP BY athlete_id, session_number
+    `,
+    sql`
+      SELECT DISTINCT ON (athlete_id, session_number) athlete_id, session_number, overall_rank
+      FROM testing_drill_results
+      WHERE age_category_id = ${catId}
+      ORDER BY athlete_id, session_number
+    `,
+  ]);
 
   // Build agreement map per athlete
   const agreementMap = {};
@@ -76,29 +106,11 @@ export async function computeCategoryRankings(catId, opts = {}) {
     agreementMap[id] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }
 
-  // Skills/scrimmage scores
-  // AVG(score) = average per-category score across all evaluators for this athlete+session
-  // normalized = (avg_score / scale) × 100
-  // e.g. avg 7.5/10 = 75.0, avg 5/10 = 50.0
-  const sessionScores = await sql`
-    SELECT athlete_id, session_number,
-      AVG(score) as avg_score,
-      COUNT(DISTINCT evaluator_id) as evaluator_count
-    FROM category_scores
-    WHERE age_category_id = ${catId}
-      AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
-      AND evaluator_id <> ALL(${exclIds})
-    GROUP BY athlete_id, session_number
-  `;
-
-  // Testing ranks — percentile: (N - rank) / (N - 1) × 100
-  // rank 1 of 26 = 100.0, rank 13 = 50.0, rank 26 = 0.0
-  const testingRanks = await sql`
-    SELECT DISTINCT ON (athlete_id, session_number) athlete_id, session_number, overall_rank
-    FROM testing_drill_results
-    WHERE age_category_id = ${catId}
-    ORDER BY athlete_id, session_number
-  `;
+  // Skills/scrimmage scores: AVG(score) = average per-category score across all
+  // evaluators for this athlete+session; normalized = (avg_score / scale) × 100
+  // (e.g. avg 7.5/10 = 75.0, avg 5/10 = 50.0). Testing ranks: percentile =
+  // (N - rank) / (N - 1) × 100 (rank 1 of 26 = 100.0, rank 26 = 0.0). Both
+  // fetched above alongside allEvalScores.
 
   const completedSessions = [...new Set([
     ...sessionScores.map(s => parseInt(s.session_number)),
