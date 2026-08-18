@@ -229,6 +229,9 @@ export async function PATCH(request) {
         WHERE "userId" = ${authUser[0].id} AND provider = 'credentials'
       `;
 
+      // Invalidate every session token issued before this reset (see getSession).
+      await sql`UPDATE users SET password_changed_at = NOW() WHERE id = ${id}`;
+
       // Send email only for resend_credentials
       if (action === "resend_credentials" && process.env.RESEND_API_KEY) {
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";

@@ -76,6 +76,9 @@ export async function POST(request) {
       WHERE "userId" = ${authUser[0].id} AND provider = 'credentials'
     `;
 
+    // Invalidate every session token issued before this reset (see getSession).
+    await sql`UPDATE users SET password_changed_at = NOW() WHERE email = ${email}`;
+
     // Mark token as used
     await sql`UPDATE password_reset_tokens SET used = true WHERE token = ${token}`;
 

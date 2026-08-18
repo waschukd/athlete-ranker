@@ -8,6 +8,7 @@ const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
 export async function signToken(payload) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
     .setExpirationTime("7d")
     .sign(SECRET);
 }
@@ -33,8 +34,13 @@ export async function getSession() {
   // admin demotion / role removal). Fail-open on a DB hiccup so a transient
   // outage can't lock everyone out.
   try {
-    const rows = await sql`SELECT is_suspended, role FROM users WHERE email = ${payload.email}`;
+    const rows = await sql`SELECT is_suspended, role, password_changed_at FROM users WHERE email = ${payload.email}`;
     if (!rows.length || rows[0].is_suspended) return null;
+    // A password reset invalidates every token issued before it -- without this,
+    // a stolen/leaked token would keep working for up to 7 more days after reset.
+    if (payload.iat && rows[0].password_changed_at && payload.iat * 1000 < new Date(rows[0].password_changed_at).getTime()) {
+      return null;
+    }
     const baseRole = rows[0].role;
     if (payload.role && payload.role !== baseRole && payload.role !== "super_admin") {
       const held = await getUserRoles(payload.email);
