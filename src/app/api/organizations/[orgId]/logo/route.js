@@ -22,6 +22,16 @@ const ALLOWED_TYPES = new Set([
 
 const WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin"]);
 
+// SVG is XML, not a raster format -- it can carry <script>, event-handler
+// attributes, or <foreignObject>-embedded HTML, any of which runs if the
+// data: URL is ever opened directly (not just <img>-embedded). Reject rather
+// than try to strip-and-reserialize, which is easy to get wrong on XML.
+const SVG_DANGER_PATTERN = /<\s*script|<\s*foreignObject|<\s*iframe|<\s*embed|\son\w+\s*=|javascript:|data:text\/html/i;
+
+function isUnsafeSvg(buffer) {
+  return SVG_DANGER_PATTERN.test(buffer.toString("utf8"));
+}
+
 async function authorize(session, orgId) {
   if (!session) return { ok: false, status: 401, error: "Unauthorized" };
   if (!WRITE_ROLES.has(session.role)) return { ok: false, status: 403, error: "Forbidden" };
@@ -49,6 +59,9 @@ export async function POST(request, { params }) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (file.type === "image/svg+xml" && isUnsafeSvg(buffer)) {
+      return NextResponse.json({ error: "SVG contains disallowed content (script, event handlers, or embedded HTML)" }, { status: 400 });
+    }
     const dataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
     const result = await sql`
