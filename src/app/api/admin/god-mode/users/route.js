@@ -187,6 +187,11 @@ export async function DELETE(request) {
     const adminUser = await requireSuperAdmin(); if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    // Same self-lockout guard as suspend -- deleting your own account here has
+    // no recovery path.
+    if (String(id) === String(adminUser.id)) {
+      return NextResponse.json({ error: "You can't delete your own account." }, { status: 400 });
+    }
     await sql`DELETE FROM users WHERE id = ${id}`;
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -204,6 +209,13 @@ export async function PATCH(request) {
     const { action } = await request.json();
 
     if (action === "suspend") {
+      // Never let a super_admin suspend their own account from here -- there's
+      // no path back in for a suspended super_admin, so a fat-fingered self-target
+      // (or ambiguous "am I looking at my own row?" click) would be an unrecoverable
+      // lockout. Have another super_admin do it.
+      if (String(id) === String(adminUser.id)) {
+        return NextResponse.json({ error: "You can't suspend your own account." }, { status: 400 });
+      }
       await sql`UPDATE users SET is_suspended = true, updated_at = NOW() WHERE id = ${id}`;
       return NextResponse.json({ success: true });
     }

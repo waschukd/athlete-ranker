@@ -99,7 +99,12 @@ export async function POST(request) {
     let evaluatorId = generateEvaluatorId(), attempts = 0;
     while (attempts < 10) { const taken = await sql`SELECT id FROM users WHERE evaluator_id = ${evaluatorId}`; if (!taken.length) break; evaluatorId = generateEvaluatorId(); attempts++; }
 
-    const [authUser] = await sql`INSERT INTO auth_users (email, name, "emailVerified") VALUES (${email}, ${name}, NOW()) RETURNING *`;
+    // Invite path: email is locked to the address the invite was sent to, so
+    // using the token proves ownership -- verified. Join-code path: email is
+    // caller-typed with nothing proving they control that inbox -- not verified.
+    const [authUser] = viaInvite
+      ? await sql`INSERT INTO auth_users (email, name, "emailVerified") VALUES (${email}, ${name}, NOW()) RETURNING *`
+      : await sql`INSERT INTO auth_users (email, name) VALUES (${email}, ${name}) RETURNING *`;
     await sql`INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password) VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(password)})`;
     const [appUser] = await sql`INSERT INTO users (email, name, role, evaluator_id) VALUES (${email}, ${name}, ${role}, ${evaluatorId}) RETURNING *`;
 

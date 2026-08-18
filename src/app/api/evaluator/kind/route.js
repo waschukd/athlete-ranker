@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, getAppUserId } from "@/lib/auth";
+import { authorizeCategoryAccess } from "@/lib/authorize";
 import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
 
 // The signed-in evaluator's kind for a category: 'goalie' | 'coach' | 'standard'.
@@ -11,6 +12,8 @@ export async function GET(request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const catId = new URL(request.url).searchParams.get("cat");
     if (!catId) return NextResponse.json({ kind: "standard" });
+    const auth = await authorizeCategoryAccess(session, catId);
+    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const userId = await getAppUserId(session);
     const kind = await resolveEvaluatorKind(catId, userId, session.email);
     return NextResponse.json({ kind });
