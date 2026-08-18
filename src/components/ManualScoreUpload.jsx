@@ -1,15 +1,16 @@
 "use client";
 import { useState } from "react";
 import { Upload, FileText } from "lucide-react";
+import { parseCsv, parseCsvRows } from "@/lib/rosterImport";
 
 // ── TeamGenius CSV Parser ───────────────────────────────────────────────────
 function parseTeamGeniusCSV(text) {
-  const lines = text.replace(/\r\n/g, "\n").trim().split("\n").filter(l => l.trim());
+  const allRows = parseCsvRows(text).map(cols => cols.map(c => c.trim()));
 
   // Find the header row (contains "#" and "Name")
   let headerIdx = -1;
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const cols = lines[i].split(",").map(c => c.trim());
+  for (let i = 0; i < Math.min(10, allRows.length); i++) {
+    const cols = allRows[i];
     if (cols.some(c => c === "#") && cols.some(c => c === "Name")) {
       headerIdx = i;
       break;
@@ -17,7 +18,7 @@ function parseTeamGeniusCSV(text) {
   }
   if (headerIdx === -1) return null;
 
-  const headers = lines[headerIdx].split(",").map(c => c.trim());
+  const headers = allRows[headerIdx];
 
   // Find column indices
   const jerseyIdx = headers.indexOf("#");
@@ -40,11 +41,11 @@ function parseTeamGeniusCSV(text) {
 
   // Parse data rows
   const dataRows = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line || line.toLowerCase().includes("powered by") || line.toLowerCase().includes("teamgenius")) continue;
+  for (let i = headerIdx + 1; i < allRows.length; i++) {
+    const cols = allRows[i];
+    const joined = cols.join(",").toLowerCase();
+    if (joined.includes("powered by") || joined.includes("teamgenius")) continue;
 
-    const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
     const jerseyRaw = cols[jerseyIdx] || "";
     const fullName = cols[nameIdx] || "";
     if (!fullName) continue;
@@ -90,14 +91,13 @@ export default function ManualScoreUpload({ catId, sessions, scoringCategories }
     if (!evalName || !sessionNum || !file) return;
     setLoading(true);
     const text = await file.text();
-    const csvLines = text.replace(/\r\n/g, '\n').trim().split('\n').filter(l => l.trim());
-    const headers = csvLines[0].split(',').map(h => h.trim());
+    const { headers, rows: parsedRows } = parseCsv(text);
     const catNames = scoringCategories.map(c => c.name);
-    const notesIdx = headers.findIndex(h => ['notes', 'comments', 'comment', 'note', 'evaluator notes'].includes(h.toLowerCase().trim()));
-    const rows = csvLines.slice(1).map(line => {
-      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-      const scores = catNames.map(cat => { const idx = headers.indexOf(cat); return idx >= 0 ? cols[idx] : null; });
-      const notes = notesIdx >= 0 && cols[notesIdx] ? cols[notesIdx] : null;
+    const notesHeader = headers.find(h => ['notes', 'comments', 'comment', 'note', 'evaluator notes'].includes(h.toLowerCase().trim()));
+    const rows = parsedRows.map(row => {
+      const cols = Object.values(row); // positional: first_name/last_name are always cols 0/1
+      const scores = catNames.map(cat => (cat in row ? row[cat] : null));
+      const notes = notesHeader && row[notesHeader] ? row[notesHeader] : null;
       return { first_name: cols[0], last_name: cols[1], scores, notes };
     }).filter(r => r.first_name && r.last_name);
     const res = await fetch(`/api/categories/${catId}/scores`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evaluatorName: evalName, sessionNumber: parseInt(sessionNum), rows }) });

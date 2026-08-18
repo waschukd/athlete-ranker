@@ -5,7 +5,10 @@
 // ── CSV parsing (quote-aware) ──────────────────────────────────────────────
 // Handles quoted fields containing commas/newlines and "" escaped quotes —
 // the naive line.split(",") approach mangles real exports (addresses, notes).
-export function parseCsv(text) {
+
+// Low-level tokenizer: text -> array of field arrays. No header handling, for
+// callers (fixed-column-order uploads) that don't map by header name.
+export function parseCsvRows(text) {
   const rows = [];
   let row = [];
   let field = "";
@@ -29,7 +32,11 @@ export function parseCsv(text) {
   }
   if (field.length || row.length) { row.push(field); rows.push(row); }
   // Drop fully-empty trailing rows
-  const cleaned = rows.filter(r => r.some(v => (v || "").trim() !== ""));
+  return rows.filter(r => r.some(v => (v || "").trim() !== ""));
+}
+
+export function parseCsv(text) {
+  const cleaned = parseCsvRows(text);
   if (!cleaned.length) return { headers: [], rows: [] };
   const headers = cleaned[0].map(h => h.trim());
   const dataRows = cleaned.slice(1).map(r => {

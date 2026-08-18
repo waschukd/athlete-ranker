@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { analyzeTeams, cutsToSizes, detectNaturalTiers } from "@/lib/teamInsights";
+import { parseCsvRows } from "@/lib/rosterImport";
 import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
@@ -1089,10 +1090,11 @@ export default function CategoryDashboard({
                     const file = e.target.files[0]; if (!file) return;
                     setImporting(true);
                     const text = await file.text();
-                    const lines = text.trim().split("\n").filter(l => l.trim());
-                    const hasHeader = lines[0].toLowerCase().includes("session") || lines[0].toLowerCase().includes("date");
-                    const dataLines = hasHeader ? lines.slice(1) : lines;
-                    const rows = dataLines.map(line => { const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "")); return { session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6], matchup: cols[7] || null }; }).filter(r => r.session_number && r.scheduled_date);
+                    const allRows = parseCsvRows(text).map(cols => cols.map(c => c.trim()));
+                    const headerLine = (allRows[0] || []).join(",").toLowerCase();
+                    const hasHeader = headerLine.includes("session") || headerLine.includes("date");
+                    const dataRows = hasHeader ? allRows.slice(1) : allRows;
+                    const rows = dataRows.map(cols => ({ session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6], matchup: cols[7] || null })).filter(r => r.session_number && r.scheduled_date);
                     const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
                     const data = await res.json();
                     setUploadMsg(data.success ? `${data.inserted ?? data.count ?? 0} added, ${data.updated ?? 0} updated` : "Error: " + data.error);
@@ -1163,10 +1165,9 @@ export default function CategoryDashboard({
                             <input type="file" accept=".csv,.txt" className="hidden" onChange={async (e) => {
                               const file = e.target.files[0]; if (!file) return;
                               const text = await file.text();
-                              const lines = text.trim().split('\n').filter(l => l.trim());
-                              if (!lines.length) { e.target.value = ""; return; }
-                              const splitCsv = (line) => line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                              const header = splitCsv(lines[0]);
+                              const allRows = parseCsvRows(text).map(cols => cols.map(c => c.trim()));
+                              if (!allRows.length) { e.target.value = ""; return; }
+                              const header = allRows[0];
                               const lower = header.map(h => h.toLowerCase());
                               const looksHeader = lower.some(h => h.includes('name')) || lower.includes('overall rank');
                               let results;
@@ -1181,7 +1182,7 @@ export default function CategoryDashboard({
                                   if (!h || h.includes('first') || h.includes('last') || h === 'position' || h === 'rank' || h === 'overall rank') continue;
                                   testCols.push({ name: header[i], valueIdx: i, rankIdx: lower[i + 1] === 'rank' ? i + 1 : -1 });
                                 }
-                                results = lines.slice(1).map(splitCsv).map(cols => ({
+                                results = allRows.slice(1).map(cols => ({
                                   first_name: firstIdx >= 0 ? cols[firstIdx] : cols[0],
                                   last_name: lastIdx >= 0 ? cols[lastIdx] : cols[1],
                                   overall_rank: overallIdx >= 0 ? cols[overallIdx] : cols[cols.length - 1],
@@ -1191,7 +1192,7 @@ export default function CategoryDashboard({
                                 })).filter(r => r.first_name && r.last_name && r.overall_rank);
                               } else {
                                 // Legacy stripped format: first, last, overall_rank
-                                results = lines.map(splitCsv)
+                                results = allRows
                                   .map(cols => ({ first_name: cols[0], last_name: cols[1], overall_rank: cols[2] }))
                                   .filter(r => r.first_name && r.last_name && r.overall_rank);
                               }

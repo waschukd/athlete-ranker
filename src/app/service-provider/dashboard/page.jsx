@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
+import { parseCsv } from "@/lib/rosterImport";
 import SessionRosterModal from "@/components/SessionRosterModal";
 import { colorForOrg, buildOrgColorMap, paletteFromHex, OrgChip, OrgAvatar } from "@/lib/orgVisuals";
 import { DateStripBar, MonthCalendar, WeekGrid } from "@/components/SessionDateNav";
@@ -835,16 +836,15 @@ function TestingSessionsControls({ spUrl, onSaved }) {
     const file = e.target.files?.[0]; if (!file) return;
     setUploadMsg(null);
     const text = await file.text();
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    const idx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
-    const ci = { client: idx(["client"]), age: idx(["age"]), date: idx(["date"]), start: idx(["start"]), end: idx(["end"]), loc: idx(["location", "rink"]), testers: idx(["tester"]) };
-    const evs = lines.slice(1).map(l => { const c = l.split(",").map(x => x.trim()); return {
-      client_label: ci.client >= 0 ? c[ci.client] : "", age_label: ci.age >= 0 ? c[ci.age] : "", scheduled_date: ci.date >= 0 ? c[ci.date] : "",
-      start_time: ci.start >= 0 ? c[ci.start] : "", end_time: ci.end >= 0 ? c[ci.end] : "",
-      location: ci.loc >= 0 ? c[ci.loc] : "", testers_required: ci.testers >= 0 ? c[ci.testers] : "",
-    }; }).filter(ev => ev.client_label && ev.scheduled_date);
+    const { headers, rows } = parseCsv(text);
+    if (!rows.length) { setUploadMsg({ type: "error", text: "That CSV looks empty." }); e.target.value = ""; return; }
+    const findCol = (names) => headers.find(h => names.some(n => h.toLowerCase().includes(n)));
+    const col = { client: findCol(["client"]), age: findCol(["age"]), date: findCol(["date"]), start: findCol(["start"]), end: findCol(["end"]), loc: findCol(["location", "rink"]), testers: findCol(["tester"]) };
+    const evs = rows.map(r => ({
+      client_label: col.client ? r[col.client] : "", age_label: col.age ? r[col.age] : "", scheduled_date: col.date ? r[col.date] : "",
+      start_time: col.start ? r[col.start] : "", end_time: col.end ? r[col.end] : "",
+      location: col.loc ? r[col.loc] : "", testers_required: col.testers ? r[col.testers] : "",
+    })).filter(ev => ev.client_label && ev.scheduled_date);
     e.target.value = "";
     if (!evs.length) { setUploadMsg({ type: "error", text: "No valid rows — the CSV needs Client and Date columns." }); return; }
     const res = await fetch(spUrl("/api/service-provider/testing-events"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events: evs }) });

@@ -8,6 +8,7 @@ import {
   AlertCircle, Users, Calendar, Settings, Trophy, Shield, Zap, GripVertical, Search,
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
+import { parseCsv } from "@/lib/rosterImport";
 import RosterImport from "@/components/RosterImport";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
 import { useTheme } from "@/lib/useTheme";
@@ -70,16 +71,6 @@ const STEPS = [
   { id: 4, label: "Schedule", icon: Calendar },
   { id: 5, label: "Review", icon: Check },
 ];
-
-function parseCSV(text) {
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-    return Object.fromEntries(headers.map((h, i) => [h, vals[i] || ""]));
-  });
-}
 
 function StepIndicator({ currentStep, skaterValid, onJump }) {
   const canJumpTo = (targetId) => {
@@ -451,7 +442,7 @@ function ScheduleStep({ catId, sessions = [], categoryName }) {
     if (!file) return;
     setImporting(true); setImportResult(null);
     const text = await file.text();
-    const rows = parseCSV(text);
+    const { rows } = parseCsv(text);
     const schedule = rows.map(row => {
       const type = (row["Type"] || row["type"] || "").toLowerCase();
       const isGoalieSkills = type.includes("goalie");
