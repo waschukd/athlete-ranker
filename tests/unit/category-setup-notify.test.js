@@ -84,6 +84,36 @@ describe("POST /api/categories/[catId]/setup — sessions step notifies on type 
     expect(notifySessionChange).not.toHaveBeenCalled();
   });
 
+  it("flipping to Testing zeroes evaluators_required and releases signed-up evaluators", async () => {
+    const sqlCalls = [];
+    sql.mockImplementation(async (strings) => {
+      const text = strings.join("?");
+      sqlCalls.push(text);
+      const responses = [
+        ["SELECT setup_complete", [{ setup_complete: true, organization_id: 9, created_at: "2026-01-01" }]],
+        ["SELECT session_number, session_type FROM category_sessions", [{ session_number: 2, session_type: "scrimmage" }]],
+        ["DELETE FROM category_sessions", []],
+        ["INSERT INTO category_sessions", []],
+        ["SELECT * FROM evaluation_schedule", [{ id: 156, session_number: 2, status: "scheduled" }]],
+      ];
+      for (const [match, result] of responses) if (text.includes(match)) return result;
+      return [];
+    });
+
+    const { POST } = await import("@/app/api/categories/[catId]/setup/route");
+    const res = await POST(makeReq({
+      step: "sessions",
+      data: { sessions: [{ session_number: 2, name: "Session 2", session_type: "testing", weight_percentage: 30 }] },
+    }), { params: { catId: "5" } });
+
+    expect(res.status).toBe(200);
+    expect(sqlCalls.some(q => q.includes("evaluators_required = 0") && q.includes("testers_required"))).toBe(true);
+    expect(sqlCalls.some(q => q.includes("UPDATE evaluator_session_signups SET status = 'released'"))).toBe(true);
+    expect(notifySessionChange).toHaveBeenCalledWith(expect.objectContaining({
+      summary: expect.stringContaining("no longer needed"),
+    }));
+  });
+
   it("does not notify during initial setup, before the category is launched", async () => {
     mockSqlByQuery([
       ["SELECT setup_complete", [{ setup_complete: false, organization_id: 9, created_at: "2026-01-01" }]],

@@ -102,13 +102,36 @@ export async function POST(request, { params }) {
             const initiator = { name: session.name || session.email, role: session.role };
             for (const c of changedNums) {
               try {
+                const isTesting = c.to === "testing";
                 const rows = await sql`SELECT * FROM evaluation_schedule WHERE age_category_id = ${catId} AND session_number = ${c.num} AND status <> 'cancelled'`;
+                const summary = isTesting
+                  ? `Session ${c.num}'s type changed from ${typeLabel(c.from)} to ${typeLabel(c.to)} — player evaluators are no longer needed for this session, and any existing evaluator signups have been released.`
+                  : `Session ${c.num}'s type changed from ${typeLabel(c.from)} to ${typeLabel(c.to)}.`;
                 for (const row of rows) {
+                  // Notify while signups are still 'signed_up' -- notifySessionChange's
+                  // recipient query only reaches that status, so this must run before
+                  // the release below or the very people we most need to reach get skipped.
                   await notifySessionChange({
                     catId, scheduleRow: row, scheduleId: row.id, changeType: "edited",
-                    summary: `Session ${c.num}'s type changed from ${typeLabel(c.from)} to ${typeLabel(c.to)}.`,
-                    initiator,
+                    summary, initiator,
                   });
+                }
+                // Keep staffing requirements in sync with the new type -- these were
+                // previously left at whatever the OLD type needed, so a session that
+                // just became Testing still showed "needs evaluators" (evaluators_
+                // required never got zeroed) even though testers, not evaluators, are
+                // what it actually needs now.
+                if (isTesting) {
+                  await sql`UPDATE evaluation_schedule SET evaluators_required = 0, testers_required = GREATEST(COALESCE(testers_required, 0), 7) WHERE age_category_id = ${catId} AND session_number = ${c.num} AND status <> 'cancelled'`;
+                  // Nobody needs to be an evaluator here anymore -- release them
+                  // rather than leaving them silently signed up to a role the
+                  // session no longer has.
+                  const rowIds = rows.map(r => r.id);
+                  if (rowIds.length) {
+                    await sql`UPDATE evaluator_session_signups SET status = 'released' WHERE schedule_id = ANY(${rowIds}) AND status = 'signed_up'`;
+                  }
+                } else {
+                  await sql`UPDATE evaluation_schedule SET testers_required = 0, evaluators_required = GREATEST(COALESCE(evaluators_required, 0), 4) WHERE age_category_id = ${catId} AND session_number = ${c.num} AND status <> 'cancelled'`;
                 }
               } catch (e) { console.error("sessions: type-change notify", e?.message); }
             }

@@ -14,6 +14,20 @@ import sql from "@/lib/db";
 import { getSession, getAppUserId } from "@/lib/auth";
 import { canManageSessionAssignments } from "@/lib/authorize";
 import { eligiblePeople, eligibilityOf } from "@/lib/sessionRoster";
+import { sendEmail, emailWrapper, esc } from "@/lib/email";
+
+function fmtDate(d) {
+  if (!d) return "TBD";
+  const iso = d.toString().split("T")[0];
+  const [y, m, dd] = iso.split("-").map(Number);
+  return y ? new Date(y, m - 1, dd).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : iso;
+}
+function fmtTime(t) {
+  if (!t) return "";
+  const [h, m] = String(t).split(":").map(Number);
+  const ap = h >= 12 ? "PM" : "AM"; const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
+}
 
 // Resolve the schedule row to its association org (+ session context). SP-owned
 // testing events carry a NULL category and hang off the SP instead — organization_id
@@ -219,6 +233,24 @@ export async function DELETE(request, { params }) {
     } else {
       await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
     }
+
+    // Removing someone here previously told no one -- they'd just discover it
+    // was gone (or worse, never notice and show up anyway).
+    try {
+      const [removed] = await sql`SELECT email, name FROM users WHERE id = ${user_id}`;
+      if (removed?.email) {
+        const s = auth.s;
+        const when = [fmtDate(s.scheduled_date), fmtTime(s.start_time), s.location].filter(Boolean).join(" · ");
+        const html = emailWrapper(`
+          <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">You've been removed from a session</h2>
+          <p style="margin:0 0 16px;font-size:14px;color:#6b7280;line-height:1.6;">
+            Hi ${esc(removed.name || "there")}, you were signed up as a ${kind} for <strong style="color:#111827;">${esc(s.category_name || "")}${s.org_name ? ` at ${esc(s.org_name)}` : ""}</strong> — Session ${s.session_number}${s.group_number ? ` · Group ${s.group_number}` : ""} (${esc(when)}) — but have been removed and no longer need to attend.
+          </p>
+        `);
+        await sendEmail(removed.email, `Removed from a session — ${s.category_name || "Sideline Star"}`, html);
+      }
+    } catch (e) { console.error("roster DELETE notify:", e?.message); }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("roster DELETE error:", error);
