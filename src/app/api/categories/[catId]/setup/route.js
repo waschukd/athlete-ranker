@@ -85,12 +85,21 @@ export async function POST(request, { params }) {
           ? Object.fromEntries((await sql`SELECT session_number, session_type FROM category_sessions WHERE age_category_id = ${catId}`).map(s => [s.session_number, s.session_type]))
           : {};
 
-        // Delete existing sessions and recreate
+        // Delete existing sessions and recreate. evaluators_required/
+        // goalie_evaluators_required were dropped here despite the setup
+        // wizard already computing them correctly per session type (0 for
+        // Testing/Goalie Skills) -- every save silently fell back to the
+        // evaluators_required column's DB default (4), so a session already
+        // switched to Testing kept showing "needs evaluators" to browsing
+        // evaluators on every subsequent settings save.
         await sql`DELETE FROM category_sessions WHERE age_category_id = ${catId}`;
         for (const sess of data.sessions) {
+          const isTesting = sess.session_type === "testing";
+          const evaluators_required = sess.evaluators_required != null ? parseInt(sess.evaluators_required) || 0 : (isTesting ? 0 : 4);
+          const goalie_evaluators_required = parseInt(sess.goalie_evaluators_required) || 0;
           await sql`
-            INSERT INTO category_sessions (age_category_id, session_number, name, session_type, weight_percentage)
-            VALUES (${catId}, ${sess.session_number}, ${sess.name}, ${sess.session_type}, ${sess.weight_percentage})
+            INSERT INTO category_sessions (age_category_id, session_number, name, session_type, weight_percentage, evaluators_required, goalie_evaluators_required)
+            VALUES (${catId}, ${sess.session_number}, ${sess.name}, ${sess.session_type}, ${sess.weight_percentage}, ${evaluators_required}, ${goalie_evaluators_required})
           `;
         }
 
