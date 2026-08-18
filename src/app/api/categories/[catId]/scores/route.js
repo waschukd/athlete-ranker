@@ -300,57 +300,72 @@ export async function POST(request, { params }) {
     // Delete existing scores from this evaluator for this session (overwrite)
     await sql`DELETE FROM category_scores WHERE age_category_id = ${catId} AND session_number = ${sessionNumber} AND evaluator_id = ${evaluatorId}`;
 
+    // Resolve every row's athlete-name lookup concurrently -- reads, independent
+    // of each other and of everything that follows.
+    const athleteLookups = await Promise.all(rows.map(row => sql`
+      SELECT id FROM athletes WHERE age_category_id = ${catId}
+        AND LOWER(first_name) = LOWER(${row.first_name})
+        AND LOWER(last_name) = LOWER(${row.last_name})
+        AND is_active = true
+      LIMIT 1
+    `));
+
     let imported = 0;
     let skipped = 0;
+    const scoreUpserts = [];
+    const noteTasks = [];
 
-    for (const row of rows) {
-      const { first_name, last_name, scores, notes } = row;
-      const athlete = await sql`
-        SELECT id FROM athletes WHERE age_category_id = ${catId}
-          AND LOWER(first_name) = LOWER(${first_name})
-          AND LOWER(last_name) = LOWER(${last_name})
-          AND is_active = true
-        LIMIT 1
-      `;
-      if (!athlete.length) { skipped++; continue; }
+    rows.forEach((row, idx) => {
+      const { scores, notes } = row;
+      const athlete = athleteLookups[idx];
+      if (!athlete.length) { skipped++; return; }
       const athleteId = athlete[0].id;
 
+      // Each upsert's conflict key is (athlete_id, session_number, evaluator_id,
+      // scoring_category_id) -- distinct athlete_id per row, distinct category_id
+      // per iteration, so nothing here can collide with anything else in the batch.
       for (let i = 0; i < scoringCats.length; i++) {
         const score = parseFloat(scores[i]);
         if (isNaN(score)) continue;
-        await sql`
+        scoreUpserts.push(sql`
           INSERT INTO category_scores (athlete_id, age_category_id, session_number, evaluator_id, scoring_category_id, score, notes, scored_via, updated_at)
           VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${scoringCats[i].id}, ${score}, ${notes || null}, 'manual_upload', NOW())
           ON CONFLICT (athlete_id, session_number, evaluator_id, scoring_category_id)
           DO UPDATE SET score = ${score}, notes = ${notes || null}, scored_via = 'manual_upload', updated_at = NOW()
-        `;
+        `);
       }
 
       // category_scores.notes above is write-only -- every report/export reads
       // free-form notes from player_notes instead (the live-scoring path writes
       // both). Without this, a note entered via bulk upload silently never
-      // appears anywhere.
+      // appears anywhere. This is a SELECT-then-write, not a plain upsert, but
+      // each row targets a distinct (athlete_id, session_number, evaluator_id) key
+      // so different rows' note tasks can still run concurrently with each other.
       if (notes?.trim()) {
-        const existingNote = await sql`
-          SELECT id, note_text FROM player_notes
-          WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
-            AND session_number = ${sessionNumber} AND evaluator_id = ${evaluatorId}
-          ORDER BY created_at DESC LIMIT 1
-        `;
-        if (existingNote.length) {
-          if (existingNote[0].note_text !== notes.trim()) {
-            await sql`UPDATE player_notes SET note_text = ${notes}, scored_via = 'manual_upload', updated_at = NOW() WHERE id = ${existingNote[0].id}`;
-          }
-        } else {
-          await sql`
-            INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via)
-            VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${notes}, 'manual_upload')
+        noteTasks.push((async () => {
+          const existingNote = await sql`
+            SELECT id, note_text FROM player_notes
+            WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
+              AND session_number = ${sessionNumber} AND evaluator_id = ${evaluatorId}
+            ORDER BY created_at DESC LIMIT 1
           `;
-        }
+          if (existingNote.length) {
+            if (existingNote[0].note_text !== notes.trim()) {
+              await sql`UPDATE player_notes SET note_text = ${notes}, scored_via = 'manual_upload', updated_at = NOW() WHERE id = ${existingNote[0].id}`;
+            }
+          } else {
+            await sql`
+              INSERT INTO player_notes (athlete_id, age_category_id, session_number, evaluator_id, note_text, scored_via)
+              VALUES (${athleteId}, ${catId}, ${sessionNumber}, ${evaluatorId}, ${notes}, 'manual_upload')
+            `;
+          }
+        })());
       }
 
       imported++;
-    }
+    });
+
+    await Promise.all([...scoreUpserts, ...noteTasks]);
 
     return NextResponse.json({ success: true, imported, skipped });
   } catch (error) {

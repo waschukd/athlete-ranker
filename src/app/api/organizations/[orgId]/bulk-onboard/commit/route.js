@@ -85,26 +85,29 @@ export async function POST(request, { params }) {
       // Session mapping for this category's schedule.
       const { sessionForRow } = deriveSessions(keyRows);
 
-      // Athletes (upsert by external_id; else insert).
-      for (const a of keyAthletes) {
-        if (!a.first_name || !a.last_name) continue;
+      // Athletes (upsert by external_id; else insert). Each row targets a distinct
+      // conflict key (external_id) or no key at all, so nothing here can race --
+      // fire them all concurrently instead of one round trip per athlete.
+      const validAthletes = keyAthletes.filter(a => a.first_name && a.last_name);
+      await Promise.all(validAthletes.map(a => {
         const helmet = a.helmet_number ? String(a.helmet_number).trim().slice(0, 4) || null : null;
-        if (a.external_id) {
-          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.external_id}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)
-            ON CONFLICT (age_category_id, external_id) WHERE external_id IS NOT NULL
-            DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number), is_active = true`;
-        } else {
-          await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-            VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)`;
-        }
-        summary.athletesImported++;
-      }
+        return a.external_id
+          ? sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+              VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.external_id}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)
+              ON CONFLICT (age_category_id, external_id) WHERE external_id IS NOT NULL
+              DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number), is_active = true`
+          : sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+              VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)`;
+      }));
+      summary.athletesImported += validAthletes.length;
 
       // Schedule slots → session (by date/type) with unique-per-session group numbers.
+      // The group-number auto-counter is stateful and must stay a plain sequential
+      // loop (pure JS, no I/O) -- but the actual DB writes it produces don't depend
+      // on each other, so those are batched separately below.
       const groupCounter = {}; // session_number → next group
       const sorted = keyRows.filter(r => r.date).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.start_time || "").localeCompare(b.start_time || ""));
-      for (const r of sorted) {
+      const scheduleSlots = sorted.map(r => {
         // Honor explicit Session #/Group # from the template; else derive.
         const sNum = (r.session_number != null && r.session_number !== "") ? (parseInt(r.session_number) || sessionForRow(r)) : sessionForRow(r);
         let grpNum;
@@ -125,14 +128,20 @@ export async function POST(request, { params }) {
         // "If necessary" games land tentative — visible on the schedule, closed
         // to signups until confirmed (the signup queries filter status='scheduled').
         const schedStatus = r.if_necessary ? "tentative" : "scheduled";
-        await sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status)
-          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${testersReq}, ${r.matchup || null}, ${schedStatus})`;
-        // The slot's group must also exist in session_groups — that's what
-        // "Manage groups" and auto-assign read. Without this the Schedule tab
-        // shows groups while group management insists there are none.
-        await ensureSessionGroup(catId, sNum, grpNum);
-        summary.scheduleImported++;
-      }
+        return { r, sNum, grpNum, dow, evalReq, ge, testersReq, schedStatus };
+      });
+      await Promise.all(scheduleSlots.map(({ r, sNum, grpNum, dow, evalReq, ge, testersReq, schedStatus }) =>
+        sql`INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status)
+          VALUES (${catId}, ${sNum}, ${grpNum}, ${r.date}, ${dow}, ${r.start_time || null}, ${r.end_time || null}, ${r.location || null}, ${code()}, ${evalReq}, ${ge}, ${testersReq}, ${r.matchup || null}, ${schedStatus})`
+      ));
+      // The slot's group must also exist in session_groups — that's what "Manage
+      // groups" and auto-assign read. Dedup to one call per (session, group) pair
+      // first: ensureSessionGroup does its own SELECT-then-INSERT, so firing it
+      // concurrently for the SAME pair (multiple slots sharing a group) would race.
+      const uniqueGroups = new Map();
+      for (const { sNum, grpNum } of scheduleSlots) uniqueGroups.set(`${sNum}|${grpNum}`, [sNum, grpNum]);
+      await Promise.all([...uniqueGroups.values()].map(([sNum, grpNum]) => ensureSessionGroup(catId, sNum, grpNum)));
+      summary.scheduleImported += scheduleSlots.length;
     }
 
     return NextResponse.json({ success: true, ...summary });

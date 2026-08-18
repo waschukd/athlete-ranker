@@ -56,35 +56,39 @@ export async function POST(request, { params }) {
       matched.push({ athlete_id: athlete.id, name: `${athlete.first_name} ${athlete.last_name}`, rank, tests });
     }
 
-    // Insert/upsert overall rank (used by rankings)
-    for (const m of matched) {
-      await sql`
-        INSERT INTO testing_drill_results (athlete_id, age_category_id, session_number, overall_rank)
-        VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${m.rank})
-        ON CONFLICT (athlete_id, age_category_id, session_number)
-        DO UPDATE SET overall_rank = ${m.rank}, updated_at = NOW()
-      `;
-    }
+    // Insert/upsert overall rank (used by rankings). Each row's conflict key
+    // (athlete_id, age_category_id, session_number) is unique per matched
+    // athlete, so these can't race each other -- fire concurrently.
+    await Promise.all(matched.map(m => sql`
+      INSERT INTO testing_drill_results (athlete_id, age_category_id, session_number, overall_rank)
+      VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${m.rank})
+      ON CONFLICT (athlete_id, age_category_id, session_number)
+      DO UPDATE SET overall_rank = ${m.rank}, updated_at = NOW()
+    `));
 
     // Insert/upsert the individual test values (used by the parent report).
     // Best-effort: degrades silently if the testing_results table isn't there.
     let testsStored = 0;
     try {
+      const testUpserts = [];
       for (const m of matched) {
         for (const t of (m.tests || [])) {
           const name = (t.name || "").trim();
           const value = parseFloat(t.value);
           if (!name || isNaN(value)) continue;
           const trank = parseInt(t.rank);
-          await sql`
+          testUpserts.push(sql`
             INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank)
             VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${name}, ${value}, ${isNaN(trank) ? null : trank})
             ON CONFLICT (athlete_id, age_category_id, session_number, test_name)
             DO UPDATE SET value = ${value}, test_rank = ${isNaN(trank) ? null : trank}, updated_at = NOW()
-          `;
-          testsStored++;
+          `);
         }
       }
+      // Each (athlete, session, test_name) conflict key is unique within this
+      // batch, same reasoning as above.
+      await Promise.all(testUpserts);
+      testsStored = testUpserts.length;
     } catch (e) {
       console.error("testing_results upsert skipped:", e.message);
     }
