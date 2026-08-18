@@ -2,51 +2,34 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
+import { sendEmail, esc } from "@/lib/email";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
 // Send one tester invite email. Returns true if actually sent (RESEND configured).
 async function sendTesterInvite(email, signup_url, sp_name) {
-  if (!process.env.RESEND_API_KEY) return false;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-      to: email,
-      subject: `You've been invited to join the testing crew for ${sp_name || "a hockey organization"}`,
-      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to be a tester!</h1>
-        <p style="color: #555; font-size: 15px;">${sp_name || "A hockey organization"} has invited you to join their testing crew — you'll run the on-ice testing sessions.</p>
-        <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for testing dates.</p>
-        <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
-        <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
-      </div>`,
-    }),
-  });
-  return true;
+  const res = await sendEmail(email, `You've been invited to join the testing crew for ${sp_name || "a hockey organization"}`,
+    `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+      <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to be a tester!</h1>
+      <p style="color: #555; font-size: 15px;">${esc(sp_name) || "A hockey organization"} has invited you to join their testing crew — you'll run the on-ice testing sessions.</p>
+      <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for testing dates.</p>
+      <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
+      <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
+    </div>`);
+  return res.ok;
 }
 
 // Send one evaluator invite email. Returns true if actually sent (RESEND configured).
 async function sendEvaluatorInvite(email, signup_url, sp_name) {
-  if (!process.env.RESEND_API_KEY) return false;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-      to: email,
-      subject: `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
-      html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
-        <p style="color: #555; font-size: 15px;">${sp_name || "A hockey organization"} has invited you to join their evaluator pool.</p>
-        <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for sessions.</p>
-        <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
-        <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
-      </div>`,
-    }),
-  });
-  return true;
+  const res = await sendEmail(email, `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
+    `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+      <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
+      <p style="color: #555; font-size: 15px;">${esc(sp_name) || "A hockey organization"} has invited you to join their evaluator pool.</p>
+      <p style="color: #555; font-size: 15px;">Click below to create your account and start signing up for sessions.</p>
+      <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
+      <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
+    </div>`);
+  return res.ok;
 }
 
 export async function POST(request) {
@@ -140,27 +123,19 @@ export async function POST(request) {
       let sent = 0;
       if (process.env.RESEND_API_KEY) {
         for (const t of testers) {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-            body: JSON.stringify({
-              from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-              to: t.email,
-              subject: `Tester needed — ${sched.org_name} ${sessionDate}`,
-              html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-                <h2 style="color:#111;">A testing spot needs filling</h2>
-                ${message ? `<p style="color:#555;">${message}</p>` : ""}
-                <div style="background:#f9f9f9;border-radius:12px;padding:20px;margin:20px 0;">
-                  <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${sched.org_name} · ${sched.category_name}</p>
-                  <p style="margin:0 0 4px;color:#555;">Testing · Session ${sched.session_number}${sched.group_number ? ` · Group ${sched.group_number}` : ""}</p>
-                  <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
-                  <p style="margin:0;color:#555;">${sched.location || ""}</p>
-                </div>
-                <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
-                <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${admin_name}</p>
-              </div>`,
-            }),
-          });
+          await sendEmail(t.email, `Tester needed — ${sched.org_name} ${sessionDate}`,
+            `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+              <h2 style="color:#111;">A testing spot needs filling</h2>
+              ${message ? `<p style="color:#555;">${esc(message)}</p>` : ""}
+              <div style="background:#f9f9f9;border-radius:12px;padding:20px;margin:20px 0;">
+                <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${esc(sched.org_name)} · ${esc(sched.category_name)}</p>
+                <p style="margin:0 0 4px;color:#555;">Testing · Session ${esc(sched.session_number)}${sched.group_number ? ` · Group ${esc(sched.group_number)}` : ""}</p>
+                <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
+                <p style="margin:0;color:#555;">${esc(sched.location) || ""}</p>
+              </div>
+              <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
+              <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
+            </div>`);
           sent++;
         }
       }
@@ -196,34 +171,26 @@ export async function POST(request) {
     let sent = 0;
     if (process.env.RESEND_API_KEY) {
       for (const evaluator of availableEvaluators) {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-          body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-            to: evaluator.email,
-            subject: `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sessionDate}`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-                <div style="background: #FFF3CD; border: 1px solid #FFD700; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
-                  <strong style="color: #856404;">⚡ Urgent Opening</strong>
-                </div>
-                <h2 style="color: #111;">Evaluator spot available</h2>
-                ${message ? `<p style="color: #555;">${message}</p>` : ""}
-                <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin: 20px 0;">
-                  <p style="margin: 0 0 8px; font-weight: 600; font-size: 16px;">${sched.org_name} · ${sched.category_name}</p>
-                  <p style="margin: 0 0 4px; color: #555;">Session ${sched.session_number}${sched.group_number ? ` · Group ${sched.group_number}` : ""}</p>
-                  <p style="margin: 0 0 4px; color: #555;">${sessionDate}</p>
-                  <p style="margin: 0; color: #555;">${sched.location || ""}</p>
-                </div>
-                <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
-                  Sign Up Now →
-                </a>
-                <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${admin_name}</p>
+        await sendEmail(evaluator.email, `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sessionDate}`,
+          `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+              <div style="background: #FFF3CD; border: 1px solid #FFD700; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                <strong style="color: #856404;">⚡ Urgent Opening</strong>
               </div>
-            `,
-          }),
-        });
+              <h2 style="color: #111;">Evaluator spot available</h2>
+              ${message ? `<p style="color: #555;">${esc(message)}</p>` : ""}
+              <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 0 0 8px; font-weight: 600; font-size: 16px;">${esc(sched.org_name)} · ${esc(sched.category_name)}</p>
+                <p style="margin: 0 0 4px; color: #555;">Session ${esc(sched.session_number)}${sched.group_number ? ` · Group ${esc(sched.group_number)}` : ""}</p>
+                <p style="margin: 0 0 4px; color: #555;">${sessionDate}</p>
+                <p style="margin: 0; color: #555;">${esc(sched.location) || ""}</p>
+              </div>
+              <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                Sign Up Now →
+              </a>
+              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${esc(admin_name)}</p>
+            </div>
+          `);
         sent++;
       }
     }

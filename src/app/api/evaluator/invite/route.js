@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { esc } from "@/lib/email";
+import { esc, sendEmail } from "@/lib/email";
 import sql from "@/lib/db";
 
 export async function POST(request) {
@@ -21,37 +21,26 @@ export async function POST(request) {
 
     const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
 
-    // Send via Resend if configured
-    if (process.env.RESEND_API_KEY) {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "noreply@sidelinestar.com",
-          to: email,
-          subject: `${esc(session.name) || "An evaluator"} invited you to evaluate at ${esc(session_info.org_name)}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
-              <p style="color: #555; font-size: 15px;">${esc(session.name) || "A fellow evaluator"} thinks you'd be a great fit for this session:</p>
-              <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin: 24px 0;">
-                <p style="margin: 0 0 8px; font-weight: 600; color: #111; font-size: 16px;">${esc(session_info.org_name)} · ${esc(session_info.category_name)}</p>
-                <p style="margin: 0 0 4px; color: #555;">Session ${esc(session_info.session_number)}${session_info.group_number ? ` · Group ${esc(session_info.group_number)}` : ""}</p>
-                <p style="margin: 0 0 4px; color: #555;">${esc(session_info.scheduled_date?.toString().split("T")[0])}</p>
-                <p style="margin: 0; color: #555;">${esc(session_info.location) || ""}</p>
-              </div>
-              <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">
-                View & Sign Up →
-              </a>
-              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
-            </div>
-          `,
-        }),
-      });
-    }
+    await sendEmail(
+      email,
+      `${esc(session.name) || "An evaluator"} invited you to evaluate at ${esc(session_info.org_name)}`,
+      `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
+          <p style="color: #555; font-size: 15px;">${esc(session.name) || "A fellow evaluator"} thinks you'd be a great fit for this session:</p>
+          <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0 0 8px; font-weight: 600; color: #111; font-size: 16px;">${esc(session_info.org_name)} · ${esc(session_info.category_name)}</p>
+            <p style="margin: 0 0 4px; color: #555;">Session ${esc(session_info.session_number)}${session_info.group_number ? ` · Group ${esc(session_info.group_number)}` : ""}</p>
+            <p style="margin: 0 0 4px; color: #555;">${esc(session_info.scheduled_date?.toString().split("T")[0])}</p>
+            <p style="margin: 0; color: #555;">${esc(session_info.location) || ""}</p>
+          </div>
+          <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">
+            View & Sign Up →
+          </a>
+          <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
+        </div>
+      `,
+    );
 
     // Log the invite
     await sql`

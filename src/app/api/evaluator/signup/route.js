@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { emailStrike1, emailStrike2Suspended, emailLateCancel48hr } from "@/lib/email";
+import { emailStrike1, emailStrike2Suspended, sendEmail, esc } from "@/lib/email";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
@@ -9,15 +9,6 @@ async function getAppUserId(session) {
   if (!session?.email) return null;
   const user = await sql`SELECT id FROM users WHERE email = ${session.email}`;
   return user[0]?.id || null;
-}
-
-async function sendEmail(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) return;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
-  });
 }
 
 export async function POST(request) {
@@ -73,7 +64,7 @@ export async function POST(request) {
           `;
         } catch { /* column not migrated yet */ }
       }
-      const reasonLine = cancelReason ? `<p style="margin:8px 0 0;"><strong>Reason given:</strong> ${cancelReason.replace(/</g, "&lt;")}</p>` : "";
+      const reasonLine = cancelReason ? `<p style="margin:8px 0 0;"><strong>Reason given:</strong> ${esc(cancelReason)}</p>` : "";
 
       // Get evaluator info
       const evalUser = await sql`SELECT name, email FROM users WHERE id = ${appUserId}`;
@@ -129,33 +120,25 @@ export async function POST(request) {
               )
           `;
 
-          // Notify evaluator — suspended
-          await sendEmail(evalEmail, "⚠ Your evaluator account has been suspended",
-            `<p>Hi ${evalName},</p>
-            <p>You have cancelled a session with less than 24 hours notice for the second time. Your account has been suspended and you have been removed from all future sessions.</p>
-            <p>Please contact your service provider if you believe this is an error.</p>`
-          );
+          // Notify evaluator — suspended (shared branded template, was hand-rolled)
+          await emailStrike2Suspended({ name: evalName, email: evalEmail, orgName: sched.org_name });
 
           // Notify SP admins
           for (const admin of spAdmins) {
             await sendEmail(admin.email, `🚨 Evaluator Suspended: ${evalName}`,
-              `<p>${evalName} has received their second late cancellation strike and has been automatically suspended from all future sessions.</p>
-              <p>Session cancelled: ${sched.org_name} · S${sched.session_number} G${sched.group_number}</p>${reasonLine}
+              `<p>${esc(evalName)} has received their second late cancellation strike and has been automatically suspended from all future sessions.</p>
+              <p>Session cancelled: ${esc(sched.org_name)} · S${esc(sched.session_number)} G${esc(sched.group_number)}</p>${reasonLine}
               <p>Log in to reinstate them if needed.</p>`
             );
           }
         } else {
-          // Strike 1 warning
-          await sendEmail(evalEmail, "⚠ Late Cancellation Warning — Strike 1",
-            `<p>Hi ${evalName},</p>
-            <p>You have cancelled your session at <strong>${sched.org_name}</strong> (Session ${sched.session_number}, Group ${sched.group_number}) with less than 24 hours notice.</p>
-            <p><strong>This is Strike 1.</strong> A second late cancellation will result in automatic suspension from all future sessions.</p>`
-          );
+          // Strike 1 warning (shared branded template, was hand-rolled)
+          await emailStrike1({ name: evalName, email: evalEmail, orgName: sched.org_name, sessionDate: sched.scheduled_date?.toString().split("T")[0] });
 
           // Notify SP admins
           for (const admin of spAdmins) {
             await sendEmail(admin.email, `⚠ Late Cancellation: ${evalName} (Strike 1)`,
-              `<p>${evalName} cancelled with ${parseFloat(hoursUntil).toFixed(1)} hours notice for ${sched.org_name} S${sched.session_number} G${sched.group_number}.</p>${reasonLine}
+              `<p>${esc(evalName)} cancelled with ${parseFloat(hoursUntil).toFixed(1)} hours notice for ${esc(sched.org_name)} S${esc(sched.session_number)} G${esc(sched.group_number)}.</p>${reasonLine}
               <p>This is their first strike. One open spot now needs to be filled.</p>`
             );
           }
@@ -164,7 +147,7 @@ export async function POST(request) {
         // Normal cancellation — just notify SP
         for (const admin of spAdmins) {
           await sendEmail(admin.email, `Evaluator Cancelled: ${evalName}`,
-            `<p>${evalName} has cancelled their signup for ${sched.org_name} · ${sched.category_name} S${sched.session_number} G${sched.group_number}.</p>
+            `<p>${esc(evalName)} has cancelled their signup for ${esc(sched.org_name)} · ${esc(sched.category_name)} S${esc(sched.session_number)} G${esc(sched.group_number)}.</p>
             <p>Session date: ${sched.scheduled_date?.toString().split("T")[0]}</p>${reasonLine}`
           );
         }
@@ -316,44 +299,36 @@ export async function POST(request) {
 
     // Send confirmation email with .ics attachment
     const evalUser = await sql`SELECT name, email FROM users WHERE id = ${appUserId}`;
-    if (evalUser.length && process.env.RESEND_API_KEY) {
+    if (evalUser.length) {
       const sessionDate = info.scheduled_date?.toString().split("T")[0];
       const timeStr = info.start_time ? `${info.start_time}${info.end_time ? ` - ${info.end_time}` : ""}` : "TBD";
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "updates@sidelinestar.com",
-          to: evalUser[0].email,
-          subject: `Session Confirmed — ${catInfo[0]?.category_name || "Evaluation"} S${info.session_number}`,
-          html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+      await sendEmail(
+        evalUser[0].email,
+        `Session Confirmed — ${catInfo[0]?.category_name || "Evaluation"} S${info.session_number}`,
+        `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
             <div style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:28px 40px;text-align:center;border-radius:16px 16px 0 0;">
               <div style="font-size:22px;font-weight:800;color:#ffffff;">Sideline Star</div>
             </div>
             <div style="background:#ffffff;padding:36px 40px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 16px 16px;">
               <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">You're signed up!</h2>
-              <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hi <strong style="color:#111827;">${evalUser[0].name}</strong>, you're confirmed for the following session.</p>
+              <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hi <strong style="color:#111827;">${esc(evalUser[0].name)}</strong>, you're confirmed for the following session.</p>
               <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
                 <table width="100%" cellpadding="0" cellspacing="0">
-                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;width:100px;">Category</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${catInfo[0]?.category_name || "Evaluation"}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;width:100px;">Category</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(catInfo[0]?.category_name) || "Evaluation"}</td></tr>
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${sessionDate}</td></tr>
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${timeStr}</td></tr>
-                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${info.location || "TBD"}</td></tr>
-                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${info.session_number} G${info.group_number || "1"}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(info.location) || "TBD"}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${esc(info.session_number)} G${esc(info.group_number) || "1"}</td></tr>
                 </table>
               </div>
               <p style="font-size:12px;color:#9ca3af;margin:16px 0 0;">A calendar invite (.ics) is attached. Open it to add this session to your calendar.</p>
               <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View Dashboard</a></div>
             </div>
           </div>`,
-          attachments: [{
-            filename: "session.ics",
-            content: Buffer.from(icalData).toString("base64"),
-          }],
-        }),
-      });
+        [{ filename: "session.ics", content: Buffer.from(icalData).toString("base64") }],
+      );
     }
 
     return NextResponse.json({ success: true, message: "Signed up successfully", ical: icalData });

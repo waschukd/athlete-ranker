@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { randomTempPassword } from "@/lib/random";
+import { sendEmail, esc } from "@/lib/email";
 
 const ROLE_LABELS = {
   super_admin: "Super Admin",
@@ -15,7 +16,7 @@ const ROLE_LABELS = {
 };
 
 function buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl, org }) {
-  const orgText = org && org !== "your organization" ? ` for <strong style="color:#111827;">${org}</strong>` : "";
+  const orgText = org && org !== "your organization" ? ` for <strong style="color:#111827;">${esc(org)}</strong>` : "";
   return `<!DOCTYPE html>
   <html>
   <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -30,17 +31,17 @@ function buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl, 
           </tr>
           <tr><td style="padding:36px 40px;">
             <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Your Sideline Star Credentials</h2>
-            <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${name}</strong>, your account is ready with the role of <strong style="color:#111827;">${roleLabel}</strong>${orgText}.</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, your account is ready with the role of <strong style="color:#111827;">${roleLabel}</strong>${orgText}.</p>
             <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;width:140px;">Email</td>
-                  <td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${email}</td>
+                  <td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(email)}</td>
                 </tr>
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Temp Password</td>
                   <td style="padding:6px 0;font-size:13px;font-weight:600;">
-                    <code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#0b5cd6;">${tempPassword}</code>
+                    <code style="background:#fff7f4;border:1px solid #fed7c3;padding:2px 8px;border-radius:6px;color:#0b5cd6;">${esc(tempPassword)}</code>
                   </td>
                 </tr>
                 <tr>
@@ -163,17 +164,10 @@ export async function POST(request) {
 
     const org = orgName || "your organization";
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
-    const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
     const roleLabel = ROLE_LABELS[role] || role;
 
-    if (process.env.RESEND_API_KEY) {
-      const html = buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl: BASE_URL, org });
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: FROM, to: email, subject: "Welcome to Sideline Star - Your account is ready", html }),
-      });
-    }
+    const html = buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl: BASE_URL, org });
+    await sendEmail(email, "Welcome to Sideline Star - Your account is ready", html);
 
     return NextResponse.json({ user: user[0] }, { status: 201 });
   } catch (error) {
@@ -246,17 +240,11 @@ export async function PATCH(request) {
       await sql`UPDATE users SET password_changed_at = NOW() WHERE id = ${id}`;
 
       // Send email only for resend_credentials
-      if (action === "resend_credentials" && process.env.RESEND_API_KEY) {
+      if (action === "resend_credentials") {
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
-        const FROM = process.env.EMAIL_FROM || "noreply@sidelinestar.com";
         const roleLabel = ROLE_LABELS[user.role] || user.role;
         const html = buildWelcomeEmailHtml({ name: user.name, email: user.email, roleLabel, tempPassword, baseUrl: BASE_URL });
-
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-          body: JSON.stringify({ from: FROM, to: user.email, subject: "Your Sideline Star credentials have been reset", html }),
-        });
+        await sendEmail(user.email, "Your Sideline Star credentials have been reset", html);
       }
 
       const response = { success: true };

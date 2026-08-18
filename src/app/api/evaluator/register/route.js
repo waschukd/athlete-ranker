@@ -3,22 +3,13 @@ import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
-import { esc } from "@/lib/email";
+import { esc, sendEmail } from "@/lib/email";
 
 function generateEvaluatorId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let id = "EVL-";
   for (let i = 0; i < 6; i++) id += chars[crypto.randomInt(0, chars.length)];
   return id;
-}
-
-async function sendEmail(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) return;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM || "noreply@sidelinestar.com", to, subject, html }),
-  });
 }
 
 // Public lookup so the signup page can tailor wording. Handles a per-invite token

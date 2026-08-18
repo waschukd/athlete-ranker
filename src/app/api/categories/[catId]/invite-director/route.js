@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { FROM } from "@/lib/email";
+import { sendEmail } from "@/lib/email";
 import { createAndSendDirectorInvite } from "@/lib/invites";
 
 // Guard against bad route params (e.g. "/api/categories/null/...") reaching an
@@ -14,15 +14,6 @@ const intId = (v) => { const n = parseInt(v, 10); return Number.isInteger(n) && 
 // stronger "is this person an admin" check, matching what the client already
 // hides this action behind (canManage = role === "association" only).
 const DIRECTOR_INVITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin"]);
-
-async function sendEmail(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) return;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({ from: FROM, to, subject, html }),
-  });
-}
 
 export async function GET(request, { params }) {
   // Get existing directors for this category
