@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import sql from "@/lib/db";
-import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc } from "@/lib/email";
+import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -86,6 +86,8 @@ export async function GET(request) {
           });
           sent++;
         } catch (emailErr) { console.error("Email failed:", emailErr); }
+        // Pace under Resend's 10 req/sec cap -- this loop runs across every org.
+        await sleep(110);
       }
 
       // Also send weekly schedule to evaluators signed up for sessions this week
@@ -145,6 +147,7 @@ export async function GET(request) {
             <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
           `);
           try { await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
+          await sleep(110); // pace under Resend's 10 req/sec cap
         }
       }
 
@@ -210,6 +213,7 @@ export async function GET(request) {
 
         for (const ev of evaluators) {
           try { await sendEmail(ev.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
+          await sleep(110); // pace under Resend's 10 req/sec cap
         }
 
         // Notify directors assigned to this category
@@ -223,6 +227,7 @@ export async function GET(request) {
 
         for (const dir of directors) {
           try { await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
+          await sleep(110); // pace under Resend's 10 req/sec cap
         }
       }
     }

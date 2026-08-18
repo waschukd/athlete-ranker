@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, groupAssignmentHtml, parentEmails } from "@/lib/email";
+import { sendEmail, groupAssignmentHtml, parentEmails, sleep } from "@/lib/email";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { signSessionIcsToken, canonicalCalendarBase } from "@/lib/calendar-token";
 
@@ -203,6 +203,10 @@ export async function POST(request, { params }) {
             INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
             VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
           `;
+          // Pace ourselves under Resend's 10 req/sec cap -- on a busy roster this
+          // loop can fire dozens of sends back to back, and sendEmail's own retry
+          // is a safety net, not something to lean on for a whole blast.
+          await sleep(110);
         }
       }
     }

@@ -16,6 +16,29 @@ export function esc(v) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Exported so callers that fire many sends in a loop (group-assignment blasts,
+// evaluator/tester notifications) can pace themselves under Resend's 10 req/sec
+// cap instead of relying purely on sendEmail's reactive 429 retry.
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Resend caps at 10 req/sec platform-wide (confirmed in prod logs — busy days
+// with many group-assignment / staffing-blast emails going out back-to-back
+// exceed it). A 429 is transient, not a bad address or a config problem, so
+// it's the one status worth retrying: backoff honors Retry-After when Resend
+// sends one, else falls back to short exponential backoff with jitter.
+const MAX_RETRIES = 3;
+
+async function postToResend(payload) {
+  return fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 // Returns { ok, id?, skipped?, error? } so callers can surface delivery status
 // to the user instead of silently swallowing failures. `id` is the Resend
 // message id — callers that track delivery/bounces correlate webhook events to it.
@@ -28,14 +51,15 @@ export async function sendEmail(to, subject, html, attachments) {
   try {
     const payload = { from: FROM, to, subject, html };
     if (attachments?.length) payload.attachments = attachments;
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
+
+    let res = await postToResend(payload);
+    for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
+      const retryAfterHeader = parseFloat(res.headers.get("retry-after"));
+      const delayMs = !isNaN(retryAfterHeader) ? retryAfterHeader * 1000 : 300 * 2 ** attempt + Math.random() * 200;
+      await sleep(delayMs);
+      res = await postToResend(payload);
+    }
+
     if (!res.ok) {
       const err = await res.text();
       console.error("Resend error:", err);
@@ -355,6 +379,7 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
   // Send to each evaluator
   for (const email of evaluatorEmails) {
     await sendEmail(email, `📢 Open Evaluator Sessions Available — ${orgName}`, html);
+    await sleep(110); // pace under Resend's 10 req/sec cap
   }
 }
 

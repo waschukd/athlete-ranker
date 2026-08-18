@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, esc } from "@/lib/email";
+import { sendEmail, esc, sleep } from "@/lib/email";
 
 export async function POST(request, { params }) {
   try {
@@ -61,6 +61,7 @@ export async function POST(request, { params }) {
     for (const email of emails) {
       await sendEmail(email.trim(), "Volunteer assignment - " + categoryName + " Session " + sessionNum, html);
       sent++;
+      await sleep(110); // pace under Resend's 10 req/sec cap
     }
 
     return NextResponse.json({ success: true, sent });

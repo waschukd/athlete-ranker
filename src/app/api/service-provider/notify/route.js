@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
-import { sendEmail, esc } from "@/lib/email";
+import { sendEmail, esc, sleep } from "@/lib/email";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
@@ -68,6 +68,8 @@ export async function POST(request) {
         const link = `${origin}/evaluator/signup?invite=${token}`;
         links.push({ email, link });
         if (isTesterInvite ? await sendTesterInvite(email, link, sp_name) : await sendEvaluatorInvite(email, link, sp_name)) sent++;
+        // Pace under Resend's 10 req/sec cap for a large batch invite.
+        await sleep(110);
       }
       return NextResponse.json({
         success: true, sent, valid: valid.length, invalid,
@@ -137,6 +139,8 @@ export async function POST(request) {
               <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
             </div>`);
           sent++;
+          // Pace under Resend's 10 req/sec cap for a large tester pool.
+          await sleep(110);
         }
       }
       await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value)
@@ -192,6 +196,8 @@ export async function POST(request) {
             </div>
           `);
         sent++;
+        // Pace under Resend's 10 req/sec cap for a large evaluator pool.
+        await sleep(110);
       }
     }
 
