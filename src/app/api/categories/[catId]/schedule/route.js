@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
@@ -24,7 +25,7 @@ function generateCheckinCode(session, group) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const prefix = `S${session}G${group}`;
   let suffix = "";
-  for (let i = 0; i < 4; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 4; i++) suffix += chars[crypto.randomInt(0, chars.length)];
   return `${prefix}-${suffix}`;
 }
 

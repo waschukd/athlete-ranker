@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
@@ -24,7 +25,7 @@ const GOALIE_CONFIG = {
 };
 const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function code() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 6; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+function code() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 6; i++) s += c[crypto.randomInt(0, c.length)]; return s; }
 
 async function seedConfig(catId, sessions) {
   for (const s of sessions) {

@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { emailWelcomeAssociation } from "@/lib/email";
-
-function tempPass() {
-  return Math.random().toString(36).slice(-8) + "!A1";
-}
+import { randomOrgCode, randomTempPassword } from "@/lib/random";
 
 // GET: list signup requests for review. Defaults to pending.
 export async function GET(request) {
@@ -69,7 +66,7 @@ export async function POST(request) {
       // --- Create the organization (reuse organizations POST pattern) ---
       let orgCode = null;
       for (let i = 0; i < 10; i++) {
-        const candidate = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const candidate = randomOrgCode();
         const existing = await sql`SELECT id FROM organizations WHERE org_code = ${candidate}`;
         if (!existing.length) { orgCode = candidate; break; }
       }
@@ -84,27 +81,38 @@ export async function POST(request) {
       // --- Create the admin user (reuse god-mode org user-creation pattern) ---
       // org.contact_email == user.email grants admin access via authorize.js,
       // so no user_organization_roles row is needed.
-      const password = tempPass();
       try {
-        const [authUser] = await sql`
-          INSERT INTO auth_users (email, name, "emailVerified")
-          VALUES (${email}, ${contactName}, NOW())
-          ON CONFLICT (email) DO UPDATE SET name = ${contactName}
-          RETURNING *
-        `;
-        await sql`
-          DELETE FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'
-        `;
-        await sql`
-          INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
-          VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(password)})
-        `;
-        await sql`
-          INSERT INTO users (email, name, role)
-          VALUES (${email}, ${contactName}, 'association_admin')
-          ON CONFLICT (email) DO UPDATE SET role = 'association_admin'
-        `;
-        await emailWelcomeAssociation({ name: contactName, email, tempPassword: password, orgName: name });
+        // A signup request's email is requester-supplied and unverified -- if it
+        // already belongs to an existing account, the old ON CONFLICT DO UPDATE
+        // silently overwrote that person's name, role, and password (logging them
+        // out) just because a stranger typed their email into this form. Existing
+        // accounts get linked to the new org via contact_email only; nothing about
+        // them is touched.
+        const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
+        if (existing.length) {
+          console.warn(`Signup-request approval for ${email} matched an existing account -- left credentials/role untouched.`);
+        } else {
+          const password = randomTempPassword();
+          const [authUser] = await sql`
+            INSERT INTO auth_users (email, name, "emailVerified")
+            VALUES (${email}, ${contactName}, NOW())
+            ON CONFLICT (email) DO UPDATE SET name = ${contactName}
+            RETURNING *
+          `;
+          await sql`
+            DELETE FROM auth_accounts WHERE "userId" = ${authUser.id} AND provider = 'credentials'
+          `;
+          await sql`
+            INSERT INTO auth_accounts ("userId", type, provider, "providerAccountId", password)
+            VALUES (${authUser.id}, 'credentials', 'credentials', ${email}, ${await hashPassword(password)})
+          `;
+          await sql`
+            INSERT INTO users (email, name, role)
+            VALUES (${email}, ${contactName}, 'association_admin')
+            ON CONFLICT (email) DO UPDATE SET role = 'association_admin'
+          `;
+          await emailWelcomeAssociation({ name: contactName, email, tempPassword: password, orgName: name });
+        }
       } catch (provisionErr) {
         // Best-effort: request is already claimed/approved; surface but don't
         // fail the approval (mirrors prior behavior — manual fixup if needed).

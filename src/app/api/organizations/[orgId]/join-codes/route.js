@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
@@ -11,7 +12,7 @@ function generateCode() {
   let code = "";
   for (let i = 0; i < 6; i++) {
     if (i === 3) code += "-";
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[crypto.randomInt(0, chars.length)];
   }
   return code;
 }
@@ -89,8 +90,11 @@ export async function POST(request, { params }) {
     }
 
     if (action === "deactivate") {
+      // Scoped to this org (IDOR guard, matching approve/deny below).
+      const owned = await sql`SELECT id FROM evaluator_join_codes WHERE id = ${body.code_id} AND organization_id = ${orgId}`;
+      if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       await sql`
-        UPDATE evaluator_join_codes SET max_uses = uses WHERE id = ${body.code_id}
+        UPDATE evaluator_join_codes SET max_uses = uses WHERE id = ${body.code_id} AND organization_id = ${orgId}
       `;
       return NextResponse.json({ success: true });
     }

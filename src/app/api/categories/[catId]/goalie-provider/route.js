@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { createAndSendOrgInvite } from "@/lib/invites";
+import { randomOrgCode } from "@/lib/random";
 
 // Goalie-provider picker for the category setup (Goalie Scoring step, option C).
 // Lists existing goalie SPs to search/select, links one to this category's
@@ -66,7 +67,7 @@ export async function POST(request, { params }) {
 
       let orgCode = null;
       for (let i = 0; i < 10; i++) {
-        const candidate = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const candidate = randomOrgCode();
         const exists = await sql`SELECT id FROM organizations WHERE org_code = ${candidate}`;
         if (!exists.length) { orgCode = candidate; break; }
       }

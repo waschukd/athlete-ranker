@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { randomTempPassword } from "@/lib/random";
 
 const ROLE_LABELS = {
   super_admin: "Super Admin",
@@ -152,7 +153,7 @@ export async function POST(request) {
 
     await sql`INSERT INTO auth_users (email, name) VALUES (${email}, ${name}) ON CONFLICT (email) DO NOTHING`;
 
-    const tempPassword = Math.random().toString(36).slice(2, 10) + "A1!";
+    const tempPassword = randomTempPassword();
     const hashedPassword = await hashPassword(tempPassword);
 
     const authUser = await sql`SELECT id FROM auth_users WHERE email = ${email}`;
@@ -218,7 +219,7 @@ export async function PATCH(request) {
       const user = users[0];
 
       // Generate new temp password
-      const tempPassword = Math.random().toString(36).slice(2, 10) + "A1!";
+      const tempPassword = randomTempPassword();
       const hashedPassword = await hashPassword(tempPassword);
 
       // Update auth_accounts

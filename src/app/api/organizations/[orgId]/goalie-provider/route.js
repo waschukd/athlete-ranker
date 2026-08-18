@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { applyGoalieTemplate } from "@/lib/goalieTemplate";
+import { randomOrgCode } from "@/lib/random";
 
 // Re-materialize this association's goalie categories from whoever now owns the
 // template (in-house / SP). Best-effort — a propagation hiccup never blocks the
@@ -29,7 +30,7 @@ export async function GET(request, { params }) {
     let orgCode = org[0]?.org_code || null;
     if (!orgCode) {
       for (let i = 0; i < 10; i++) {
-        const c = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const c = randomOrgCode();
         if (!(await sql`SELECT id FROM organizations WHERE org_code = ${c}`).length) { orgCode = c; break; }
       }
       if (orgCode) await sql`UPDATE organizations SET org_code = ${orgCode} WHERE id = ${orgId} AND org_code IS NULL`;

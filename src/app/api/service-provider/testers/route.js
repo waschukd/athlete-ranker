@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext, getAppUserId } from "@/lib/auth";
 
@@ -9,7 +10,7 @@ const ADMIN_ROLES = new Set(["service_provider_admin", "goalie_service_provider_
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let c = "";
-  for (let i = 0; i < 6; i++) { if (i === 3) c += "-"; c += chars[Math.floor(Math.random() * chars.length)]; }
+  for (let i = 0; i < 6; i++) { if (i === 3) c += "-"; c += chars[crypto.randomInt(0, chars.length)]; }
   return c;
 }
 

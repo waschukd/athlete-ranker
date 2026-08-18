@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { createAndSendOrgInvite } from "@/lib/invites";
+import { randomOrgCode } from "@/lib/random";
 
 // authorizeOrgAccess alone also admits plain evaluators/directors via
 // membership -- this creates a brand-new org and grants it an active service
@@ -26,7 +27,7 @@ export async function POST(request) {
     // Create the goalie SP org
     let orgCode = null;
     for (let i = 0; i < 10; i++) {
-      const candidate = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const candidate = randomOrgCode();
       const exists = await sql`SELECT id FROM organizations WHERE org_code = ${candidate}`;
       if (!exists.length) { orgCode = candidate; break; }
     }

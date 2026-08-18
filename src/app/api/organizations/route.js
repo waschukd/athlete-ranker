@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { createAndSendOrgInvite } from "@/lib/invites";
 import { getAccessibleOrgIds } from "@/lib/authorize";
+import { randomOrgCode } from "@/lib/random";
 
 export async function GET() {
   try {
@@ -62,7 +63,7 @@ export async function POST(request) {
 
     let orgCode = null;
     for (let i = 0; i < 10; i++) {
-      const candidate = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const candidate = randomOrgCode();
       const existing = await sql`SELECT id FROM organizations WHERE org_code = ${candidate}`;
       if (!existing.length) { orgCode = candidate; break; }
     }

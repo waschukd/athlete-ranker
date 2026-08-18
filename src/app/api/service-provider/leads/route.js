@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession, resolveSpOrgId } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { emailWelcomeAssociation } from "@/lib/email";
+import { randomTempPassword } from "@/lib/random";
 
 // Roles that may be upgraded to association_admin so the lead can reach the
 // association dashboard. super_admin / service_provider_admin are left intact.
@@ -134,7 +135,7 @@ export async function POST(request) {
 
     if (!authUser.length) {
       // Create auth_users + auth_accounts (hashed temp password) + users row.
-      const tempPassword = Math.random().toString(36).slice(2, 10) + "A1!";
+      const tempPassword = randomTempPassword();
       const hashedPassword = await hashPassword(tempPassword);
       const safeName = name || email;
 

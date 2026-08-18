@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
@@ -6,7 +7,7 @@ import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 function generateEvaluatorId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let id = "EVL-";
-  for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) id += chars[crypto.randomInt(0, chars.length)];
   return id;
 }
 
