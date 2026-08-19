@@ -186,18 +186,6 @@ export async function buildAthleteReport(catId, athleteId) {
     playerBySession[k] = (playerBySession[k] || 0) + parseFloat(s.score);
     playerCntSession[k] = (playerCntSession[k] || 0) + 1;
   }
-  // Real session_number can skip around (a round-robin doesn't play every team on every
-  // scheduled night, so a given athlete might only appear in sessions 1,4,5,6,7,8 out of a
-  // category-wide 1-8) -- re-index to a clean personal 1..N run so a parent report never
-  // shows "Session 7/8" when every athlete only ever sits in 6 total sessions.
-  const progress = groupBySession
-    .filter(r => playerCntSession[r.session_number])
-    .map((r, i) => ({
-      session_number: i + 1,
-      player: round1(playerBySession[r.session_number] / playerCntSession[r.session_number]),
-      group: round1(r.avg),
-    }));
-
   // ── Evaluator notes (no names) ──
   const notesRows = await sql`
     SELECT session_number, note_text
@@ -205,7 +193,28 @@ export async function buildAthleteReport(catId, athleteId) {
     WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
     ORDER BY session_number, created_at
   `;
-  const notes = notesRows.map(n => ({ session_number: n.session_number, note_text: n.note_text }));
+
+  // Real session_number can skip around (a round-robin doesn't play every team on every
+  // scheduled night, so a given athlete might only appear in sessions 1,4,5,6,7,8 out of a
+  // category-wide 1-8) -- re-index to a clean personal 1..N run so a parent report never
+  // shows "Session 7/8" when every athlete only ever sits in 6 total sessions. ONE map,
+  // built from every real session this athlete has scores OR notes in, is shared by the
+  // progress chart and the notes list so they always agree with each other (and with
+  // whatever the AI narrative is told, since it's built from these same two arrays) --
+  // previously each was numbered independently and could disagree on the same real session.
+  const realSessionNumbers = [...new Set([...Object.keys(playerCntSession).map(Number), ...notesRows.map(n => n.session_number)])].sort((a, b) => a - b);
+  const sessionIndexMap = Object.fromEntries(realSessionNumbers.map((real, i) => [real, i + 1]));
+
+  const progress = groupBySession
+    .filter(r => playerCntSession[r.session_number])
+    .map(r => ({
+      session_number: sessionIndexMap[r.session_number],
+      player: round1(playerBySession[r.session_number] / playerCntSession[r.session_number]),
+      group: round1(r.avg),
+    }))
+    .sort((a, b) => a.session_number - b.session_number);
+
+  const notes = notesRows.map(n => ({ session_number: sessionIndexMap[n.session_number] ?? n.session_number, note_text: n.note_text }));
 
   // Association-curated local training providers ("Where to put in the work"),
   // grouped by area. Renders in the report only when present.

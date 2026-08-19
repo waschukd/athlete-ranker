@@ -332,6 +332,17 @@ export default function DevelopmentReport({ data }) {
           </div>
         )}
 
+        {/* Bridges Objective Testing and Skill Profile -- these two sections can point in
+            different directions for the same athlete (e.g. above group average on every
+            timed test but below-average skill grades), and without this line that reads as
+            a contradiction ("the stopwatch says he's better, so the evaluators must be
+            wrong") instead of what it actually is: two different things being measured. */}
+        {testingProfile.length > 0 && skillProfile.length > 0 && (
+          <div style={{ margin: "2px 0 16px", padding: "10px 14px", borderLeft: `2px solid ${HAIR}`, breakInside: "avoid" }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: TXT_DIM, lineHeight: 1.5, fontStyle: "italic" }}>Timed testing measures raw physical tools; the skill grades below reflect how those tools show up in live game play — two different things, so it's normal for them to tell different stories.</div>
+          </div>
+        )}
+
         {/* Skill profile + progress trend */}
         {skillProfile.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
