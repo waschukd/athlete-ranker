@@ -186,11 +186,17 @@ export async function buildAthleteReport(catId, athleteId) {
     playerBySession[k] = (playerBySession[k] || 0) + parseFloat(s.score);
     playerCntSession[k] = (playerCntSession[k] || 0) + 1;
   }
-  const progress = groupBySession.map(r => ({
-    session_number: r.session_number,
-    player: playerCntSession[r.session_number] ? round1(playerBySession[r.session_number] / playerCntSession[r.session_number]) : null,
-    group: round1(r.avg),
-  }));
+  // Real session_number can skip around (a round-robin doesn't play every team on every
+  // scheduled night, so a given athlete might only appear in sessions 1,4,5,6,7,8 out of a
+  // category-wide 1-8) -- re-index to a clean personal 1..N run so a parent report never
+  // shows "Session 7/8" when every athlete only ever sits in 6 total sessions.
+  const progress = groupBySession
+    .filter(r => playerCntSession[r.session_number])
+    .map((r, i) => ({
+      session_number: i + 1,
+      player: round1(playerBySession[r.session_number] / playerCntSession[r.session_number]),
+      group: round1(r.avg),
+    }));
 
   // ── Evaluator notes (no names) ──
   const notesRows = await sql`
