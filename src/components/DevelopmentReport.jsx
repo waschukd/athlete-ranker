@@ -5,17 +5,24 @@
 // report. Used by both the authed director PDF (/player/report/pdf) and the
 // token-gated paid-parent PDF (/report/[token]/pdf) so there is ONE report.
 
-const GOLD = "#cda434";
-const GOLD_SOFT = "rgba(205,164,52,0.14)";
-const GOLD_LINE = "rgba(205,164,52,0.3)";
-const BG = "#0b0b0d";
-const TXT = "#e9eaec";
-const GRAY = "#8b8f99";
-const MUTED = "#6b7078";
-const LINE = "rgba(255,255,255,0.08)";
-const SERIF = "'Playfair Display', Georgia, serif";
-const NUM = "'Archivo', -apple-system, sans-serif";
+const INK = "#060B18";
+const SURFACE = "#0d141d";
+const CARD_BG = "rgba(21,28,37,0.55)";
+const CARD_BORDER = "rgba(153,144,125,0.16)";
+const PANEL_BG = "rgba(230,193,91,0.06)";
+const PANEL_BORDER = "rgba(230,193,91,0.25)";
+const HAIR = "rgba(77,70,55,0.4)";
+const GOLD = "#e6c15b";
+const GOLD_SOFT = "rgba(230,193,91,0.12)";
+const GOLD_LINE = "rgba(230,193,91,0.28)";
+const TXT = "#dce3f0";
+const TXT_DIM = "#c8bfab";
+const GRAY = "#9b9280";
+const MUTED = "#726a58";
+const TRACK = "#232a34";
+const WHITE = "#ffffff";
 const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const MONO = "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace";
 
 function testInfo(name) {
   const n = (name || "").toLowerCase();
@@ -100,7 +107,28 @@ function drillBlurb(name) {
 }
 
 export function ReportFonts() {
-  return <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Archivo:wght@600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
+  return <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" />;
+}
+
+// Section kicker: mono uppercase label + trailing hairline, then a bold
+// uppercase headline underneath — the report's one recurring header pattern.
+function Shead({ kicker, title }) {
+  return (
+    <div style={{ breakInside: "avoid", breakAfter: "avoid", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: GOLD, fontWeight: 700, whiteSpace: "nowrap" }}>{kicker}</span>
+        <span style={{ flex: 1, height: 1, background: HAIR }} />
+      </div>
+      <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 23, letterSpacing: "-0.01em", textTransform: "uppercase", color: "#fff" }}>{title}</div>
+    </div>
+  );
+}
+
+// Bordered pill badge — transparent-tinted background, mono uppercase label.
+function Badge({ color, children }) {
+  return (
+    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color, background: `${color}1c`, border: `1px solid ${color}55`, padding: "4px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>{children}</span>
+  );
 }
 
 export default function DevelopmentReport({ data }) {
@@ -160,27 +188,31 @@ export default function DevelopmentReport({ data }) {
   // Pills are keyed to the TOP of the group (the target), never the average — a
   // parent should read every skill as distance-to-aim-for, not a placement grade.
   const skillPill = (p, top) => {
-    if (p == null) return { bg: "rgba(255,255,255,.06)", c: GRAY, t: "—" };
-    if (top != null && p >= top - 0.2) return { bg: "rgba(80,200,120,.16)", c: "#5fd08a", t: "Strength" };
+    if (p == null) return { color: GRAY, t: "—" };
+    if (top != null && p >= top - 0.2) return { color: "#5fd08a", t: "Strength" };
     const gap = top != null ? top - p : null;
-    if (gap != null && gap <= 1.0) return { bg: "rgba(80,200,120,.12)", c: "#67c98c", t: "Close to the top" };
-    if (gap != null && gap <= 2.0) return { bg: GOLD_SOFT, c: GOLD, t: "Developing" };
-    return { bg: "rgba(224,138,42,.16)", c: "#e0944a", t: "Focus area" };
+    if (gap != null && gap <= 1.0) return { color: "#67c98c", t: "Close to the top" };
+    if (gap != null && gap <= 2.0) return { color: GOLD, t: "Developing" };
+    return { color: "#e0944a", t: "Focus area" };
   };
   const topMark = Math.round(scale); // "what a 10 looks like" — the top of the scale
 
-  const Shead = ({ kicker, title }) => (
-    <div style={{ breakInside: "avoid", breakAfter: "avoid" }}>
-      <div style={{ fontFamily: SANS, fontSize: 9.5, letterSpacing: "0.24em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 5 }}>{kicker}</div>
-      <div style={{ fontFamily: SERIF, fontWeight: 900, fontSize: 21, color: "#fff", margin: "0 0 12px", paddingBottom: 9, borderBottom: `1px solid ${GOLD_LINE}` }}>{title}</div>
-    </div>
-  );
-  const leadStyle = { fontSize: 11.5, color: GRAY, lineHeight: 1.5, marginBottom: 11 };
+  const leadStyle = { fontFamily: SANS, fontSize: 12.5, color: TXT_DIM, lineHeight: 1.55, marginBottom: 12 };
+  const cardStyle = { border: `1px solid ${CARD_BORDER}`, borderRadius: 10, background: CARD_BG, padding: "16px 18px" };
   // Each major section gets its own page (break-before) AND is kept whole
   // (break-inside:avoid) so a section never splits and orphans a near-blank
   // page. paddingTop gives the top gap under the full-bleed dark (@page
   // margin:0). Testing rides page 1 with the cover (no break-before).
   const section = { breakBefore: "page", pageBreakBefore: "always", breakInside: "avoid", pageBreakInside: "avoid", paddingTop: 38 };
+
+  // Skill/goalie bar row — label, track, value. Shared by both bar sections.
+  const Bar = ({ k, val, color, strong }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <span style={{ width: 96, flexShrink: 0, fontFamily: SANS, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
+      <div style={{ flex: 1, height: 7, background: TRACK, borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
+      <span style={{ width: 38, textAlign: "right", fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
+    </div>
+  );
 
   // ── Progress maths (for the dedicated progress page) ──
   const prog = progress.filter(p => p.player != null);
@@ -189,26 +221,26 @@ export default function DevelopmentReport({ data }) {
   const trendWord = totalDelta == null ? "" : totalDelta >= 0.3 ? "Trending up" : totalDelta <= -0.3 ? "Trending down" : "Holding steady";
 
   return (
-    <div className="ssrpt" style={{ fontFamily: SANS, maxWidth: 720, margin: "0 auto", color: TXT, fontSize: 13, lineHeight: 1.55, background: BG }}>
+    <div className="ssrpt" style={{ fontFamily: SANS, maxWidth: 720, margin: "0 auto", color: TXT, fontSize: 13, lineHeight: 1.55, background: INK }}>
       <ReportFonts />
 
       {/* Cover */}
-      <div style={{ background: "radial-gradient(120% 140% at 80% 0%, #23211a 0%, #121214 40%, #0a0a0c 100%)", padding: "32px 34px", borderBottom: `1px solid ${GOLD_LINE}`, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -90, right: -60, width: 320, height: 320, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.16)" }} />
-        <div style={{ position: "absolute", top: -40, right: -10, width: 230, height: 230, borderRadius: "50%", border: "1px solid rgba(205,164,52,0.1)" }} />
+      <div style={{ background: "radial-gradient(120% 140% at 80% 0%, #16233a 0%, #0c121f 40%, #060b14 100%)", padding: "32px 34px", borderBottom: `1px solid ${GOLD_LINE}`, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -90, right: -60, width: 320, height: 320, borderRadius: "50%", border: "1px solid rgba(230,193,91,0.14)" }} />
+        <div style={{ position: "absolute", top: -40, right: -10, width: 230, height: 230, borderRadius: "50%", border: "1px solid rgba(230,193,91,0.09)" }} />
         {serviceProvider?.logo_url && (
-          <div style={{ position: "absolute", top: 24, right: 26, background: "#fff", borderRadius: 10, padding: "8px 12px", boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
+          <div style={{ position: "absolute", top: 24, right: 26, background: "#fff", borderRadius: 8, padding: "8px 12px", boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
             <img src={serviceProvider.logo_url} alt={serviceProvider.name || "Service provider"}
               style={{ maxWidth: 100, maxHeight: 48, objectFit: "contain", display: "block" }} />
           </div>
         )}
-        <div style={{ fontSize: 9.5, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
-        <div style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 900, lineHeight: 1.05, marginTop: 10, color: "#fff" }}>{fullName}</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-          {athlete?.position && <span style={{ border: `1px solid ${GOLD}`, color: GOLD, padding: "3px 12px", borderRadius: 99, fontSize: 11, textTransform: "capitalize" }}>{athlete.position}</span>}
-          {athlete?.external_id && <span style={{ border: "1px solid rgba(255,255,255,0.18)", color: "#cfd2d7", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{athlete.external_id}</span>}
-          <span style={{ border: "1px solid rgba(255,255,255,0.18)", color: "#cfd2d7", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{category?.name}</span>
-          <span style={{ border: "1px solid rgba(255,255,255,0.18)", color: "#cfd2d7", padding: "3px 12px", borderRadius: 99, fontSize: 11 }}>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+        <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.3em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Sideline Star · Development Report</div>
+        <div style={{ fontFamily: SANS, fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.08, marginTop: 12, color: "#fff" }}>{fullName}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+          {athlete?.position && <span style={{ fontFamily: MONO, border: `1px solid ${GOLD}`, color: GOLD, background: "rgba(230,193,91,0.1)", padding: "4px 12px", borderRadius: 99, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>{athlete.position}</span>}
+          {athlete?.external_id && <span style={{ fontFamily: MONO, border: "1px solid rgba(220,227,240,0.2)", color: "#cfd2d7", padding: "4px 12px", borderRadius: 99, fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{athlete.external_id}</span>}
+          <span style={{ fontFamily: MONO, border: "1px solid rgba(220,227,240,0.2)", color: "#cfd2d7", padding: "4px 12px", borderRadius: 99, fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{category?.name}</span>
+          <span style={{ fontFamily: MONO, border: "1px solid rgba(220,227,240,0.2)", color: "#cfd2d7", padding: "4px 12px", borderRadius: 99, fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
         </div>
       </div>
 
@@ -220,9 +252,9 @@ export default function DevelopmentReport({ data }) {
             AI call ever fails) means this card just doesn't render — every other
             section stands on its own without it. */}
         {narrativeSummary && (
-          <div style={{ marginBottom: 20, breakInside: "avoid" }}>
-            <div style={{ fontSize: 9.5, letterSpacing: "0.24em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 8 }}>The read</div>
-            <div style={{ fontFamily: SERIF, fontSize: 15.5, fontWeight: 700, fontStyle: "italic", color: "#eceef0", lineHeight: 1.6 }}>{narrativeSummary}</div>
+          <div style={{ marginBottom: 22, breakInside: "avoid" }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 9 }}>The read</div>
+            <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500, color: "#eceef0", lineHeight: 1.6 }}>{narrativeSummary}</div>
           </div>
         )}
 
@@ -230,27 +262,20 @@ export default function DevelopmentReport({ data }) {
         {isGoalie && goalieSkillsProfile.length > 0 && (
           <div style={{ marginBottom: 10 }}>
             <Shead kicker="The skills session" title="Goalie skills" />
-            <div style={leadStyle}>Goalies run their own skills session — four drills, scored by eye, where <b style={{ color: "#cfd2d7" }}>a higher mark is better</b> (out of {scale}). Each card shows where {firstName} landed against the group average and the top of the group, with what evaluators were watching for.</div>
+            <div style={leadStyle}>Goalies run their own skills session — four drills, scored by eye, where <b style={{ color: "#e9ecf2" }}>a higher mark is better</b> (out of {scale}). Each card shows where {firstName} landed against the group average and the top of the group, with what evaluators were watching for.</div>
             {goalieSkillsProfile.map(s => {
               const p = skillPill(s.player, s.top);
               const blurb = drillBlurb(s.name);
-              const brow = (k, val, color, strong) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
-                  <div style={{ flex: 1, height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
-                  <span style={{ width: 36, textAlign: "right", fontFamily: NUM, fontSize: 13, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
-                </div>
-              );
               return (
-                <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 18px", marginBottom: 10, background: "#101014", breakInside: "avoid" }}>
+                <div key={s.scoring_category_id} style={{ ...cardStyle, marginBottom: 10, breakInside: "avoid" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 11px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
+                    <Badge color={p.color}>{p.t}</Badge>
                   </div>
-                  {blurb && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 11px" }}>{blurb}</div>}
+                  {blurb && <div style={{ fontFamily: SANS, fontSize: 10.5, color: MUTED, margin: "5px 0 12px" }}>{blurb}</div>}
                   {!blurb && <div style={{ height: 8 }} />}
-                  {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
-                  {brow("Aim for (top)", s.top, "#d8dade", false)}
+                  <Bar k={firstName} val={s.player} color={`linear-gradient(90deg,#f0d27e,${GOLD})`} strong />
+                  <Bar k="Aim for (top)" val={s.top} color="#4a5468" />
                 </div>
               );
             })}
@@ -261,48 +286,45 @@ export default function DevelopmentReport({ data }) {
         {testingProfile.length > 0 && (
           <div style={{ marginBottom: 10 }}>
             <Shead kicker="The numbers don't lie" title="Objective testing" />
-            <div style={leadStyle}>This is the one part of the evaluation with no opinion in it. Every skater ran the <b style={{ color: "#cfd2d7" }}>same drills, the same clock and the same setup</b> — so these numbers measure raw on-ice athleticism: straight-line speed, acceleration, agility, edge control and how quickly {firstName} changes direction. <b style={{ color: "#cfd2d7" }}>Lower is better — the fastest time wins.</b> Each card shows {firstName}'s best result next to the fastest in the group, so there's a clear number to chase.</div>
+            <div style={leadStyle}>This is the one part of the evaluation with no opinion in it. Every skater ran the <b style={{ color: "#e9ecf2" }}>same drills, the same clock and the same setup</b> — so these numbers measure raw on-ice athleticism: straight-line speed, acceleration, agility, edge control and how quickly {firstName} changes direction. <b style={{ color: "#e9ecf2" }}>Lower is better — the fastest time wins.</b> Each card shows {firstName}'s best result next to the fastest in the group, so there's a clear number to chase.</div>
             {testingProfile.map((t, i) => {
               const you = t.player_best, best = t.group_best;
               const youBest = best != null && you <= best + 0.0005;
               const gap = best != null ? (you - best).toFixed(2) : null;
               const info = testInfo(t.test_name);
               return (
-                <div key={`${t.test_name}-${i}`} style={{ position: "relative", overflow: "hidden", borderRadius: 11, border: `1px solid ${LINE}`, background: "radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%)", padding: "14px 16px 12px", marginBottom: 7, breakInside: "avoid" }}>
-                  <div style={{ position: "absolute", top: -50, right: -50, width: 150, height: 150, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.06)" }} />
+                <div key={`${t.test_name}-${i}`} style={{ ...cardStyle, marginBottom: 8, breakInside: "avoid" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aeb2bb" }}>{t.test_name}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: GOLD, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, padding: "2px 9px", borderRadius: 99, whiteSpace: "nowrap" }}>{youBest ? "🏆 Group best" : gap != null ? `${gap}s off the best` : ""}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#aeb2bb" }}>{t.test_name}</span>
+                    <Badge color={GOLD}>{youBest ? "Group best" : gap != null ? `${gap}s off the best` : ""}</Badge>
                   </div>
-                  {info && <div style={{ fontSize: 9.5, color: MUTED, lineHeight: 1.4, margin: "2px 0 8px", maxWidth: "92%" }}>{info}</div>}
-                  <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                    <div style={{ display: "flex", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
-                      <span style={{ fontFamily: NUM, fontWeight: 800, fontSize: 30, lineHeight: 1.15, color: "#f6f7f8", letterSpacing: "-0.02em" }}>{fmt(you)}</span>
-                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, marginBottom: 3 }}>sec</span>
-                    </div>
-                    {/* Two-point aim line: You → the fastest in the group (the target). No
-                        group average — the target is what gives them something to chase. */}
-                    <div style={{ position: "relative", flex: 1, height: 30 }}>
-                      <div style={{ position: "absolute", left: "2%", right: "2%", top: 6, height: 3, background: "rgba(255,255,255,0.13)", borderRadius: 99 }} />
-                      {youBest ? (
-                        <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                          <span style={{ width: 13, height: 13, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(205,164,52,0.22)" }} />
-                          <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>You · Group best<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(you)}</b></span>
+                  {info && <div style={{ fontFamily: SANS, fontSize: 9.5, color: MUTED, lineHeight: 1.4, margin: "6px 0 10px", maxWidth: "92%" }}>{info}</div>}
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
+                    <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 30, lineHeight: 1, color: "#f6f7f8", letterSpacing: "-0.02em" }}>{fmt(you)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, marginBottom: 4 }}>sec</span>
+                  </div>
+                  {/* Two-point aim track: You → the fastest in the group (the target). No
+                      group average — the target is what gives them something to chase. */}
+                  <div style={{ position: "relative", height: 26 }}>
+                    <div style={{ position: "absolute", left: "2%", right: "2%", top: 5, height: 3, background: TRACK, borderRadius: 99 }} />
+                    {youBest ? (
+                      <div style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(230,193,91,0.2)" }} />
+                        <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 5, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>You · Best</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ position: "absolute", top: 5, left: "22%", width: "56%", height: 3, background: `linear-gradient(90deg, rgba(230,193,91,.15), ${GOLD})`, borderRadius: 99 }} />
+                        <div style={{ position: "absolute", left: "22%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ffffff", boxShadow: "0 0 0 4px rgba(255,255,255,.1)" }} />
+                          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 5, textAlign: "center", whiteSpace: "nowrap", color: "#ffffff" }}>You <b style={{ fontWeight: 700, color: "#dfe1e4" }}>{fmt(you)}</b></span>
                         </div>
-                      ) : (
-                        <>
-                          <div style={{ position: "absolute", top: 6, left: "22%", width: "56%", height: 3, background: `linear-gradient(90deg, rgba(205,164,52,.15), ${GOLD})`, borderRadius: 99 }} />
-                          <div style={{ position: "absolute", left: "22%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <span style={{ width: 13, height: 13, borderRadius: "50%", background: "#ffffff", boxShadow: "0 0 0 4px rgba(255,255,255,.1)" }} />
-                            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: "#ffffff" }}>You<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(you)}</b></span>
-                          </div>
-                          <div style={{ position: "absolute", left: "78%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <span style={{ width: 13, height: 13, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(205,164,52,0.13)" }} />
-                            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>Aim for<b style={{ display: "block", fontFamily: NUM, fontSize: 9.5, letterSpacing: 0 }}>{fmt(best)}</b></span>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                        <div style={{ position: "absolute", left: "78%", top: 0, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <span style={{ width: 12, height: 12, borderRadius: "50%", background: GOLD, boxShadow: "0 0 0 4px rgba(230,193,91,0.13)" }} />
+                          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 5, textAlign: "center", whiteSpace: "nowrap", color: GOLD }}>Best <b style={{ fontWeight: 700 }}>{fmt(best)}</b></span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -314,7 +336,7 @@ export default function DevelopmentReport({ data }) {
         {skillProfile.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker={isGoalie ? "Evaluator scores from the scrimmages" : "What the evaluators graded"} title={isGoalie ? "Scrimmage evaluation" : "Skill profile"} />
-            <div style={leadStyle}>{isGoalie ? "In the scrimmages, evaluators graded each area by eye watching live game play" : "Beyond the clock, evaluators graded each skill by eye across the sessions"}, on a <b style={{ color: "#cfd2d7" }}>{scale}-point scale in half-point steps</b> — so a 7.5 is a real, deliberate mark. The number shown is {firstName}'s <b style={{ color: "#cfd2d7" }}>average across every evaluator</b> who watched them. Higher is better. For each skill, here's what evaluators are looking for, <b style={{ color: "#cfd2d7" }}>what a {topMark} looks like</b>, and where {firstName}'s score sits against the top of the group to aim at.</div>
+            <div style={leadStyle}>{isGoalie ? "In the scrimmages, evaluators graded each area by eye watching live game play" : "Beyond the clock, evaluators graded each skill by eye across the sessions"}, on a <b style={{ color: "#e9ecf2" }}>{scale}-point scale in half-point steps</b> — so a 7.5 is a real, deliberate mark. The number shown is {firstName}'s <b style={{ color: "#e9ecf2" }}>average across every evaluator</b> who watched them. Higher is better. For each skill, here's what evaluators are looking for, <b style={{ color: "#e9ecf2" }}>what a {topMark} looks like</b>, and where {firstName}'s score sits against the top of the group to aim at.</div>
             {skillProfile.map(s => {
               const p = skillPill(s.player, s.top);
               // Interpretation is framed against the TOP of the group (the target),
@@ -330,25 +352,18 @@ export default function DevelopmentReport({ data }) {
               }
               const sub = skillInfo(s.name, isGoalie);
               const elite = skillElite(s.name, isGoalie);
-              const brow = (k, val, color, strong) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 96, flexShrink: 0, fontSize: 10.5, color: strong ? "#fff" : GRAY, fontWeight: strong ? 700 : 500 }}>{k}</span>
-                  <div style={{ flex: 1, height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${val != null ? Math.max(2, (val / scale) * 100) : 0}%`, background: color, borderRadius: 99 }} /></div>
-                  <span style={{ width: 36, textAlign: "right", fontFamily: NUM, fontSize: 13, fontWeight: 700, color: strong ? GOLD : "#aeb2bb" }}>{val != null ? val.toFixed(1) : "—"}</span>
-                </div>
-              );
               return (
-                <div key={s.scoring_category_id} style={{ border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 18px", marginBottom: 12, background: "#101014", breakInside: "avoid" }}>
+                <div key={s.scoring_category_id} style={{ ...cardStyle, marginBottom: 12, breakInside: "avoid" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 11px", borderRadius: 99, background: p.bg, color: p.c }}>{p.t}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: "#fff" }}>{s.name}</span>
+                    <Badge color={p.color}>{p.t}</Badge>
                   </div>
-                  {sub && <div style={{ fontSize: 10.5, color: MUTED, margin: "3px 0 8px" }}>{sub}</div>}
+                  {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: MUTED, margin: "5px 0 10px" }}>{sub}</div>}
                   {!sub && <div style={{ height: 6 }} />}
-                  {elite && <div style={{ fontSize: 11, color: "#c7cbd2", lineHeight: 1.5, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 9, padding: "7px 11px", margin: "0 0 11px" }}><b style={{ color: GOLD }}>What a {topMark} looks like:</b> {elite}.</div>}
-                  {brow(firstName, s.player, `linear-gradient(90deg,#e3c560,${GOLD})`, true)}
-                  {brow("Aim for (top)", s.top, "#d8dade", false)}
-                  {interp && <div style={{ marginTop: 10, paddingTop: 11, borderTop: `1px solid ${LINE}`, fontSize: 11.5, color: "#c7cbd2", lineHeight: 1.5 }}>{interp}</div>}
+                  {elite && <div style={{ fontFamily: SANS, fontSize: 11, color: TXT_DIM, lineHeight: 1.5, background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderRadius: 8, padding: "8px 12px", margin: "0 0 12px" }}><b style={{ color: GOLD }}>What a {topMark} looks like:</b> {elite}.</div>}
+                  <Bar k={firstName} val={s.player} color={`linear-gradient(90deg,#f0d27e,${GOLD})`} strong />
+                  <Bar k="Aim for (top)" val={s.top} color="#4a5468" />
+                  {interp && <div style={{ marginTop: 11, paddingTop: 12, borderTop: `1px solid ${HAIR}`, fontFamily: SANS, fontSize: 11.5, color: TXT_DIM, lineHeight: 1.5 }}>{interp}</div>}
                 </div>
               );
             })}
@@ -371,48 +386,48 @@ export default function DevelopmentReport({ data }) {
 
               {/* Big takeaway */}
               {totalDelta != null && (
-                <div style={{ display: "flex", alignItems: "center", gap: 18, background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "16px 22px", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 18, ...cardStyle, borderLeft: `3px solid ${GOLD}`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
                   <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: NUM, fontWeight: 800, fontSize: 34, color: totalDelta >= 0 ? "#5fd08a" : "#e0944a", lineHeight: 1 }}>{totalDelta >= 0 ? "+" : ""}{totalDelta.toFixed(1)}</div>
-                    <div style={{ fontSize: 10, color: GOLD, marginTop: 4, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>pts · {n} sessions</div>
+                    <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 32, color: totalDelta >= 0 ? "#5fd08a" : "#e0944a", lineHeight: 1 }}>{totalDelta >= 0 ? "+" : ""}{totalDelta.toFixed(1)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, color: GOLD, marginTop: 5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>pts · {n} sessions</div>
                   </div>
-                  <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
-                  <div style={{ color: "#c7cbd2", fontSize: 12.5, lineHeight: 1.55 }}>
+                  <div style={{ width: 1, alignSelf: "stretch", background: HAIR }} />
+                  <div style={{ fontFamily: SANS, color: TXT_DIM, fontSize: 12.5, lineHeight: 1.55 }}>
                     {firstName} {totalDelta >= 0.3 ? "improved" : totalDelta <= -0.3 ? "slipped" : "held steady"} from <b style={{ color: "#fff" }}>{firstP.toFixed(1)}</b> in session 1 to <b style={{ color: "#fff" }}>{lastP.toFixed(1)}</b> by session {n}{totalDelta >= 0.3 ? " — a clear upward trajectory across the evaluation." : "."} The line below tracks every session against the group.
                   </div>
                 </div>
               )}
 
               {/* Line chart */}
-              <div style={{ border: `1px solid ${LINE}`, borderRadius: 16, background: "#0e0e12", padding: "8px 6px 4px" }}>
+              <div style={{ ...cardStyle, padding: "10px 8px 4px" }}>
                 <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
                   <defs>
                     <linearGradient id="progFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={GOLD} stopOpacity="0.28" />
+                      <stop offset="0%" stopColor={GOLD} stopOpacity="0.26" />
                       <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   {gridVals.map((g, i) => (
                     <g key={i}>
-                      <line x1={padX} y1={y(g)} x2={W - padX} y2={y(g)} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-                      <text x={padX - 8} y={y(g) + 3} textAnchor="end" fontSize="11" fill="#6b7078" fontFamily={NUM}>{g}</text>
+                      <line x1={padX} y1={y(g)} x2={W - padX} y2={y(g)} stroke="rgba(220,227,240,0.08)" strokeWidth="1" />
+                      <text x={padX - 8} y={y(g) + 3} textAnchor="end" fontSize="11" fill={MUTED} fontFamily={MONO}>{g}</text>
                     </g>
                   ))}
                   <path d={area} fill="url(#progFill)" />
-                  <path d={line("group")} fill="none" stroke="#4a4f57" strokeWidth="2" strokeDasharray="5 5" />
+                  <path d={line("group")} fill="none" stroke="#4d4637" strokeWidth="2" strokeDasharray="5 5" />
                   <path d={line("player")} fill="none" stroke={GOLD} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
                   {prog.map((p, i) => (
                     <g key={i}>
-                      <circle cx={x(i)} cy={y(p.group)} r="3.5" fill="#4a4f57" />
-                      <circle cx={x(i)} cy={y(p.player)} r="5.5" fill={GOLD} stroke="#0e0e12" strokeWidth="2" />
-                      <text x={x(i)} y={y(p.player) - 12} textAnchor="middle" fontSize="14" fontWeight="700" fill="#f6f7f8" fontFamily={NUM}>{p.player.toFixed(1)}</text>
-                      <text x={x(i)} y={H - 22} textAnchor="middle" fontSize="12" fontWeight="700" fill="#aeb2bb" fontFamily={SANS}>SESSION {p.session_number}</text>
+                      <circle cx={x(i)} cy={y(p.group)} r="3.5" fill="#4d4637" />
+                      <circle cx={x(i)} cy={y(p.player)} r="5.5" fill={GOLD} stroke={SURFACE} strokeWidth="2" />
+                      <text x={x(i)} y={y(p.player) - 12} textAnchor="middle" fontSize="14" fontWeight="700" fill="#f6f7f8" fontFamily={MONO}>{p.player.toFixed(1)}</text>
+                      <text x={x(i)} y={H - 22} textAnchor="middle" fontSize="11" fontWeight="700" letterSpacing="0.08em" fill="#aeb2bb" fontFamily={MONO}>SESSION {p.session_number}</text>
                     </g>
                   ))}
                 </svg>
-                <div style={{ display: "flex", gap: 18, justifyContent: "center", padding: "4px 0 10px", fontSize: 11, color: MUTED, fontWeight: 600 }}>
+                <div style={{ display: "flex", gap: 18, justifyContent: "center", padding: "6px 0 12px", fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, fontWeight: 600 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: GOLD, borderRadius: 2 }} />{firstName}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 0, borderTop: "2px dashed #4a4f57" }} />Group average</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 0, borderTop: "2px dashed #4d4637" }} />Group average</span>
                 </div>
               </div>
 
@@ -421,13 +436,13 @@ export default function DevelopmentReport({ data }) {
                 {prog.map((p, i) => {
                   const d = i === 0 ? null : Math.round((p.player - prog[i - 1].player) * 10) / 10;
                   return (
-                    <div key={i} style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 12, background: "#101014", padding: "10px 12px", textAlign: "center" }}>
-                      <div style={{ fontSize: 9.5, color: GRAY, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Session {p.session_number}</div>
-                      <div style={{ fontFamily: NUM, fontSize: 24, fontWeight: 800, color: "#fff", margin: "3px 0 2px" }}>{p.player.toFixed(1)}</div>
+                    <div key={i} style={{ flex: 1, ...cardStyle, padding: "12px 10px", textAlign: "center" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, color: GRAY, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Session {p.session_number}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 24, fontWeight: 800, color: "#fff", margin: "5px 0 3px" }}>{p.player.toFixed(1)}</div>
                       {d == null ? (
-                        <div style={{ fontSize: 10.5, color: MUTED }}>starting point</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.04em" }}>Starting point</div>
                       ) : (
-                        <div style={{ fontSize: 11.5, fontWeight: 700, color: d > 0 ? "#5fd08a" : d < 0 ? "#e0944a" : MUTED }}>{d > 0 ? "▲ +" : d < 0 ? "▼ " : "– "}{Math.abs(d).toFixed(1)} vs S{prog[i - 1].session_number}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: d > 0 ? "#5fd08a" : d < 0 ? "#e0944a" : MUTED }}>{d > 0 ? "▲ +" : d < 0 ? "▼ " : "– "}{Math.abs(d).toFixed(1)} vs S{prog[i - 1].session_number}</div>
                       )}
                     </div>
                   );
@@ -443,15 +458,15 @@ export default function DevelopmentReport({ data }) {
             <Shead kicker="Selected observations" title="What the evaluators saw" />
             <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play.</div>
             {notes.slice(0, 12).map((n, i) => (
-              <div key={i} style={{ borderLeft: `2px solid ${GOLD}`, padding: "1px 0 1px 14px", marginBottom: 9, breakInside: "avoid" }}>
-                <div style={{ color: "#dfe1e4", lineHeight: 1.55, fontStyle: "italic", fontSize: 12.5 }}>&ldquo;{n.note_text}&rdquo;</div>
-                <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>
+              <div key={i} style={{ ...cardStyle, borderLeft: `2px solid ${GOLD}`, padding: "12px 16px", marginBottom: 9, breakInside: "avoid" }}>
+                <div style={{ fontFamily: SANS, color: "#e5e7ec", lineHeight: 1.55, fontSize: 12.5 }}>&ldquo;{n.note_text}&rdquo;</div>
+                <div style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>
               </div>
             ))}
             {(strengthSkill || focusSkill || standing) && (
-              <div style={{ marginTop: 16, background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 14, padding: "14px 18px", breakInside: "avoid" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 7 }}>What it adds up to</div>
-                <div style={{ fontSize: 12.5, color: "#dfe1e4", lineHeight: 1.6 }}>
+              <div style={{ marginTop: 16, background: PANEL_BG, border: `1px solid ${PANEL_BORDER}`, borderLeft: `3px solid ${GOLD}`, borderRadius: 10, padding: "15px 18px", breakInside: "avoid" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 8 }}>What it adds up to</div>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#e5e7ec", lineHeight: 1.6 }}>
                   Read together, the scores tell a consistent story.{strengthSkill && weaknessSkill && strengthSkill.scoring_category_id !== weaknessSkill.scoring_category_id ? <> {firstName}'s <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> ({strengthSkill.player.toFixed(1)}) grades out as the relative strength, while <b style={{ color: "#fff" }}>{weaknessSkill.name.toLowerCase()}</b> ({weaknessSkill.player.toFixed(1)}) is the area to attack first</> : strengthSkill ? <> {firstName}'s scores sit close together, with <b style={{ color: "#fff" }}>{strengthSkill.name.toLowerCase()}</b> grading highest</> : ""}. The development plan on the next page lays out the order to climb.
                 </div>
               </div>
@@ -463,88 +478,122 @@ export default function DevelopmentReport({ data }) {
         {(standing || skillFocus.length > 0 || testFocus.length > 0) && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="The bottom line" title="Summary & recommendations" />
-            <div style={{ background: "linear-gradient(120deg,#1a1812,#121216)", border: `1px solid ${GOLD_LINE}`, borderRadius: 16, padding: "14px 20px", breakInside: "avoid" }}>
-              <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 19, color: "#fff", marginBottom: 4 }}>What to chase next</div>
-              <div style={{ color: "#b8bcc4", lineHeight: 1.55, fontSize: 12 }}>{firstName} was measured across {isGoalie ? "the evaluators' scores" : "objective testing and evaluator scores"} over the evaluation. The point of this report isn't a ranking — it's a clear picture of what to work on and, just as important, the order to work on it in.</div>
+            <div style={{ ...cardStyle, padding: "16px 20px" }}>
+              <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: "#fff", marginBottom: 5, textTransform: "uppercase", letterSpacing: "-0.005em" }}>What to chase next</div>
+              <div style={{ fontFamily: SANS, color: TXT_DIM, lineHeight: 1.55, fontSize: 12 }}>{firstName} was measured across {isGoalie ? "the evaluators' scores" : "objective testing and evaluator scores"} over the evaluation. The point of this report isn't a ranking — it's a clear picture of what to work on and, just as important, the order to work on it in.</div>
+              <div style={{ marginTop: 12, border: `1px solid ${HAIR}`, borderRadius: 8, background: "rgba(21,28,37,0.6)", padding: "10px 14px", color: TXT_DIM, fontFamily: SANS, fontSize: 11, lineHeight: 1.5, breakInside: "avoid" }}>
+                <b style={{ color: "#fff" }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player, and it isn't how groups or teams get set. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
+              </div>
             </div>
-            <div style={{ marginTop: 10, borderLeft: `2px solid ${GOLD}`, background: "rgba(205,164,52,0.06)", borderRadius: "0 10px 10px 0", padding: "9px 14px", color: "#b8bcc4", fontSize: 11, lineHeight: 1.5, breakInside: "avoid" }}>
-              <b style={{ color: "#fff" }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player, and it isn't how groups or teams get set. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
-            </div>
-            <div style={{ lineHeight: 1.55, marginTop: 11, fontSize: 12.5, color: "#c7cbd2" }}>
-              <p style={{ marginTop: 0 }}>If {firstName} invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
+
+            <div style={{ lineHeight: 1.55, marginTop: 20, fontFamily: SANS, fontSize: 12.5, color: TXT_DIM }}>
+              <p style={{ marginTop: 0, marginBottom: 18 }}>If {firstName} invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
+
+              {/* Vertical timeline — numbered node, then the priority card and the
+                  "then, in order" list beneath it. */}
               {skillFocus.length > 0 && (
-                <>
-                  <div style={{ background: GOLD_SOFT, border: `1px solid ${GOLD_LINE}`, borderRadius: 12, padding: "11px 15px", margin: "9px 0", breakInside: "avoid" }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>{isGoalie ? "Start here — the priority" : "Start here — the foundation"}</div>
-                    <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 4 }}>1. {skillFocus[0].name}</div>
-                    <div style={{ color: "#c7cbd2" }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${GOLD_LINE}`, color: "#c7cbd2" }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
+                <div style={{ position: "relative", paddingLeft: 30, borderLeft: `2px solid ${HAIR}` }}>
+                  <div style={{ position: "relative", breakInside: "avoid" }}>
+                    <div style={{ position: "absolute", left: -44, top: -2, width: 28, height: 28, borderRadius: "50%", background: INK, border: `2px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: GOLD }}>1</span>
+                    </div>
+                    <div style={{ ...cardStyle, borderLeft: `3px solid ${GOLD}`, padding: "16px 18px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 7 }}>{isGoalie ? "Start here — the priority" : "Start here — the foundation"}</div>
+                      <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: "#fff", marginBottom: 5, textTransform: "uppercase" }}>{skillFocus[0].name}</div>
+                      <div style={{ color: TXT_DIM }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
+                      <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}><b style={{ color: GOLD }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
+                    </div>
                   </div>
+
                   {skillFocus.length > 1 && (
-                    <>
-                      <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, margin: "11px 0 6px" }}>Then, in order</div>
-                      <ol start={2} style={{ margin: 0, paddingLeft: 18 }}>
-                        {skillFocus.slice(1).map(s => (<li key={s.scoring_category_id} style={{ marginBottom: 4, color: "#c7cbd2" }}><b style={{ color: "#fff" }}>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group; gets easier once the foundation above is in place.</li>))}
-                      </ol>
-                    </>
+                    <div style={{ position: "relative", marginTop: 22 }}>
+                      <div style={{ position: "absolute", left: -42, top: -1, width: 24, height: 24, borderRadius: "50%", background: INK, border: `2px solid ${HAIR}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 11, color: GRAY }}>2</span>
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: GRAY, fontWeight: 700, marginBottom: 9 }}>Then, in order</div>
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        {skillFocus.slice(1).map(s => (
+                          <li key={s.scoring_category_id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: GOLD, marginTop: 6, flexShrink: 0 }} />
+                            <span style={{ color: TXT_DIM }}><b style={{ color: "#fff" }}>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group; gets easier once the foundation above is in place.</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {testFocus.length > 0 ? (
+                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                      ) : (
+                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                      )}
+                    </div>
                   )}
-                </>
+                  {skillFocus.length <= 1 && (
+                    testFocus.length > 0 ? (
+                      <p style={{ margin: "16px 0 0", color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                    ) : (
+                      <p style={{ margin: "16px 0 0", color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                    )
+                  )}
+                </div>
               )}
-              {testFocus.length > 0 ? (
-                <p style={{ margin: "11px 0 0", color: "#c7cbd2" }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
-              ) : (
-                <p style={{ margin: "11px 0 0", color: "#c7cbd2" }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+              {skillFocus.length === 0 && (
+                testFocus.length > 0 ? (
+                  <p style={{ margin: 0, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                ) : (
+                  <p style={{ margin: 0, color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                )
               )}
             </div>
 
             {!isGoalie && (
-              <div style={{ marginTop: 20, breakInside: "avoid" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>Off-ice next steps</div>
-                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 8 }}>Finding the right development partner</div>
-                <p style={{ margin: "0 0 12px", color: "#c7cbd2" }}>The plan above tells you what to work on. This is how to find someone good to help — we don't broker or endorse specific coaches or programs, so the research is on you, but here's what to look for.</p>
+              <div style={{ marginTop: 26, breakInside: "avoid" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 7 }}>Off-ice next steps</div>
+                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: "#fff", marginBottom: 9, textTransform: "uppercase" }}>Finding the right development partner</div>
+                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: TXT_DIM }}>The plan above tells you what to work on. This is how to find someone good to help — we don't broker or endorse specific coaches or programs, so the research is on you, but here's what to look for.</p>
 
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Skills training vs. power skating</div>
-                  <div style={{ color: "#c7cbd2" }}>
-                    "Power skating" is pure skating mechanics — edges, stride, balance, tight turns, stopping and starting. "Skills" training covers puck handling, shooting and stickhandling under pressure. They're different disciplines and not every provider does both well.
-                    {focusSkill && (focusSkill.name || "").toLowerCase().match(/skat|edge|balance/)
-                      ? ` Based on the numbers above, ${firstName} would get the most out of a power-skating provider first — the puck skills sharpen faster once the skating underneath them is solid.`
-                      : focusSkill && (focusSkill.name || "").toLowerCase().match(/puck|stick|hand/)
-                      ? ` Based on the numbers above, ${firstName} would get the most out of a skills/puck-handling provider first.`
-                      : ""}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ ...cardStyle, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fff", fontWeight: 700, marginBottom: 6 }}>Skills training vs. power skating</div>
+                    <div style={{ fontFamily: SANS, color: TXT_DIM, fontSize: 11.5, lineHeight: 1.55 }}>
+                      "Power skating" is pure skating mechanics — edges, stride, balance, tight turns, stopping and starting. "Skills" training covers puck handling, shooting and stickhandling under pressure. They're different disciplines and not every provider does both well.
+                      {focusSkill && (focusSkill.name || "").toLowerCase().match(/skat|edge|balance/)
+                        ? ` Based on the numbers above, ${firstName} would get the most out of a power-skating provider first — the puck skills sharpen faster once the skating underneath them is solid.`
+                        : focusSkill && (focusSkill.name || "").toLowerCase().match(/puck|stick|hand/)
+                        ? ` Based on the numbers above, ${firstName} would get the most out of a skills/puck-handling provider first.`
+                        : ""}
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Private lessons vs. group sessions</div>
-                  <div style={{ color: "#c7cbd2" }}>Private, one-on-one time with a good coach is the fastest way to fix a specific flaw — but it can run into real money fast, especially weekly. Group sessions and camps cost less per hour and still work well for general skill-building; save privates for a specific problem (a stride flaw, a weak backward crossover) once you know what it is.</div>
-                </div>
+                  <div style={{ ...cardStyle, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fff", fontWeight: 700, marginBottom: 6 }}>Private lessons vs. group sessions</div>
+                    <div style={{ fontFamily: SANS, color: TXT_DIM, fontSize: 11.5, lineHeight: 1.55 }}>Private, one-on-one time with a good coach is the fastest way to fix a specific flaw — but it can run into real money fast, especially weekly. Group sessions and camps cost less per hour and still work well for general skill-building; save privates for a specific problem (a stride flaw, a weak backward crossover) once you know what it is.</div>
+                  </div>
 
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Reading reviews and feedback</div>
-                  <div style={{ color: "#c7cbd2" }}>Generic praise ("great program," "my kid loved it") doesn't tell you much. Look for reviews that describe actual coaching — a parent saying a coach "takes the time to stop, correct and fix players," or a coach who explains why a drill matters, not just runs it. That's the signal that real, individualized correction is happening on the ice, not just repetition.</div>
-                </div>
+                  <div style={{ ...cardStyle, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "#fff", fontWeight: 700, marginBottom: 6 }}>Reading reviews and feedback</div>
+                    <div style={{ fontFamily: SANS, color: TXT_DIM, fontSize: 11.5, lineHeight: 1.55 }}>Generic praise ("great program," "my kid loved it") doesn't tell you much. Look for reviews that describe actual coaching — a parent saying a coach "takes the time to stop, correct and fix players," or a coach who explains why a drill matters, not just runs it. That's the signal that real, individualized correction is happening on the ice, not just repetition.</div>
+                  </div>
 
-                <div>
-                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Questions worth asking before you book</div>
-                  <div style={{ color: "#c7cbd2" }}>How many players per coach on the ice? Can you sit in on or trial a session first? Does the coach have a playing or coaching background at a level worth trusting? And do they track progress session-to-session, or is every session the same drills with no read on what's actually improving?</div>
+                  <div style={{ ...cardStyle, background: PANEL_BG, borderColor: PANEL_BORDER, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 6 }}>Questions worth asking before you book</div>
+                    <div style={{ fontFamily: SANS, color: TXT_DIM, fontSize: 11.5, lineHeight: 1.55 }}>How many players per coach on the ice? Can you sit in on or trial a session first? Does the coach have a playing or coaching background at a level worth trusting? And do they track progress session-to-session, or is every session the same drills with no read on what's actually improving?</div>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div style={{ borderTop: `1px solid ${LINE}`, padding: "11px 0 40px", marginTop: 16, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
-              <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>
-              <span>{category?.name} · {fullName} · {isGoalie ? "Goaltending" : "Player"} Development Report</span>
+            <div style={{ borderTop: `1px solid ${HAIR}`, padding: "12px 0 40px", marginTop: 20, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
+              <span style={{ fontFamily: MONO, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD }}>Sideline Star</span>
+              <span style={{ fontFamily: SANS }}>{category?.name} · {fullName} · {isGoalie ? "Goaltending" : "Player"} Development Report</span>
             </div>
           </div>
         )}
       </div>
 
       <style>{`
-        html, body { background: ${BG}; }
+        html, body { background: ${INK}; }
         @page { size: A4; margin: 0; }
         @media print {
-          html, body { background: ${BG}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body { background: ${INK}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .ssrpt { max-width: none !important; width: 100% !important; }
           button { display: none !important; }
         }
