@@ -251,7 +251,7 @@ export default function DevelopmentReport({ data }) {
               const gap = best != null ? (you - best).toFixed(2) : null;
               const info = testInfo(t.test_name);
               return (
-                <div key={`${t.test_name}-${i}`} style={{ position: "relative", overflow: "hidden", borderRadius: 11, border: `1px solid ${LINE}`, background: "radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%)", padding: "10px 16px 9px", marginBottom: 7, breakInside: "avoid" }}>
+                <div key={`${t.test_name}-${i}`} style={{ position: "relative", overflow: "hidden", borderRadius: 11, border: `1px solid ${LINE}`, background: "radial-gradient(130% 110% at 88% 0%, #1c1c22 0%, #121216 48%, #0d0d10 100%)", padding: "14px 16px 12px", marginBottom: 7, breakInside: "avoid" }}>
                   <div style={{ position: "absolute", top: -50, right: -50, width: 150, height: 150, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.06)" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aeb2bb" }}>{t.test_name}</span>
@@ -260,7 +260,7 @@ export default function DevelopmentReport({ data }) {
                   {info && <div style={{ fontSize: 9.5, color: MUTED, lineHeight: 1.4, margin: "2px 0 8px", maxWidth: "92%" }}>{info}</div>}
                   <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
                     <div style={{ display: "flex", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
-                      <span style={{ fontFamily: NUM, fontWeight: 800, fontSize: 30, lineHeight: 0.85, color: "#f6f7f8", letterSpacing: "-0.02em" }}>{fmt(you)}</span>
+                      <span style={{ fontFamily: NUM, fontWeight: 800, fontSize: 30, lineHeight: 1.15, color: "#f6f7f8", letterSpacing: "-0.02em" }}>{fmt(you)}</span>
                       <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: GOLD, marginBottom: 3 }}>sec</span>
                     </div>
                     {/* Two-point aim line: You → the fastest in the group (the target). No

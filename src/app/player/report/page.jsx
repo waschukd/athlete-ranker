@@ -12,12 +12,13 @@ const POSITION_COLORS = {
   goalie: "bg-amber-100 text-amber-700",
 };
 
+// Matches the softened tier wording in lib/reportData.js's buildAthleteReport.
 function percentileLabel(pct) {
   if (pct >= 90) return "Elite";
   if (pct >= 75) return "Above Average";
   if (pct >= 50) return "Average";
-  if (pct >= 25) return "Below Average";
-  return "Developing";
+  if (pct >= 25) return "Developing";
+  return "Early Development";
 }
 
 function RankHistoryChart({ history, sessions }) {

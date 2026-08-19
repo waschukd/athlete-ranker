@@ -68,8 +68,12 @@ export async function buildAthleteReport(catId, athleteId) {
   let standing = null;
   if (rank && totalAthletes > 0) {
     const percentile = totalAthletes > 1 ? Math.round(((totalAthletes - rank) / (totalAthletes - 1)) * 100) : 100;
-    const tier = percentile >= 90 ? "Elite" : percentile >= 75 ? "Above Average" : percentile >= 50 ? "Average" : percentile >= 25 ? "Below Average" : "Developing";
-    const band = percentile >= 90 ? "Top 10%" : percentile >= 75 ? "Top 25%" : percentile >= 50 ? "Top half" : percentile >= 25 ? "Bottom half" : "Bottom 25%";
+    // Softened wording (not currently rendered in the paid parent report itself,
+    // but used by the director compare tool and the AI scouting prompt, and
+    // will feed the parent-facing narrative summary once that's built) --
+    // "Below Average"/"Bottom half" add sting the percentile number doesn't need.
+    const tier = percentile >= 90 ? "Elite" : percentile >= 75 ? "Above Average" : percentile >= 50 ? "Average" : percentile >= 25 ? "Developing" : "Early Development";
+    const band = percentile >= 90 ? "Top 10%" : percentile >= 75 ? "Top 25%" : percentile >= 50 ? "Top half" : percentile >= 25 ? "Middle of the group" : "Building the foundation";
     standing = { percentile, tier, band, total: totalAthletes };
   }
 
