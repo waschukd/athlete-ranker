@@ -19,9 +19,12 @@ const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', s
 
 function testInfo(name) {
   const n = (name || "").toLowerCase();
+  // Weave/transition/stop checked BEFORE the bare "puck" fallback -- a drill
+  // like "Weave With Puck" must get the agility description, not the generic
+  // puck-carry-speed one, just because its name also contains "puck". Puck
+  // still wins over a bare "forward" check below (a "Forward Sprint w/ Puck"
+  // test is correctly described as puck-carry speed).
   if (n.includes("backward")) return "Straight-line backward speed — edge control, posture and defensive footspeed.";
-  if (n.includes("puck")) return "Speed while controlling the puck — how much pace holds up with the puck on the stick.";
-  if (n.includes("forward") || (n.includes("30m") && !n.includes("backward"))) return "Flat-out straight-line speed — pure acceleration and stride power.";
   if (n.includes("transition") || n.includes("pivot")) {
     if (n.includes("left")) return "Pivots and direction changes turning to the left — footwork and clean transitions.";
     if (n.includes("right")) return "Pivots and direction changes turning to the right — footwork and clean transitions.";
@@ -29,7 +32,9 @@ function testInfo(name) {
   }
   if (n.includes("weave") || n.includes("agility") || n.includes("cone")) return "Tight turns and cuts through obstacles — balance, edge control and quickness in close.";
   if (n.includes("stop") || n.includes("caps") || n.includes("start")) return "Explosive stop-and-start — how fast they stop hard and get moving again the other way.";
-  if (n.includes("reaction") || n.includes("start")) return "First-step quickness off the whistle — explosiveness and reaction time.";
+  if (n.includes("puck")) return "Speed while controlling the puck — how much pace holds up with the puck on the stick.";
+  if (n.includes("forward") || (n.includes("30m") && !n.includes("backward"))) return "Flat-out straight-line speed — pure acceleration and stride power.";
+  if (n.includes("reaction")) return "First-step quickness off the whistle — explosiveness and reaction time.";
   return "";
 }
 const fmt = (v) => (v == null ? "—" : v.toFixed(2));

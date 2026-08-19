@@ -10,10 +10,14 @@ function testOrder(name) {
   const n = (name || "").toLowerCase();
   if (n.includes("forward")) return n.includes("puck") ? 2 : 1;
   if (n.includes("backward")) return 3;
-  if (n.includes("puck")) return 2; // "sprint with puck" without the word "forward"
+  // Weave/transition/stop checked BEFORE the bare "puck" fallback below -- a
+  // drill like "Weave With Puck" or "Stop & Start w/ Puck" must slot into its
+  // own category, not get swept into the forward-with-puck slot just because
+  // its name also contains "puck".
   if (n.includes("transition")) return n.includes("right") ? 6 : 5;
   if (n.includes("weave") || n.includes("agility")) return 4;
   if (n.includes("stop") || n.includes("start") || n.includes("caps")) return 7;
+  if (n.includes("puck")) return 2; // "sprint with puck" without the word "forward"
   return 99;
 }
 
