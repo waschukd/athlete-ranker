@@ -497,6 +497,40 @@ export default function DevelopmentReport({ data }) {
               )}
             </div>
 
+            {!isGoalie && (
+              <div style={{ marginTop: 20, breakInside: "avoid" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: GOLD, fontWeight: 800, marginBottom: 6 }}>Off-ice next steps</div>
+                <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 8 }}>Finding the right development partner</div>
+                <p style={{ margin: "0 0 12px", color: "#c7cbd2" }}>The plan above tells you what to work on. This is how to find someone good to help — we don't broker or endorse specific coaches or programs, so the research is on you, but here's what to look for.</p>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Skills training vs. power skating</div>
+                  <div style={{ color: "#c7cbd2" }}>
+                    "Power skating" is pure skating mechanics — edges, stride, balance, tight turns, stopping and starting. "Skills" training covers puck handling, shooting and stickhandling under pressure. They're different disciplines and not every provider does both well.
+                    {focusSkill && (focusSkill.name || "").toLowerCase().match(/skat|edge|balance/)
+                      ? ` Based on the numbers above, ${firstName} would get the most out of a power-skating provider first — the puck skills sharpen faster once the skating underneath them is solid.`
+                      : focusSkill && (focusSkill.name || "").toLowerCase().match(/puck|stick|hand/)
+                      ? ` Based on the numbers above, ${firstName} would get the most out of a skills/puck-handling provider first.`
+                      : ""}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Private lessons vs. group sessions</div>
+                  <div style={{ color: "#c7cbd2" }}>Private, one-on-one time with a good coach is the fastest way to fix a specific flaw — but it can run into real money fast, especially weekly. Group sessions and camps cost less per hour and still work well for general skill-building; save privates for a specific problem (a stride flaw, a weak backward crossover) once you know what it is.</div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Reading reviews and feedback</div>
+                  <div style={{ color: "#c7cbd2" }}>Generic praise ("great program," "my kid loved it") doesn't tell you much. Look for reviews that describe actual coaching — a parent saying a coach "takes the time to stop, correct and fix players," or a coach who explains why a drill matters, not just runs it. That's the signal that real, individualized correction is happening on the ice, not just repetition.</div>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 700, color: "#fff", marginBottom: 3 }}>Questions worth asking before you book</div>
+                  <div style={{ color: "#c7cbd2" }}>How many players per coach on the ice? Can you sit in on or trial a session first? Does the coach have a playing or coaching background at a level worth trusting? And do they track progress session-to-session, or is every session the same drills with no read on what's actually improving?</div>
+                </div>
+              </div>
+            )}
 
             <div style={{ borderTop: `1px solid ${LINE}`, padding: "11px 0 40px", marginTop: 16, display: "flex", justifyContent: "space-between", color: MUTED, fontSize: 10 }}>
               <span style={{ fontFamily: SERIF, fontStyle: "italic", color: GOLD, fontWeight: 700 }}>Sideline Star</span>
