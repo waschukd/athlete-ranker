@@ -99,7 +99,7 @@ export function ReportFonts() {
 }
 
 export default function DevelopmentReport({ data }) {
-  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name } = data;
+  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name, narrativeSummary = null } = data;
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -208,6 +208,18 @@ export default function DevelopmentReport({ data }) {
       </div>
 
       <div style={{ padding: "24px 34px 0" }}>
+
+        {/* Opening narrative — AI-synthesized from the notes + numbers below, set
+            the scene before any chart. Cached per (athlete, category); see
+            src/lib/parentNarrative.js. Absent (older/uncached reports, or if the
+            AI call ever fails) means this card just doesn't render — every other
+            section stands on its own without it. */}
+        {narrativeSummary && (
+          <div style={{ marginBottom: 20, breakInside: "avoid" }}>
+            <div style={{ fontSize: 9.5, letterSpacing: "0.24em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 8 }}>The read</div>
+            <div style={{ fontFamily: SERIF, fontSize: 15.5, fontWeight: 700, fontStyle: "italic", color: "#eceef0", lineHeight: 1.6 }}>{narrativeSummary}</div>
+          </div>
+        )}
 
         {/* Goalie skills session — the goalie equivalent of testing (four drills, higher is better) */}
         {isGoalie && goalieSkillsProfile.length > 0 && (

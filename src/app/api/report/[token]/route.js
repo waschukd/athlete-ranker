@@ -4,6 +4,7 @@ import { resolveReportProvider, isPurchasable } from "@/lib/reportProvider";
 import { logEvent } from "@/lib/analytics";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 import { buildAthleteReport } from "@/lib/reportData";
+import { generateParentNarrative } from "@/lib/parentNarrative";
 
 // Default lifetime for a parent-facing share link. Bounded so that a link leaked
 // into search engines or a parents' group chat can't be replayed forever.
@@ -83,9 +84,27 @@ export async function GET(request, { params }) {
     };
 
     if (purchased) {
+      // Opening narrative paragraph: generated once per (athlete, category) and
+      // cached on report_links, so every view after the first is free.
+      // Best-effort — a slow/misconfigured/erroring AI call never blocks the
+      // rest of the (already-paid-for) report from rendering.
+      let narrativeSummary = link[0].narrative_summary || null;
+      if (!narrativeSummary && process.env.ANTHROPIC_API_KEY) {
+        try {
+          const isGoalie = (report.goalieSkillsProfile || []).length > 0;
+          const gen = await generateParentNarrative({
+            token, athlete, category: base.category, isGoalie,
+            standing: report.standing, skillProfile: isGoalie ? report.goalieSkillsProfile : report.skillProfile,
+            testingProfile: report.testingProfile, progress: report.progress, notes: report.notes,
+          });
+          if (gen.ok) narrativeSummary = gen.narrative;
+        } catch (e) { console.error("Parent narrative generation failed:", e?.message); }
+      }
+
       // Full report — what the dark DevelopmentReport component renders.
       return NextResponse.json({
         ...base,
+        narrativeSummary,
         skillProfile: report.skillProfile,
         goalieSkillsProfile: report.goalieSkillsProfile,
         testingProfile: report.testingProfile,
