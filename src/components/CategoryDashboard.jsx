@@ -1244,7 +1244,7 @@ export default function CategoryDashboard({
                             {isTournament && (
                               <td className="px-4 py-2.5">
                                 {canEditSchedule
-                                  ? <MatchupPicker entry={e} teams={scrimmageTeams} catId={catId} onSaved={refetchSchedule} />
+                                  ? <MatchupPicker entry={e} teams={scrimmageTeams} catId={catId} onSaved={refetchSchedule} onTeamsChanged={refetchScrimmageTeams} />
                                   : (e.matchup ? <span className="text-sm font-medium text-ink">{e.matchup}</span> : <span className="text-xs text-gray-300">-</span>)}
                               </td>
                             )}

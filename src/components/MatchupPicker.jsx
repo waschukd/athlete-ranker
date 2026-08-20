@@ -3,10 +3,38 @@
 import { useState } from "react";
 import { Check, X } from "lucide-react";
 
+// Lets a director create teams inline, right from an unresolved matchup, so
+// "we know we're running 4 teams, just haven't set up the schedule yet"
+// doesn't require a detour to the Teams tab before they can even start
+// picking who plays who.
+function InlineCreateTeams({ catId, onCreated }) {
+  const [count, setCount] = useState(4);
+  const [busy, setBusy] = useState(false);
+  const create = async () => {
+    setBusy(true);
+    try {
+      await fetch(`/api/categories/${catId}/scrimmage-teams`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", count }),
+      });
+      onCreated?.();
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="inline-flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-gray-400">No teams yet —</span>
+      <select value={count} onChange={e => setCount(Number(e.target.value))} disabled={busy} className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
+        {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} teams</option>)}
+      </select>
+      <button onClick={create} disabled={busy} className="text-xs px-2.5 py-1 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">{busy ? "Creating…" : "Create"}</button>
+    </div>
+  );
+}
+
 // Tournament-format only: pick which two teams play a given game. Writes a
 // canonical "TeamA vs TeamB" label via the schedule PATCH, which resolves
 // into that game's roster server-side (applyMatchup).
-export default function MatchupPicker({ entry, teams, catId, onSaved }) {
+export default function MatchupPicker({ entry, teams, catId, onSaved, onTeamsChanged }) {
   const [editing, setEditing] = useState(false);
   const [a, setA] = useState("");
   const [b, setB] = useState("");
@@ -53,7 +81,7 @@ export default function MatchupPicker({ entry, teams, catId, onSaved }) {
     );
   }
   if (!teams.length) {
-    return <span className="text-xs text-gray-400 italic">No teams yet — create teams on the Teams tab first.</span>;
+    return <InlineCreateTeams catId={catId} onCreated={() => onTeamsChanged?.()} />;
   }
   return (
     <div className="flex items-center gap-1.5 flex-wrap">

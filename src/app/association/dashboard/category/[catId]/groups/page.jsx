@@ -95,7 +95,7 @@ function FlagInfo({ dir, why, priority }) {
 // groups, and no ranking-based movement flags here. Cards come from the
 // schedule (one per game), not session_groups — a fresh tournament category has
 // no session_groups rows at all until the first matchup is picked.
-function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved }) {
+function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged }) {
   const games = scheduleRows
     .filter(r => r.session_number === selectedSession)
     .sort((a, b) => (a.group_number || 0) - (b.group_number || 0));
@@ -110,16 +110,9 @@ function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, grou
     );
   }
 
-  if (!teams.length) {
-    return (
-      <div className="py-16 text-center bg-white border border-dashed border-gray-200 rounded-2xl">
-        <Users size={48} className="mx-auto text-gray-200 mb-4" />
-        <h3 className="font-semibold text-gray-700 mb-2">No teams created yet</h3>
-        <p className="text-sm text-gray-400">Create teams on the Teams tab before picking matchups here.</p>
-      </div>
-    );
-  }
-
+  // No early-return for zero teams — MatchupPicker itself offers inline team
+  // creation now, so a director can go straight from "no teams" to "who's
+  // playing" without a detour to the Teams tab.
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {games.map(row => {
@@ -133,7 +126,7 @@ function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, grou
                   {row.group_number}
                 </div>
                 <div className="min-w-0">
-                  <MatchupPicker entry={row} teams={teams} catId={catId} onSaved={onMatchupSaved} />
+                  <MatchupPicker entry={row} teams={teams} catId={catId} onSaved={onMatchupSaved} onTeamsChanged={onTeamsChanged} />
                   <div className="text-xs text-gray-400 mt-0.5">
                     {row.scheduled_date ? new Date(String(row.scheduled_date).slice(0, 10) + "T00:00:00").toLocaleDateString() : ""}
                     {row.start_time ? ` · ${row.start_time}` : ""}{row.location ? ` · ${row.location}` : ""}
@@ -257,7 +250,7 @@ function GroupsManagerInner() {
   // instead of drag/auto-assign — group membership is a snapshot of the two
   // teams' rosters (set via the matchup picker), not a manually built split.
   const isTournament = setupData?.category?.eval_format === "round_robin";
-  const { data: scrimmageTeamsData } = useQuery({
+  const { data: scrimmageTeamsData, refetch: refetchScrimmageTeams } = useQuery({
     queryKey: ["scrimmage-teams", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/scrimmage-teams`); return res.json(); },
     enabled: !!catId && isTournament,
@@ -745,6 +738,7 @@ function GroupsManagerInner() {
             setColor={setColor}
             setJerseyNumber={setJerseyNumber}
             onMatchupSaved={() => { refetchSchedule(); refetch(); }}
+            onTeamsChanged={refetchScrimmageTeams}
           />
         ) : groupsLoading ? (
           <div className="py-12 text-center text-gray-400">
