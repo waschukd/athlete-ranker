@@ -362,6 +362,58 @@ function CategoriesTab({ managed, withOrg, orgParam, onGoAssociations }) {
   );
 }
 
+// Proactively reach out to an association by email instead of waiting for them
+// to share a code. Handles both cases (existing account -> pending approval
+// request; no account yet -> new client + invite) via one endpoint; see
+// src/app/api/goalie-provider/invite-association/route.js.
+function InviteAssociationBox({ withOrg, onChanged }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [needsOrgName, setNeedsOrgName] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const submit = async () => {
+    if (!email.trim()) return;
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(withOrg("/api/goalie-provider/invite-association"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), name: name.trim() || null, org_name: orgName.trim() || null }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) { setMsg({ type: "error", text: d.error || "Couldn't send invite." }); setNeedsOrgName(false); }
+      else if (d.outcome === "needs_org_name") { setNeedsOrgName(true); setMsg({ type: "info", text: "No existing account found for that email — this will create a new association. What's their name?" }); }
+      else if (d.outcome === "already_linked") { setMsg({ type: "success", text: `Already connected to ${d.association?.name}.` }); onChanged(); }
+      else if (d.outcome === "request_sent") { setMsg({ type: "success", text: d.message || `Connection request sent to ${email}.` }); setEmail(""); setName(""); setOrgName(""); setNeedsOrgName(false); }
+      else if (d.outcome === "created") { setMsg({ type: "success", text: d.message || `${d.association?.name} created and invited.` }); setEmail(""); setName(""); setOrgName(""); setNeedsOrgName(false); onChanged(); }
+    } catch { setMsg({ type: "error", text: "Network error — please try again." }); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5">
+      <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5"><Plus size={15} className="text-accent" /> Invite an association</h3>
+      <p className="text-xs text-gray-400 mt-0.5 mb-3">Enter their contact email — if they already have an account, they'll get a request to approve. If not, a new association is created and they're invited to set it up.</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="contact@association.org"
+          className="flex-1 min-w-[14rem] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Contact name (optional)"
+          className="flex-1 min-w-[10rem] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
+        {needsOrgName && (
+          <input value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Association name" autoFocus
+            className="flex-1 min-w-[10rem] border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
+        )}
+        <button onClick={submit} disabled={busy || !email.trim() || (needsOrgName && !orgName.trim())} className="inline-flex items-center gap-1.5 px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:opacity-90">
+          <Plus size={15} /> {needsOrgName ? "Create & invite" : "Invite"}
+        </button>
+      </div>
+      {msg && <p className={`text-xs font-medium mt-2 ${msg.type === "success" ? "text-green-600" : msg.type === "info" ? "text-amber-600" : "text-red-500"}`}>{msg.text}</p>}
+    </div>
+  );
+}
+
 function AssociationsTab({ managed, onChanged, withOrg }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -397,6 +449,8 @@ function AssociationsTab({ managed, onChanged, withOrg }) {
   const list = managed || [];
   return (
     <div className="space-y-6">
+      <InviteAssociationBox withOrg={withOrg} onChanged={onChanged} />
+
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5"><Link2 size={15} className="text-accent" /> Connect to an association</h3>
         <p className="text-xs text-gray-400 mt-0.5 mb-3">Ask the association for their association code, then enter it here. This connects you to their existing association — no new setup on their end. They&apos;ll see goalie results in their <b>Manage Goalies</b> view.</p>

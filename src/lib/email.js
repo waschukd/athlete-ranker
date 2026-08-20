@@ -237,6 +237,21 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
   await sendEmail(adminEmail, `New Evaluator Application — ${orgName}`, html);
 }
 
+// A goalie SP proactively invites an association that ALREADY has an account on
+// the platform (as opposed to a brand-new client, which gets emailOrgInvite +
+// account creation instead). This never auto-links -- the existing admin has to
+// sign in as themselves and approve, so a goalie SP entering someone else's
+// email can't silently gain access to their data.
+export async function emailGoalieSpConnectionRequest({ email, name, spName, respondUrl }) {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-family:${DISPLAY_FONT};font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#101113;">Goalie evaluation request</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${esc(name || "there")}</strong>, <strong style="color:#101113;">${esc(spName)}</strong> would like to connect as your association's goalie service provider on Sideline Star — running goalie evaluations, scheduling, and rankings on your behalf. Nothing changes for your existing account or your skater programs.</p>
+    <div style="text-align:center;margin:28px 0;">${btn(respondUrl, "Review request →")}</div>
+    <p style="font-size:12px;color:#9aa0aa;text-align:center;margin:0;">Sign in with your existing account to approve or decline. This link expires in 14 days.</p>
+  `);
+  return await sendEmail(email, `${spName} wants to connect as your goalie service provider`, html);
+}
+
 export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, spName, assocName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">New Association Linked</h2>
