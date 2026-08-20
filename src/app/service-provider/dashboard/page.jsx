@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload } from "lucide-react";
+import { Building2, Calendar, LogOut, Clock, MapPin, CheckCircle, ExternalLink, X, Plus, CalendarDays, List, Pencil, Ban, RotateCcw, MessageSquare, Send, Reply, Inbox, AlertTriangle, Star, ArrowRight, Upload, BookOpen } from "lucide-react";
 import SmartScheduleImport from "@/components/SmartScheduleImport";
 import { parseCsv } from "@/lib/rosterImport";
 import SessionRosterModal from "@/components/SessionRosterModal";
@@ -2352,6 +2352,9 @@ function SPDashboard() {
               <div className="flex items-center gap-3">
                 {flags.length > 0 && <span className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-full">{flags.length} open flags</span>}
                 {pendingHours.length > 0 && <span className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">{pendingHours.length} pending hours</span>}
+                <a href="/service-provider/dashboard/scoring-guide" className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
+                  <BookOpen size={14} /> Scoring guide
+                </a>
                 <button onClick={() => setShowSetRates(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
                   $ Set rates
                 </button>

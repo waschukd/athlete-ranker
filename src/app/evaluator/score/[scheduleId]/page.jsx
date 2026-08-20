@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -326,6 +326,22 @@ function ScoringInterface() {
     refetchIntervalInBackground: false,
     staleTime: 15_000,
   });
+
+  // Scoring guide: "what does a 0 look like, what does a 10 look like" per skill,
+  // for the age tier this category belongs to. Reference content, not calibration
+  // data, so it's fetched once and doesn't need polling.
+  const [guideOpen, setGuideOpen] = useState(false);
+  const { data: guideData } = useQuery({
+    queryKey: ["scoring-rubrics", catId],
+    queryFn: async () => {
+      const res = await fetch(`/api/scoring-rubrics?category_id=${catId}`);
+      if (!res.ok) throw new Error("guide fetch failed");
+      return res.json();
+    },
+    enabled: !!catId,
+    staleTime: 5 * 60_000,
+  });
+  const hasGuideContent = (guideData?.guide || []).some(g => g.bands.length > 0);
 
   // Merge server scores into local state + write merged result back to
   // localStorage so the next offline reload has the server's data too.
@@ -1192,6 +1208,11 @@ function ScoringInterface() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {hasGuideContent && (
+              <button onClick={() => setGuideOpen(true)} className="p-1.5 text-gray-500 hover:text-accent rounded-lg" title="Scoring guide">
+                <BookOpen size={18} />
+              </button>
+            )}
             {/* Connection dot */}
             <div className="flex items-center gap-1.5">
               <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${
@@ -1214,6 +1235,34 @@ function ScoringInterface() {
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>
+
+        {/* Scoring guide modal — "what does a 0 look like, what does a 10 look
+            like" reference, per skill, for this category's age tier. */}
+        {guideOpen && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setGuideOpen(false)}>
+            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><BookOpen size={17} className="text-accent" /> Scoring guide {guideData?.age_tier && guideData.age_tier !== "ALL" ? `— ${guideData.age_tier}` : ""}</h3>
+                <button onClick={() => setGuideOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              </div>
+              <div className="p-4 space-y-5">
+                {(guideData?.guide || []).filter(g => g.bands.length > 0).map(g => (
+                  <div key={g.scoring_category_id}>
+                    <h4 className="text-sm font-bold text-ink mb-1.5">{g.name}</h4>
+                    <div className="space-y-1">
+                      {g.bands.map((b, i) => (
+                        <div key={i} className="flex gap-2 text-xs">
+                          <span className="font-mono font-bold text-accent flex-shrink-0 w-10">{b.band_min}–{b.band_max}</span>
+                          <span className="text-gray-600 leading-snug">{b.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Calibration check banner */}
         {calibration && !calibrationDismissed && (
