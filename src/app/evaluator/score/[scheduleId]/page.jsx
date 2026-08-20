@@ -1580,13 +1580,22 @@ function ScoringInterface() {
               <button
                 key={athlete.id}
                 onClick={() => { setSelected(isActive ? null : athlete); if (collapseList) setListExpanded(false); }}
-                className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 bg-white transition-all select-none
-                  ${isActive ? "border-accent ring-4 ring-accent/30 scale-105 shadow-md" : "border-gray-200 hover:border-gray-300"}`}
-                style={{ aspectRatio: "1", minHeight: "64px" }}
+                className="relative flex items-center justify-center select-none transition-transform"
+                style={{ minHeight: "52px" }}
               >
                 <div className="relative">
-                  {/* Identifier (jersey or helmet #) in a team-colored circle — White vs Dark at a glance */}
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${isDark ? "bg-gray-900 text-white" : "bg-white border-2 border-gray-300 text-gray-900"}`}>
+                  {/* Identifier (jersey or helmet #) in a team-colored circle -- White
+                      vs Dark at a glance. Colors use bracket (arbitrary-value) classes
+                      on purpose, not bg-white/text-gray-900/bg-gray-900/text-white:
+                      globals.css's [data-theme="premium"] override remaps those exact
+                      utility classes for the dark evaluator theme, which was turning
+                      the "White" jersey circle into a dark circle with light text --
+                      the opposite of what a literal jersey color should ever do.
+                      Bracket classes aren't in that override list, so these stay true
+                      white/black in both themes. */}
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none transition-all ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${
+                    isDark ? "bg-[#111827] text-[#ffffff]" : "bg-[#ffffff] border-2 border-[#d1d5db] text-[#111827]"
+                  } ${isActive ? "ring-4 ring-accent/50 scale-110" : ""}`}>
                     {idOf(athlete)}
                   </div>
                   {/* Done = small green check; partial = amber dot */}
@@ -1597,11 +1606,6 @@ function ScoringInterface() {
                     <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white" />
                   )}
                 </div>
-                {athlete.position && (
-                  <span className="text-[10px] font-semibold text-gray-500 leading-none">
-                    {String(athlete.position).charAt(0).toUpperCase()}
-                  </span>
-                )}
               </button>
             );
           })}
