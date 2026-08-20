@@ -17,7 +17,7 @@ function Inner() {
   const params = useSearchParams();
   const org = params.get("org");
   const [theme, toggleTheme] = useTheme();
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(params.get("tab") || "overview");
 
   const withOrg = useCallback((path) => (org ? `${path}${path.includes("?") ? "&" : "?"}org=${org}` : path), [org]);
 
@@ -61,7 +61,7 @@ function Inner() {
             <span><b className="text-ink">{totalGoalies}</b> goalie{totalGoalies !== 1 ? "s" : ""}</span>
           </div>
           <div className="flex gap-1 mt-4 overflow-x-auto">
-            {[{ id: "overview", label: "Overview" }, { id: "schedule", label: "Schedule" }, { id: "evaluators", label: "Evaluators" }, { id: "associations", label: "Associations" }].map(t => (
+            {[{ id: "overview", label: "Overview" }, { id: "categories", label: "Categories" }, { id: "schedule", label: "Schedule" }, { id: "evaluators", label: "Evaluators" }, { id: "associations", label: "Associations" }].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {t.label}
@@ -76,6 +76,8 @@ function Inner() {
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{overview.error}</div>
         ) : tab === "overview" ? (
           <OverviewTab associations={associations} withOrg={withOrg} onGoAssociations={() => setTab("associations")} />
+        ) : tab === "categories" ? (
+          <CategoriesTab managed={managed} withOrg={withOrg} orgParam={org} onGoAssociations={() => setTab("associations")} />
         ) : tab === "schedule" ? (
           <ScheduleTab withOrg={withOrg} />
         ) : tab === "evaluators" ? (
@@ -249,6 +251,113 @@ function EvaluatorsTab({ withOrg, spId }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Per-association goalie categories: list + create. Categories created here are
+// goalie-only (age_categories.goalie_only = true) and get the org's goalie
+// template (sessions/scale/scoring) applied automatically on creation — see
+// src/app/api/organizations/[orgId]/goalie-categories/route.js. Nothing here
+// ever touches a skater category or a skater-facing page.
+function AssociationCategories({ assoc, withOrg, orgParam }) {
+  const [data, setData] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState({ name: "", min_age: "", max_age: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = useCallback(() => {
+    fetch(`/api/organizations/${assoc.id}/goalie-categories`).then(r => r.json()).then(setData).catch(() => setData({ categories: [] }));
+  }, [assoc.id]);
+  useEffect(() => { load(); }, [load]);
+
+  const create = async () => {
+    if (!form.name.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch(`/api/organizations/${assoc.id}/goalie-categories`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name.trim(), min_age: form.min_age || null, max_age: form.max_age || null }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) { setErr(d.error || "Couldn't create category."); }
+      else { setForm({ name: "", min_age: "", max_age: "" }); setShowNew(false); load(); }
+    } catch { setErr("Network error — please try again."); }
+    setBusy(false);
+  };
+
+  const categories = data?.categories || [];
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="font-semibold text-ink flex items-center gap-2"><Building2 size={16} className="text-accent" /> {assoc.name}</h3>
+        <button onClick={() => setShowNew(s => !s)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90">
+          <Plus size={13} /> New category
+        </button>
+      </div>
+      {showNew && (
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-end gap-2 flex-wrap">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Name</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. U13 Goalies"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-accent/40" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Min age</label>
+            <input value={form.min_age} onChange={e => setForm(f => ({ ...f, min_age: e.target.value }))} type="number" placeholder="9"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-accent/40" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Max age</label>
+            <input value={form.max_age} onChange={e => setForm(f => ({ ...f, max_age: e.target.value }))} type="number" placeholder="13"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-accent/40" />
+          </div>
+          <button onClick={create} disabled={busy || !form.name.trim()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40 hover:opacity-90">
+            <Plus size={14} /> Create
+          </button>
+          <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 text-gray-500 hover:text-gray-700">Cancel</button>
+          {err && <p className="text-xs font-medium text-red-500 basis-full">{err}</p>}
+        </div>
+      )}
+      {data === null ? (
+        <div className="px-5 py-8 text-center text-sm text-gray-400">Loading…</div>
+      ) : categories.length === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-gray-400">No goalie categories yet — create one above.</div>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {categories.map(c => (
+            <a key={c.id} href={withOrg(`/goalie-provider/dashboard/category/${c.id}`)} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors group">
+              <span className="text-sm font-medium text-gray-700">{c.name}</span>
+              <span className="inline-flex items-center gap-3 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-1"><Users size={12} /> {c.goalie_count} goalie{c.goalie_count !== 1 ? "s" : ""}</span>
+                <span className="inline-flex items-center gap-1 text-accent font-semibold group-hover:gap-2 transition-all">Manage <ArrowRight size={13} /></span>
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoriesTab({ managed, withOrg, orgParam, onGoAssociations }) {
+  const list = managed || [];
+  if (list.length === 0) {
+    return (
+      <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-16 text-center">
+        <Building2 size={40} className="mx-auto text-gray-200 mb-3" />
+        <h3 className="font-semibold text-gray-600">No associations connected yet</h3>
+        <p className="text-sm text-gray-400 mt-1 mb-4">Connect to an association first, then create goalie categories for them here.</p>
+        <button onClick={onGoAssociations} className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
+          <Plus size={15} /> Connect an association
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {list.map(a => <AssociationCategories key={a.id} assoc={a} withOrg={withOrg} orgParam={orgParam} />)}
     </div>
   );
 }

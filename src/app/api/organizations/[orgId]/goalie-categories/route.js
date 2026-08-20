@@ -3,12 +3,14 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 
-// In-house goalie categories for an association. A goalie-ONLY age category holds
-// only goalies and uses the same goalie tools a goalie SP would — for associations
-// that evaluate goalies themselves (goalie_eval_mode = 'association'). These live in
-// the association's "Manage Goalies" area, separate from the player categories.
+// Goalie-only categories for an association. A goalie-ONLY age category holds only
+// goalies and uses the same goalie tools a goalie SP would. Two callers can create
+// one: the association itself, evaluating in-house (goalie_eval_mode = 'association'),
+// or a connected goalie service provider running the association's goalies entirely
+// on their behalf (goalie_eval_mode = 'goalie_service_provider') -- see the eval_mode
+// gate in POST below, which is role-aware rather than a blanket block.
 
-const WRITE_ROLES = new Set(["super_admin", "association_admin"]);
+const WRITE_ROLES = new Set(["super_admin", "association_admin", "goalie_service_provider_admin"]);
 
 // GET — this association's goalie-only categories, each with its live goalie count.
 export async function GET(request, { params }) {
@@ -47,7 +49,11 @@ export async function POST(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const [org] = await sql`SELECT goalie_eval_mode FROM organizations WHERE id = ${orgId}`;
-    if ((org?.goalie_eval_mode || "association") === "goalie_service_provider") {
+    const delegatedToGoalieSp = (org?.goalie_eval_mode || "association") === "goalie_service_provider";
+    // An association admin can't self-create once they've delegated to a connected
+    // goalie SP -- but the connected goalie SP themselves is exactly who's supposed
+    // to be creating categories in that state, so only block the association side.
+    if (delegatedToGoalieSp && session.role !== "goalie_service_provider_admin" && session.role !== "super_admin") {
       return NextResponse.json({ error: "A goalie service provider handles your goalies. Switch to in-house evaluation to create your own goalie categories." }, { status: 400 });
     }
 

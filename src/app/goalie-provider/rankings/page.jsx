@@ -34,7 +34,7 @@ function Inner() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <a href="/service-provider/dashboard" className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 mb-1"><ArrowLeft size={13} /> Goalie Service Provider</a>
+            <a href="/goalie-provider/dashboard" className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 mb-1"><ArrowLeft size={13} /> Goalie Service Provider</a>
             <h1 className="font-display font-black tracking-tight text-ink text-3xl sm:text-4xl leading-none flex items-center gap-3"><Star size={26} className="text-accent" /> Goalie Rankings</h1>
             {assoc && <p className="text-sm text-gray-500 mt-2 flex items-center gap-1.5"><Building2 size={14} /> {assoc.name}</p>}
           </div>
