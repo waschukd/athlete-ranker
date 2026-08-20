@@ -43,7 +43,15 @@ async function authorizeCheckin(scheduleId) {
   if (token) {
     try {
       const { payload } = await jwtVerify(token, SECRET);
-      if (payload.scope === "checkin" && payload.schedule_id === scheduleId) {
+      // payload.schedule_id was signed as a NUMBER (a raw DB integer column,
+      // see /api/checkin/entry); scheduleId here is a route param, which
+      // Next.js always hands over as a STRING. `===` between the two was
+      // always false regardless of whether the id actually matched -- this
+      // was the real reason a volunteer's code got accepted (entry succeeded)
+      // but every follow-up request still came back 403, which the frontend
+      // shows as "Session not found." String() both sides to compare values,
+      // not types.
+      if (payload.scope === "checkin" && String(payload.schedule_id) === String(scheduleId)) {
         return { ok: true, ageCategoryId };
       }
     } catch {
