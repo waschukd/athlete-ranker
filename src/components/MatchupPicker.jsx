@@ -13,12 +13,16 @@ export default function MatchupPicker({ entry, teams, catId, onSaved }) {
   const [saving, setSaving] = useState(false);
   const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
 
+  // Whether the stored matchup text ("A vs B") still names two teams that
+  // exist under those names — if a team was renamed since the label was
+  // written (e.g. imported as "A vs B", then renamed to "1"/"2"), it won't,
+  // and the picker needs re-resolving even though matchup text is present.
+  const resolvedTeams = teams.filter(t => (entry.matchup || "").toLowerCase().includes(String(t.name).toLowerCase()));
+  const needsResolve = !!entry.matchup && resolvedTeams.length < 2;
+
   const startEdit = () => {
-    // Best-effort preselect: if the current matchup text names two teams that
-    // still exist under those names, default the pickers to them.
-    const found = teams.filter(t => (entry.matchup || "").toLowerCase().includes(String(t.name).toLowerCase()));
-    setA(found[0]?.id ? String(found[0].id) : "");
-    setB(found[1]?.id ? String(found[1].id) : "");
+    setA(resolvedTeams[0]?.id ? String(resolvedTeams[0].id) : "");
+    setB(resolvedTeams[1]?.id ? String(resolvedTeams[1].id) : "");
     setEditing(true);
   };
 
@@ -39,26 +43,31 @@ export default function MatchupPicker({ entry, teams, catId, onSaved }) {
 
   if (!editing) {
     return (
-      <button onClick={startEdit} className="text-left hover:opacity-70" title="Set which teams play this game">
-        {entry.matchup
+      <button onClick={startEdit} className="inline-flex items-center gap-1.5 text-left hover:opacity-70" title="Click to set which teams play this game">
+        {entry.matchup && !needsResolve
           ? <span className="text-sm font-medium text-ink">{entry.matchup}</span>
-          : <span className="text-xs text-gray-400 italic">Set matchup…</span>}
+          : needsResolve
+          ? <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">{entry.matchup} · needs teams</span>
+          : <span className="text-xs px-2 py-1 rounded border border-dashed border-accent/50 text-accent font-medium">+ Set matchup</span>}
       </button>
     );
   }
+  if (!teams.length) {
+    return <span className="text-xs text-gray-400 italic">No teams yet — create teams on the Teams tab first.</span>;
+  }
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <select value={a} onChange={e => setA(e.target.value)} className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
-        <option value="">Team…</option>
+      <select value={a} onChange={e => setA(e.target.value)} autoFocus className="min-w-[110px] text-sm border-2 border-accent/40 rounded-lg px-2 py-1.5 bg-white text-ink font-medium focus:outline-none focus:border-accent">
+        <option value="">Choose team</option>
         {teams.map(t => <option key={t.id} value={t.id} disabled={String(t.id) === b}>{teamLabel(t.name)}</option>)}
       </select>
-      <span className="text-xs text-gray-400">vs</span>
-      <select value={b} onChange={e => setB(e.target.value)} className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
-        <option value="">Team…</option>
+      <span className="text-xs text-gray-400 font-semibold">vs</span>
+      <select value={b} onChange={e => setB(e.target.value)} className="min-w-[110px] text-sm border-2 border-accent/40 rounded-lg px-2 py-1.5 bg-white text-ink font-medium focus:outline-none focus:border-accent">
+        <option value="">Choose team</option>
         {teams.map(t => <option key={t.id} value={t.id} disabled={String(t.id) === a}>{teamLabel(t.name)}</option>)}
       </select>
-      <button onClick={save} disabled={!a || !b || a === b || saving} className="text-accent disabled:opacity-40" title="Save"><Check size={14} /></button>
-      <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600" title="Cancel"><X size={14} /></button>
+      <button onClick={save} disabled={!a || !b || a === b || saving} className="p-1.5 rounded-lg bg-accent text-white disabled:opacity-40" title="Save"><Check size={14} /></button>
+      <button onClick={() => setEditing(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title="Cancel"><X size={14} /></button>
     </div>
   );
 }
