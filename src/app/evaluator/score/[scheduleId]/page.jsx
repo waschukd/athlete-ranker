@@ -304,6 +304,29 @@ function ScoringInterface() {
     staleTime: 15_000,
   });
 
+  // Cross-group floor: lowest score any athlete got in a group that went BEFORE
+  // this one, THIS session. Groups within a session never play each other, but
+  // all get pooled into one ranking -- this is the "score above group 1's floor"
+  // signal a director asked for so group 2+ evaluators don't undercut someone
+  // who's clearly better than the weakest player already scored.
+  const { data: floorData } = useQuery({
+    queryKey: ["session-floor", catId, scheduleData?.session_number, scheduleData?.group_number],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        category_id: String(catId),
+        session_number: String(scheduleData.session_number),
+        group_number: String(scheduleData.group_number),
+      });
+      const res = await fetch(`/api/evaluator/session-floor?${params}`);
+      if (!res.ok) throw new Error("floor fetch failed");
+      return res.json();
+    },
+    enabled: !!(catId && scheduleData?.session_number && scheduleData?.group_number > 1 && online),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+  });
+
   // Merge server scores into local state + write merged result back to
   // localStorage so the next offline reload has the server's data too.
   //
@@ -1156,6 +1179,14 @@ function ScoringInterface() {
                   title={`Range from ${rangeData.evaluator_count} other evaluator${rangeData.evaluator_count === 1 ? "" : "s"} (${rangeData.total_scores} scores so far)`}
                 >
                   Room: {rangeData.min}–{rangeData.max}
+                </span>
+              )}
+              {floorData && floorData.floor != null && (
+                <span
+                  className="text-xs text-amber-600 font-medium pl-2 ml-1 border-l border-gray-300"
+                  title={`Lowest score given in ${floorData.prior_groups} earlier group${floorData.prior_groups === 1 ? "" : "s"} this session (${floorData.total_scores} scores) — a player clearly better than that shouldn't score below it`}
+                >
+                  Floor: {floorData.floor}
                 </span>
               )}
             </div>
