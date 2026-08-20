@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Zap, ClipboardList, AlertCircle } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
-export default function CheckinEntryPage() {
+function CheckinEntryInner() {
   const [theme, toggleTheme] = useTheme();
-  const [code, setCode] = useState("");
+  const searchParams = useSearchParams();
+  // Pre-filled when arriving from an "Assign Volunteers" email link (?code=),
+  // so a volunteer only has to enter their name/email, not copy a code by hand.
+  const prefilledCode = (searchParams.get("code") || "").toUpperCase();
+  const [code, setCode] = useState(prefilledCode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,7 +90,7 @@ export default function CheckinEntryPage() {
                 onChange={e => setCode(e.target.value.toUpperCase())}
                 placeholder="e.g. S1G2-XKJ"
                 required
-                autoFocus
+                autoFocus={!prefilledCode}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl font-mono font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent uppercase"
                 maxLength={10}
               />
@@ -105,6 +110,7 @@ export default function CheckinEntryPage() {
                     onChange={e => setName(e.target.value)}
                     placeholder="First and last name"
                     required
+                    autoFocus={!!prefilledCode}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                 </div>
@@ -138,5 +144,13 @@ export default function CheckinEntryPage() {
       </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckinEntryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <CheckinEntryInner />
+    </Suspense>
   );
 }
