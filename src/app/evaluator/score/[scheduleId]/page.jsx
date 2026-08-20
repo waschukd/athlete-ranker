@@ -1200,20 +1200,9 @@ function ScoringInterface() {
                 'text-amber-500'
               }`}>{syncStatus}</span>
             )}
-            {/* Always-on save indicator */}
-            {(() => {
-              const n = Object.keys(pending).length;
-              const s = !online
-                ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
-                : n > 0
-                  ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
-                  : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
-              return (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
-                </span>
-              );
-            })()}
+            {/* The connection dot next to the title is the save indicator now --
+                green = connected, red = save manually via Settings > Backup.
+                This pill said the same thing with more words. */}
             {/* Everything else (scoring guide, floor/room calibration, layout,
                 consensus, backup, theme) lives behind this one button now — the
                 header was showing too much at once. */}
