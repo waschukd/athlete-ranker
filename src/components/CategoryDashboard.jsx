@@ -1211,6 +1211,13 @@ export default function CategoryDashboard({
                       </div>
                       </div>
                     </div>
+                    {/* Up to 10 columns (Actions/Edit is the last one, furthest right) --
+                        without a horizontal scroll container this silently clips on
+                        narrower windows with zero indication anything's missing. Every
+                        other table in this file already uses overflow-x-auto; this one
+                        didn't, which is exactly why an association admin couldn't find
+                        the Edit button that was there the whole time. */}
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead><tr className="text-xs text-gray-500 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">{isTournament ? "Game" : "Group"}</th>{isTournament && <th className="px-4 py-2 text-left">Matchup</th>}<th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Day</th><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Location</th><th className="px-4 py-2 text-left">Evaluators</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Check-in</th>{canEditSchedule && <th className="px-4 py-2 text-left">Actions</th>}</tr></thead>
                       <tbody className="divide-y divide-gray-50">
@@ -1282,6 +1289,7 @@ export default function CategoryDashboard({
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 );
               })
