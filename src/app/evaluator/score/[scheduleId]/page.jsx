@@ -1200,7 +1200,7 @@ function ScoringInterface() {
               {floorData && floorData.floor != null && (
                 <span
                   className="text-xs text-amber-600 font-medium pl-2 ml-1 border-l border-gray-300"
-                  title={`Lowest score given in ${floorData.prior_groups} earlier group${floorData.prior_groups === 1 ? "" : "s"} this session (${floorData.total_scores} scores) — a player clearly better than that shouldn't score below it`}
+                  title={`Weakest player's average across ${floorData.prior_groups} earlier group${floorData.prior_groups === 1 ? "" : "s"} this session (${floorData.athletes_counted} players) — a player clearly better than that shouldn't score below it`}
                 >
                   Floor: {floorData.floor}
                 </span>

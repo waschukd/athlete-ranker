@@ -1,13 +1,16 @@
-// Cross-group floor: the lowest score any athlete has received so far this
-// session, from groups that went BEFORE the one currently being scored. Distinct
-// from /api/evaluator/session-range, which deliberately stays scoped to the
-// CURRENT group's roster (see that route's comment) -- this one is the opposite
-// on purpose: groups within a session never play each other directly, but their
-// scores all get pooled into one ranking, so an evaluator picking up group 2
-// needs to know how low group 1's floor went to keep a clearly-better player
-// from landing under it.
+// Cross-group floor: the lowest PER-ATHLETE AVERAGE score so far this session,
+// from groups that went BEFORE the one currently being scored -- not the single
+// lowest individual score, which one harsh evaluator or one rough skill could
+// set on its own. Averaging across every evaluator/skill an athlete has scores
+// in first, then taking the min of those averages, is what actually reflects
+// "the weakest player scored so far." Distinct from /api/evaluator/session-range,
+// which deliberately stays scoped to the CURRENT group's roster (see that
+// route's comment) -- this one is the opposite on purpose: groups within a
+// session never play each other directly, but their scores all get pooled into
+// one ranking, so an evaluator picking up group 2 needs to know how low group
+// 1's floor went to keep a clearly-better player from landing under it.
 //
-// Returns: { floor: number|null, prior_groups: number, total_scores: number }
+// Returns: { floor: number|null, prior_groups: number, athletes_counted: number }
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -36,25 +39,32 @@ export async function GET(request) {
     // membership has to be resolved via player_group_assignments instead, same as
     // the Groups admin page does.
     const rows = await sql`
+      WITH prior AS (
+        SELECT cs.athlete_id, cs.score, sg.group_number
+        FROM category_scores cs
+        JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
+        JOIN session_groups sg ON sg.id = pga.session_group_id
+          AND sg.age_category_id = cs.age_category_id
+          AND sg.session_number = cs.session_number
+        WHERE cs.age_category_id = ${catId}
+          AND cs.session_number = ${sessionNumber}
+          AND sg.group_number < ${groupNumber}
+      ),
+      athlete_avgs AS (
+        SELECT athlete_id, AVG(score)::float AS avg_score
+        FROM prior GROUP BY athlete_id
+      )
       SELECT
-        MIN(cs.score)::float AS min_score,
-        COUNT(*)::int AS total_scores,
-        COUNT(DISTINCT sg.group_number)::int AS prior_groups
-      FROM category_scores cs
-      JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
-      JOIN session_groups sg ON sg.id = pga.session_group_id
-        AND sg.age_category_id = cs.age_category_id
-        AND sg.session_number = cs.session_number
-      WHERE cs.age_category_id = ${catId}
-        AND cs.session_number = ${sessionNumber}
-        AND sg.group_number < ${groupNumber}
+        (SELECT MIN(avg_score) FROM athlete_avgs)::float AS floor_avg,
+        (SELECT COUNT(*) FROM athlete_avgs)::int AS athletes_counted,
+        (SELECT COUNT(DISTINCT group_number) FROM prior)::int AS prior_groups
     `;
 
     const r = rows[0] || {};
     return NextResponse.json({
-      floor: r.min_score ?? null,
+      floor: r.floor_avg != null ? Math.round(r.floor_avg * 10) / 10 : null,
       prior_groups: r.prior_groups || 0,
-      total_scores: r.total_scores || 0,
+      athletes_counted: r.athletes_counted || 0,
     });
   } catch (error) {
     console.error("Session floor error:", error);
