@@ -1605,12 +1605,10 @@ function ScoringInterface() {
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
                 <span className="font-bold font-display text-ink">#{idOf(selected)}</span>
-                {!isAnon && <span className="text-ink font-semibold font-display">{selected.last_name}, {selected.first_name}</span>}
               </div>
               {selected.position && (
                 <div className="text-xs text-gray-600 mt-0.5 font-medium">{selected.position}</div>
               )}
-              {!isAnon && selected.external_id && <div className="text-xs text-gray-500 mt-0.5">{selected.external_id}</div>}
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => {
