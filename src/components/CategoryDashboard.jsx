@@ -258,6 +258,10 @@ export default function CategoryDashboard({
     enabled: !!catId && setupData?.category?.eval_format === "round_robin",
   });
   const scrimmageTeams = scrimmageTeamsData?.teams || [];
+  // Teams tab and Schedule tab don't share a query invalidation path (ScrimmageTeams
+  // manages its own local state), so a team added on one tab won't show in the
+  // other's matchup picker until this refetches.
+  useEffect(() => { if (activeTab === "schedule") refetchScrimmageTeams(); }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: athletesData, refetch: refetchAthletes } = useQuery({
     queryKey: ["category-athletes", catId],
@@ -1119,6 +1123,19 @@ export default function CategoryDashboard({
             </div>
             {uploadMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{uploadMsg}</div>}
             {scheduleMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{scheduleMsg}</div>}
+
+            {isTournament && (
+              <div className="flex items-center gap-2 flex-wrap text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <Users size={13} className="text-gray-400" />
+                {scrimmageTeams.length === 0 ? (
+                  <span className="text-gray-500">No teams yet — <a href="#" onClick={e => { e.preventDefault(); setActiveTab("teams"); }} className="text-accent font-semibold hover:underline">create teams</a> before setting matchups here. Teams don't need players uploaded first.</span>
+                ) : (
+                  <span className="text-gray-500">
+                    <b className="text-ink">{scrimmageTeams.length}</b> team{scrimmageTeams.length === 1 ? "" : "s"} created ({scrimmageTeams.map(t => t.name).join(", ")}){athletes.length === 0 ? " · no players uploaded yet — matchups can be set now, rosters fill in once players are added" : ""}. Click a game's matchup below to change who's playing.
+                  </span>
+                )}
+              </div>
+            )}
 
             {schedule.length > 0 && (
               <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
