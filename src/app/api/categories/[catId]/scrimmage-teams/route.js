@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { getScrimmageTeams, createTeams, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
+import { getScrimmageTeams, createTeams, addTeam, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -40,6 +40,14 @@ export async function POST(request, { params }) {
     if (body.action === "create") {
       const teams = await createTeams(params.catId, body.count);
       return NextResponse.json({ success: true, teams });
+    }
+    if (body.action === "add_team") {
+      try {
+        const teams = await addTeam(params.catId);
+        return NextResponse.json({ success: true, teams });
+      } catch (e) {
+        return NextResponse.json({ error: e.message || "Could not add team" }, { status: 400 });
+      }
     }
     if (body.action === "seed") {
       // Create the teams first if none exist, then seed.

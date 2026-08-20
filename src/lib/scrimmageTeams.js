@@ -34,6 +34,20 @@ export async function createTeams(catId, count) {
   return getScrimmageTeams(catId);
 }
 
+// Append one new empty team, keeping every existing team and its roster intact
+// (unlike createTeams, which wipes and rebuilds the whole set). Named after the
+// next unused letter; if a director has renamed everything, falls back to the
+// next display_order slot. Capped at 6 total, same as createTeams.
+export async function addTeam(catId) {
+  const existing = await sql`SELECT id, name, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
+  if (existing.length >= 6) throw new Error("Maximum of 6 teams");
+  const usedLetters = new Set(existing.map(t => t.name).filter(n => /^Team [A-F]$/.test(n)).map(n => n.slice(-1)));
+  const letter = TEAM_LETTERS.find(l => !usedLetters.has(l)) || TEAM_LETTERS[existing.length];
+  const nextOrder = existing.length ? Math.max(...existing.map(t => t.display_order ?? 0)) + 1 : 0;
+  await sql`INSERT INTO scrimmage_teams (age_category_id, name, display_order) VALUES (${catId}, ${"Team " + letter}, ${nextOrder})`;
+  return getScrimmageTeams(catId);
+}
+
 // Seed players into the teams. mode: 'alphabetical' | 'even'. Balances D roughly
 // evenly first (so no team is short on defense), then distributes the rest.
 export async function seedTeams(catId, mode = "alphabetical") {

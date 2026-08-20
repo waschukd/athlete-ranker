@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon, Trash2 } from "lucide-react";
+import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon, Trash2, Plus } from "lucide-react";
 
 // Team assignment for a Tournament category. Seed teams without scores
 // (alphabetical or even), then move players between teams — drag the grip handle
@@ -119,10 +119,18 @@ export default function ScrimmageTeams({ catId }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-        <span className="text-xs font-medium text-gray-500">Teams:</span>
-        <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white">
-          {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
+        {teams.length === 0 ? (
+          <>
+            <span className="text-xs font-medium text-gray-500">Teams:</span>
+            <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white">
+              {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </>
+        ) : (
+          <button onClick={() => post({ action: "add_team" })} disabled={busy || teams.length >= 6} title={teams.length >= 6 ? "Maximum of 6 teams" : "Add another team"} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+            <Plus size={13} /> Add team
+          </button>
+        )}
         <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">
           {busy ? <Loader2 size={13} className="animate-spin" /> : <Shuffle size={13} />} Seed alphabetically
         </button>
@@ -132,7 +140,7 @@ export default function ScrimmageTeams({ catId }) {
         <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
           Apply to schedule
         </button>
-        <span className="text-[11px] text-gray-400">Drag the grip handle to a team (or use the dropdown), then Apply.</span>
+        <span className="text-[11px] text-gray-400">{teams.length === 0 ? "Pick a team count and seed to get started." : "Drag the grip handle to a team (or use the dropdown), then Apply. Seeding re-shuffles everyone — use Add team to grow without disturbing rosters."}</span>
         {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
       </div>
 

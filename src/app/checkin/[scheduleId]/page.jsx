@@ -212,14 +212,14 @@ function CheckinPageInner() {
 
           {/* Search + filter */}
           <div className="flex gap-2 mt-3">
-            <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2.5">
+            <div className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2.5">
               <Search size={13} className="text-gray-400 flex-shrink-0" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="flex-1 bg-transparent text-ink text-sm outline-none placeholder-gray-400" />
-              {search && <button onClick={() => setSearch("")} className="text-gray-400 hover:text-ink"><X size={12} /></button>}
+                className="flex-1 min-w-0 bg-transparent text-ink text-sm outline-none placeholder-gray-400" />
+              {search && <button onClick={() => setSearch("")} className="text-gray-400 hover:text-ink flex-shrink-0"><X size={12} /></button>}
             </div>
-            <div className="flex bg-gray-100 rounded-lg overflow-hidden">
+            <div className="flex flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
               {[
                 { id: "unchecked", label: "Out" },
                 { id: "checked", label: "In" },
