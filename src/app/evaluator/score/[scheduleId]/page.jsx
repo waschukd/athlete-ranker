@@ -1263,6 +1263,23 @@ function ScoringInterface() {
                 <button onClick={() => setSettingsOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
               </div>
               <div className="p-4 space-y-5">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Find a player</h4>
+                  <div className="relative">
+                    <input
+                      value={jerseySearch}
+                      onChange={e => { setJerseySearch(e.target.value); setSettingsOpen(false); }}
+                      inputMode="numeric"
+                      placeholder={isAnon ? "Find #" : "Find # or name"}
+                      autoFocus
+                      className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    />
+                    {jerseySearch && (
+                      <button onClick={() => setJerseySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-base leading-none">×</button>
+                    )}
+                  </div>
+                </div>
+
                 {hasGuideContent && (
                   <button onClick={() => { setSettingsOpen(false); setGuideOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
                     <span className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /> Scoring guide</span>
@@ -1399,19 +1416,7 @@ function ScoringInterface() {
             </button>
           ))}
         </div>
-          <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
-            <div className="relative">
-              <input
-                value={jerseySearch}
-                onChange={e => setJerseySearch(e.target.value)}
-                inputMode="numeric"
-                placeholder={isAnon ? "Find #" : "Find # or name"}
-                className="w-28 pl-2.5 pr-6 py-1 text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
-              {jerseySearch && (
-                <button onClick={() => setJerseySearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm leading-none">×</button>
-              )}
-            </div>
+          <div className="flex items-center justify-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
@@ -1425,7 +1430,7 @@ function ScoringInterface() {
               </button>
             )}
             {Object.keys(pending).length > 0 && (
-              <button onClick={resyncNow} className="ml-auto px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
+              <button onClick={resyncNow} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
                 Resync now
               </button>
             )}
