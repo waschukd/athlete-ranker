@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -103,7 +103,6 @@ function ScoringInterface() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
   const [jerseySearch, setJerseySearch] = useState("");
-  const [backupOpen, setBackupOpen] = useState(false);
   const [collapseList, setCollapseList] = useState(false); // hide player grid while scoring a selected player
   const [viewerKind, setViewerKind] = useState(null); // 'goalie' | 'coach' | 'standard' — scopes the roster
   const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
@@ -331,6 +330,7 @@ function ScoringInterface() {
   // for the age tier this category belongs to. Reference content, not calibration
   // data, so it's fetched once and doesn't need polling.
   const [guideOpen, setGuideOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { data: guideData } = useQuery({
     queryKey: ["scoring-rubrics", catId],
     queryFn: async () => {
@@ -1166,7 +1166,12 @@ function ScoringInterface() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 text-ink flex flex-col" style={{ paddingBottom: "80px" }} data-theme={theme}>
+    <div className="min-h-screen bg-gray-50" data-theme={theme}>
+    {/* Centers the whole scoring UI to a mobile/tablet-width column on desktop
+        instead of stretching edge-to-edge — fixed-position children (modals,
+        the voice bar) are unaffected since `fixed` positions relative to the
+        viewport, not this wrapper. */}
+    <div className="max-w-2xl mx-auto bg-gray-50 text-ink flex flex-col min-h-screen" style={{ paddingBottom: "80px" }}>
 
       {readOnly && (
         <div className="bg-green-600 text-white text-center text-xs sm:text-sm font-semibold px-3 py-2">
@@ -1181,50 +1186,27 @@ function ScoringInterface() {
             <ArrowLeft size={20} />
           </a>
           <div className="text-center flex-1 mx-2">
-            <div className="text-sm font-bold font-display text-ink leading-tight">
-              {sessionData?.schedule?.org_name} · S{sessionData?.schedule?.session_number} G{sessionData?.schedule?.group_number}
+            <div className="flex items-center justify-center gap-1.5">
+              {/* Connection dot — moved inline with the title so status is a
+                  glance, not its own row */}
+              <div
+                className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors duration-500 ${
+                  online ? 'bg-green-500 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
+                }`}
+                title={online ? 'Connected' : Object.keys(pending).length > 0 ? `${Object.keys(pending).length} pending sync` : 'Offline'}
+              />
+              <span className="text-sm font-bold font-display text-ink leading-tight">
+                {sessionData?.schedule?.org_name} · S{sessionData?.schedule?.session_number} G{sessionData?.schedule?.group_number}
+              </span>
             </div>
             <div className="flex items-center justify-center gap-3 mt-1">
               <span className="text-xs text-green-600 font-semibold">{complete} ✓</span>
               <span className="text-xs text-amber-500 font-semibold">{partial} partial</span>
               <span className="text-xs text-gray-400">{remaining} left</span>
-              {/* Calibration band: range of other evaluators' scores so far */}
-              {rangeData && rangeData.evaluator_count > 0 && rangeData.min != null && (
-                <span
-                  className="text-xs text-accent font-medium pl-2 ml-1 border-l border-gray-300"
-                  title={`Range from ${rangeData.evaluator_count} other evaluator${rangeData.evaluator_count === 1 ? "" : "s"} (${rangeData.total_scores} scores so far)`}
-                >
-                  Room: {rangeData.min}–{rangeData.max}
-                </span>
-              )}
-              {floorData && floorData.floor != null && (
-                <span
-                  className="text-xs text-amber-600 font-medium pl-2 ml-1 border-l border-gray-300"
-                  title={`Weakest player's average across ${floorData.prior_groups} earlier group${floorData.prior_groups === 1 ? "" : "s"} this session (${floorData.athletes_counted} players) — a player clearly better than that shouldn't score below it`}
-                >
-                  Floor: {floorData.floor}
-                </span>
-              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {hasGuideContent && (
-              <button onClick={() => setGuideOpen(true)} className="p-1.5 text-gray-500 hover:text-accent rounded-lg" title="Scoring guide">
-                <BookOpen size={18} />
-              </button>
-            )}
-            {/* Connection dot */}
-            <div className="flex items-center gap-1.5">
-              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${
-                online ? 'bg-green-500 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
-              }`} />
-              <span className={`text-xs font-medium ${
-                online ? 'text-green-600' : Object.keys(pending).length > 0 ? 'text-amber-500' : 'text-red-500'
-              }`}>
-                {online ? 'Live' : Object.keys(pending).length > 0 ? `${Object.keys(pending).length} pending` : 'Offline'}
-              </span>
-            </div>
-            {/* Sync status message */}
+            {/* Transient "just happened" message — auto-clears in a couple seconds */}
             {syncStatus && (
               <span className={`text-xs px-2 py-1 rounded-lg ${
                 syncStatus.includes('✓') ? 'text-green-600' :
@@ -1232,7 +1214,26 @@ function ScoringInterface() {
                 'text-amber-500'
               }`}>{syncStatus}</span>
             )}
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            {/* Always-on save indicator */}
+            {(() => {
+              const n = Object.keys(pending).length;
+              const s = !online
+                ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
+                : n > 0
+                  ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
+                  : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
+              return (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
+                </span>
+              );
+            })()}
+            {/* Everything else (scoring guide, floor/room calibration, layout,
+                consensus, backup, theme) lives behind this one button now — the
+                header was showing too much at once. */}
+            <button onClick={() => setSettingsOpen(true)} className="p-1.5 text-gray-500 hover:text-ink rounded-lg" title="Settings">
+              <SettingsIcon size={20} />
+            </button>
           </div>
         </div>
 
@@ -1259,6 +1260,90 @@ function ScoringInterface() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings — everything that isn't needed at a glance while scoring
+            lives here now: scoring guide, calibration numbers, layout, consensus,
+            backup/recovery, appearance. Keeps the header down to just player
+            counts, the team filter, and the save indicator. */}
+        {settingsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setSettingsOpen(false)}>
+            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><SettingsIcon size={17} className="text-accent" /> Settings</h3>
+                <button onClick={() => setSettingsOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              </div>
+              <div className="p-4 space-y-5">
+                {hasGuideContent && (
+                  <button onClick={() => { setSettingsOpen(false); setGuideOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                    <span className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /> Scoring guide</span>
+                    <ChevronRight size={15} className="text-gray-400" />
+                  </button>
+                )}
+
+                {!readOnly && (
+                  <button onClick={async () => { setSettingsOpen(false); setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-100">
+                    <span>Consensus</span>
+                    <ChevronRight size={15} className="text-amber-400" />
+                  </button>
+                )}
+
+                {(rangeData?.evaluator_count > 0 || floorData?.floor != null) && (
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
+                    <div className="space-y-2">
+                      {rangeData && rangeData.evaluator_count > 0 && rangeData.min != null && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Room — this group so far</span>
+                          <span className="font-semibold text-accent">{rangeData.min}–{rangeData.max} <span className="text-xs text-gray-400 font-normal">({rangeData.evaluator_count} evaluator{rangeData.evaluator_count === 1 ? "" : "s"})</span></span>
+                        </div>
+                      )}
+                      {floorData && floorData.floor != null && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Floor — earlier groups</span>
+                          <span className="font-semibold text-amber-600">{floorData.floor} <span className="text-xs text-gray-400 font-normal">({floorData.athletes_counted} players)</span></span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>
+                  <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
+                    {[
+                      { id: "card", label: "Buttons" },
+                      { id: "numpad", label: "Numpad" },
+                      { id: "grid", label: "Grid" },
+                    ].map(m => (
+                      <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
+                        className={`flex-1 px-2.5 py-2 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Backup</h4>
+                  <div className="space-y-1">
+                    <button onClick={() => downloadBackup()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download CSV (readable)</button>
+                    <button onClick={() => downloadBackupJson()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download backup file</button>
+                    <label className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+                      Restore from file…
+                      <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setSettingsOpen(false); restoreFromFile(f); }} />
+                    </label>
+                    <p className="px-1 pt-1 text-xs text-gray-400 leading-snug">Emergency use — your scores already save to this device and sync automatically.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Appearance</h4>
+                  <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                </div>
               </div>
             </div>
           </div>
@@ -1333,14 +1418,6 @@ function ScoringInterface() {
               {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
             </button>
           ))}
-          {!readOnly && (
-            <button
-              onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
-              className="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-600 rounded-lg text-xs font-semibold hover:bg-amber-100"
-            >
-              Consensus
-            </button>
-          )}
         </div>
           <div className="flex items-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
             <div className="relative">
@@ -1367,55 +1444,11 @@ function ScoringInterface() {
                 {collapseList ? "✓ Compact" : "Compact"}
               </button>
             )}
-            <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
-              {[
-                { id: "card", label: "Buttons" },
-                { id: "numpad", label: "Numpad" },
-                { id: "grid", label: "Grid" },
-              ].map(m => (
-                <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
-                  className={`px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {/* Save state + manual recovery — always visible so offline/pending is never a surprise */}
-            <div className="ml-auto flex items-center gap-2 flex-wrap">
-              {Object.keys(pending).length > 0 && (
-                <button onClick={resyncNow} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
-                  Resync now
-                </button>
-              )}
-              <div className="relative">
-                <button onClick={() => setBackupOpen(o => !o)} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-gray-300 text-gray-500 hover:text-ink hover:border-gray-400">
-                  Backup ▾
-                </button>
-                {backupOpen && (
-                  <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-1">
-                    <button onClick={() => { downloadBackup(); setBackupOpen(false); }} className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded">Download CSV (readable)</button>
-                    <button onClick={() => { downloadBackupJson(); setBackupOpen(false); }} className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded">Download backup file</button>
-                    <label className="block w-full text-left px-3 py-2 text-xs text-ink hover:bg-gray-50 rounded cursor-pointer">
-                      Restore from file…
-                      <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setBackupOpen(false); restoreFromFile(f); }} />
-                    </label>
-                    <p className="px-3 py-1.5 text-[10px] text-gray-400 leading-snug border-t border-gray-100 mt-1">Emergency use — your scores already save to this device and sync automatically.</p>
-                  </div>
-                )}
-              </div>
-              {(() => {
-                const n = Object.keys(pending).length;
-                const s = !online
-                  ? { t: `Offline · ${n} on device`, cls: "bg-amber-100 text-amber-700 border-amber-300", dot: "bg-amber-500" }
-                  : n > 0
-                    ? { t: `Saving ${n}…`, cls: "bg-blue-50 text-accent border-accent/30", dot: "bg-accent animate-pulse" }
-                    : { t: "All saved", cls: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" };
-                return (
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.cls}`} title={online ? "" : "Scores are safe on this device and will sync when the connection returns."}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.t}
-                  </span>
-                );
-              })()}
-            </div>
+            {Object.keys(pending).length > 0 && (
+              <button onClick={resyncNow} className="ml-auto px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
+                Resync now
+              </button>
+            )}
           </div>
       </div>
 
@@ -2022,6 +2055,7 @@ function ScoringInterface() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
