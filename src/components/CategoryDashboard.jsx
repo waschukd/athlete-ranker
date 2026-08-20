@@ -283,7 +283,11 @@ export default function CategoryDashboard({
     refetchInterval: 15000,
   });
 
-  const sessions = setupData?.sessions || [];
+  // Goalie-only categories have no category_sessions rows (their sessions live in
+  // goalie_config.sessions instead) -- fall back so schedule/group-assignment entry
+  // points still render. Only engages when category_sessions is genuinely empty, so
+  // any category with real skater sessions takes the exact same path as before.
+  const sessions = (setupData?.sessions?.length ? setupData.sessions : setupData?.category?.goalie_config?.sessions) || [];
   const scoringCategories = setupData?.scoringCategories || [];
   const category = setupData?.category;
   const isTournament = category?.eval_format === "round_robin";

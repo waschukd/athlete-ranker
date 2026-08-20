@@ -279,7 +279,13 @@ function GroupsManagerInner() {
   const calibrationEnabled = anchorData?.calibration_enabled || false;
   const anchorIds = new Set(anchors.filter(a => a.session_number === selectedSession).map(a => a.athlete_id));
 
-  const sessions = setupData?.sessions || [];
+  // Goalie-only categories (goalie SP, no skater SP) never get category_sessions rows --
+  // their session structure lives in age_categories.goalie_config.sessions instead (see
+  // src/app/api/categories/[catId]/setup/route.js). Without this fallback the session-tab
+  // picker below is empty and there is no way to reach group assignment for these
+  // categories at all. Only triggers when category_sessions is genuinely empty, so any
+  // category with real skater sessions is completely unaffected.
+  const sessions = (setupData?.sessions?.length ? setupData.sessions : setupData?.category?.goalie_config?.sessions) || [];
   const groups = groupsData?.groups || [];
   const assignments = groupsData?.assignments || [];
 

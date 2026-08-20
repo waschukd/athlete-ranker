@@ -52,19 +52,23 @@ function fmtDate(d) {
 // Gather everything needed to send (and preview) the group emails for a session.
 async function buildPlan(catId, sessionNumber) {
   const catInfo = await sql`
-    SELECT ac.name AS category_name, ac.organization_id, o.name AS org_name
+    SELECT ac.name AS category_name, ac.organization_id, o.name AS org_name, ac.goalie_config
     FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
     WHERE ac.id = ${catId}
   `;
   if (!catInfo.length) return null;
   const sess = await sql`SELECT session_number, name, session_type FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sessionNumber}`;
+  // Goalie-only categories have no category_sessions rows -- their session names live in
+  // goalie_config.sessions instead (see src/app/api/categories/[catId]/setup/route.js).
+  const goalieSess = (catInfo[0]?.goalie_config?.sessions || []).find(s => s.session_number === sessionNumber);
   // The session that just finished, so sessions 2+ read as progress ("Session 1
   // is complete — here's your next ice time") rather than a bare time slot.
   // Session 1 has nothing behind it and gets no such line.
   let completedLabel = null;
   if (sessionNumber > 1) {
     const prev = await sql`SELECT name FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sessionNumber - 1} LIMIT 1`;
-    completedLabel = prev[0]?.name || `Session ${sessionNumber - 1}`;
+    const prevGoalieSess = (catInfo[0]?.goalie_config?.sessions || []).find(s => s.session_number === sessionNumber - 1);
+    completedLabel = prev[0]?.name || prevGoalieSess?.name || `Session ${sessionNumber - 1}`;
   }
   const groups = await sql`
     SELECT sg.id, sg.group_number,
@@ -84,7 +88,7 @@ async function buildPlan(catId, sessionNumber) {
     WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sessionNumber}
     ORDER BY a.last_name, a.first_name
   `;
-  return { ...catInfo[0], session: sess[0] || { session_number: sessionNumber, name: `Session ${sessionNumber}`, session_type: null }, groups, assigns, completedLabel };
+  return { ...catInfo[0], session: sess[0] || goalieSess || { session_number: sessionNumber, name: `Session ${sessionNumber}`, session_type: null }, groups, assigns, completedLabel };
 }
 
 export async function GET(request, { params }) {
