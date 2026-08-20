@@ -57,9 +57,10 @@ export async function POST(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
 
-    const cats = await sql`SELECT organization_id FROM age_categories WHERE id = ${catId}`;
+    const cats = await sql`SELECT organization_id, eval_format FROM age_categories WHERE id = ${catId}`;
     if (!cats.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const orgId = cats[0].organization_id;
+    const isTournament = cats[0].eval_format === "round_robin";
 
     // Bulk import
     if (body.athletes && Array.isArray(body.athletes)) {
@@ -79,9 +80,15 @@ export async function POST(request, { params }) {
           const parent_email_2 = athlete.parent_email_2 || athlete["Parent Email 2"] || athlete["Email 2"] || athlete["Parent 2 Email"] || "";
           const helmet_number = (athlete.helmet_number || athlete["Helmet #"] || athlete["Helmet Number"] || athlete["Helmet"] || "").toString().trim().slice(0, 4) || null;
           const non_contact = athlete.non_contact === true;
+          // Deliberately its own column name, not "Team" -- the generic roster
+          // importer's column auto-mapper (src/lib/rosterImport.js) already treats
+          // a header literally named "Team" as a synonym for age-category
+          // Division, so reusing it here would silently misfile this value.
+          const scrimmageTeamLabel = (athlete["Scrimmage Team"] || athlete.scrimmage_team || "").toString().trim();
 
           if (!first_name || !last_name) { skipped++; continue; }
 
+          let athleteId = null;
           // Use upsert — insert or update based on external_id or name match
           if (external_id) {
             const result = await sql`
@@ -99,26 +106,49 @@ export async function POST(request, { params }) {
                 non_contact = athletes.non_contact OR EXCLUDED.non_contact,
                 age_category_id = EXCLUDED.age_category_id,
                 is_active = true
-              RETURNING (xmax = 0) as inserted
+              RETURNING id, (xmax = 0) as inserted
             `;
+            athleteId = result[0]?.id || null;
             if (result[0]?.inserted) imported++; else updated++;
           } else {
             const existing = await sql`
               SELECT id FROM athletes WHERE age_category_id = ${catId} AND first_name = ${first_name} AND last_name = ${last_name}
             `;
             if (existing.length) {
+              athleteId = existing[0].id;
               await sql`
                 UPDATE athletes SET position = COALESCE(${position}, position), birth_year = COALESCE(${birth_year}, birth_year), parent_email = COALESCE(${parent_email || null}, parent_email), parent_email_2 = COALESCE(${parent_email_2 || null}, parent_email_2), helmet_number = COALESCE(${helmet_number}, helmet_number), non_contact = athletes.non_contact OR ${non_contact}, is_active = true
                 WHERE id = ${existing[0].id}
               `;
               updated++;
             } else {
-              await sql`
+              const [inserted] = await sql`
                 INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact, is_active)
                 VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, null, ${position}, ${birth_year}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet_number}, ${non_contact}, true)
+                RETURNING id
               `;
+              athleteId = inserted?.id || null;
               imported++;
             }
+          }
+
+          // Tournament format: a "Scrimmage Team" column lets teams already exist
+          // right after import instead of a separate seed-then-drag-and-drop step.
+          // Matching later game "A vs B" matchup labels resolves teams by exact
+          // (case-insensitive) name (see src/lib/scrimmageTeams.js findTeamByLabel),
+          // so a bare letter here is normalized to the same "Team X" convention
+          // that letter already falls back to there.
+          if (isTournament && athleteId && scrimmageTeamLabel) {
+            const canonicalTeamName = /^[a-f]$/i.test(scrimmageTeamLabel) ? `Team ${scrimmageTeamLabel.toUpperCase()}` : scrimmageTeamLabel;
+            let [team] = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} AND lower(name) = ${canonicalTeamName.toLowerCase()}`;
+            if (!team) {
+              const [{ nextOrder }] = await sql`SELECT COALESCE(MAX(display_order), -1) + 1 AS "nextOrder" FROM scrimmage_teams WHERE age_category_id = ${catId}`;
+              [team] = await sql`INSERT INTO scrimmage_teams (age_category_id, name, display_order) VALUES (${catId}, ${canonicalTeamName}, ${nextOrder}) RETURNING id`;
+            }
+            // A re-upload changing someone's team should move them, not add a
+            // second membership -- clear any other team in this category first.
+            await sql`DELETE FROM scrimmage_team_members WHERE athlete_id = ${athleteId} AND scrimmage_team_id IN (SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId})`;
+            await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${team.id}, ${athleteId}) ON CONFLICT (athlete_id, scrimmage_team_id) DO NOTHING`;
           }
         } catch (e) {
           errors.push(`${athlete.first_name || "?"} ${athlete.last_name || "?"}: ${e.message}`);

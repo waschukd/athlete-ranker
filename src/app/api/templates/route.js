@@ -7,11 +7,14 @@ export async function GET(request) {
   if (type === "athletes") {
     // Contact column (BC = body checking, NBC = non-body-checking) is optional and
     // only matters for U15+; leave it blank and everyone imports as body-checking.
+    // Scrimmage Team is only used for tournament-format categories -- a bare
+    // letter (A-F) or a custom name; ignored entirely otherwise. Leave blank for
+    // a standard (non-tournament) category.
     const csv = [
-      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC)",
-      "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC",
-      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC",
-      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234,",
+      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Scrimmage Team",
+      "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC,A",
+      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC,B",
+      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234,,A",
     ].join("\n");
 
     return new NextResponse(csv, {
