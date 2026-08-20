@@ -3,12 +3,16 @@
 // lowest individual score, which one harsh evaluator or one rough skill could
 // set on its own. Averaging across every evaluator/skill an athlete has scores
 // in first, then taking the min of those averages, is what actually reflects
-// "the weakest player scored so far." Distinct from /api/evaluator/session-range,
-// which deliberately stays scoped to the CURRENT group's roster (see that
-// route's comment) -- this one is the opposite on purpose: groups within a
-// session never play each other directly, but their scores all get pooled into
-// one ranking, so an evaluator picking up group 2 needs to know how low group
-// 1's floor went to keep a clearly-better player from landing under it.
+// "the weakest player scored so far." Bounded and specific on purpose: groups
+// within a session never play each other directly, but their scores all get
+// pooled into one ranking, so an evaluator picking up group 2 needs to know
+// how low group 1's floor went to keep a clearly-better player from landing
+// under it. (A separate feature that showed the live spread of every OTHER
+// evaluator's scores in the current group was removed -- that one nudges
+// live scores toward a group average before they're even entered, which
+// creates anchoring/groupthink; this one only ever sets a one-sided floor
+// after the fact, and cross-evaluator disagreement is handled properly by the
+// Consensus review, not by real-time score-matching.)
 //
 // Returns: { floor: number|null, prior_groups: number, athletes_counted: number }
 

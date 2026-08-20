@@ -280,28 +280,14 @@ function ScoringInterface() {
     refetchOnWindowFocus: true,
   });
 
-  // ── Calibration band ───────────────────────────────────────────────────
-  // Real-time min/max of OTHER evaluators' scores in this session. Shown as
-  // a subtle badge in the top bar so an evaluator with doubt can sanity-check
-  // they're using a similar slice of the scale as the room. Polled every
-  // ~20s; pauses while offline (the query is disabled when network is down).
-  const { data: rangeData } = useQuery({
-    queryKey: ["session-range", scheduleId, catId, scheduleData?.session_number],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        schedule_id: scheduleId,
-        category_id: String(catId),
-        session_number: String(scheduleData.session_number),
-      });
-      const res = await fetch(`/api/evaluator/session-range?${params}`);
-      if (!res.ok) throw new Error("range fetch failed");
-      return res.json();
-    },
-    enabled: !!(catId && scheduleData?.session_number && online),
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: false,
-    staleTime: 15_000,
-  });
+  // Real-time min/max of other evaluators' scores ("Room") was removed on
+  // request -- showing evaluators the live spread of everyone else's scores
+  // while they're still scoring creates anchoring/groupthink pressure to
+  // converge instead of scoring independently. Cross-evaluator disagreement
+  // is handled the right way already: the Consensus review below, which
+  // compares independently-entered scores AFTER the fact and flags real
+  // outliers for discussion, rather than nudging live scores toward a group
+  // average before they're even entered.
 
   // Cross-group floor: lowest score any athlete got in a group that went BEFORE
   // this one, THIS session. Groups within a session never play each other, but
@@ -1291,22 +1277,10 @@ function ScoringInterface() {
                   </button>
                 )}
 
-                {/* "Other evaluators" needs a real sample before a min-max range means
-                    anything -- 1-2 scores showing as e.g. "2.5-2.5" reads as broken,
-                    not as "not enough data yet." Require at least 5 scores. */}
-                {((rangeData?.total_scores >= 5) || floorData?.floor != null) && (
+                {floorData?.floor != null && (
                   <div>
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
                     <div className="space-y-2">
-                      {rangeData && rangeData.total_scores >= 5 && rangeData.min != null && (
-                        <div className="text-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">Other evaluators' scores this group</span>
-                            <span className="font-semibold text-accent">{rangeData.min}–{rangeData.max}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5">From {rangeData.total_scores} scores across {rangeData.evaluator_count} evaluator{rangeData.evaluator_count === 1 ? "" : "s"} — a sanity check that you're using a similar slice of the scale.</div>
-                        </div>
-                      )}
                       {floorData && floorData.floor != null && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-500">Floor — earlier groups</span>
