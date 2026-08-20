@@ -1291,14 +1291,20 @@ function ScoringInterface() {
                   </button>
                 )}
 
-                {(rangeData?.evaluator_count > 0 || floorData?.floor != null) && (
+                {/* "Other evaluators" needs a real sample before a min-max range means
+                    anything -- 1-2 scores showing as e.g. "2.5-2.5" reads as broken,
+                    not as "not enough data yet." Require at least 5 scores. */}
+                {((rangeData?.total_scores >= 5) || floorData?.floor != null) && (
                   <div>
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
                     <div className="space-y-2">
-                      {rangeData && rangeData.evaluator_count > 0 && rangeData.min != null && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Room — this group so far</span>
-                          <span className="font-semibold text-accent">{rangeData.min}–{rangeData.max} <span className="text-xs text-gray-400 font-normal">({rangeData.evaluator_count} evaluator{rangeData.evaluator_count === 1 ? "" : "s"})</span></span>
+                      {rangeData && rangeData.total_scores >= 5 && rangeData.min != null && (
+                        <div className="text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Other evaluators' scores this group</span>
+                            <span className="font-semibold text-accent">{rangeData.min}–{rangeData.max}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">From {rangeData.total_scores} scores across {rangeData.evaluator_count} evaluator{rangeData.evaluator_count === 1 ? "" : "s"} — a sanity check that you're using a similar slice of the scale.</div>
                         </div>
                       )}
                       {floorData && floorData.floor != null && (
