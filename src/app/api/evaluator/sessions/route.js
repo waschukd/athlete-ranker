@@ -47,7 +47,10 @@ export async function GET(request) {
           o.name as org_name,
           cs.session_type,
           cs.name as session_name,
-          cs.evaluators_required,
+          -- Per-schedule override wins over the session-type default, matching
+          -- what the signup route actually enforces (a director can bump one
+          -- game's count on the schedule row without cs ever changing).
+          COALESCE(sch.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
           COUNT(DISTINCT ess2.id) as evaluators_signed_up,
           (SELECT COUNT(DISTINCT csc.athlete_id) FROM category_scores csc
              WHERE csc.evaluator_id = ${appUserId}
@@ -111,7 +114,7 @@ export async function GET(request) {
           o.name as org_name,
           cs.session_type,
           cs.name as session_name,
-          COALESCE(cs.evaluators_required, 4) as evaluators_required,
+          COALESCE(sch.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
           COUNT(DISTINCT ess.id) as evaluators_signed_up,
           COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) as already_signed_up,
           -- Overlaps another evaluation this user is already signed up for.
@@ -152,7 +155,7 @@ export async function GET(request) {
               )
           )
         GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required
-        HAVING COUNT(DISTINCT ess.id) < COALESCE(cs.evaluators_required, 4)
+        HAVING COUNT(DISTINCT ess.id) < COALESCE(sch.evaluators_required, cs.evaluators_required, 4)
           AND COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) = 0
         ORDER BY sch.scheduled_date, sch.start_time
       `;
