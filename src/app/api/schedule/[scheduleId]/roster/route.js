@@ -41,7 +41,7 @@ async function loadSession(scheduleId) {
            ac.name AS category_name, ac.organization_id,
            o.name AS org_name,
            cs.session_type, cs.name AS session_name,
-           COALESCE(cs.evaluators_required, 4) AS evaluators_required,
+           COALESCE(es.evaluators_required, cs.evaluators_required, 4) AS evaluators_required,
            COALESCE(es.testers_required, 0) AS testers_required
     FROM evaluation_schedule es
     LEFT JOIN age_categories ac ON ac.id = es.age_category_id
