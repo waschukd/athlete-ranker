@@ -77,6 +77,15 @@ export async function GET(request) {
 
     // ── Legacy shape (existing callers, kept for compat) ─────────────────
 
+    // Confirm the session actually belongs to this (already-authorized)
+    // category before using it to scope the roster query below -- without
+    // this, catId alone was authorized but scheduleId was trusted blind,
+    // letting any evaluator pull another org's checked-in roster by
+    // guessing/passing a foreign schedule_id.
+    if (!scheduleId) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
+    const schedRow = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
+    if (!schedRow.length) return NextResponse.json({ error: "Session does not belong to this category" }, { status: 400 });
+
     // Privacy: when the category is configured for anonymous evaluation,
     // evaluators score by jersey/team only and must never receive athlete
     // identities. We strip names + external_id server-side (the scoring UI
@@ -182,7 +191,16 @@ export async function POST(request) {
       if (!checkin.length) return NextResponse.json({ error: "Athlete not checked in for this session" }, { status: 400 });
     }
 
-    const validScores = (scores || []).filter(s => s.score !== null && s.score !== undefined);
+    // Reject out-of-range/non-numeric scores here -- the admin correction
+    // path (categories/[catId]/scores PATCH) already enforces this against
+    // the category's scoring_scale; the primary evaluator write path didn't.
+    const category = await sql`SELECT scoring_scale FROM age_categories WHERE id = ${category_id}`;
+    const scale = parseFloat(category[0]?.scoring_scale || 10);
+    const validScores = (scores || []).filter(s => {
+      if (s.score === null || s.score === undefined) return false;
+      const n = parseFloat(s.score);
+      return !isNaN(n) && n >= 0 && n <= scale;
+    });
 
     // ── 1. Get existing scores for audit comparison (single query) ────────
     const existingScores = validScores.length > 0

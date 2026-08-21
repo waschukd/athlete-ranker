@@ -16,12 +16,14 @@ function makeReq() {
 
 // The GET legacy path issues sql calls in this order:
 //   1. getAppUserId → SELECT id FROM users (local helper)
-//   2. SELECT evaluators_anonymous FROM age_categories
-//   3. resolveHelmetMode → COALESCE(cat/org identify_by_helmet)
-//   4. athletes query
-//   5. scoring_categories query
+//   2. schedule ownership check → SELECT id FROM evaluation_schedule WHERE id=schedule_id AND age_category_id=catId
+//   3. SELECT evaluators_anonymous FROM age_categories
+//   4. resolveHelmetMode → COALESCE(cat/org identify_by_helmet)
+//   5. athletes query
+//   6. scoring_categories query
 function mockGetSql({ anonymous }) {
   sql.mockResolvedValueOnce([{ id: "u1" }]); // getAppUserId users lookup
+  sql.mockResolvedValueOnce([{ id: "sched1" }]); // schedule belongs to this category
   sql.mockResolvedValueOnce([{ evaluators_anonymous: anonymous }]); // flag
   sql.mockResolvedValueOnce([{ helmet: false }]); // resolveHelmetMode
   sql.mockResolvedValueOnce([
@@ -78,6 +80,7 @@ describe("GET /api/evaluator/scores — anonymous evaluation privacy", () => {
 
   it("defaults to anonymous (NULL names) when the flag lookup is missing/null", async () => {
     sql.mockResolvedValueOnce([{ id: "u1" }]); // getAppUserId
+    sql.mockResolvedValueOnce([{ id: "sched1" }]); // schedule belongs to this category
     sql.mockResolvedValueOnce([]); // flag lookup returns no row
     sql.mockResolvedValueOnce([{ helmet: false }]); // resolveHelmetMode
     sql.mockResolvedValueOnce([
