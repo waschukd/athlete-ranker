@@ -66,10 +66,12 @@ export default function CategoryDashboard({
   status,
   onSignOut,
   categorySwitcher,
+  initialTab,
 }) {
   const canManage = role === "association";
 
-  const [activeTab, setActiveTab] = useState("rankings");
+  const VALID_TABS = new Set(["rankings", "teams", "schedule", "athletes", "analysis", "audit", "settings"]);
+  const [activeTab, setActiveTab] = useState(VALID_TABS.has(initialTab) ? initialTab : "rankings");
   // Cut-player flow (Tournament ranking page)
   const [cutTarget, setCutTarget] = useState(null); // athlete being cut
   const [cutCats, setCutCats] = useState([]);        // destination options
@@ -1134,6 +1136,12 @@ export default function CategoryDashboard({
                     <b className="text-ink">{scrimmageTeams.length}</b> team{scrimmageTeams.length === 1 ? "" : "s"} created ({scrimmageTeams.map(t => t.name).join(", ")}){athletes.length === 0 ? " · no players uploaded yet — matchups can be set now, rosters fill in once players are added" : ""}. Click a game's matchup below to change who's playing.
                   </span>
                 )}
+              </div>
+            )}
+            {isTournament && scrimmageTeams.length > 0 && athletes.length > 0 && scrimmageTeams.every(t => (t.members?.length || 0) === 0) && (
+              <div className="flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                <Users size={13} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <span className="text-amber-800"><b>Teams have no players assigned yet</b> — every game's roster below will be empty until you seed or drag players onto teams on the <a href="#" onClick={e => { e.preventDefault(); setActiveTab("teams"); }} className="underline font-semibold">Teams tab</a>.</span>
               </div>
             )}
 

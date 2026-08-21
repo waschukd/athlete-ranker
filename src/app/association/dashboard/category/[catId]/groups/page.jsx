@@ -95,7 +95,26 @@ function FlagInfo({ dir, why, priority }) {
 // groups, and no ranking-based movement flags here. Cards come from the
 // schedule (one per game), not session_groups — a fresh tournament category has
 // no session_groups rows at all until the first matchup is picked.
-function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged }) {
+// Resolve a matchup label ("Team 1 vs Team 2", "A vs B") to the two team
+// objects it names — client-side mirror of scrimmageTeams.js's own resolver,
+// used only to tell "roster is still loading" apart from "these teams
+// genuinely have zero players", which otherwise look identical (both render
+// an empty players array) and both used to just say "Resolving roster…"
+// forever.
+function resolveTeamsForMatchup(matchup, teams) {
+  const s = String(matchup || "").trim();
+  const m = s.match(/^(.+?)\s*(?:vs\.?|\/)\s*(.+)$/i);
+  if (!m) return [];
+  const find = (label) => {
+    const trimmed = label.trim().toLowerCase();
+    return teams.find(t => String(t.name).toLowerCase() === trimmed)
+      || (/^[a-f]$/i.test(trimmed) ? teams.find(t => String(t.name).toLowerCase() === "team " + trimmed) : null);
+  };
+  const a = find(m[1]), b = find(m[2]);
+  return a && b ? [a, b] : [];
+}
+
+function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged }) {
   const games = scheduleRows
     .filter(r => r.session_number === selectedSession)
     .sort((a, b) => (a.group_number || 0) - (b.group_number || 0));
@@ -118,6 +137,8 @@ function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, grou
       {games.map(row => {
         const group = groups.find(g => g.session_number === selectedSession && g.group_number === row.group_number);
         const players = group ? (groupPlayers[group.id] || []) : [];
+        const matchedTeams = row.matchup ? resolveTeamsForMatchup(row.matchup, teams) : [];
+        const teamsHaveNoPlayers = matchedTeams.length === 2 && matchedTeams.every(t => (t.members?.length || 0) === 0);
         return (
           <div key={row.id} className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex-wrap gap-2">
@@ -145,6 +166,11 @@ function TournamentGamesGrid({ catId, selectedSession, scheduleRows, teams, grou
             <div className="divide-y divide-gray-50">
               {!row.matchup ? (
                 <div className="py-8 text-center text-xs text-gray-400">Pick both teams above to build the roster.</div>
+              ) : teamsHaveNoPlayers ? (
+                <div className="py-8 text-center text-xs px-4">
+                  <p className="text-amber-600 font-semibold mb-1">{matchedTeams[0].name} and {matchedTeams[1].name} have no players assigned yet</p>
+                  <p className="text-gray-400">Go to <a href={`/association/dashboard/category/${catId}?org=${orgId || ""}&tab=teams`} className="text-accent underline font-medium">Teams</a> and seed or drag players onto them — the roster here fills in automatically once they have players.</p>
+                </div>
               ) : players.length === 0 ? (
                 <div className="py-8 text-center text-xs text-gray-400">Resolving roster…</div>
               ) : (
@@ -725,9 +751,20 @@ function GroupsManagerInner() {
           </div>
         )}
 
+        {isTournament && tournamentTeams.length > 0 && tournamentTeams.every(t => (t.members?.length || 0) === 0) && (
+          <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <Users size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              <b>{tournamentTeams.length} team{tournamentTeams.length === 1 ? "" : "s"} created, but none have players yet</b> — every game below will show an empty roster until players are assigned. Go to{" "}
+              <a href={`/association/dashboard/category/${catId}?org=${orgId || ""}&tab=teams`} className="underline font-semibold">Teams</a> to seed alphabetically/evenly or drag players on.
+            </p>
+          </div>
+        )}
+
         {isTournament ? (
           <TournamentGamesGrid
             catId={catId}
+            orgId={orgId}
             selectedSession={selectedSession}
             scheduleRows={scheduleRows}
             teams={tournamentTeams}

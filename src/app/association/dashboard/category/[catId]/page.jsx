@@ -11,10 +11,11 @@ const qc = new QueryClient();
 function CategoryHub() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
+  const initialTab = searchParams.get("tab");
   const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
   useTrackPageView("category.viewed", { catId, orgId });
 
-  return <CategoryDashboard role="association" catId={catId} orgId={orgId} />;
+  return <CategoryDashboard role="association" catId={catId} orgId={orgId} initialTab={initialTab} />;
 }
 
 export default function CategoryPage() {
