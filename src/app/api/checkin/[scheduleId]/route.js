@@ -70,7 +70,7 @@ export async function GET(request, { params }) {
 
     const scheduleInfo = await sql`
       SELECT sch.*, ac.id as category_id, ac.name as category_name,
-        ac.position_tagging, o.name as org_name
+        ac.position_tagging, ac.eval_format, o.name as org_name
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
       JOIN organizations o ON o.id = ac.organization_id
@@ -185,6 +185,22 @@ export async function GET(request, { params }) {
         const kind = await resolveEvaluatorKind(sched.category_id, u[0].id, sess.email);
         if (kind === "goalie") athletes = athletes.filter(a => (a.position || "").toLowerCase() === "goalie");
       }
+    }
+
+    // Tournament format: attach each player's scrimmage team name so whoever's
+    // handing out jerseys at check-in can see it right next to the name,
+    // rather than having to cross-reference the Teams tab.
+    if (sched.eval_format === "round_robin" && athletes.length) {
+      try {
+        const teamRows = await sql`
+          SELECT stm.athlete_id, st.name
+          FROM scrimmage_team_members stm
+          JOIN scrimmage_teams st ON st.id = stm.scrimmage_team_id
+          WHERE st.age_category_id = ${sched.category_id}`;
+        const teamByAthlete = {};
+        for (const t of teamRows) teamByAthlete[t.athlete_id] = t.name;
+        athletes = athletes.map(a => ({ ...a, team_name: teamByAthlete[a.id] || null }));
+      } catch (e) { console.error("checkin: team_name lookup failed:", e?.message); }
     }
 
     const teamColors = typeof checkinSession[0]?.team_colors === "string"

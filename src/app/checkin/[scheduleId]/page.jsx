@@ -317,8 +317,13 @@ function CheckinPageInner() {
             <div key={a.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
               a.checked_in ? "bg-green-50 border border-green-200" : "bg-white border border-gray-200"
             }`}>
-              {/* Name */}
-              <span className="text-sm text-ink truncate" style={{ minWidth: 0, flex: "1 1 0" }}>{a.last_name}, {a.first_name}</span>
+              {/* Name (+ team, tournament format only — peace of mind for whoever's handing out jerseys) */}
+              <span className="flex items-center gap-1.5 truncate" style={{ minWidth: 0, flex: "1 1 0" }}>
+                <span className="text-sm text-ink truncate">{a.last_name}, {a.first_name}</span>
+                {a.team_name && (
+                  <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-accent-soft text-accent">{a.team_name}</span>
+                )}
+              </span>
 
               {/* Identifier: helmet sticker # (persists on the athlete) in helmet mode,
                   otherwise the per-session jersey #. Tap to edit. */}
