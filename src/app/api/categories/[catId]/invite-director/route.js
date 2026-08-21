@@ -31,7 +31,18 @@ export async function GET(request, { params }) {
       WHERE da.age_category_id = ${catId}
       ORDER BY da.created_at DESC
     `;
-    return NextResponse.json({ directors });
+    // A brand-new person (no app account yet) doesn't get a director_assignments
+    // row until they click accept -- until then an accidental invite is
+    // completely invisible here, with no way to undo it short of letting it
+    // expire in 7 days. Surface those too, separately, so they can be cancelled.
+    const pendingInvites = await sql`
+      SELECT id, name, email, created_at, expires_at
+      FROM director_invites
+      WHERE organization_id = (SELECT organization_id FROM age_categories WHERE id = ${catId})
+        AND ${catId} = ANY(category_ids) AND status = 'pending' AND expires_at > NOW()
+      ORDER BY created_at DESC
+    `;
+    return NextResponse.json({ directors, pendingInvites });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -166,6 +177,16 @@ export async function DELETE(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);
+    const inviteId = intId(searchParams.get("invite_id"));
+    if (inviteId) {
+      // Cancelling a pending invite (nobody's accepted it yet) -- scoped to
+      // this category via category_ids so an admin of one category can't
+      // cancel another category's invite by guessing an id.
+      await sql`
+        UPDATE director_invites SET status = 'cancelled'
+        WHERE id = ${inviteId} AND ${catId} = ANY(category_ids) AND status = 'pending'`;
+      return NextResponse.json({ success: true });
+    }
     const userId = intId(searchParams.get("user_id"));
     if (!userId) return NextResponse.json({ error: "Invalid user" }, { status: 400 });
     await sql`DELETE FROM director_assignments WHERE user_id = ${userId} AND age_category_id = ${catId}`;

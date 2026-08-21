@@ -2079,12 +2079,28 @@ export default function CategoryDashboard({
                   <div><h3 className="text-sm font-semibold text-gray-900">Directors</h3><p className="text-xs text-gray-400 mt-0.5">Assign directors to this age category</p></div>
                   <button onClick={() => { setShowDirectorModal(true); setDirectorMsg(""); setDirectorRows([{ name: "", email: "" }, { name: "", email: "" }]); }} className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-xs font-semibold">+ Invite Directors</button>
                 </div>
-                {!(directorsData?.directors?.length) ? <p className="text-xs text-gray-400">No directors assigned yet</p> : directorsData.directors.map(d => (
-                  <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-2">
-                    <div><div className="text-sm font-medium text-gray-900">{d.name}</div><div className="text-xs text-gray-400">{d.email}</div></div>
-                    <button onClick={async () => { if (confirm(`Remove ${d.name}?`)) { await fetch(`/api/categories/${catId}/invite-director?user_id=${d.id}`, { method: "DELETE" }); refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Remove</button>
-                  </div>
-                ))}
+                {!(directorsData?.directors?.length) && !(directorsData?.pendingInvites?.length) ? <p className="text-xs text-gray-400">No directors assigned yet</p> : (
+                  <>
+                    {directorsData.directors.map(d => (
+                      <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-2">
+                        <div><div className="text-sm font-medium text-gray-900">{d.name}</div><div className="text-xs text-gray-400">{d.email}</div></div>
+                        <button onClick={async () => { if (confirm(`Remove ${d.name}?`)) { await fetch(`/api/categories/${catId}/invite-director?user_id=${d.id}`, { method: "DELETE" }); refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Remove</button>
+                      </div>
+                    ))}
+                    {/* Invited but not yet accepted -- e.g. sent by mistake. No
+                        director_assignments row exists for them yet, so this is
+                        the only way to undo it before the link expires in 7 days. */}
+                    {directorsData.pendingInvites?.map(inv => (
+                      <div key={"inv-" + inv.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{inv.name} <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold uppercase tracking-wide">Invited — not accepted</span></div>
+                          <div className="text-xs text-gray-400">{inv.email}</div>
+                        </div>
+                        <button onClick={async () => { if (confirm(`Cancel the invite to ${inv.name}? They won't be able to use that link anymore.`)) { await fetch(`/api/categories/${catId}/invite-director?invite_id=${inv.id}`, { method: "DELETE" }); refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Cancel invite</button>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
               {showDirectorModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowDirectorModal(false)}>
