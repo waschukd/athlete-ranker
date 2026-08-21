@@ -260,6 +260,14 @@ export default function CategoryDashboard({
     enabled: !!catId && setupData?.category?.eval_format === "round_robin",
   });
   const scrimmageTeams = scrimmageTeamsData?.teams || [];
+  // Athlete -> current team name, so the Athletes list can show it directly
+  // instead of a director having to cross-reference the Teams tab for every
+  // player. Recomputes whenever team membership changes (drag, seed, apply).
+  const athleteTeamName = useMemo(() => {
+    const m = {};
+    for (const t of scrimmageTeams) for (const mem of (t.members || [])) m[mem.id] = t.name;
+    return m;
+  }, [scrimmageTeams]);
   // Teams tab and Schedule tab don't share a query invalidation path (ScrimmageTeams
   // manages its own local state), so a team added on one tab won't show in the
   // other's matchup picker until this refetches.
@@ -1630,12 +1638,20 @@ export default function CategoryDashboard({
                 </div>
               )}
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Parent Email</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th>{u15Plus && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registration</th>}<th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead>
+                <thead className="bg-gray-50 border-b border-gray-200"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>{isTournament && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team</th>}<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HC#</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Birth Year</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Parent Email</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Helmet #</th>{u15Plus && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registration</th>}<th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {athletes.length === 0 ? <tr><td colSpan={u15Plus ? 9 : 8} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={u15Plus ? 9 : 8} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : athletes.filter(matchesSearch).map((a, i) => (
+                  {(() => { const cols = (u15Plus ? 9 : 8) + (isTournament ? 1 : 0); return athletes.length === 0 ? <tr><td colSpan={cols} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes yet - upload a CSV above</td></tr> : athletes.filter(matchesSearch).length === 0 ? <tr><td colSpan={cols} className="px-4 py-10 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr> : null; })()}
+                  {athletes.length > 0 && athletes.filter(matchesSearch).map((a, i) => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{a.last_name}, {a.first_name}</td>
+                      {isTournament && (
+                        <td className="px-4 py-3">
+                          {athleteTeamName[a.id]
+                            ? <span className="text-xs px-2 py-0.5 rounded font-semibold bg-accent-soft text-accent">{athleteTeamName[a.id]}</span>
+                            : <span className="text-xs text-gray-300 italic">unassigned</span>}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{a.external_id || "-"}</td>
                       <td className="px-4 py-3">{a.position ? <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{a.position}</span> : "-"}</td>
                       <td className="px-4 py-3 text-gray-500">{a.birth_year || "-"}</td>
