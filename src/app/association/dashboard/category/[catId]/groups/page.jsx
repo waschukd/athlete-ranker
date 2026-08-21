@@ -114,7 +114,13 @@ function resolveTeamsForMatchup(matchup, teams) {
   return a && b ? [a, b] : [];
 }
 
-function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged }) {
+function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId }) {
+  // athlete_id -> team, so every player row can show (and change) which team
+  // they're actually on right here -- this was the whole point of asking
+  // "where is team info live" while looking at a game's roster, not the
+  // separate Teams tab.
+  const teamOf = {};
+  for (const t of teams) for (const m of (t.members || [])) teamOf[m.athlete_id] = t;
   const games = scheduleRows
     .filter(r => r.session_number === selectedSession)
     .sort((a, b) => (a.group_number || 0) - (b.group_number || 0));
@@ -208,6 +214,17 @@ function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, team
                         {POSITION_SHORT[player.position] || player.position}
                       </span>
                     )}
+                    {onMovePlayer && (
+                      <select
+                        value={teamOf[player.athlete_id]?.id || ""}
+                        disabled={movingAthleteId === player.athlete_id}
+                        onChange={e => onMovePlayer(player.athlete_id, parseInt(e.target.value))}
+                        title="Move this player to a different team"
+                        className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-600 flex-shrink-0 max-w-[90px] focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-50">
+                        {!teamOf[player.athlete_id] && <option value="">—</option>}
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    )}
                     {player.checked_in && (
                       <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                         <Check size={10} className="text-white" />
@@ -244,6 +261,20 @@ function GroupsManagerInner() {
   const [showReview, setShowReview] = useState(false);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
   const [jerseyMode, setJerseyMode] = useState(false); // show per-player colour switches
+  const [movingAthleteId, setMovingAthleteId] = useState(null);
+  const moveTeamPlayer = async (athleteId, toTeamId) => {
+    if (!toTeamId) return;
+    setMovingAthleteId(athleteId);
+    try {
+      await fetch(`/api/categories/${catId}/scrimmage-teams`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId }),
+      });
+      // The move_player action already re-applies matchups server-side, so
+      // every un-played game's roster picks up the change -- just refetch.
+      await Promise.all([refetchScrimmageTeams(), refetchSchedule(), refetch()]);
+    } finally { setMovingAthleteId(null); }
+  };
 
   // Get sessions
   const { data: setupData } = useQuery({
@@ -776,6 +807,8 @@ function GroupsManagerInner() {
             setJerseyNumber={setJerseyNumber}
             onMatchupSaved={() => { refetchSchedule(); refetch(); }}
             onTeamsChanged={refetchScrimmageTeams}
+            onMovePlayer={moveTeamPlayer}
+            movingAthleteId={movingAthleteId}
           />
         ) : groupsLoading ? (
           <div className="py-12 text-center text-gray-400">

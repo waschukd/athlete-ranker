@@ -58,6 +58,12 @@ export async function POST(request, { params }) {
     }
     if (body.action === "move_player") {
       await moveAthlete(params.catId, parseInt(body.athlete_id), parseInt(body.to_team_id));
+      // Without this, moving someone here didn't touch any game's already-
+      // resolved roster -- a director would move a player, look at Manage
+      // Groups, and see no change until someone separately hit "Apply to
+      // schedule". Re-resolving every un-played game keeps them in sync
+      // automatically. Best-effort: a failure here must never undo the move.
+      try { await applyAllMatchups(params.catId); } catch (e) { console.error("move_player: re-apply matchups failed:", e?.message); }
       return NextResponse.json({ success: true });
     }
     if (body.action === "rename") {
@@ -71,6 +77,7 @@ export async function POST(request, { params }) {
       const existing = await getScrimmageTeams(params.catId);
       if (existing.length <= 2) return NextResponse.json({ error: "At least 2 teams are required — remove players instead, or start over with a new team count." }, { status: 400 });
       await removeTeam(params.catId, parseInt(body.team_id));
+      try { await applyAllMatchups(params.catId); } catch (e) { console.error("remove_team: re-apply matchups failed:", e?.message); }
       const teams = await getScrimmageTeams(params.catId);
       return NextResponse.json({ success: true, teams });
     }
