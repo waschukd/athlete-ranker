@@ -220,8 +220,13 @@ export async function applyAllMatchups(catId) {
   } catch { return { applied: 0, skipped: 0 }; }
   let applied = 0, skipped = 0;
   for (const r of rows) {
+    // Row EXISTENCE is not the right signal anymore -- assignMatchupRoster
+    // pre-creates player_checkins rows just to seed jersey colors, before
+    // anyone has actually checked in. Only a row with checked_in = true
+    // means someone genuinely showed up, which is the only thing that should
+    // freeze a game against further re-resolution.
     let hasCheckins = false;
-    try { const c = await sql`SELECT 1 FROM player_checkins WHERE schedule_id = ${r.id} LIMIT 1`; hasCheckins = c.length > 0; } catch { /* table optional */ }
+    try { const c = await sql`SELECT 1 FROM player_checkins WHERE schedule_id = ${r.id} AND checked_in = true LIMIT 1`; hasCheckins = c.length > 0; } catch { /* table optional */ }
     if (isGameFrozen({ past: r.past, hasCheckins })) { skipped++; continue; }
     const teams = await resolveMatchupTeams(catId, r.matchup);
     if (teams.length) { await assignMatchupRoster(catId, r.session_number, r.group_number, teams, r.id); applied++; }
