@@ -9,6 +9,7 @@ import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } 
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import SessionRosterModal from "@/components/SessionRosterModal";
 
 const qc = new QueryClient();
 
@@ -94,6 +95,7 @@ function ScoringInterface() {
   const [consensusData, setConsensusData] = useState(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [reviewedFlags, setReviewedFlags] = useState(new Set());
+  const [consensusEvalFilter, setConsensusEvalFilter] = useState("");
   const [closing, setClosing] = useState(false);
   const [excusalNeeded, setExcusalNeeded] = useState(null); // [{athlete_id, name, position}] awaiting a reason
   const [excusals, setExcusals] = useState({});             // { athlete_id: 'absent' | 'injured' }
@@ -103,6 +105,11 @@ function ScoringInterface() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
   const [jerseySearch, setJerseySearch] = useState("");
+  const [showRoster, setShowRoster] = useState(false);
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+  const [addPlayerForm, setAddPlayerForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+  const [addPlayerSaving, setAddPlayerSaving] = useState(false);
+  const [addPlayerError, setAddPlayerError] = useState("");
   const [collapseList, setCollapseList] = useState(false); // hide player grid while scoring a selected player
   const [viewerKind, setViewerKind] = useState(null); // 'goalie' | 'coach' | 'standard' — scopes the roster
   const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
@@ -207,7 +214,7 @@ function ScoringInterface() {
     return () => navigator.serviceWorker.removeEventListener('controllerchange', onChange);
   }, []);
 
-  const { data: sessionData, isLoading } = useQuery({
+  const { data: sessionData, isLoading, refetch: refetchSession } = useQuery({
     queryKey: ["score-session", scheduleId],
     queryFn: async () => {
       const res = await fetch(`/api/checkin/${scheduleId}`);
@@ -1212,129 +1219,6 @@ function ScoringInterface() {
           </div>
         </div>
 
-        {/* Scoring guide modal — "what does a 0 look like, what does a 10 look
-            like" reference, per skill, for this category's age tier. */}
-        {guideOpen && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setGuideOpen(false)}>
-            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><BookOpen size={17} className="text-accent" /> Scoring guide {guideData?.age_tier && guideData.age_tier !== "ALL" ? `— ${guideData.age_tier}` : ""}</h3>
-                <button onClick={() => setGuideOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-              </div>
-              <div className="p-4 space-y-5">
-                {(guideData?.guide || []).filter(g => g.bands.length > 0).map(g => (
-                  <div key={g.scoring_category_id}>
-                    <h4 className="text-sm font-bold text-ink mb-1.5">{g.name}</h4>
-                    <div className="space-y-1">
-                      {g.bands.map((b, i) => (
-                        <div key={i} className="flex gap-2 text-xs">
-                          <span className="font-mono font-bold text-accent flex-shrink-0 w-10">{b.band_min}–{b.band_max}</span>
-                          <span className="text-gray-600 leading-snug">{b.description}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Settings — everything that isn't needed at a glance while scoring
-            lives here now: scoring guide, calibration numbers, layout, consensus,
-            backup/recovery, appearance. Keeps the header down to just player
-            counts, the team filter, and the save indicator. */}
-        {settingsOpen && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setSettingsOpen(false)}>
-            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><SettingsIcon size={17} className="text-accent" /> Settings</h3>
-                <button onClick={() => setSettingsOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-              </div>
-              <div className="p-4 space-y-5">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Find a player</h4>
-                  <div className="relative">
-                    <input
-                      value={jerseySearch}
-                      onChange={e => { setJerseySearch(e.target.value); setSettingsOpen(false); }}
-                      inputMode="numeric"
-                      placeholder={isAnon ? "Find #" : "Find # or name"}
-                      autoFocus
-                      className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
-                    />
-                    {jerseySearch && (
-                      <button onClick={() => setJerseySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-base leading-none">×</button>
-                    )}
-                  </div>
-                </div>
-
-                {hasGuideContent && (
-                  <button onClick={() => { setSettingsOpen(false); setGuideOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                    <span className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /> Scoring guide</span>
-                    <ChevronRight size={15} className="text-gray-400" />
-                  </button>
-                )}
-
-                {!readOnly && (
-                  <button onClick={async () => { setSettingsOpen(false); setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-100">
-                    <span>Consensus</span>
-                    <ChevronRight size={15} className="text-amber-400" />
-                  </button>
-                )}
-
-                {floorData?.floor != null && (
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
-                    <div className="space-y-2">
-                      {floorData && floorData.floor != null && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Floor — earlier groups</span>
-                          <span className="font-semibold text-amber-600">{floorData.floor} <span className="text-xs text-gray-400 font-normal">({floorData.athletes_counted} players)</span></span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>
-                  <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
-                    {[
-                      { id: "card", label: "Buttons" },
-                      { id: "numpad", label: "Numpad" },
-                      { id: "grid", label: "Grid" },
-                    ].map(m => (
-                      <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
-                        className={`flex-1 px-2.5 py-2 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Backup</h4>
-                  <div className="space-y-1">
-                    <button onClick={() => downloadBackup()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download CSV (readable)</button>
-                    <button onClick={() => downloadBackupJson()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download backup file</button>
-                    <label className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
-                      Restore from file…
-                      <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setSettingsOpen(false); restoreFromFile(f); }} />
-                    </label>
-                    <p className="px-1 pt-1 text-xs text-gray-400 leading-snug">Emergency use — your scores already save to this device and sync automatically.</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Appearance</h4>
-                  <ThemeToggle theme={theme} onToggle={toggleTheme} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Calibration check banner */}
         {calibration && !calibrationDismissed && (
           <div className="mx-3 mt-2 bg-white border border-border rounded-xl overflow-hidden">
@@ -1425,6 +1309,204 @@ function ScoringInterface() {
             )}
           </div>
       </div>
+
+      {/* Scoring guide modal — "what does a 0 look like, what does a 10 look
+          like" reference, per skill, for this category's age tier.
+          Rendered here, outside the sticky top-bar, so its z-50 competes at
+          the page's top-level stacking order — nested inside a `position:
+          sticky` ancestor with its own z-index, it was getting capped to
+          that ancestor's context and losing to the Grid view's own sticky
+          z-10 header. */}
+      {guideOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setGuideOpen(false)}>
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><BookOpen size={17} className="text-accent" /> Scoring guide {guideData?.age_tier && guideData.age_tier !== "ALL" ? `— ${guideData.age_tier}` : ""}</h3>
+              <button onClick={() => setGuideOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="p-4 space-y-5">
+              {(guideData?.guide || []).filter(g => g.bands.length > 0).map(g => (
+                <div key={g.scoring_category_id}>
+                  <h4 className="text-sm font-bold text-ink mb-1.5">{g.name}</h4>
+                  <div className="space-y-1">
+                    {g.bands.map((b, i) => (
+                      <div key={i} className="flex gap-2 text-xs">
+                        <span className="font-mono font-bold text-accent flex-shrink-0 w-10">{b.band_min}–{b.band_max}</span>
+                        <span className="text-gray-600 leading-snug">{b.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings — everything that isn't needed at a glance while scoring
+          lives here now: scoring guide, calibration numbers, layout, consensus,
+          backup/recovery, appearance. Keeps the header down to just player
+          counts, the team filter, and the save indicator. Same top-level
+          placement reasoning as the guide modal above. */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><SettingsIcon size={17} className="text-accent" /> Settings</h3>
+              <button onClick={() => setSettingsOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="p-4 space-y-5">
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Find a player</h4>
+                <div className="relative">
+                  <input
+                    value={jerseySearch}
+                    onChange={e => { setJerseySearch(e.target.value); setSettingsOpen(false); }}
+                    inputMode="numeric"
+                    placeholder={isAnon ? "Find #" : "Find # or name"}
+                    autoFocus
+                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  />
+                  {jerseySearch && (
+                    <button onClick={() => setJerseySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-base leading-none">×</button>
+                  )}
+                </div>
+              </div>
+
+              {!readOnly && (
+                <button onClick={() => { setSettingsOpen(false); setAddPlayerError(""); setAddPlayerOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                  <span>+ Add player (on ice, not checked in)</span>
+                  <ChevronRight size={15} className="text-gray-400" />
+                </button>
+              )}
+
+              <button onClick={() => { setSettingsOpen(false); setShowRoster(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                <span>Who's evaluating with me</span>
+                <ChevronRight size={15} className="text-gray-400" />
+              </button>
+
+              {hasGuideContent && (
+                <button onClick={() => { setSettingsOpen(false); setGuideOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                  <span className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /> Scoring guide</span>
+                  <ChevronRight size={15} className="text-gray-400" />
+                </button>
+              )}
+
+              {!readOnly && (
+                <button onClick={async () => { setSettingsOpen(false); setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-100">
+                  <span>Consensus</span>
+                  <ChevronRight size={15} className="text-amber-400" />
+                </button>
+              )}
+
+              {floorData?.floor != null && (
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
+                  <div className="space-y-2">
+                    {floorData && floorData.floor != null && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Floor — earlier groups</span>
+                        <span className="font-semibold text-amber-600">{floorData.floor} <span className="text-xs text-gray-400 font-normal">({floorData.athletes_counted} players)</span></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>
+                <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
+                  {[
+                    { id: "card", label: "Buttons" },
+                    { id: "numpad", label: "Numpad" },
+                    { id: "grid", label: "Grid" },
+                  ].map(m => (
+                    <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
+                      className={`flex-1 px-2.5 py-2 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Backup</h4>
+                <div className="space-y-1">
+                  <button onClick={() => downloadBackup()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download CSV (readable)</button>
+                  <button onClick={() => downloadBackupJson()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download backup file</button>
+                  <label className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+                    Restore from file…
+                    <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setSettingsOpen(false); restoreFromFile(f); }} />
+                  </label>
+                  <p className="px-1 pt-1 text-xs text-gray-400 leading-snug">Emergency use — your scores already save to this device and sync automatically.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Appearance</h4>
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add an on-ice player who was never checked in — creates the athlete
+          (if new), drops them into this game's group, and checks them in via
+          the same add_player action the volunteer check-in screen uses, so
+          they show up in the roster immediately, ready to score. */}
+      {addPlayerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => !addPlayerSaving && setAddPlayerOpen(false)}>
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-bold text-ink">Add player</h3>
+              <button onClick={() => setAddPlayerOpen(false)} disabled={addPlayerSaving} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={18} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-gray-400">For a player who's on the ice but never got checked in — adds them to this roster and checks them in so they're ready to score.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={addPlayerForm.first_name} onChange={e => setAddPlayerForm(f => ({ ...f, first_name: e.target.value }))} placeholder="First name" autoFocus className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                <input value={addPlayerForm.last_name} onChange={e => setAddPlayerForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Last name" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={addPlayerForm.jersey_number} onChange={e => setAddPlayerForm(f => ({ ...f, jersey_number: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" placeholder="Jersey #" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
+                <select value={addPlayerForm.team_color} onChange={e => setAddPlayerForm(f => ({ ...f, team_color: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30">
+                  {teamColors.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {addPlayerError && <p className="text-xs text-red-500">{addPlayerError}</p>}
+              <button
+                disabled={addPlayerSaving || !addPlayerForm.first_name.trim() || !addPlayerForm.last_name.trim()}
+                onClick={async () => {
+                  setAddPlayerSaving(true); setAddPlayerError("");
+                  try {
+                    const res = await fetch(`/api/checkin/${scheduleId}`, {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        action: "add_player",
+                        first_name: addPlayerForm.first_name.trim(),
+                        last_name: addPlayerForm.last_name.trim(),
+                        jersey_number: addPlayerForm.jersey_number ? parseInt(addPlayerForm.jersey_number) : null,
+                        team_color: addPlayerForm.team_color,
+                      }),
+                    });
+                    const d = await res.json();
+                    if (!res.ok || !d.success) { setAddPlayerError(d.error || "Couldn't add player — try again."); setAddPlayerSaving(false); return; }
+                    await refetchSession();
+                    setAddPlayerForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+                    setAddPlayerOpen(false);
+                  } catch { setAddPlayerError("Network error — try again."); }
+                  setAddPlayerSaving(false);
+                }}
+                className="w-full py-2.5 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                {addPlayerSaving ? "Adding…" : "Add & check in"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRoster && <SessionRosterModal scheduleId={scheduleId} onClose={() => setShowRoster(false)} />}
 
       {/* ── Jersey grid ────────────────────────────────────── */}
       {/* Pending sync banner */}
@@ -1807,6 +1889,21 @@ function ScoringInterface() {
               <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
             ) : (
               <>
+                {/* Evaluator filter — narrow the discussion list to just one
+                    evaluator's disagreements, useful when several evaluators
+                    are reviewing together and want to focus on one at a time. */}
+                {(() => {
+                  const evalNames = [...new Set(consensusData.athletes.flatMap(a => (a.per_evaluator || []).map(e => e.evaluator_name)).filter(Boolean))].sort();
+                  return evalNames.length > 1 ? (
+                    <div className="mb-4">
+                      <select value={consensusEvalFilter} onChange={e => setConsensusEvalFilter(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30">
+                        <option value="">All evaluators</option>
+                        {evalNames.map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  ) : null;
+                })()}
+
                 {/* Summary */}
                 <div className="flex items-center gap-3 mb-5">
                   <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
@@ -1838,7 +1935,7 @@ function ScoringInterface() {
                   <div className="mb-5">
                     <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
                     <div className="space-y-2">
-                      {consensusData.athletes.filter(a => a.flagged).map(a => (
+                      {consensusData.athletes.filter(a => a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => (
                         <div key={a.athlete_id} className={`bg-white border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-200" : a.severity === "critical" ? "border-red-200" : "border-amber-200"}`}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
@@ -1848,17 +1945,25 @@ function ScoringInterface() {
                               <span className="text-sm font-semibold text-ink">{a.first_name} {a.last_name}</span>
                               {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
                             </div>
-                            {!reviewedFlags.has(a.athlete_id) ? (
-                              <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Discussed ✓</button>
-                            ) : (
-                              <span className="text-xs text-green-600">✓ Done</span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  const ath = (sessionData?.athletes || []).find(x => x.id === a.athlete_id);
+                                  if (ath) { setSelected(ath); setShowConsensus(false); logClientEvent("consensus.fix_score_clicked", { metadata: { catId, athleteId: a.athlete_id } }); }
+                                }}
+                                className="text-xs px-2.5 py-1 bg-accent-soft text-accent rounded-lg hover:opacity-90 font-semibold">Fix score →</button>
+                              {!reviewedFlags.has(a.athlete_id) ? (
+                                <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Discussed ✓</button>
+                              ) : (
+                                <span className="text-xs text-green-600">✓ Done</span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Per-evaluator rankings */}
                           <div className="space-y-1.5">
                             {a.per_evaluator?.map(ev => (
-                              <div key={ev.evaluator_id} className="flex items-center gap-2">
+                              <div key={ev.evaluator_id} className={`flex items-center gap-2 ${consensusEvalFilter && ev.evaluator_name === consensusEvalFilter ? "bg-accent-soft rounded-lg px-1.5 py-0.5 -mx-1.5" : ""}`}>
                                 <span className="text-xs text-gray-600 w-28 truncate">{ev.evaluator_name}</span>
                                 <span className={`text-xs font-bold w-8 text-center ${ev.tier === "top" ? "text-green-600" : ev.tier === "bottom" ? "text-amber-600" : "text-gray-700"}`}>#{ev.rank}</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.tier === "top" ? "bg-green-100 text-green-700" : ev.tier === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{ev.tier}</span>
@@ -1886,12 +1991,12 @@ function ScoringInterface() {
                 )}
 
                 {/* Agreed athletes */}
-                {consensusData.athletes.filter(a => !a.flagged).length > 0 && (
+                {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).length > 0 && (
                   <div className="mb-5">
                     <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                       <div className="grid grid-cols-2 gap-1">
-                        {consensusData.athletes.filter(a => !a.flagged).map(a => (
+                        {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => (
                           <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100">
                             <span className="text-xs text-gray-700">{a.first_name} {a.last_name}</span>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-100 text-green-700" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{a.unique_tiers?.[0]}</span>
