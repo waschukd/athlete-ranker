@@ -319,6 +319,24 @@ function ScoringInterface() {
     staleTime: 15_000,
   });
 
+  // Every group's score range for this session (not just earlier ones) --
+  // group-level calibration, never a per-player flag, so it can't anchor an
+  // evaluator's opinion of any one kid the way naming a "bubble" player would.
+  const [showRanges, setShowRanges] = useState(false);
+  const { data: rangesData } = useQuery({
+    queryKey: ["session-ranges", catId, scheduleData?.session_number],
+    queryFn: async () => {
+      const params = new URLSearchParams({ category_id: String(catId), session_number: String(scheduleData.session_number) });
+      const res = await fetch(`/api/evaluator/session-ranges?${params}`);
+      if (!res.ok) throw new Error("ranges fetch failed");
+      return res.json();
+    },
+    enabled: !!(catId && scheduleData?.session_number && showRanges && online),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+  });
+
   // Scoring guide: "what does a 0 look like, what does a 10 look like" per skill,
   // for the age tier this category belongs to. Reference content, not calibration
   // data, so it's fetched once and doesn't need polling.
@@ -1302,6 +1320,11 @@ function ScoringInterface() {
                 {collapseList ? "✓ Compact" : "Compact"}
               </button>
             )}
+            {!readOnly && (
+              <button onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="px-3 py-1 text-xs font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">
+                Consensus
+              </button>
+            )}
             {Object.keys(pending).length > 0 && (
               <button onClick={resyncNow} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
                 Resync now
@@ -1392,26 +1415,10 @@ function ScoringInterface() {
                 </button>
               )}
 
-              {!readOnly && (
-                <button onClick={async () => { setSettingsOpen(false); setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-100">
-                  <span>Consensus</span>
-                  <ChevronRight size={15} className="text-amber-400" />
-                </button>
-              )}
-
-              {floorData?.floor != null && (
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Calibration</h4>
-                  <div className="space-y-2">
-                    {floorData && floorData.floor != null && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Floor — earlier groups</span>
-                        <span className="font-semibold text-amber-600">{floorData.floor} <span className="text-xs text-gray-400 font-normal">({floorData.athletes_counted} players)</span></span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <button onClick={() => { setSettingsOpen(false); setShowRanges(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                <span>Ranges</span>
+                <ChevronRight size={15} className="text-gray-400" />
+              </button>
 
               <div>
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>
@@ -1507,6 +1514,42 @@ function ScoringInterface() {
       )}
 
       {showRoster && <SessionRosterModal scheduleId={scheduleId} onClose={() => setShowRoster(false)} />}
+
+      {/* Ranges — every group's score range for this session so far (not just
+          earlier ones), so an evaluator who thinks a player deserves to beat
+          another group's top score knows exactly what number that takes.
+          Group-level only, never names a player. */}
+      {showRanges && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowRanges(false)}>
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-bold text-ink">Ranges — Session {scheduleData?.session_number}</h3>
+              <button onClick={() => setShowRanges(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="p-4">
+              <p className="text-xs text-gray-400 mb-3">Lowest-to-highest average score each group has landed so far, out of {scale}. If a player in front of you deserves to beat a group's top score, that's the number to give them.</p>
+              {!rangesData ? (
+                <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
+              ) : rangesData.ranges.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-400">No groups set up yet for this session.</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {rangesData.ranges.map(r => (
+                    <div key={r.group_number} className={`flex items-center justify-between rounded-lg px-3 py-2 ${r.group_number === scheduleData?.group_number ? "bg-accent-soft border border-accent/30" : "bg-gray-50"}`}>
+                      <span className="text-sm font-semibold text-ink">Group {r.group_number}{r.group_number === scheduleData?.group_number ? " (you)" : ""}</span>
+                      {r.floor != null ? (
+                        <span className="text-sm font-mono font-bold text-amber-600">{r.ceiling}–{r.floor} <span className="text-xs text-gray-400 font-normal">({r.athletes_counted})</span></span>
+                      ) : (
+                        <span className="text-xs text-gray-300 italic">not scored yet</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Jersey grid ────────────────────────────────────── */}
       {/* Pending sync banner */}
