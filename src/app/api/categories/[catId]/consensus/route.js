@@ -25,22 +25,54 @@ export async function GET(request, { params }) {
     const category = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
     const scale = parseFloat(category[0]?.scoring_scale || 10);
 
-    // Get all scores for this session
-    const scores = await sql`
-      SELECT 
-        cs.athlete_id, cs.scoring_category_id, cs.score, cs.evaluator_id,
-        a.first_name, a.last_name, a.jersey_number,
-        sc.name as category_name,
-        u.name as evaluator_name,
-        pc.team_color, pc.jersey_number as checkin_jersey
-      FROM category_scores cs
-      JOIN athletes a ON a.id = cs.athlete_id
-      JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
-      JOIN users u ON u.id = cs.evaluator_id
-      LEFT JOIN player_checkins pc ON pc.athlete_id = cs.athlete_id AND pc.schedule_id = ${scheduleId}
-      WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber}
-      ORDER BY a.last_name, a.first_name, sc.name
-    `;
+    // A session number can span multiple concurrent groups (e.g. Group 1 already
+    // scored, Group 2 scoring live right now) -- without scoping to the CALLING
+    // schedule row's group, consensus silently pooled every group under that
+    // session number together, showing an evaluator scores/rankings for players
+    // they never saw. Resolve the caller's group_number and restrict to athletes
+    // assigned to that same group (falls back to unscoped only if no schedule_id
+    // was given, which no current caller does).
+    let groupNumber = null;
+    if (scheduleId) {
+      const [sched] = await sql`SELECT group_number FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
+      groupNumber = sched?.group_number ?? null;
+    }
+
+    // Get all scores for this session, scoped to the current group when known
+    const scores = groupNumber != null
+      ? await sql`
+        SELECT
+          cs.athlete_id, cs.scoring_category_id, cs.score, cs.evaluator_id,
+          a.first_name, a.last_name, a.jersey_number,
+          sc.name as category_name,
+          u.name as evaluator_name,
+          pc.team_color, pc.jersey_number as checkin_jersey
+        FROM category_scores cs
+        JOIN athletes a ON a.id = cs.athlete_id
+        JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
+        JOIN users u ON u.id = cs.evaluator_id
+        LEFT JOIN player_checkins pc ON pc.athlete_id = cs.athlete_id AND pc.schedule_id = ${scheduleId}
+        JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
+        JOIN session_groups sg ON sg.id = pga.session_group_id
+          AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
+        WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber} AND sg.group_number = ${groupNumber}
+        ORDER BY a.last_name, a.first_name, sc.name
+      `
+      : await sql`
+        SELECT
+          cs.athlete_id, cs.scoring_category_id, cs.score, cs.evaluator_id,
+          a.first_name, a.last_name, a.jersey_number,
+          sc.name as category_name,
+          u.name as evaluator_name,
+          pc.team_color, pc.jersey_number as checkin_jersey
+        FROM category_scores cs
+        JOIN athletes a ON a.id = cs.athlete_id
+        JOIN scoring_categories sc ON sc.id = cs.scoring_category_id
+        JOIN users u ON u.id = cs.evaluator_id
+        LEFT JOIN player_checkins pc ON pc.athlete_id = cs.athlete_id AND pc.schedule_id = ${scheduleId}
+        WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber}
+        ORDER BY a.last_name, a.first_name, sc.name
+      `;
 
     // Build per-athlete, per-evaluator data
     const athleteMap = {};
