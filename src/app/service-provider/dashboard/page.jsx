@@ -26,6 +26,24 @@ const SESSION_TYPE_COLORS = {
   scrimmage: "bg-green-100 text-green-700",
 };
 
+// CSV field-quoting: wrap in quotes only when it contains something that
+// would otherwise break the format (comma, quote, newline); double up any
+// internal quotes. Plain values pass through untouched.
+function csvField(v) {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function downloadContactsCsv(rows, filename) {
+  const header = ["Name", "Email", "Phone", "Status"];
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    lines.push([r.name, r.email, r.phone || "", r.status || r.membership_status || ""].map(csvField).join(","));
+  }
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function formatTime(t) {
   if (!t) return "";
   const [h, m] = t.toString().split(":");
@@ -298,6 +316,12 @@ function TestersTab({ spUrl, spName, openSpots, sessionsNeeding }) {
           <h3 className="text-sm font-semibold text-gray-900">Testers ({testers.length})</h3>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowSetRates(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">$ Set rates</button>
+            <button
+              onClick={() => downloadContactsCsv(testers, "tester-contacts.csv")}
+              title="Download name, email, phone and status for your testers"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
+              <Upload size={14} className="rotate-180" /> Export contacts
+            </button>
             <button onClick={() => setComposeOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90"><MessageSquare size={14} /> Message all testers</button>
           </div>
         </div>
@@ -2357,6 +2381,12 @@ function SPDashboard() {
                 </a>
                 <button onClick={() => setShowSetRates(true)} className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
                   $ Set rates
+                </button>
+                <button
+                  onClick={() => downloadContactsCsv(filteredEvaluators.length ? filteredEvaluators : evaluators, "evaluator-contacts.csv")}
+                  title="Download name, email, phone and status for the evaluators currently shown"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
+                  <Upload size={14} className="rotate-180" /> Export contacts
                 </button>
                 <button onClick={() => setComposeRecipient({ to_all_pool: true, label: "To everyone in your evaluator pool" })} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
                   <MessageSquare size={14} /> Message all pool

@@ -30,7 +30,7 @@ export async function GET(request) {
     if (g.error) return g.error;
     const { spId } = g;
     const testers = await sql`
-      SELECT u.id, u.name, u.email, em.created_at as joined_at, em.status, em.is_evaluator,
+      SELECT u.id, u.name, u.email, u.phone, em.created_at as joined_at, em.status, em.is_evaluator,
         em.tester_hourly_rate, em.hourly_rate AS eval_hourly_rate,
         COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as upcoming_signups
       FROM evaluator_memberships em

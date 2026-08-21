@@ -26,7 +26,7 @@ export async function GET(request) {
       for (const t of testers) await recomputeTesterHours(t.user_id);
     } catch (e) { console.error("SP tester hours recompute:", e?.message); }
     const evaluators = await sql`
-      SELECT u.id, u.name, u.email, u.role, em.created_at as joined_at, em.status as membership_status, em.hourly_rate,
+      SELECT u.id, u.name, u.email, u.phone, u.role, em.created_at as joined_at, em.status as membership_status, em.hourly_rate,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.status = 'signed_up' OR ess.status = 'completed') as total_sessions,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.no_show = true) as no_shows,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.completed = true) as completed_sessions,
