@@ -7,6 +7,11 @@ import { analyzeContention } from "@/lib/contention";
 
 const intId = (v) => { const n = parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 
+// Setting roster targets (feeds the cut-line/contention math for the whole
+// category) is a director/admin-level action -- the GET analysis view stays
+// open to any category-authorized role.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 // GET → contention analysis for the skater pool against the category's roster targets.
 export async function GET(request, { params }) {
   try {
@@ -44,6 +49,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const catId = intId(params.catId);
     if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const auth = await authorizeCategoryAccess(session, catId);

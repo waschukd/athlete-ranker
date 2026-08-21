@@ -32,12 +32,3 @@ export async function getSpCapabilities(session) {
     spOrgIds: [...new Set(rows.map(r => r.organization_id))],
   };
 }
-
-// Guard for tester-only endpoints: the caller must hold an active tester membership
-// (optionally in a specific SP org). Returns { ok, userId, reason }.
-export async function requireTester(session, orgId = null) {
-  const cap = await getSpCapabilities(session);
-  if (!cap.isTester) return { ok: false, reason: "not_a_tester", userId: cap.userId };
-  if (orgId != null && !cap.testerOrgIds.includes(Number(orgId))) return { ok: false, reason: "wrong_org", userId: cap.userId };
-  return { ok: true, userId: cap.userId, capabilities: cap };
-}

@@ -76,7 +76,6 @@ export async function GET(request, { params }) {
       athlete,
       category: report.category ? { name: report.category.name, scoring_scale: report.category.scoring_scale } : null,
       org_name: link[0].org_name,
-      standing: report.standing,
       total_athletes: report.total_athletes,
       purchased,
       purchasable,
@@ -102,8 +101,11 @@ export async function GET(request, { params }) {
       }
 
       // Full report — what the dark DevelopmentReport component renders.
+      // standing (percentile/tier/band) is only ever included here, behind the
+      // purchase gate above -- it must never reach the free-preview branch below.
       return NextResponse.json({
         ...base,
+        standing: report.standing,
         narrativeSummary,
         skillProfile: report.skillProfile,
         goalieSkillsProfile: report.goalieSkillsProfile,

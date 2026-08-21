@@ -36,6 +36,11 @@ const PUBLIC_PATHS = [
   "/api/calendar/session.ics",
   "/report",
   "/api/report",
+  // Coaches have no account -- they reach their team report via an emailed,
+  // HMAC-signed token link (see teams/route.js email_coach_reports). The route
+  // itself validates the token; this just lets the request past the cookie gate.
+  "/coach-report",
+  "/api/coach-report",
   "/prototype",
   "/api/payments",
   "/api/webhooks",

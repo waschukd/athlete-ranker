@@ -27,11 +27,6 @@ export function resolveSkillKey(name, isGoalie) {
   return null;
 }
 
-export const SKILL_LABELS = {
-  skating: "Skating", puck: "Puck Skills", iq: "Hockey IQ", compete: "Effort & Compete", shot: "Shot", pass: "Passing",
-  g_movement: "Movement & Mobility", g_positioning: "Positioning", g_saves: "Save Execution", g_reading: "Reading the Play",
-};
-
 // "U15 AA" -> "U15", "U9 Tier 1" -> "U9". Every age category in this codebase's
 // naming convention starts with "U<number>" -- falls back to "ALL" (the
 // age-agnostic default band set) when a name doesn't match.

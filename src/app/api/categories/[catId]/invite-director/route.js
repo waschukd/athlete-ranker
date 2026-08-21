@@ -159,6 +159,10 @@ export async function DELETE(request, { params }) {
     if (!catId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Same admin-only gate as POST -- revoking a director's assignment isn't
+    // something a fellow director (self-authorized for this category) or an
+    // evaluator should be able to do.
+    if (!DIRECTOR_INVITE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(request.url);

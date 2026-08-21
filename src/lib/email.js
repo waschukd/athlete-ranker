@@ -286,23 +286,6 @@ export async function emailStrike2Suspended({ name, email, orgName }) {
 
 // ── Staffing / Session Reports ────────────────────────────────────────────────
 
-export async function emailLateCancel48hr({ adminEmail, adminName, evalName, sessionDate, sessionTime, groupName, orgName, spotsOpen, remainingEvals }) {
-  const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#dc2626;">Evaluator Cancelled — Under 48 Hours</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(adminName)}</strong>, an evaluator has cancelled with less than 48 hours notice.</p>
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;width:140px;">Evaluator</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(evalName)}</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Session</td><td style="font-size:13px;font-weight:600;color:#111827;">${esc(groupName)} — ${esc(sessionDate)} ${esc(sessionTime)}</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Spots Now Open</td><td style="font-size:13px;font-weight:700;color:#dc2626;">${spotsOpen}</td></tr>
-        <tr><td style="padding:5px 0;font-size:13px;color:#6b7280;">Still Signed Up</td><td style="font-size:13px;color:#111827;">${remainingEvals}</td></tr>
-      </table>
-    </div>
-    ${btn(`${BASE_URL}/service-provider/dashboard`, "Manage Sessions →")}
-  `);
-  await sendEmail(adminEmail, `⚠️ Evaluator Cancelled — ${sessionDate} Session Understaffed`, html);
-}
-
 export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName, sessions }) {
   // sessions = [{ name, date, time, group, required, signed_up, evaluators: [{name}] }]
   const fullSessions = sessions.filter(s => s.signed_up >= s.required);

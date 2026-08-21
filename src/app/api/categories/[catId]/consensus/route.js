@@ -6,6 +6,11 @@ import sql from "@/lib/db";
 import { sendEmail, esc } from "@/lib/email";
 import { getTier } from "@/lib/scoring";
 
+// Closing a session (marks signups complete, runs integrity checks, flags
+// evaluators) is a director/admin-level action, distinct from an evaluator
+// self-closing their own session via /api/evaluator/close-session.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function GET(request, { params }) {
   try {
     const session = await getSession();
@@ -169,6 +174,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, params.catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

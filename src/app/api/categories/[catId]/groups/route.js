@@ -4,6 +4,11 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
 
+// Group-building (auto-assign, moves, lock/unlock, colors, jersey pre-assign)
+// is the association's "Groups" tab -- middleware's DIRECTOR_ASSOC_ALLOW only
+// admits directors there (alongside admins), never a plain evaluator.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 async function getAppUserId(session) {
   if (!session?.email) return null;
   const user = await sql`SELECT id FROM users WHERE email = ${session.email}`;
@@ -99,6 +104,7 @@ export async function POST(request, { params }) {
     const { catId } = params;
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -6,6 +6,11 @@ import { sendEmail, groupAssignmentHtml, parentEmails, sleep } from "@/lib/email
 import { googleCalendarUrl } from "@/lib/calendar";
 import { signSessionIcsToken, canonicalCalendarBase } from "@/lib/calendar-token";
 
+// Sending the group-assignment email blast is a director/admin-level action --
+// authorizeCategoryAccess alone also admits plain evaluators. The GET
+// preview/status view stays open to any category-authorized role.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 // Per-recipient delivery log for group-assignment emails. Auto-creates so no
 // manual migration is needed. Webhook (/api/webhooks/resend) updates status by
 // resend_id to delivered / bounced / complained.
@@ -140,6 +145,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

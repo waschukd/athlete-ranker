@@ -81,6 +81,9 @@ export async function POST(request, { params }) {
 
     switch (step) {
       case "sessions": {
+        if (!Array.isArray(data.sessions)) {
+          return NextResponse.json({ error: "sessions must be an array" }, { status: 400 });
+        }
         // Snapshot the current session types before replacing, so a genuine type
         // change (e.g. Scrimmage -> Testing) can notify everyone attached to it
         // after the swap -- same reach as an edited/cancelled schedule row

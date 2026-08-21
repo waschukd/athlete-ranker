@@ -45,8 +45,17 @@ export async function PUT(request, { params }) {
     const auth = await authorizeOrgAccess(session, params.orgId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
-    const { name, contact_email, contact_name, contact_phone, address, identify_by_helmet } = body;
+    let { contact_email } = body;
+    const { name, contact_name, contact_phone, address, identify_by_helmet } = body;
     const helmet = typeof identify_by_helmet === "boolean" ? identify_by_helmet : null;
+    // contact_email is an ownership signal (password resets, invite-admin flow).
+    // A co-admin granted only via user_organization_roles can edit everything
+    // else here, but only the org's current contact or a super_admin may
+    // redirect it -- otherwise a secondary admin could silently take over.
+    if (contact_email && session.role !== "super_admin") {
+      const current = await sql`SELECT contact_email FROM organizations WHERE id = ${params.orgId}`;
+      if (current[0]?.contact_email !== session.email) contact_email = null;
+    }
     const result = await sql`
       UPDATE organizations SET
         name = COALESCE(${name}, name),

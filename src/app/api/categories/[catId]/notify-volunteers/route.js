@@ -4,15 +4,25 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, esc, sleep } from "@/lib/email";
 
+// Assigning volunteers to check-in duty is a director/admin-level action --
+// authorizeCategoryAccess alone also admits plain evaluators, which would
+// otherwise turn this into a generic mail-relay reachable by any evaluator.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const MAX_RECIPIENTS = 200;
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, params.catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    const { emails, sessionNum, entries, categoryName } = await request.json();
+    let { emails, sessionNum, entries, categoryName } = await request.json();
     if (!emails?.length) return NextResponse.json({ error: "No emails provided" }, { status: 400 });
+    emails = [...new Set(emails.map(e => String(e || "").trim()).filter(e => EMAIL_RE.test(e)))].slice(0, MAX_RECIPIENTS);
+    if (!emails.length) return NextResponse.json({ error: "No valid emails provided" }, { status: 400 });
 
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 

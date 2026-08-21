@@ -60,6 +60,12 @@ export async function POST(request) {
     if (!["service_provider", "goalie_service_provider", "association"].includes(type)) {
       return NextResponse.json({ error: "Type must be service_provider, goalie_service_provider, or association" }, { status: 400 });
     }
+    // Only super_admin may mint a new top-level service_provider/goalie_service_provider
+    // org -- an SP/goalie-SP admin's only sanctioned use of this endpoint is creating
+    // their OWN client association (handled below), not an unrelated provider org.
+    if (type !== "association" && session.role !== "super_admin") {
+      return NextResponse.json({ error: "Only super_admin can create this organization type" }, { status: 403 });
+    }
 
     let orgCode = null;
     for (let i = 0; i < 10; i++) {

@@ -3,6 +3,10 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+// Dismissing an integrity flag (including one raised about the caller's own
+// scoring) or triggering anomaly detection is a director/admin-level action.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function GET(request, { params }) {
   try {
     const session = await getSession();
@@ -34,6 +38,7 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);

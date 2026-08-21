@@ -4,6 +4,12 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import sql from "@/lib/db";
 
+// Flagging/unflagging an anchor candidate and computing raw ratios is a normal
+// part of evaluator scoring workflow -- but APPROVING a correction factor into
+// evaluation_config (which re-normalizes every score in the category) or
+// toggling calibration on/off is a director/admin-level action.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 export async function GET(request, { params }) {
   try {
     const session = await getSession();
@@ -114,6 +120,7 @@ export async function POST(request, { params }) {
     }
 
     if (action === "approve") {
+      if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       // Store approved correction in evaluation_config
       const cat = await sql`SELECT evaluation_config FROM age_categories WHERE id = ${catId}`;
       const config = cat[0]?.evaluation_config || {};
@@ -124,6 +131,7 @@ export async function POST(request, { params }) {
     }
 
     if (action === "toggle_calibration") {
+      if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       const cat = await sql`SELECT evaluation_config FROM age_categories WHERE id = ${catId}`;
       const config = cat[0]?.evaluation_config || {};
       config.anchor_calibration_enabled = enabled;

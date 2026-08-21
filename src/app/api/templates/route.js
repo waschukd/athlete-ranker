@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function GET(request) {
+  // No org-specific data here (static fixture CSVs), but every route should
+  // self-authorize rather than rely solely on middleware's default-deny.
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
 

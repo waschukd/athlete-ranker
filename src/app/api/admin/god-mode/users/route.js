@@ -15,6 +15,21 @@ const ROLE_LABELS = {
   volunteer: "Volunteer",
 };
 
+// Every role the app actually recognizes (see middleware.js ROLE_ROUTES /
+// lib/auth.js roleRedirect) -- broader than ROLE_LABELS above, which is only
+// used for the welcome-email copy and predates a few of these roles.
+const VALID_ROLES = new Set([
+  "super_admin",
+  "service_provider_admin",
+  "goalie_service_provider_admin",
+  "association_admin",
+  "director",
+  "association_evaluator",
+  "service_provider_evaluator",
+  "service_provider_tester",
+  "volunteer",
+]);
+
 function buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl, org }) {
   const orgText = org && org !== "your organization" ? ` for <strong style="color:#111827;">${esc(org)}</strong>` : "";
   return `<!DOCTYPE html>
@@ -145,6 +160,10 @@ export async function POST(request) {
     if (!adminUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { name, email, phone, role, orgName } = await request.json();
+
+    if (!VALID_ROLES.has(role)) {
+      return NextResponse.json({ error: `Invalid role: ${role}` }, { status: 400 });
+    }
 
     const user = await sql`
       INSERT INTO users (name, email, phone, role)

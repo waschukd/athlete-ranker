@@ -6,6 +6,11 @@ import { sendParentReportEmail, parentEmails } from "@/lib/email";
 
 const PRICE_CENTS = parseInt(process.env.REPORT_PRICE_CENTS || "2499", 10);
 
+// Emailing every parent a paid-report link (and minting the report_links
+// tokens) is a director/admin-level action -- the GET dry-run count stays
+// open to any category-authorized role.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 async function ctx(session, catId) {
   const auth = await authorizeCategoryAccess(session, catId);
   if (!auth.authorized) return null;
@@ -36,6 +41,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const c = await ctx(session, params.catId);
   if (!c) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

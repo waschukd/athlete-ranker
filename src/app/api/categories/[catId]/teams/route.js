@@ -8,6 +8,10 @@ import { sendEmail, parentEmails, esc, parentTeamPlacementHtml, emailWrapper } f
 import { signCoachReportToken } from "@/lib/calendar-token";
 import { generateCoachBriefing } from "@/lib/coachBriefing";
 
+// Team generation/wiping and mass parent/coach email are director/admin-level
+// actions -- authorizeCategoryAccess alone also admits plain evaluators.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
+
 // Default team-placement message. {player} and {team} merge per athlete; the
 // association can edit it before sending (e.g. add a TeamLinkt note).
 const DEFAULT_TEAM_MESSAGE =
@@ -76,6 +80,7 @@ export async function POST(request, { params }) {
     const { catId } = params;
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
