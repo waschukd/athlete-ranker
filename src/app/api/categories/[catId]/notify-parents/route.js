@@ -21,7 +21,7 @@ export async function POST(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { action, session_number } = await request.json();
+    const { action, session_number, preview } = await request.json();
 
     // Get category + org info
     const catInfo = await sql`
@@ -49,23 +49,42 @@ export async function POST(request, { params }) {
     if (action === "onboarding") {
       // Association may override the welcome copy (subject + body with merge fields).
       const override = await getEmailTemplate(organization_id, "welcome");
+
+      // Build the exact subject/html one athlete's family would receive --
+      // shared by the real send loop below and the preview branch, so
+      // "what you're about to send" (before clicking send) and "what
+      // actually got sent" can never drift apart.
+      function buildOnboardingEmail(a) {
+        const playerName = `${a.first_name} ${a.last_name}`;
+        let subject = `Welcome to ${category_name} Evaluations — ${org_name}`;
+        let html;
+        if (override && (override.body_html || override.subject)) {
+          const vars = { player_name: a.first_name, org_name, category_name, sp_name: org_name };
+          if (override.subject) subject = renderTemplate(override.subject, vars);
+          // Escape the rendered (admin-authored + merged) text so it can't inject
+          // markup/links, then re-apply our own paragraph + line-break formatting.
+          const bodyHtml = esc(renderTemplate(override.body_html || "", vars))
+            .split(/\n\s*\n/).map(p => `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">${p.replace(/\n/g, "<br/>")}</p>`).join("");
+          html = emailWrapper(`<h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">Welcome</h2>${bodyHtml}`);
+        } else {
+          html = parentOnboardingHtml({ playerName, categoryName: category_name, orgName: org_name });
+        }
+        return { subject, html };
+      }
+
+      // Preview mode: show exactly what would be sent, using a real athlete
+      // if one exists (so merge fields aren't generic placeholders), without
+      // sending anything or marking the category as welcomed.
+      if (preview) {
+        const sample = athletes[0] || { first_name: "Alex", last_name: "Athlete" };
+        const { subject, html } = buildOnboardingEmail(sample);
+        return NextResponse.json({ success: true, preview: true, subject, html, recipientCount: athletes.length, hasOverride: !!(override && (override.body_html || override.subject)) });
+      }
+
       let sent = 0;
       for (const a of athletes) {
         try {
-          const playerName = `${a.first_name} ${a.last_name}`;
-          let subject = `Welcome to ${category_name} Evaluations — ${org_name}`;
-          let html;
-          if (override && (override.body_html || override.subject)) {
-            const vars = { player_name: a.first_name, org_name, category_name, sp_name: org_name };
-            if (override.subject) subject = renderTemplate(override.subject, vars);
-            // Escape the rendered (admin-authored + merged) text so it can't inject
-            // markup/links, then re-apply our own paragraph + line-break formatting.
-            const bodyHtml = esc(renderTemplate(override.body_html || "", vars))
-              .split(/\n\s*\n/).map(p => `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">${p.replace(/\n/g, "<br/>")}</p>`).join("");
-            html = emailWrapper(`<h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">Welcome</h2>${bodyHtml}`);
-          } else {
-            html = parentOnboardingHtml({ playerName, categoryName: category_name, orgName: org_name });
-          }
+          const { subject, html } = buildOnboardingEmail(a);
           for (const to of parentEmails(a)) await sendEmail(to, subject, html);
           sent++;
         } catch (e) {

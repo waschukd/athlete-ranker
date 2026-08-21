@@ -331,11 +331,29 @@ export default function CategoryDashboard({
   // Send the welcome/onboarding email to every family with an email on file, then
   // refresh setup so welcome_sent_at advances the first-step flow. Shared by the
   // Athletes-tab button and the "Welcome players & families" next-step banner.
+  // A bare confirm() dialog sent it blind -- associations asked to see exactly
+  // what's going out (and edit it) before it does. sendWelcome now opens a
+  // preview modal instead of sending directly; the actual send lives in
+  // confirmSendWelcome, fired only once they've seen it and click through.
   const [welcomeSending, setWelcomeSending] = useState(false);
+  const [welcomePreview, setWelcomePreview] = useState(null); // { subject, html, recipientCount, hasOverride, setMsg }
+  const [welcomePreviewLoading, setWelcomePreviewLoading] = useState(false);
   const sendWelcome = async (setMsg = setAthleteMsg) => {
     const withEmail = athletes.filter(a => a.parent_email || a.parent_email_2);
     if (!withEmail.length) { setMsg("No parent emails on file yet — add them first."); setTimeout(() => setMsg(""), 5000); return; }
-    if (!confirm(`Send the welcome email to ${withEmail.length} ${withEmail.length === 1 ? "family" : "families"}?`)) return;
+    setWelcomePreviewLoading(true);
+    try {
+      const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", preview: true }),
+      });
+      const data = await res.json();
+      if (data.success) setWelcomePreview({ ...data, setMsg });
+      else { setMsg("Couldn't load a preview"); setTimeout(() => setMsg(""), 5000); }
+    } catch { setMsg("Couldn't load a preview"); setTimeout(() => setMsg(""), 5000); }
+    finally { setWelcomePreviewLoading(false); }
+  };
+  const confirmSendWelcome = async () => {
+    const setMsg = welcomePreview?.setMsg || setAthleteMsg;
     setWelcomeSending(true);
     try {
       const res = await fetch(`/api/categories/${catId}/notify-parents`, {
@@ -345,7 +363,7 @@ export default function CategoryDashboard({
       setMsg(data.success ? `Welcome email sent to ${data.sent} ${data.sent === 1 ? "family" : "families"}` : "Failed to send");
       if (data.success) refetchSetup();
     } catch { setMsg("Failed to send"); }
-    finally { setWelcomeSending(false); setTimeout(() => setMsg(""), 5000); }
+    finally { setWelcomeSending(false); setWelcomePreview(null); setTimeout(() => setMsg(""), 5000); }
   };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
@@ -1119,9 +1137,9 @@ export default function CategoryDashboard({
                 {canEditSchedule && (
                   <button
                     onClick={() => sendWelcome(setScheduleMsg)}
-                    disabled={welcomeSending}
+                    disabled={welcomeSending || welcomePreviewLoading}
                     className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#0b5cd6] text-[#0b5cd6] rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-blue-50"
-                  ><Mail size={14} /> {welcomeSending ? "Sending…" : "Send Welcome Email"}</button>
+                  ><Mail size={14} /> {welcomePreviewLoading ? "Loading preview…" : welcomeSending ? "Sending…" : "Send Welcome Email"}</button>
                 )}
                 {canEditSchedule && (
                   <button
@@ -1577,10 +1595,10 @@ export default function CategoryDashboard({
                     <a href={`/email-templates?org=${orgId}&key=welcome`} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Customize this email</a>
                     <button
                       onClick={() => sendWelcome()}
-                      disabled={!withEmail.length || welcomeSending}
+                      disabled={!withEmail.length || welcomeSending || welcomePreviewLoading}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
                     >
-                      {welcomeSending ? "Sending…" : "Send Welcome Email"}
+                      {welcomePreviewLoading ? "Loading preview…" : welcomeSending ? "Sending…" : "Send Welcome Email"}
                     </button>
                   </div>
                 </div>
@@ -1686,6 +1704,35 @@ export default function CategoryDashboard({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {welcomePreview && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && !welcomeSending && setWelcomePreview(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col" style={{ maxHeight: "88vh" }}>
+              <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
+                <h3 className="text-lg font-bold text-gray-900">Preview welcome email</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  This is exactly what will go to <b>{welcomePreview.recipientCount}</b> {welcomePreview.recipientCount === 1 ? "family" : "families"}
+                  {welcomePreview.hasOverride ? "" : " — using the default wording (you haven't customized this email)"}.
+                </p>
+              </div>
+              <div className="px-6 py-4 overflow-y-auto flex-1">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Subject</div>
+                <div className="text-sm font-medium text-gray-900 mb-4">{welcomePreview.subject}</div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Message</div>
+                <iframe title="Welcome email preview" srcDoc={welcomePreview.html} className="w-full border border-gray-200 rounded-lg" style={{ height: "360px" }} sandbox="" />
+              </div>
+              <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
+                <a href={`/email-templates?org=${orgId}&key=welcome`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline font-medium">Edit this email →</a>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setWelcomePreview(null)} disabled={welcomeSending} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium disabled:opacity-40">Cancel</button>
+                  <button onClick={confirmSendWelcome} disabled={welcomeSending} className="px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50 hover:bg-[#0F4FCC]">
+                    {welcomeSending ? "Sending…" : `Send to ${welcomePreview.recipientCount}`}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
