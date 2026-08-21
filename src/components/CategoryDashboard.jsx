@@ -265,7 +265,7 @@ export default function CategoryDashboard({
   // player. Recomputes whenever team membership changes (drag, seed, apply).
   const athleteTeamName = useMemo(() => {
     const m = {};
-    for (const t of scrimmageTeams) for (const mem of (t.members || [])) m[mem.id] = t.name;
+    for (const t of scrimmageTeams) for (const mem of (t.members || [])) m[mem.athlete_id] = t.name;
     return m;
   }, [scrimmageTeams]);
   // Teams tab and Schedule tab don't share a query invalidation path (ScrimmageTeams
