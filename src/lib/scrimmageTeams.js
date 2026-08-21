@@ -158,7 +158,14 @@ export async function matchupLabel(catId, teamAId, teamBId) {
 // scoring/check-in screens scope the roster to exactly those two teams. Reuses
 // session_groups/player_group_assignments — no schema change, and directors can
 // still tweak the roster in the Groups UI afterwards.
-export async function assignMatchupRoster(catId, session_number, group_number, teamIds) {
+//
+// When scheduleId is given, also pre-colors every player's jersey by which of
+// the two teams they're on (teamIds[0] -> White, teamIds[1] -> Dark) via
+// player_checkins.team_color. Without this, a freshly-built roster rendered as
+// one undifferentiated list — every jersey circle the same neutral grey until
+// someone manually clicked each one — which reads as "one big team" rather
+// than two, even though the two teams were assigned correctly underneath.
+export async function assignMatchupRoster(catId, session_number, group_number, teamIds, scheduleId) {
   if (!Array.isArray(teamIds) || teamIds.length < 2) return;
   let [grp] = await sql`SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number} LIMIT 1`;
   if (!grp) {
@@ -168,6 +175,27 @@ export async function assignMatchupRoster(catId, session_number, group_number, t
   const members = await sql`SELECT athlete_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamIds})`;
   for (let i = 0; i < members.length; i++) {
     await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${members[i].athlete_id}, ${grp.id}, ${i}) ON CONFLICT DO NOTHING`;
+  }
+
+  if (scheduleId) {
+    try {
+      const [cs] = await sql`
+        INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
+        VALUES (${scheduleId}, ${catId}, ${JSON.stringify(["White", "Dark"])}, false)
+        ON CONFLICT (schedule_id) DO UPDATE SET schedule_id = EXCLUDED.schedule_id
+        RETURNING id`;
+      const colorOf = { [teamIds[0]]: "White", [teamIds[1]]: "Dark" };
+      const withTeam = await sql`SELECT athlete_id, scrimmage_team_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamIds})`;
+      for (const m of withTeam) {
+        const color = colorOf[m.scrimmage_team_id];
+        if (!color) continue;
+        await sql`
+          INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color)
+          VALUES (${m.athlete_id}, ${scheduleId}, ${cs.id}, ${color})
+          ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = ${color}
+          WHERE player_checkins.checked_in IS NOT TRUE`;
+      }
+    } catch (e) { console.error("assignMatchupRoster: team_color seed failed:", e?.message); }
   }
 }
 
@@ -196,7 +224,7 @@ export async function applyAllMatchups(catId) {
     try { const c = await sql`SELECT 1 FROM player_checkins WHERE schedule_id = ${r.id} LIMIT 1`; hasCheckins = c.length > 0; } catch { /* table optional */ }
     if (isGameFrozen({ past: r.past, hasCheckins })) { skipped++; continue; }
     const teams = await resolveMatchupTeams(catId, r.matchup);
-    if (teams.length) { await assignMatchupRoster(catId, r.session_number, r.group_number, teams); applied++; }
+    if (teams.length) { await assignMatchupRoster(catId, r.session_number, r.group_number, teams, r.id); applied++; }
     else skipped++;
   }
   return { applied, skipped };

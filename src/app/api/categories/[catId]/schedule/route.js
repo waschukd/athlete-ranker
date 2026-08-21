@@ -9,11 +9,11 @@ import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 // Round-robin: if a row carries a matchup label ("A vs B"), populate that game's
 // group with the two teams' players. Best-effort — never blocks the schedule save.
-async function applyMatchup(catId, session_number, group_number, matchup) {
+async function applyMatchup(catId, session_number, group_number, matchup, scheduleId) {
   if (!matchup) return;
   try {
     const teams = await resolveMatchupTeams(catId, matchup);
-    if (teams.length) await assignMatchupRoster(catId, session_number, group_number, teams);
+    if (teams.length) await assignMatchupRoster(catId, session_number, group_number, teams, scheduleId);
   } catch (e) { console.error("applyMatchup:", e?.message); }
 }
 
@@ -124,7 +124,7 @@ export async function POST(request, { params }) {
       // recruitment) — a failure in any of them (e.g. an email hiccup) must NOT
       // fail the add or the session would silently not appear for the user.
       try { await ensureSessionGroup(catId, session_number, group_number); } catch (e) { console.error("add: ensureSessionGroup", e?.message); }
-      try { await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup); } catch (e) { console.error("add: applyMatchup", e?.message); }
+      try { await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup, row.id); } catch (e) { console.error("add: applyMatchup", e?.message); }
       let notified = 0, offered = 0;
       try { ({ notified } = await notifySessionChange({ catId, scheduleRow: row, scheduleId: row.id, changeType: "added", summary: "A new session was added to the schedule.", initiator: initiatorOf(session) })); } catch (e) { console.error("add: notifySessionChange", e?.message); }
       try { const offer = await offerOpenSession({ catId, scheduleRow: row }); offered = offer?.offered || 0; } catch (e) { console.error("add: offerOpenSession", e?.message); }
@@ -179,20 +179,21 @@ export async function POST(request, { params }) {
         updated++;
       } else {
         const code = await uniqueCheckinCode(session_number, group_number);
-        await sql`
+        const [newRow] = await sql`
           INSERT INTO evaluation_schedule (
             age_category_id, session_number, group_number, scheduled_date, day_of_week,
             start_time, end_time, location, checkin_code, evaluators_required, goalie_evaluators_required, testers_required, matchup, status
           ) VALUES (
             ${catId}, ${session_number}, ${group_number}, ${scheduled_date}, ${day_of_week},
             ${start_time}, ${end_time}, ${location}, ${code}, ${evaluators_required}, ${goalie_evaluators_required}, ${testers_required}, ${matchup}, 'scheduled'
-          )
+          ) RETURNING id
         `;
+        existingEntry[0] = { id: newRow.id };
         inserted++;
       }
       count++;
       await ensureSessionGroup(catId, session_number, group_number);
-      await applyMatchup(catId, session_number, group_number, entry.matchup || entry.Matchup || entry["Matchup"]);
+      await applyMatchup(catId, session_number, group_number, entry.matchup || entry.Matchup || entry["Matchup"], existingEntry[0]?.id);
     }
 
     await notifySessionChange({
@@ -258,7 +259,7 @@ export async function PATCH(request, { params }) {
       WHERE id = ${id} RETURNING *
     `;
     if (body.matchup !== undefined && matchup !== prev.matchup) {
-      await applyMatchup(catId, row.session_number, row.group_number, matchup);
+      await applyMatchup(catId, row.session_number, row.group_number, matchup, row.id);
     }
 
     // Build a short human summary of what changed
