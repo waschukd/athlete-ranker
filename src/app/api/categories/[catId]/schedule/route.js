@@ -258,7 +258,14 @@ export async function PATCH(request, { params }) {
         matchup = ${matchup}
       WHERE id = ${id} RETURNING *
     `;
-    if (body.matchup !== undefined && matchup !== prev.matchup) {
+    // `matchup` above is already derived from EITHER a raw body.matchup OR
+    // team_a_id/team_b_id -- gating on "did the request send a raw matchup
+    // string" missed every real call, since MatchupPicker (the only UI that
+    // actually sets a matchup) always sends team ids, never matchup text.
+    // That meant picking teams in the schedule tab saved the label but never
+    // resolved a roster or jersey colors -- only a CSV re-upload or the
+    // Teams tab's "Apply to schedule" button did.
+    if (matchup !== prev.matchup) {
       await applyMatchup(catId, row.session_number, row.group_number, matchup, row.id);
     }
 
