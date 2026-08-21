@@ -1190,7 +1190,11 @@ export default function CategoryDashboard({
                       </div>
                       <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
-                        <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">Manage Groups</a>
+                        {isTournament ? (
+                          <a href={`/association/dashboard/category/${catId}?org=${orgId}&tab=teams`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">View Teams</a>
+                        ) : (
+                          <a href={`/association/dashboard/category/${catId}/groups?org=${orgId}&session=${sessionNum}`} className="text-xs px-3 py-1.5 bg-[#0b5cd6]/10 text-[#0b5cd6] rounded-lg font-medium hover:bg-[#0b5cd6]/20">Manage Groups</a>
+                        )}
                         <button onClick={() => { setVolunteerModal({ sessionNum, entries }); setVolunteerEmails(""); }} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-100">Assign Volunteers</button>
                         {sess?.session_type === "testing" && (
                           <label className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium hover:bg-green-100 cursor-pointer">

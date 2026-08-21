@@ -20,6 +20,7 @@ export default function ScrimmageTeams({ catId }) {
   const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
   const [overTeam, setOverTeam] = useState(null); // team id currently under the pointer
   const [applied, setApplied] = useState(null);
+  const [err, setErr] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [nameDraft, setNameDraft] = useState("");
 
@@ -32,8 +33,15 @@ export default function ScrimmageTeams({ catId }) {
   useEffect(() => { load(); }, [load]);
 
   const post = async (body) => {
-    setBusy(true);
-    try { await fetch(`/api/categories/${catId}/scrimmage-teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); await load(); } catch {}
+    setBusy(true); setErr("");
+    try {
+      const res = await fetch(`/api/categories/${catId}/scrimmage-teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      // A failed move (permission, validation, network) used to fail
+      // silently -- the row would just snap back with zero explanation,
+      // which reads as "nothing happens" even though something did.
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d.error || "That didn't work — try again."); }
+      await load();
+    } catch { setErr("Network error — try again."); }
     setBusy(false);
   };
 
@@ -96,9 +104,17 @@ export default function ScrimmageTeams({ catId }) {
   const teams = data.teams || [];
   const unassigned = data.unassigned || [];
 
+  // Grabbing anywhere on the row starts a drag now, not just the tiny grip
+  // icon -- that icon was the only draggable target, so a drag attempt
+  // starting a pixel off it silently did nothing, which is exactly what
+  // "nothing happens" looks like from the outside. The <select> stops the
+  // pointerdown from bubbling so picking from the dropdown doesn't also
+  // start a drag.
   const Player = ({ a, teamId }) => (
-    <div className={`flex items-center gap-2 bg-white border rounded-lg px-2.5 py-1.5 text-sm ${drag?.athleteId === a.id ? "opacity-40 border-accent" : "border-gray-200 hover:border-accent/40"}`}>
-      <span onPointerDown={startDrag(a)} className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none text-gray-300 hover:text-gray-500 -m-1 p-1" title="Drag to a team">
+    <div
+      onPointerDown={startDrag(a)}
+      className={`flex items-center gap-2 bg-white border rounded-lg px-2.5 py-1.5 text-sm cursor-grab active:cursor-grabbing touch-none select-none ${drag?.athleteId === a.id ? "opacity-40 border-accent" : "border-gray-200 hover:border-accent/40"}`}>
+      <span className="flex-shrink-0 text-gray-300" title="Drag to a team">
         <GripVertical size={14} />
       </span>
       <span className="font-mono text-xs text-gray-400 w-6">{a.jersey_number ?? ""}</span>
@@ -106,6 +122,7 @@ export default function ScrimmageTeams({ catId }) {
       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${posShort(a.position) === "D" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{posShort(a.position)}</span>
       <select
         value={teamId ?? ""}
+        onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => { const v = e.target.value; if (v) post({ action: "move_player", athlete_id: a.id, to_team_id: parseInt(v) }); }}
         disabled={busy}
         title="Move to team"
@@ -118,6 +135,12 @@ export default function ScrimmageTeams({ catId }) {
 
   return (
     <div className="space-y-4">
+      {err && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700">
+          <span>{err}</span>
+          <button onClick={() => setErr("")} className="text-red-400 hover:text-red-600 text-xs font-semibold">Dismiss</button>
+        </div>
+      )}
       <div className="flex items-center gap-3 flex-wrap bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
         {teams.length === 0 ? (
           <>
