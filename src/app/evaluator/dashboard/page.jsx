@@ -523,8 +523,10 @@ function AvailabilitySection() {
   const blackouts = data?.blackouts || [];
 
   const handleRemove = async (id) => {
-    await fetch(`/api/evaluator/availability?id=${id}`, { method: "DELETE" });
-    refetch();
+    try {
+      await fetch(`/api/evaluator/availability?id=${id}`, { method: "DELETE" });
+      refetch();
+    } catch { /* transient network failure -- nothing to show, row just stays put */ }
   };
 
   const handleAdd = async (e) => {
@@ -764,12 +766,14 @@ function MessagesSection() {
     setExpanded(id);
     const msg = inbox.find(m => m.id === id);
     if (msg && !msg.read_at) {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_read: id }),
-      });
-      refetch();
+      try {
+        await fetch("/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mark_read: id }),
+        });
+        refetch();
+      } catch { /* transient network failure -- it'll just show unread next time */ }
     }
   };
 
@@ -1061,18 +1065,25 @@ function EvaluatorDashboard() {
     e.preventDefault();
     setJoiningOrg(true);
     setJoinMsg("");
-    const res = await fetch("/api/evaluator/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: joinCode }),
-    });
-    const data = await res.json();
-    setJoinMsg({ text: data.message || data.error, ok: !!data.success });
-    setJoiningOrg(false);
-    if (data.success) {
-      setJoinCode("");
-      queryClient.invalidateQueries();
+    // A bare async form handler that throws (e.g. a dropped mobile connection)
+    // becomes an unhandled promise rejection -- React doesn't await event
+    // handlers, so nothing catches it -- and shows the user nothing at all.
+    try {
+      const res = await fetch("/api/evaluator/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: joinCode }),
+      });
+      const data = await res.json();
+      setJoinMsg({ text: data.message || data.error, ok: !!data.success });
+      if (data.success) {
+        setJoinCode("");
+        queryClient.invalidateQueries();
+      }
+    } catch {
+      setJoinMsg({ text: "Network error — try again.", ok: false });
     }
+    setJoiningOrg(false);
   };
 
   const mineSessions = mineData?.sessions || [];
@@ -1223,7 +1234,7 @@ function EvaluatorDashboard() {
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <InstallAppButton />
           <NotificationBell />
-          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/account/signin"; }}
+          <button onClick={async () => { try { await fetch("/api/auth/logout", { method: "POST" }); } catch {} window.location.href = "/account/signin"; }}
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1">
             <LogOut size={14} /> Sign out
           </button>
