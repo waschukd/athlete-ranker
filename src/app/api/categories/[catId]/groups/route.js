@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
+import { computeCategoryRankings } from "@/lib/rankings";
 
 // Group-building (auto-assign, moves, lock/unlock, colors, jersey pre-assign)
 // is the association's "Groups" tab -- middleware's DIRECTOR_ASSOC_ALLOW only
@@ -136,53 +137,18 @@ export async function POST(request, { params }) {
       const skaterGroups = mixGoalies ? groups : groups.filter(g => Number(g.goalie_eval_req) === 0);
       const numGroups = skaterGroups.length || groups.length;
 
-      // Get live rankings directly from DB (no HTTP call — works in production).
-      // scoreMap/sessionsList are hoisted so goalie ranking can reuse them.
+      // Get live rankings via the shared computeCategoryRankings() -- the same
+      // source of truth the Rankings tab, Teams generation, and Reports already
+      // use. This used to be a separate inline recompute that hardcoded scale=10
+      // (wrong for any category on a different scale), never prorated a missed
+      // session's weight (so an excused absence unfairly dragged the total down),
+      // and used the wrong N (skaters-only, not the full roster) for the testing
+      // percentile -- all of which could silently disagree with what the
+      // Rankings tab already showed for the same athletes.
       let rankedAthletes = [];
-      let scoreMap = {};
-      let sessionsList = [];
       try {
-        const scale = 10;
-        sessionsList = await sql`SELECT * FROM category_sessions WHERE age_category_id = ${catId} ORDER BY session_number`;
-        const allAthletes = await sql`SELECT * FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name, first_name`;
-
-        const sessionScores = await sql`
-          SELECT athlete_id, session_number, AVG(score) as avg_score
-          FROM category_scores
-          WHERE age_category_id = ${catId}
-          GROUP BY athlete_id, session_number
-        `;
-        const testingRanks = await sql`
-          SELECT DISTINCT ON (athlete_id, session_number) athlete_id, session_number, overall_rank
-          FROM testing_drill_results WHERE age_category_id = ${catId}
-          ORDER BY athlete_id, session_number
-        `;
-
-        const N = allAthletes.length;
-        for (const s of sessionScores) {
-          if (!scoreMap[s.athlete_id]) scoreMap[s.athlete_id] = {};
-          scoreMap[s.athlete_id][s.session_number] = (parseFloat(s.avg_score) / scale) * 100;
-        }
-        for (const t of testingRanks) {
-          if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-          scoreMap[t.athlete_id][t.session_number] = N > 1 ? ((N - parseInt(t.overall_rank)) / (N - 1)) * 100 : 100;
-        }
-
-        const withTotals = allAthletes.map(a => {
-          let total = 0;
-          for (const sess of sessionsList) {
-            const s = (scoreMap[a.id] || {})[sess.session_number];
-            if (s != null) total += s * (parseFloat(sess.weight_percentage) / 100);
-          }
-          return { ...a, weighted_total: Math.round(total * 10) / 10 };
-        });
-
-        withTotals.sort((a, b) => b.weighted_total !== a.weighted_total ? b.weighted_total - a.weighted_total : a.last_name.localeCompare(b.last_name));
-        let rank = 1;
-        rankedAthletes = withTotals.map((a, i) => {
-          rank = (i > 0 && a.weighted_total === withTotals[i-1].weighted_total) ? rank : i + 1;
-          return { ...a, rank };
-        });
+        const rankData = await computeCategoryRankings(catId);
+        rankedAthletes = rankData.athletes || [];
       } catch (e) { console.error('Ranking error in groups:', e); }
 
       // Clear skater assignments for this session (always). Clear goalies only when
