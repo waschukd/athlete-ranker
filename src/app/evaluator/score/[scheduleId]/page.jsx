@@ -362,6 +362,27 @@ function ScoringInterface() {
     setLastSeenPingId(saved);
   }, [scheduleId]);
   const unreadPings = pings.filter(p => p.id > lastSeenPingId).length;
+  // Small pop-up notification when a new ping arrives from someone else while
+  // the panel's closed -- the badge alone only shows once you open Settings,
+  // which defeats "quickly tell the group something" if nobody's looking.
+  // lastToastedPingId starts at null so the very first load just sets a
+  // baseline instead of toasting the whole existing history at once.
+  const [pingToast, setPingToast] = useState(null);
+  const [lastToastedPingId, setLastToastedPingId] = useState(null);
+  useEffect(() => {
+    if (!pingsData) return;
+    const maxId = pings.reduce((m, p) => Math.max(m, p.id), 0);
+    if (lastToastedPingId === null) { setLastToastedPingId(maxId); return; }
+    if (maxId > lastToastedPingId) {
+      const newest = pings.find(p => p.id === maxId);
+      if (newest && newest.user_id !== pingsData.meUserId && !showPings) {
+        setPingToast(newest);
+        setTimeout(() => setPingToast(t => (t?.id === newest.id ? null : t)), 6000);
+      }
+      setLastToastedPingId(maxId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pingsData]);
   const markPingsSeen = () => {
     const maxId = pings.reduce((m, p) => Math.max(m, p.id), 0);
     if (maxId > lastSeenPingId) {
@@ -1570,6 +1591,21 @@ function ScoringInterface() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {pingToast && (
+        <div className="fixed top-2 left-2 right-2 z-[70] flex justify-center pointer-events-none">
+          <button
+            onClick={() => { setPingToast(null); setShowPings(true); markPingsSeen(); }}
+            className="pointer-events-auto max-w-sm w-full bg-ink text-white rounded-xl shadow-lg px-4 py-3 flex items-start gap-2.5 text-left hover:opacity-95"
+          >
+            <span className="text-lg leading-none flex-shrink-0">💬</span>
+            <span className="min-w-0">
+              <span className="block text-xs font-bold uppercase tracking-wide text-white/60">{pingToast.name}</span>
+              <span className="block text-sm truncate">{pingToast.message}</span>
+            </span>
+          </button>
         </div>
       )}
 
