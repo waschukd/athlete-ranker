@@ -1723,7 +1723,12 @@ function ScoringInterface() {
                 return (
                   <tr key={athlete.id} className={`border-b border-gray-200 ${isSel ? "ring-2 ring-inset ring-accent" : ""} ${status === "complete" ? "bg-green-50" : status === "partial" ? "bg-amber-50" : ""}`}>
                     <td className="py-1.5 px-2 text-xs text-ink font-medium sticky left-0 bg-white whitespace-nowrap">
-                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${athlete.team_color === "Dark" ? "bg-gray-800" : "bg-white border border-gray-400"}`} />
+                      {/* Bracket (arbitrary-value) classes on purpose -- same reason as
+                          the big jersey circle below: [data-theme="premium"] remaps
+                          .bg-white to --p-card (#1a1a1a), which repainted the "Light"
+                          dot near-black and left it indistinguishable from bg-gray-800
+                          (#1f2937) at 8px. Bracket classes aren't in that override. */}
+                      <span className={`inline-block w-3 h-3 rounded-full mr-1.5 border ${athlete.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
                       {isAnon
                         ? anonLabel(athlete)
                         : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
@@ -1862,7 +1867,7 @@ function ScoringInterface() {
             </button>
             <div className="flex-1 text-center">
               <div className="flex items-center justify-center gap-2">
-                <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-gray-800 border-gray-400" : "bg-white border-gray-400"}`} />
+                <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
                 <span className="font-bold font-display text-ink">#{idOf(selected)}</span>
               </div>
               {selected.position && (
