@@ -14,6 +14,12 @@ const PUBLIC_PATHS = [
   "/checkin",
   "/evaluator/signup",
   "/accept-invite",
+  // Directors set their password from an emailed link, exactly like org admins
+  // -- but their page lives under /director, which is NOT covered by the
+  // "/accept-invite" prefix above. Without these two entries the invite link
+  // bounces to /account/signin, where the director has no account yet.
+  "/director/accept-invite",
+  "/api/director/accept-invite",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/me",
