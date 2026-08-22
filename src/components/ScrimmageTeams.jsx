@@ -153,22 +153,33 @@ export default function ScrimmageTeams({ catId }) {
             <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white">
               {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
+            {/* Plain, unseeded team creation -- every player starts unassigned,
+                placed by hand via the per-player dropdown or drag-and-drop
+                below. Previously the only way to create teams at all was one
+                of the Seed buttons, which auto-place everyone immediately. */}
+            <button onClick={() => post({ action: "create", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Create teams
+            </button>
           </>
         ) : (
           <button onClick={() => post({ action: "add_team" })} disabled={busy || teams.length >= 6} title={teams.length >= 6 ? "Maximum of 6 teams" : "Add another team"} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
             <Plus size={13} /> Add team
           </button>
         )}
-        <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <Shuffle size={13} />} Seed alphabetically
-        </button>
-        <button onClick={() => post({ action: "seed", mode: "even", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
-          Even split (by #)
-        </button>
+        {teams.length === 0 && (
+          <>
+            <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              <Shuffle size={13} /> Seed alphabetically
+            </button>
+            <button onClick={() => post({ action: "seed", mode: "even", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              Even split (by #)
+            </button>
+          </>
+        )}
         <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
           Apply to schedule
         </button>
-        <span className="text-[11px] text-gray-400">{teams.length === 0 ? "Pick a team count and seed to get started." : "Drag the grip handle to a team (or use the dropdown), then Apply. Seeding re-shuffles everyone — use Add team to grow without disturbing rosters."}</span>
+        <span className="text-[11px] text-gray-400">{teams.length === 0 ? "Pick a team count, then Create teams (empty, place players yourself) or Seed (auto-fills everyone)." : "Drag a player row to a team (or use its dropdown), then Apply to schedule. Add team grows the set without disturbing existing rosters."}</span>
         {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
       </div>
 
