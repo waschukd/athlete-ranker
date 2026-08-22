@@ -3,26 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2, Pencil, Trash2, Plus, Shuffle, Search, Users } from "lucide-react";
 
-// Team assignment for a Tournament category. Every player is always listed
-// (whether assigned or not) with a tap-target per team to place/move them --
-// no drag-and-drop, since native HTML5 drag doesn't fire on touch devices
-// (iOS/Android), which is how this is used rinkside. Rendered on the Teams
-// tab when the category's eval_format = 'round_robin'.
+// Team assignment for a Tournament category. Spreadsheet-style: a player
+// list on the left with a team dropdown per row, and each team's resulting
+// roster on the right, updating live. No drag-and-drop -- native HTML5 drag
+// doesn't fire on touch devices (iOS/Android), which is how this is used
+// rinkside. Rendered on the Teams tab when eval_format = 'round_robin'.
 const posShort = (p) => { const s = (p || "").toLowerCase(); return s.startsWith("d") ? "D" : s.startsWith("g") ? "G" : "F"; };
 const nameOf = (a) => `${a.first_name || ""} ${a.last_name || ""}`.trim() || `#${a.jersey_number ?? "?"}`;
 const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
-
-// A team named "White"/"Black"/"Gold" etc gets its literal color; anything
-// else cycles through a fixed palette by position so every team is still
-// visually distinct at a glance.
-const NAMED_COLORS = {
-  white: "#e5e7eb", black: "#18181b", gold: "#ca8a04", silver: "#94a3b8",
-  red: "#dc2626", blue: "#2563eb", green: "#16a34a", navy: "#1e3a8a",
-  maroon: "#7f1d1d", orange: "#ea580c", purple: "#9333ea", teal: "#0d9488",
-  gray: "#6b7280", grey: "#6b7280", yellow: "#eab308", pink: "#db2777",
-};
-const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0d9488"];
-const teamColor = (name, idx) => NAMED_COLORS[teamLabel(name).toLowerCase()] || PALETTE[idx % PALETTE.length];
 
 export default function ScrimmageTeams({ catId }) {
   const [data, setData] = useState(null);
@@ -103,114 +91,124 @@ export default function ScrimmageTeams({ catId }) {
         </div>
       )}
 
-      {teams.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 text-center space-y-3">
-          <Users size={22} className="mx-auto text-gray-300" />
-          <p className="text-sm text-gray-500">No teams yet — pick a count to get started.</p>
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
-              {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} teams</option>)}
+      <div className="flex items-center gap-3 flex-wrap bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+        {teams.length === 0 ? (
+          <>
+            <span className="text-xs font-medium text-gray-500">Teams:</span>
+            <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white">
+              {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
-            <button onClick={() => post({ action: "create", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-sm px-3.5 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50 shadow-sm">
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create teams
+            <button onClick={() => post({ action: "create", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Create teams
             </button>
-            <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-sm px-3.5 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+            <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
               <Shuffle size={13} /> Seed alphabetically
             </button>
-            <button onClick={() => post({ action: "seed", mode: "even", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-sm px-3.5 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+            <button onClick={() => post({ action: "seed", mode: "even", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
               Even split (by #)
             </button>
-          </div>
-          <p className="text-xs text-gray-400">Create teams empty and place everyone below, or seed to auto-fill.</p>
-        </div>
-      ) : (
-        <>
-          {/* Team summary strip */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {teams.map((t, idx) => (
-              <div key={t.id} className="group inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full pl-1.5 pr-3 py-1.5 shadow-sm">
-                <span className="w-5 h-5 rounded-full flex-shrink-0 ring-1 ring-black/10" style={{ background: teamColor(t.name, idx) }} />
-                {renamingId === t.id ? (
-                  <input
-                    autoFocus
-                    value={nameDraft}
-                    onChange={e => setNameDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") saveRename(t.id); if (e.key === "Escape") setRenamingId(null); }}
-                    onBlur={() => saveRename(t.id)}
-                    maxLength={40}
-                    className="w-20 text-sm font-semibold text-ink border-b border-accent/40 focus:outline-none"
-                  />
-                ) : (
-                  <button onClick={() => startRename(t)} className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:opacity-70" title="Rename team">
-                    {teamLabel(t.name)}
-                    <Pencil size={10} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                )}
-                <span className="text-xs text-gray-400 font-medium">{t.members.length}</span>
-                {teams.length > 2 && (
-                  <button onClick={() => removeTeam(t)} disabled={busy} className="text-gray-300 hover:text-red-500 disabled:opacity-40 opacity-0 group-hover:opacity-100 transition-opacity" title={`Remove ${teamLabel(t.name)}`}>
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button onClick={() => post({ action: "add_team" })} disabled={busy || teams.length >= 6} title={teams.length >= 6 ? "Maximum of 6 teams" : "Add another team"} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 border border-dashed border-gray-300 text-gray-500 rounded-full font-medium hover:border-accent hover:text-accent disabled:opacity-40">
+            <span className="text-[11px] text-gray-400 w-full">Pick a team count, then Create teams (place everyone yourself below) or Seed (auto-fills everyone).</span>
+          </>
+        ) : (
+          <>
+            <button onClick={() => post({ action: "add_team" })} disabled={busy || teams.length >= 6} title={teams.length >= 6 ? "Maximum of 6 teams" : "Add another team"} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
               <Plus size={13} /> Add team
             </button>
-            <div className="flex-1" />
-            <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-sm px-3.5 py-1.5 border border-accent text-accent rounded-full font-semibold hover:bg-accent-soft disabled:opacity-50">
+            <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
               Apply to schedule
             </button>
-          </div>
-          {applied && <p className="text-xs text-gray-500">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</p>}
+            <span className="text-[11px] text-gray-400">Pick a team from each player's dropdown — it updates that team's column instantly.</span>
+            {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
+          </>
+        )}
+      </div>
 
-          {/* Roster */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-4 py-3 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-              <h4 className="text-sm font-semibold text-ink">All players <span className="text-gray-400 font-normal">({roster.length}{unassigned.length > 0 ? ` · ${unassigned.length} unassigned` : ""})</span></h4>
+      {teams.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-400">Pick a team count and Create/Seed above to get started.</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 items-start">
+          {/* Player list -- name + team dropdown, the one control that moves people. */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-3.5 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-ink">Players ({roster.length})</h4>
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="Find a player…"
-                  className="pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-accent/40 w-44"
+                  placeholder="Find…"
+                  className="pl-7 pr-2.5 py-1 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-accent/40 w-28"
                 />
               </div>
             </div>
-            <div className="divide-y divide-gray-50 max-h-[65vh] overflow-y-auto">
+            <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
               {filtered.map(a => (
-                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50/60 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[11px] font-bold text-gray-500 flex-shrink-0">
-                    {a.jersey_number ?? "–"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-ink truncate">{nameOf(a)}</div>
-                  </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${posShort(a.position) === "D" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{posShort(a.position)}</span>
-                  <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                    {teams.map((t, idx) => {
-                      const active = a.teamId === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => movePlayer(a.id, t.id)}
-                          disabled={busy || active}
-                          title={`Move to ${teamLabel(t.name)}`}
-                          style={active ? { background: teamColor(t.name, idx), borderColor: teamColor(t.name, idx) } : undefined}
-                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:cursor-default ${active ? "text-white shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 disabled:opacity-40"}`}>
-                          {!active && <span className="w-1.5 h-1.5 rounded-full ring-1 ring-black/10 flex-shrink-0" style={{ background: teamColor(t.name, idx) }} />}
-                          {movingId === a.id ? <Loader2 size={11} className="animate-spin" /> : teamLabel(t.name)}
-                        </button>
-                      );
-                    })}
+                <div key={a.id} className="flex items-center gap-2 px-3.5 py-2 text-sm">
+                  <span className="font-mono text-[11px] text-gray-400 w-5 flex-shrink-0">{a.jersey_number ?? ""}</span>
+                  <span className="truncate flex-1 text-gray-700">{nameOf(a)}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${posShort(a.position) === "D" ? "bg-accent-soft text-accent" : "bg-gray-100 text-gray-500"}`}>{posShort(a.position)}</span>
+                  <div className="relative flex-shrink-0">
+                    <select
+                      value={a.teamId ?? ""}
+                      onChange={(e) => { const v = e.target.value ? parseInt(e.target.value) : null; if (Number.isFinite(v)) movePlayer(a.id, v); }}
+                      disabled={busy}
+                      className="text-xs border border-gray-200 rounded-lg pl-2 pr-6 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-50 appearance-none">
+                      {a.teamId == null && <option value="">Unassigned</option>}
+                      {teams.map(t => <option key={t.id} value={t.id}>{teamLabel(t.name)}</option>)}
+                    </select>
+                    {movingId === a.id && <Loader2 size={11} className="animate-spin absolute right-1.5 top-1/2 -translate-y-1/2 text-accent pointer-events-none" />}
                   </div>
                 </div>
               ))}
               {filtered.length === 0 && <div className="py-8 text-center text-sm text-gray-300">No players match "{query}".</div>}
             </div>
           </div>
-        </>
+
+          {/* Team columns -- read-only view of the result, one card per team. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {teams.map(t => {
+              const d = t.members.filter(m => posShort(m.position) === "D").length;
+              const f = t.members.length - d;
+              return (
+                <div key={t.id} className="bg-white border border-gray-200 rounded-xl p-3 min-h-[120px]">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    {renamingId === t.id ? (
+                      <input
+                        autoFocus
+                        value={nameDraft}
+                        onChange={e => setNameDraft(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveRename(t.id); if (e.key === "Escape") setRenamingId(null); }}
+                        onBlur={() => saveRename(t.id)}
+                        maxLength={40}
+                        className="min-w-0 flex-1 text-sm font-bold text-ink border border-accent/40 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    ) : (
+                      <button onClick={() => startRename(t)} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:opacity-70 min-w-0" title="Rename team">
+                        <span className="truncate">{teamLabel(t.name)}</span>
+                        <Pencil size={11} className="text-gray-300 flex-shrink-0" />
+                      </button>
+                    )}
+                    <span className="text-[11px] text-accent bg-accent-soft rounded-full px-2 py-0.5 font-semibold flex-shrink-0">{t.members.length} · {f}F/{d}D</span>
+                    {teams.length > 2 && (
+                      <button onClick={() => removeTeam(t)} disabled={busy} className="text-gray-300 hover:text-red-500 flex-shrink-0 disabled:opacity-40" title={`Remove ${teamLabel(t.name)}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    {t.members.map(m => (
+                      <div key={m.athlete_id} className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg bg-gray-50/70">
+                        <span className="font-mono text-[10px] text-gray-400 w-5">{m.jersey_number ?? ""}</span>
+                        <span className="truncate flex-1 text-gray-700">{nameOf(m)}</span>
+                      </div>
+                    ))}
+                    {t.members.length === 0 && <div className="text-xs text-gray-300 text-center py-4 flex items-center justify-center gap-1.5"><Users size={12} /> No players yet</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
