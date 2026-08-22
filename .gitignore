@@ -20,3 +20,7 @@ android/app/src/main/*
 !android/app/src/main/AndroidManifest.xml
 .vercel
 test-data/
+# Catch-all for env files the earlier rules miss -- .env.production.local from
+# `vercel env pull` holds real production secrets. Templates stay tracked.
+.env*
+!.env*.example
