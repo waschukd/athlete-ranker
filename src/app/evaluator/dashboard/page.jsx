@@ -1010,6 +1010,14 @@ function EvaluatorDashboard() {
       // just took stays in place marked "Signed up ✓". Confirm with a banner.
       setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
     },
+    // A network failure (dropped connection, backgrounded tab) rejects the
+    // fetch itself rather than resolving with an error payload -- without an
+    // onError, that rejection went unhandled (surfacing as a "Load failed"
+    // Sentry error) and the evaluator saw no feedback that the tap did nothing.
+    onError: (err) => {
+      console.error("Signup failed:", err);
+      setSignupError("Couldn't sign up — check your connection and try again.");
+    },
   });
 
   const [cancelWarning, setCancelWarning] = useState(null);
@@ -1028,6 +1036,10 @@ function EvaluatorDashboard() {
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-mine"] });
       queryClient.invalidateQueries({ queryKey: ["evaluator-sessions-available"] });
     },
+    onError: (err) => {
+      console.error("Cancel failed:", err);
+      setCancelWarning("Couldn't cancel — check your connection and try again.");
+    },
   });
 
   // Cancelling a TESTING commitment from the combined My Sessions list goes through
@@ -1041,6 +1053,7 @@ function EvaluatorDashboard() {
       return res.json();
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["my-capabilities"] }); },
+    onError: (err) => console.error("Tester cancel failed:", err),
   });
 
   // Signing up for a TESTING session from the combined available list.
@@ -1058,6 +1071,10 @@ function EvaluatorDashboard() {
       markSignedUp("testing", schedule_id);
       setSignupOk("You're signed up. Pick another below, or check \"My Sessions\" anytime.");
       queryClient.invalidateQueries({ queryKey: ["my-capabilities"] });
+    },
+    onError: (err) => {
+      console.error("Tester signup failed:", err);
+      setSignupError("Couldn't sign up — check your connection and try again.");
     },
   });
 
