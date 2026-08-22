@@ -81,7 +81,24 @@ export default function ScrimmageTeams({ catId }) {
 
   useEffect(() => {
     if (!drag) return;
-    const zoneAt = (x, y) => document.elementFromPoint(x, y)?.closest("[data-teamid]")?.getAttribute("data-teamid") || null;
+    // elementFromPoint alone can miss on a real drop: a touch drop landing a
+    // few px outside what it resolves to (right on a border, or over the
+    // floating drag chip) used to silently do nothing with zero feedback --
+    // which reads exactly like "the team won't accept the player." Fall back
+    // to a padded bounding-box hit-test against every team column so a
+    // near-miss still registers.
+    const zoneAt = (x, y) => {
+      const hit = document.elementFromPoint(x, y)?.closest("[data-teamid]");
+      if (hit) return hit.getAttribute("data-teamid");
+      const pad = 16;
+      for (const el of document.querySelectorAll("[data-teamid]")) {
+        const r = el.getBoundingClientRect();
+        if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) {
+          return el.getAttribute("data-teamid");
+        }
+      }
+      return null;
+    };
     const move = (e) => {
       if (e.cancelable) e.preventDefault();
       setGhostPos({ x: e.clientX, y: e.clientY });
@@ -93,11 +110,14 @@ export default function ScrimmageTeams({ catId }) {
       const athleteId = drag?.athleteId;
       const toTeamId = z ? parseInt(z) : null;
       setDrag(null); setOverTeam(null);
-      // Guard both ids -- a malformed request here used to reach the server
-      // as a raw NaN and 500 instead of just quietly not moving anyone.
-      if (Number.isFinite(athleteId) && Number.isFinite(toTeamId)) {
-        post({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId });
+      if (!Number.isFinite(athleteId)) return;
+      // A miss is now visible instead of silent -- previously this just did
+      // nothing, which is indistinguishable from a rejected/blocked move.
+      if (!Number.isFinite(toTeamId)) {
+        setErr("Drop missed the team column — try again, or use the dropdown next to the player's name instead.");
+        return;
       }
+      post({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId });
     };
     window.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", up, { once: true });
