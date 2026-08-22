@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Users, Shuffle, Loader2, GripVertical, Pencil, Check as CheckIcon, Trash2, Plus } from "lucide-react";
 
 // Team assignment for a Tournament category. Seed teams without scores
-// (alphabetical or even), then move players between teams — drag the grip handle
-// (works on desktop AND touch via pointer events) or use each player's team
-// dropdown — and "Apply to schedule" to fill upcoming matchup games. Rendered on
-// the Teams tab when the category's eval_format = 'round_robin'.
+// (alphabetical or even), then move players between teams — drag a player row
+// onto a team (native HTML5 drag-and-drop, same mechanism the Manage Groups
+// page already uses for standard-evaluation groups) or use each player's team
+// dropdown — and "Apply to schedule" to fill upcoming matchup games. Rendered
+// on the Teams tab when the category's eval_format = 'round_robin'.
 const posShort = (p) => { const s = (p || "").toLowerCase(); return s.startsWith("d") ? "D" : s.startsWith("g") ? "G" : "F"; };
 const nameOf = (a) => `${a.first_name || ""} ${a.last_name || ""}`.trim() || `#${a.jersey_number ?? "?"}`;
 const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
@@ -16,9 +17,8 @@ export default function ScrimmageTeams({ catId }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(3);
-  const [drag, setDrag] = useState(null); // { athleteId, name } while dragging
-  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
-  const [overTeam, setOverTeam] = useState(null); // team id currently under the pointer
+  const [dragging, setDragging] = useState(null); // { athleteId, fromTeamId } while dragging
+  const [dragOver, setDragOver] = useState(null); // team id currently under the drag
   const [applied, setApplied] = useState(null);
   const [err, setErr] = useState("");
   const [renamingId, setRenamingId] = useState(null);
@@ -70,75 +70,39 @@ export default function ScrimmageTeams({ catId }) {
     setBusy(false);
   };
 
-  // Pointer-based drag: works for mouse and touch (native HTML5 DnD does not fire
-  // on touch). Start on the grip handle; the drop target is whichever team column
-  // sits under the pointer on release (found via elementFromPoint + data-teamid).
-  const startDrag = (a) => (e) => {
-    e.preventDefault();
-    setGhostPos({ x: e.clientX, y: e.clientY });
-    setDrag({ athleteId: a.id, name: nameOf(a) });
+  // Native HTML5 drag-and-drop -- the same mechanism the Manage Groups page
+  // already uses to move players between session groups, instead of the
+  // previous hand-rolled pointer-event + elementFromPoint hit-test. The
+  // browser itself resolves the real drop target via dragover/drop events,
+  // which is what the custom version was trying (and occasionally failing)
+  // to reimplement.
+  const onDragStart = (e, athleteId, fromTeamId) => {
+    setDragging({ athleteId, fromTeamId });
+    e.dataTransfer.effectAllowed = "move";
   };
-
-  useEffect(() => {
-    if (!drag) return;
-    // elementFromPoint alone can miss on a real drop: a touch drop landing a
-    // few px outside what it resolves to (right on a border, or over the
-    // floating drag chip) used to silently do nothing with zero feedback --
-    // which reads exactly like "the team won't accept the player." Fall back
-    // to a padded bounding-box hit-test against every team column so a
-    // near-miss still registers.
-    const zoneAt = (x, y) => {
-      const hit = document.elementFromPoint(x, y)?.closest("[data-teamid]");
-      if (hit) return hit.getAttribute("data-teamid");
-      const pad = 16;
-      for (const el of document.querySelectorAll("[data-teamid]")) {
-        const r = el.getBoundingClientRect();
-        if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) {
-          return el.getAttribute("data-teamid");
-        }
-      }
-      return null;
-    };
-    const move = (e) => {
-      if (e.cancelable) e.preventDefault();
-      setGhostPos({ x: e.clientX, y: e.clientY });
-      const z = zoneAt(e.clientX, e.clientY);
-      setOverTeam(z ? parseInt(z) : null);
-    };
-    const up = (e) => {
-      const z = zoneAt(e.clientX, e.clientY);
-      const athleteId = drag?.athleteId;
-      const toTeamId = z ? parseInt(z) : null;
-      setDrag(null); setOverTeam(null);
-      if (!Number.isFinite(athleteId)) return;
-      // A miss is now visible instead of silent -- previously this just did
-      // nothing, which is indistinguishable from a rejected/blocked move.
-      if (!Number.isFinite(toTeamId)) {
-        setErr("Drop missed the team column — try again, or use the dropdown next to the player's name instead.");
-        return;
-      }
-      post({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId });
-    };
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", up, { once: true });
-    window.addEventListener("pointercancel", () => { setDrag(null); setOverTeam(null); }, { once: true });
-    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, [drag]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onDragOver = (e, teamId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(teamId);
+  };
+  const onDrop = (e, toTeamId) => {
+    e.preventDefault();
+    setDragOver(null);
+    const athleteId = dragging?.athleteId;
+    setDragging(null);
+    if (!Number.isFinite(athleteId) || !Number.isFinite(toTeamId)) return;
+    post({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId });
+  };
 
   if (!data) return <div className="py-8 text-center text-sm text-gray-400">Loading teams…</div>;
   const teams = data.teams || [];
   const unassigned = data.unassigned || [];
 
-  // Grabbing anywhere on the row starts a drag now, not just the tiny grip
-  // icon -- that icon was the only draggable target, so a drag attempt
-  // starting a pixel off it silently did nothing, which is exactly what
-  // "nothing happens" looks like from the outside. The <select> stops the
-  // pointerdown from bubbling so picking from the dropdown doesn't also
-  // start a drag.
   const Player = ({ a, teamId }) => (
     <div
-      onPointerDown={startDrag(a)}
-      className={`flex items-center gap-2 bg-white border rounded-lg px-2.5 py-1.5 text-sm cursor-grab active:cursor-grabbing touch-none select-none ${drag?.athleteId === a.id ? "opacity-40 border-accent" : "border-gray-200 hover:border-accent/40"}`}>
+      draggable
+      onDragStart={e => onDragStart(e, a.id, teamId)}
+      className={`flex items-center gap-2 bg-white border rounded-lg px-2.5 py-1.5 text-sm cursor-grab active:cursor-grabbing select-none ${dragging?.athleteId === a.id ? "opacity-40 border-accent" : "border-gray-200 hover:border-accent/40"}`}>
       <span className="flex-shrink-0 text-gray-300" title="Drag to a team">
         <GripVertical size={14} />
       </span>
@@ -147,7 +111,6 @@ export default function ScrimmageTeams({ catId }) {
       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${posShort(a.position) === "D" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{posShort(a.position)}</span>
       <select
         value={teamId ?? ""}
-        onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => { const v = e.target.value ? parseInt(e.target.value) : null; if (Number.isFinite(a.id) && Number.isFinite(v)) post({ action: "move_player", athlete_id: a.id, to_team_id: v }); }}
         disabled={busy}
         title="Move to team"
@@ -208,8 +171,10 @@ export default function ScrimmageTeams({ catId }) {
           const d = team.members.filter(m => posShort(m.position) === "D").length;
           const f = team.members.length - d;
           return (
-            <div key={team.id} data-teamid={team.id}
-              className={`bg-white border rounded-xl p-3 min-h-[120px] transition-colors ${overTeam === team.id ? "border-accent ring-2 ring-accent/30 bg-accent-soft/40" : drag ? "border-dashed border-accent/40" : "border-gray-200"}`}>
+            <div key={team.id}
+              onDragOver={e => onDragOver(e, team.id)}
+              onDrop={e => onDrop(e, team.id)}
+              className={`bg-white border rounded-xl p-3 min-h-[120px] transition-colors ${dragOver === team.id ? "border-accent ring-2 ring-accent/30 bg-accent-soft/40" : dragging ? "border-dashed border-accent/40" : "border-gray-200"}`}>
               <div className="flex items-center justify-between mb-2 gap-2">
                 {renamingId === team.id ? (
                   <span className="inline-flex items-center gap-1 min-w-0 flex-1">
@@ -239,7 +204,7 @@ export default function ScrimmageTeams({ catId }) {
               </div>
               <div className="space-y-1.5">
                 {team.members.map(a => <Player key={a.id} a={a} teamId={team.id} />)}
-                {team.members.length === 0 && <div className="text-xs text-gray-300 text-center py-4">{drag ? "Drop here" : "No players"}</div>}
+                {team.members.length === 0 && <div className="text-xs text-gray-300 text-center py-4">{dragging ? "Drop here" : "No players"}</div>}
               </div>
             </div>
           );
@@ -255,14 +220,6 @@ export default function ScrimmageTeams({ catId }) {
         </div>
       )}
       {teams.length === 0 && <div className="py-8 text-center text-sm text-gray-400">Pick a team count and seed to get started.</div>}
-
-      {/* Floating drag chip following the pointer */}
-      {drag && (
-        <div className="fixed z-[60] pointer-events-none px-2.5 py-1.5 bg-white border-2 border-accent rounded-lg text-sm font-medium text-ink shadow-lg"
-          style={{ left: ghostPos.x + 10, top: ghostPos.y + 10 }}>
-          {drag.name}
-        </div>
-      )}
     </div>
   );
 }
