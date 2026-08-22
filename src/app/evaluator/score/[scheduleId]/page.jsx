@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon, Send } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon, Send, MessageSquare } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -327,6 +327,9 @@ function ScoringInterface() {
   // group-level calibration, never a per-player flag, so it can't anchor an
   // evaluator's opinion of any one kid the way naming a "bubble" player would.
   const [showRanges, setShowRanges] = useState(false);
+  // Grid view has no player panel, so notes were unreachable without switching
+  // to card view and back. This holds the athlete whose note sheet is open.
+  const [notesForId, setNotesForId] = useState(null);
   const { data: rangesData } = useQuery({
     queryKey: ["session-ranges", catId, scheduleData?.session_number],
     queryFn: async () => {
@@ -1712,6 +1715,7 @@ function ScoringInterface() {
                 {scoringCats.map(cat => (
                   <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
                 ))}
+                <th className="text-center py-2 px-1 text-xs text-gray-600 font-medium w-[34px]" title="Notes"><MessageSquare size={13} className="inline-block" /></th>
                 <th className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[40px]">✓</th>
               </tr>
             </thead>
@@ -1778,6 +1782,27 @@ function ScoringInterface() {
                         </td>
                       );
                     })}
+                    {/* Notes — icon rather than a 13th text column: the table already
+                        scrolls sideways on a phone, and an input per row would make
+                        that worse. Filled accent = this player already has a note. */}
+                    <td className="text-center py-1 px-1">
+                      {(() => {
+                        const hasNote = !!(scores[athlete.id]?.notes || "").trim();
+                        return (
+                          <button
+                            onClick={() => setNotesForId(athlete.id)}
+                            title={hasNote ? "Edit note" : "Add note"}
+                            aria-label={hasNote ? "Edit note" : "Add note"}
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
+                              hasNote
+                                ? "bg-accent-soft border-accent text-accent"
+                                : "bg-transparent border-gray-300 text-gray-400 hover:text-ink hover:border-gray-400"
+                            }`}>
+                            <MessageSquare size={14} />
+                          </button>
+                        );
+                      })()}
+                    </td>
                     <td className="text-center py-1 px-1">
                       {status === "complete" ? <span className="text-green-600 text-xs">✓</span>
                         : status === "partial" ? <span className="text-amber-600 text-xs">◐</span>
@@ -1790,6 +1815,40 @@ function ScoringInterface() {
           </table>
         </div>
       )}
+
+      {/* Note sheet — opened from the grid's notes icon. Writes through the same
+          updateNotes() the card view uses, so it syncs (and queues offline)
+          identically and lands in the CSV export's Notes column. */}
+      {notesForId && (() => {
+        const a = athletes.find(x => x.id === notesForId);
+        if (!a) return null;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setNotesForId(null)}>
+            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm" onClick={e => e.stopPropagation()}>
+              <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded-full border-2 ${a.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
+                  <h3 className="font-display font-bold text-ink">
+                    {isAnon ? anonLabel(a) : `${a.last_name}, ${a.first_name?.[0]}.`}
+                  </h3>
+                </div>
+                <button onClick={() => setNotesForId(null)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              </div>
+              <div className="p-4">
+                <textarea
+                  autoFocus
+                  value={scores[notesForId]?.notes || ""}
+                  onChange={e => updateNotes(notesForId, e.target.value)}
+                  placeholder="Type notes here..."
+                  rows={5}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+                />
+                <button onClick={() => setNotesForId(null)} className="mt-3 w-full py-2.5 bg-accent text-white rounded-xl font-semibold text-sm">Done</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Compact mode: grid collapsed to a slim bar while a player is selected */}
       {(viewMode === "card" || viewMode === "numpad") && collapseList && selected && !listExpanded && (
