@@ -75,7 +75,7 @@ export default function ScrimmageTeams({ catId }) {
   const teams = data.teams || [];
   const unassigned = data.unassigned || [];
   const roster = [
-    ...teams.flatMap(t => t.members.map(m => ({ ...m, teamId: t.id }))),
+    ...teams.flatMap(t => t.members.map(m => ({ ...m, id: m.athlete_id, teamId: t.id }))),
     ...unassigned.map(a => ({ ...a, teamId: null })),
   ].sort((x, y) => nameOf(x).localeCompare(nameOf(y)));
 
