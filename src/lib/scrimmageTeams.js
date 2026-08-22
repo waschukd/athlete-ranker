@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { DEFAULT_TEAM_COLORS, colorNames } from "@/lib/teamColors";
 
 // Persistent scrimmage teams (A/B/C…) for a round-robin category. Used ONLY when
 // age_categories.eval_format = 'round_robin'; standard categories never touch this.
@@ -181,10 +182,15 @@ export async function assignMatchupRoster(catId, session_number, group_number, t
     try {
       const [cs] = await sql`
         INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
-        VALUES (${scheduleId}, ${catId}, ${JSON.stringify(["White", "Dark"])}, false)
+        VALUES (${scheduleId}, ${catId}, ${JSON.stringify(DEFAULT_TEAM_COLORS)}, false)
         ON CONFLICT (schedule_id) DO UPDATE SET schedule_id = EXCLUDED.schedule_id
-        RETURNING id`;
-      const colorOf = { [teamIds[0]]: "White", [teamIds[1]]: "Dark" };
+        RETURNING id, team_colors`;
+      // Map team slot -> jersey colour slot using THIS session's palette, so a
+      // Red/Blue session seeds Red/Blue rather than a hardcoded White/Dark that
+      // the check-in and scoring screens would then render as unknown.
+      const palette = colorNames(cs.team_colors);
+      const colorOf = {};
+      teamIds.forEach((id, i) => { if (palette[i]) colorOf[id] = palette[i]; });
       const withTeam = await sql`SELECT athlete_id, scrimmage_team_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamIds})`;
       for (const m of withTeam) {
         const color = colorOf[m.scrimmage_team_id];

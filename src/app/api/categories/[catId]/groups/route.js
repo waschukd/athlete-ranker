@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { parseTeamColors, colorNames } from "@/lib/teamColors";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
@@ -93,7 +94,16 @@ export async function GET(request, { params }) {
       } catch { /* column not migrated */ }
     }
 
-    return NextResponse.json({ groups, assignments, goalies, locked_at });
+    // Jersey palette per schedule, so the groups UI paints each circle in the
+    // colour that session actually uses instead of assuming White/Dark.
+    const scheduleIds = [...new Set(assignments.map(a => a.schedule_id).filter(Boolean))];
+    let team_colors_by_schedule = {};
+    if (scheduleIds.length) {
+      const rows = await sql`SELECT schedule_id, team_colors FROM checkin_sessions WHERE schedule_id = ANY(${scheduleIds})`;
+      for (const r of rows) team_colors_by_schedule[r.schedule_id] = parseTeamColors(r.team_colors);
+    }
+
+    return NextResponse.json({ groups, assignments, goalies, locked_at, team_colors_by_schedule });
   } catch (error) {
     console.error("Groups GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -349,7 +359,11 @@ export async function POST(request, { params }) {
     if (action === "set_color") {
       const athleteId = parseInt(body.athlete_id);
       const scheduleId = parseInt(body.schedule_id);
-      const color = body.color === "White" || body.color === "Dark" ? body.color : null;
+      // Any colour this session defines is valid -- the old White/Dark-only
+      // check silently nulled a Red/Blue session's colours.
+      const [csRow] = await sql`SELECT team_colors FROM checkin_sessions WHERE schedule_id = ${parseInt(body.schedule_id)}`;
+      const allowed = colorNames(csRow?.team_colors).map(n => n.toLowerCase());
+      const color = allowed.includes(String(body.color ?? "").toLowerCase()) ? String(body.color) : null;
       if (!athleteId || !scheduleId) return NextResponse.json({ error: "athlete_id and schedule_id required" }, { status: 400 });
       const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
       if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -429,7 +443,6 @@ function distributeSequential(ids, numGroups, maxPerGroup = null) {
 }
 
 async function applySnakeDraftColors(catId, sessionNumber, groups) {
-  const COLORS = ["White", "Dark"];
   const validGroups = groups.filter(g => g);
   if (!validGroups.length) return;
 
@@ -462,10 +475,11 @@ async function applySnakeDraftColors(catId, sessionNumber, groups) {
 
   // Batch: fetch all checkin_sessions for these schedule IDs
   const allCs = await sql`
-    SELECT id, schedule_id FROM checkin_sessions
+    SELECT id, schedule_id, team_colors FROM checkin_sessions
     WHERE schedule_id = ANY(${scheduleIds})`;
   const csBySchedule = {};
-  for (const cs of allCs) csBySchedule[cs.schedule_id] = cs.id;
+  const csColors = {};
+  for (const cs of allCs) { csBySchedule[cs.schedule_id] = cs.id; csColors[cs.id] = cs.team_colors; }
 
   // Batch: fetch all player assignments for these groups at once
   const groupIds = validGroups.map(g => g.id);
@@ -494,11 +508,12 @@ async function applySnakeDraftColors(catId, sessionNumber, groups) {
     const csId = csBySchedule[scheduleId];
     if (!csId) continue;
     const players = playersByGroup[group.id] || [];
+    const palette = colorNames(csColors[csId]);
     for (let i = 0; i < players.length; i++) {
       upsertAthletes.push(players[i]);
       upsertSchedules.push(scheduleId);
       upsertCsIds.push(csId);
-      upsertColors.push(COLORS[i % COLORS.length]);
+      upsertColors.push(palette[i % palette.length]);
     }
   }
 

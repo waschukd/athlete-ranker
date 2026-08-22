@@ -22,6 +22,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
 import { resolveHelmetMode } from "@/lib/helmetMode";
+import { parseTeamColors, colorNames } from "@/lib/teamColors";
 
 if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET environment variable is required");
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
@@ -135,8 +136,9 @@ export async function GET(request, { params }) {
         ORDER BY pga.display_order, a.last_name, a.first_name
       `;
 
-      // Ensure every player has a player_checkins record with snake draft color
-      const COLORS = ["White", "Dark"];
+      // Ensure every player has a player_checkins record with snake draft color,
+      // drawn from THIS session's palette rather than a hardcoded White/Dark.
+      const COLORS = colorNames(checkinSession[0]?.team_colors);
       for (let i = 0; i < athletes.length; i++) {
         const a = athletes[i];
         if (!a.checkin_id) {
@@ -203,9 +205,10 @@ export async function GET(request, { params }) {
       } catch (e) { console.error("checkin: team_name lookup failed:", e?.message); }
     }
 
-    const teamColors = typeof checkinSession[0]?.team_colors === "string"
-      ? JSON.parse(checkinSession[0].team_colors)
-      : (checkinSession[0]?.team_colors || ["White", "Dark"]);
+    // Full {name,hex,text,border} entries -- the UIs render jersey circles from
+    // these inline, which also dodges the [data-theme="premium"] utility-class
+    // override that made White and Dark indistinguishable in grid view.
+    const teamColors = parseTeamColors(checkinSession[0]?.team_colors);
 
     const helmet_mode = await resolveHelmetMode(sched.category_id);
 
@@ -235,6 +238,11 @@ export async function GET(request, { params }) {
         total: athletes.length,
         checked_in: athletes.filter(a => a.checked_in).length,
         not_checked_in: athletes.filter(a => !a.checked_in).length,
+        // Per-colour tallies keyed by name, for any palette. white_count and
+        // dark_count are kept so existing callers keep working unchanged.
+        by_color: Object.fromEntries(teamColors.map(c => [
+          c.name, athletes.filter(a => String(a.team_color || "").toLowerCase() === c.name.toLowerCase()).length,
+        ])),
         white_count: athletes.filter(a => a.team_color === "White").length,
         dark_count: athletes.filter(a => a.team_color === "Dark").length,
       },
@@ -266,7 +274,7 @@ export async function POST(request, { params }) {
     }
 
     if (action === "checkin") {
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || null}, true, NOW())
@@ -290,7 +298,7 @@ export async function POST(request, { params }) {
     // Upsert so jersey/color can be set even before a check-in record exists
     // (e.g. a fresh category with no group assignments yet).
     if (action === "update_jersey") {
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number})
@@ -299,8 +307,41 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true });
     }
 
+    // Set the jersey colours for THIS session. Decided at the door, because
+    // nobody knows what is in the jersey bag until it is opened. Renaming a
+    // colour also re-points every player already assigned to the old name, so
+    // check-ins made before the change do not end up orphaned.
+    if (action === "set_team_colors") {
+      const incoming = parseTeamColors(body.team_colors);
+      if (incoming.length < 2) return NextResponse.json({ error: "At least two colours required" }, { status: 400 });
+      if (incoming.length > 6) return NextResponse.json({ error: "At most six colours" }, { status: 400 });
+
+      const [cs] = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      if (!cs) return NextResponse.json({ error: "No check-in session" }, { status: 404 });
+
+      const previous = parseTeamColors(cs.team_colors);
+      await sql`UPDATE checkin_sessions SET team_colors = ${JSON.stringify(incoming)} WHERE schedule_id = ${scheduleId}`;
+
+      // Positional remap: slot 0 stays slot 0. Only rename rows whose colour is
+      // no longer in the palette, so swapping "White"->"Red" carries that team
+      // over rather than stranding them on a colour the UI no longer offers.
+      const stillValid = new Set(incoming.map(c => c.name.toLowerCase()));
+      let remapped = 0;
+      for (let i = 0; i < previous.length && i < incoming.length; i++) {
+        const from = previous[i].name, to = incoming[i].name;
+        if (from.toLowerCase() === to.toLowerCase()) continue;
+        if (stillValid.has(from.toLowerCase())) continue; // still offered elsewhere; leave alone
+        const rows = await sql`
+          UPDATE player_checkins SET team_color = ${to}
+          WHERE schedule_id = ${scheduleId} AND lower(team_color) = ${from.toLowerCase()}
+          RETURNING athlete_id`;
+        remapped += rows.length;
+      }
+      return NextResponse.json({ success: true, team_colors: incoming, remapped });
+    }
+
     if (action === "move_team") {
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${team_color})
@@ -318,7 +359,7 @@ export async function POST(request, { params }) {
     }
 
     if (action === "flag_present") {
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       const schedInfo = await sql`
         SELECT es.*, ac.id as cat_id FROM evaluation_schedule es
         JOIN age_categories ac ON ac.id = es.age_category_id WHERE es.id = ${scheduleId}
@@ -373,10 +414,10 @@ export async function POST(request, { params }) {
       }
 
       // Create checkin record and check them in
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
-        VALUES (${newAthlete.id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || 'White'}, true, NOW())
+        VALUES (${newAthlete.id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || colorNames(cs[0]?.team_colors)[0]}, true, NOW())
         ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET checked_in = true, checked_in_at = NOW()
       `;
 
@@ -450,10 +491,10 @@ export async function POST(request, { params }) {
       }
 
       // Check them into THIS session, reusing the existing athlete_id.
-      const cs = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
-        VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || 'White'}, true, NOW())
+        VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || colorNames(cs[0]?.team_colors)[0]}, true, NOW())
         ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET
           checked_in = true,
           checked_in_at = NOW(),

@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import GroupEmailDialog from "@/components/GroupEmailDialog";
 import MatchupPicker from "@/components/MatchupPicker";
+import { parseTeamColors, colorFor, swatchStyle, nextColor, DEFAULT_TEAM_COLORS } from "@/lib/teamColors";
 
 const qc = new QueryClient();
 
@@ -183,13 +184,9 @@ function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, team
                 players.map((player, idx) => (
                   <div key={player.athlete_id} className={`flex items-center gap-3 px-3 py-2.5 ${player.checked_in ? "bg-green-50/30" : ""}`}>
                     <div
-                      onClick={() => setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White")}
+                      onClick={() => setColor(player.athlete_id, player.schedule_id, nextColor(player.team_color, teamColorsFor(player.schedule_id)))}
                       title="Click to switch jersey colour (White / Dark)"
-                      style={player.team_color === "White"
-                        ? { background: "#ffffff", color: "#111827", border: "2px solid #d1d5db" }
-                        : player.team_color === "Dark"
-                        ? { background: "#1f2937", color: "#ffffff", border: "2px solid #d1d5db" }
-                        : { background: "#f3f4f6", color: "#4b5563", border: "2px solid #e5e7eb" }}
+                      style={swatchStyle(colorFor(player.team_color, teamColorsFor(player.schedule_id)))}
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
                       {player.jersey_number || (idx + 1)}
                     </div>
@@ -332,6 +329,9 @@ function GroupsManagerInner() {
   const sessions = setupData?.sessions || [];
   const groups = groupsData?.groups || [];
   const assignments = groupsData?.assignments || [];
+  const teamColorsBySchedule = groupsData?.team_colors_by_schedule || {};
+  const teamColorsFor = (scheduleId) =>
+    parseTeamColors(teamColorsBySchedule[scheduleId] ?? DEFAULT_TEAM_COLORS);
 
   // Auto-select first session
   useEffect(() => {
@@ -869,9 +869,10 @@ function GroupsManagerInner() {
               const isDropTarget = dragOver === group.id;
               // F/D breakdown per jersey colour, so the director can even out the
               // two teams within a group (switch colours as needed).
-              const teamStats = { White: { F: 0, D: 0, G: 0 }, Dark: { F: 0, D: 0, G: 0 } };
+              const groupPalette = teamColorsFor(scheduleId);
+              const teamStats = Object.fromEntries(groupPalette.map(c => [c.name, { F: 0, D: 0, G: 0 }]));
               players.forEach(p => {
-                const t = p.team_color === "White" ? "White" : p.team_color === "Dark" ? "Dark" : null;
+                const t = groupPalette.find(c => c.name.toLowerCase() === String(p.team_color || "").toLowerCase())?.name;
                 if (!t) return;
                 const pos = p.position === "defense" ? "D" : p.position === "goalie" ? "G" : "F";
                 teamStats[t][pos]++;
@@ -928,18 +929,21 @@ function GroupsManagerInner() {
 
                   {/* Colour balance — F/D per team, so directors can even the split */}
                   {hasColors && (() => {
-                    const uneven = teamStats.White.D !== teamStats.Dark.D || teamStats.White.F !== teamStats.Dark.F;
-                    const chip = (label, dotStyle, s) => (
-                      <span className="inline-flex items-center gap-1.5 text-ink">
-                        <span className="w-2.5 h-2.5 rounded-full border border-black/25" style={dotStyle} />
-                        <span className="font-bold">{label}</span>
-                        <span className="font-medium">{s.F}F · {s.D}D{s.G ? ` · ${s.G}G` : ""}</span>
-                      </span>
-                    );
+                    // Uneven if any two teams differ on F or D counts -- works for
+                    // a two-colour session and for three or more.
+                    const stats = groupPalette.map(c => teamStats[c.name]);
+                    const uneven = stats.some(s => s.D !== stats[0].D || s.F !== stats[0].F);
                     return (
                       <div className="px-4 py-2 flex items-center gap-4 flex-wrap text-xs" style={{ background: "#d4af37" }}>
-                        {chip("White", { background: "#ffffff" }, teamStats.White)}
-                        {chip("Dark", { background: "#1f2937" }, teamStats.Dark)}
+                        {groupPalette.map(c => (
+                          <span key={c.name} className="inline-flex items-center gap-1.5 text-ink">
+                            <span className="w-2.5 h-2.5 rounded-full border border-black/25" style={{ background: c.hex }} />
+                            <span className="font-bold">{c.name}</span>
+                            <span className="font-medium">
+                              {teamStats[c.name].F}F · {teamStats[c.name].D}D{teamStats[c.name].G ? ` · ${teamStats[c.name].G}G` : ""}
+                            </span>
+                          </span>
+                        ))}
                         {uneven && <span className="text-ink font-bold ml-auto">⚠ uneven — click a jersey to switch colours</span>}
                       </div>
                     );
@@ -985,13 +989,9 @@ function GroupsManagerInner() {
 
                           {/* Jersey colour indicator — click any time to switch White/Dark (balance the teams) */}
                           <div
-                            onClick={(e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, player.team_color === "White" ? "Dark" : "White"); }}
+                            onClick={(e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, nextColor(player.team_color, teamColorsFor(player.schedule_id))); }}
                             title="Click to switch jersey colour (White / Dark)"
-                            style={player.team_color === "White"
-                              ? { background: "#ffffff", color: "#111827", border: "2px solid #d1d5db" }
-                              : player.team_color === "Dark"
-                              ? { background: "#1f2937", color: "#ffffff", border: "2px solid #d1d5db" }
-                              : { background: "#f3f4f6", color: "#4b5563", border: "2px solid #e5e7eb" }}
+                            style={swatchStyle(colorFor(player.team_color, teamColorsFor(player.schedule_id)))}
                             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
                             {player.jersey_number || (idx + 1)}
                           </div>

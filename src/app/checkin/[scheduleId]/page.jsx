@@ -6,6 +6,7 @@ import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-quer
 import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import { parseTeamColors, colorFor, swatchStyle, nextColor, colorInitial, PRESET_TEAM_COLORS } from "@/lib/teamColors";
 
 const qc = new QueryClient();
 
@@ -24,6 +25,8 @@ function CheckinPageInner() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("unchecked");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [showColors, setShowColors] = useState(false);
+  const [savingColors, setSavingColors] = useState(false);
   const [addForm, setAddForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
   const [addLoading, setAddLoading] = useState(false);
   const [matches, setMatches] = useState([]);
@@ -121,7 +124,22 @@ function CheckinPageInner() {
   const helmetMode = !!data?.helmet_mode; // identify players by helmet sticker, not jersey
   const summary = data?.summary || {};
   const schedule = data?.schedule || {};
-  const teamColors = data?.checkinSession?.team_colors || ["White", "Dark"];
+  const teamColors = parseTeamColors(data?.checkinSession?.team_colors);
+
+  // Keep the add-player default on a colour this session actually uses, so a
+  // Red/Blue session does not offer a stale "White".
+  useEffect(() => {
+    const names = teamColors.map(c => c.name.toLowerCase());
+    if (!names.includes(String(addForm.team_color || "").toLowerCase())) {
+      setAddForm(f => ({ ...f, team_color: teamColors[0].name }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.checkinSession?.team_colors]);
+
+  const setSessionColors = async (next) => {
+    setSavingColors(true);
+    try { await doAction("set_team_colors", { team_colors: next }); } finally { setSavingColors(false); }
+  };
 
   const filtered = athletes.filter(a => {
     const matchSearch = !search ||
@@ -152,10 +170,13 @@ function CheckinPageInner() {
     </div>
   );
 
-  const lightCheckedIn = athletes.filter(a => a.team_color === "White" && a.checked_in).length;
-  const lightTotal = athletes.filter(a => a.team_color === "White").length;
-  const darkCheckedIn = athletes.filter(a => a.team_color === "Dark" && a.checked_in).length;
-  const darkTotal = athletes.filter(a => a.team_color === "Dark").length;
+  // Per-colour tallies for whatever palette this session uses, not just L/D.
+  const sameColor = (a, name) => String(a.team_color || "").toLowerCase() === name.toLowerCase();
+  const colorTallies = teamColors.map(c => ({
+    ...c,
+    checkedIn: athletes.filter(a => sameColor(a, c.name) && a.checked_in).length,
+    total: athletes.filter(a => sameColor(a, c.name)).length,
+  })).filter(c => c.total > 0);
 
   return (
     <div data-theme={theme} className="min-h-screen bg-gray-50 text-ink">
@@ -184,9 +205,13 @@ function CheckinPageInner() {
           {/* Sub-line: counts + time/location */}
           <div className="flex items-center gap-2 mt-3 flex-wrap text-sm text-gray-500 font-medium">
             <span><b className="text-ink">{summary.checked_in ?? 0}</b> / <b className="text-ink">{summary.total ?? 0}</b> checked in</span>
-            {(lightTotal > 0 || darkTotal > 0) && <span className="text-gray-300">·</span>}
-            {lightTotal > 0 && <span>L <b className="text-ink">{lightCheckedIn}/{lightTotal}</b></span>}
-            {darkTotal > 0 && <span>D <b className="text-ink">{darkCheckedIn}/{darkTotal}</b></span>}
+            {colorTallies.length > 0 && <span className="text-gray-300">·</span>}
+            {colorTallies.map(c => (
+              <span key={c.name} className="flex items-center gap-1">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: c.hex, border: `1px solid ${c.border}` }} />
+                <b className="text-ink">{c.checkedIn}/{c.total}</b>
+              </span>
+            ))}
             {(schedule.start_time || schedule.location) && <span className="text-gray-300">·</span>}
             {schedule.start_time && (
               <span className="flex items-center gap-1">
@@ -202,6 +227,52 @@ function CheckinPageInner() {
             )}
             {schedule.group_number && schedule.group_number > 1 && (
               <><span className="text-gray-300">·</span><span>Group <b className="text-ink">{schedule.group_number}</b></span></>
+            )}
+          </div>
+
+          {/* Jersey colours — set once at the door, because nobody knows what is
+              in the bag until it is opened. Applies to this session only. */}
+          <div className="mt-3">
+            <button onClick={() => setShowColors(v => !v)}
+              className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-ink">
+              <span className="flex items-center gap-1">
+                {teamColors.map(c => (
+                  <span key={c.name} className="inline-block w-3.5 h-3.5 rounded-full"
+                    style={{ background: c.hex, border: `1px solid ${c.border}` }} />
+                ))}
+              </span>
+              Jersey colours
+              <span className="text-gray-400">{showColors ? "▲" : "▼"}</span>
+            </button>
+
+            {showColors && (
+              <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                {teamColors.map((slot, i) => (
+                  <div key={i} className="mb-2 last:mb-0">
+                    <div className="text-[11px] font-semibold text-gray-500 mb-1">Team {i + 1} — {slot.name}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_TEAM_COLORS.map(preset => {
+                        const active = preset.name.toLowerCase() === slot.name.toLowerCase();
+                        const takenElsewhere = teamColors.some((c, j) => j !== i && c.name.toLowerCase() === preset.name.toLowerCase());
+                        return (
+                          <button key={preset.name} disabled={savingColors || takenElsewhere}
+                            title={takenElsewhere ? `${preset.name} is already Team ${teamColors.findIndex(c => c.name.toLowerCase() === preset.name.toLowerCase()) + 1}` : preset.name}
+                            onClick={() => setSessionColors(teamColors.map((c, j) => (j === i ? preset : c)))}
+                            className={`w-7 h-7 rounded-full text-[10px] font-bold flex items-center justify-center transition-transform ${
+                              active ? "ring-2 ring-accent ring-offset-1 scale-110" : ""
+                            } ${takenElsewhere ? "opacity-25 cursor-not-allowed" : "hover:scale-105"}`}
+                            style={{ background: preset.hex, color: preset.text, border: `2px solid ${preset.border}` }}>
+                            {colorInitial(preset.name)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Applies to this session only. Players already checked in move with their team.
+                </p>
+              </div>
             )}
           </div>
 
@@ -260,9 +331,11 @@ function CheckinPageInner() {
               placeholder="Last *" className="w-24 bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-accent" />
             <input value={addForm.jersey_number} onChange={e => setAddForm(f => ({ ...f, jersey_number: e.target.value }))}
               placeholder="#" type="number" className="w-14 bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-ink text-center focus:outline-none focus:border-accent" />
-            <button onClick={() => setAddForm(f => ({ ...f, team_color: f.team_color === "White" ? "Dark" : "White" }))}
-              className={`px-2 py-1.5 rounded text-xs font-bold border ${addForm.team_color === "Dark" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-900 border-gray-300"}`}>
-              {addForm.team_color === "Dark" ? "D" : "L"}
+            <button onClick={() => setAddForm(f => ({ ...f, team_color: nextColor(f.team_color, teamColors) }))}
+              title={`Jersey: ${addForm.team_color}`}
+              className="px-2 py-1.5 rounded text-xs font-bold"
+              style={swatchStyle(colorFor(addForm.team_color, teamColors))}>
+              {colorInitial(addForm.team_color)}
             </button>
             <button
               onClick={async () => {
@@ -363,9 +436,11 @@ function CheckinPageInner() {
               )}
 
               {/* W / D toggle */}
-              <button onClick={() => doAction("move_team", { athlete_id: a.id, team_color: a.team_color === "White" ? "Dark" : "White" })}
-                className={`w-7 h-7 rounded text-xs font-bold border ${a.team_color === "Dark" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-900 border-gray-300"}`}>
-                {a.team_color === "Dark" ? "D" : "L"}
+              <button onClick={() => doAction("move_team", { athlete_id: a.id, team_color: nextColor(a.team_color, teamColors) })}
+                title={`Jersey: ${a.team_color || "unset"} — tap to change`}
+                className="w-7 h-7 rounded text-xs font-bold"
+                style={swatchStyle(colorFor(a.team_color, teamColors))}>
+                {colorInitial(a.team_color)}
               </button>
 
               {/* Check in / undo */}

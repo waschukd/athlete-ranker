@@ -10,6 +10,7 @@ import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import SessionRosterModal from "@/components/SessionRosterModal";
+import { parseTeamColors, colorFor, swatchStyle, colorInitial } from "@/lib/teamColors";
 
 const qc = new QueryClient();
 
@@ -257,7 +258,12 @@ function ScoringInterface() {
   const helmetMode = !!sessionData?.helmet_mode;
   // Helmet mode forces anonymous display — evaluators see the sticker #, never names.
   const isAnon = helmetMode || (catData?.category?.evaluators_anonymous ?? true);
-  const teamLabel = (a) => a?.team_color === "Dark" ? "Dark" : "Light";
+  // Anonymous mode labels a player by jersey colour + number ("Red 12"). Use the
+  // session's real colour name rather than a Light/Dark abstraction the evaluator
+  // would have to translate against the jersey actually in front of them.
+  const sameTeam = (a, b) => String(a ?? "").toLowerCase() === String(b ?? "").toLowerCase();
+  const teamLabel = (a) =>
+    colorFor(a?.team_color, parseTeamColors(sessionData?.checkinSession?.team_colors)).name || "Light";
   // What the evaluator sees for a player: helmet sticker # in helmet mode, else jersey #.
   const idOf = (a) => helmetMode ? (a?.helmet_number || "?") : (a?.jersey_number ?? "?");
   const anonLabel = (a) => `${teamLabel(a)} ${idOf(a)}`;
@@ -556,7 +562,7 @@ function ScoringInterface() {
     return isG ? allowPlayerGoalies : true;
   };
   const athletes = (sessionData?.athletes || []).filter(a => a.checked_in && inRosterScope(a));
-  const teamColors = sessionData?.checkinSession?.team_colors || ["White", "Dark"];
+  const teamColors = parseTeamColors(sessionData?.checkinSession?.team_colors);
   // Categories follow the active position: the selected athlete when one is picked,
   // else the roster composition. Goalies → goalie categories; skaters → skater ones.
   const activeIsGoalie = selected
@@ -602,7 +608,7 @@ function ScoringInterface() {
     return false;
   };
   const sortKey = (a) => (helmetMode ? (parseInt(a.helmet_number) || 9999) : (a.jersey_number || 999));
-  const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => a.team_color === teamFilter))
+  const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
     .filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
     .sort((a,b) => sortKey(a) - sortKey(b));
@@ -958,13 +964,23 @@ function ScoringInterface() {
       return;
     }
 
-    // ── Select player: "score white 14" / "white 14" / "score black 14" / "dark 14" ──
-    // Also handles "black" as alias for "Dark"
-    const playerMatch = t.match(/(?:score\s+)?(white|dark|black|wh|dk|bl)\s+(\d+)/i);
+    // ── Select player: "score red 14" / "white 14" / "black 14" ──
+    // Colours come from THIS session's palette so "score red 14" works on a
+    // Red/Blue session; "black" stays an alias for "Dark" for the default pair.
+    const voicePalette = parseTeamColors(sessionData?.checkinSession?.team_colors);
+    const voiceAliases = { black: "Dark", wh: "White", dk: "Dark", bl: "Dark" };
+    // Escape each word and sort longest-first so "dark" cannot be shadowed by a
+    // shorter alternative that happens to prefix it.
+    const voiceWords = [...voicePalette.map(c => c.name.toLowerCase()), ...Object.keys(voiceAliases)]
+      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .sort((a, b) => b.length - a.length);
+    const playerMatch = t.match(new RegExp(`(?:score\\s+)?(${voiceWords.join("|")})\\s+(\\d+)`, "i"));
     if (playerMatch) {
       const raw = playerMatch[1].toLowerCase();
-      const colorMap = { white: "White", wh: "White", dark: "Dark", black: "Dark", dk: "Dark", bl: "Dark" };
-      const color = colorMap[raw] || "White";
+      const aliased = voiceAliases[raw] || raw;
+      const color = voicePalette.find(c => c.name.toLowerCase() === aliased.toLowerCase())?.name
+        || colorFor(aliased, voicePalette).name
+        || voicePalette[0].name;
       const jersey = parseInt(playerMatch[2]);
       const a = athletesRef.current.find(
         x => x.team_color?.toLowerCase() === color.toLowerCase() && (x.jersey_number === jersey || String(x.helmet_number) === String(jersey))
@@ -1370,14 +1386,18 @@ function ScoringInterface() {
 
         {/* Team filter tabs */}
         <div className="flex border-t border-gray-200">
-          {["all", ...teamColors].map(t => (
+          {["all", ...teamColors.map(c => c.name)].map(t => (
             <button key={t} onClick={() => setTeamFilter(t)}
-              className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${
+              className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize flex items-center justify-center gap-1.5 ${
                 teamFilter === t
                   ? "text-accent border-b-2 border-accent"
                   : "text-gray-400 border-b-2 border-transparent"
               }`}>
-              {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => a.team_color === t).length})`}
+              {t !== "all" && (
+                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ background: colorFor(t, teamColors).hex, border: `1px solid ${colorFor(t, teamColors).border}` }} />
+              )}
+              {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => sameTeam(a.team_color, t)).length})`}
             </button>
           ))}
         </div>
@@ -1562,7 +1582,7 @@ function ScoringInterface() {
               <div className="grid grid-cols-2 gap-2">
                 <input value={addPlayerForm.jersey_number} onChange={e => setAddPlayerForm(f => ({ ...f, jersey_number: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" placeholder="Jersey #" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
                 <select value={addPlayerForm.team_color} onChange={e => setAddPlayerForm(f => ({ ...f, team_color: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30">
-                  {teamColors.map(c => <option key={c} value={c}>{c}</option>)}
+                  {teamColors.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
               {addPlayerError && <p className="text-xs text-red-500">{addPlayerError}</p>}
@@ -1732,7 +1752,8 @@ function ScoringInterface() {
                           .bg-white to --p-card (#1a1a1a), which repainted the "Light"
                           dot near-black and left it indistinguishable from bg-gray-800
                           (#1f2937) at 8px. Bracket classes aren't in that override. */}
-                      <span className={`inline-block w-3 h-3 rounded-full mr-1.5 border ${athlete.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
+                      <span className="inline-block w-3 h-3 rounded-full mr-1.5 align-middle"
+                        style={{ ...swatchStyle(colorFor(athlete.team_color, teamColors)), borderWidth: "1px" }} />
                       {isAnon
                         ? anonLabel(athlete)
                         : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
@@ -1827,7 +1848,7 @@ function ScoringInterface() {
             <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm" onClick={e => e.stopPropagation()}>
               <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={`w-5 h-5 rounded-full border-2 ${a.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
+                  <div className="w-5 h-5 rounded-full" style={swatchStyle(colorFor(a.team_color, teamColors))} />
                   <h3 className="font-display font-bold text-ink">
                     {isAnon ? anonLabel(a) : `${a.last_name}, ${a.first_name?.[0]}.`}
                   </h3>
@@ -1877,7 +1898,7 @@ function ScoringInterface() {
           {filtered.map(athlete => {
             const status = getStatus(athlete.id, scores, totalCats);
             const isActive = selected?.id === athlete.id;
-            const isDark = athlete.team_color === "Dark";
+            const jersey = colorFor(athlete.team_color, teamColors);
 
             return (
               <button
@@ -1887,18 +1908,14 @@ function ScoringInterface() {
                 style={{ minHeight: "52px" }}
               >
                 <div className="relative">
-                  {/* Identifier (jersey or helmet #) in a team-colored circle -- White
-                      vs Dark at a glance. Colors use bracket (arbitrary-value) classes
-                      on purpose, not bg-white/text-gray-900/bg-gray-900/text-white:
-                      globals.css's [data-theme="premium"] override remaps those exact
-                      utility classes for the dark evaluator theme, which was turning
-                      the "White" jersey circle into a dark circle with light text --
-                      the opposite of what a literal jersey color should ever do.
-                      Bracket classes aren't in that override list, so these stay true
-                      white/black in both themes. */}
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none transition-all ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${
-                    isDark ? "bg-[#111827] text-[#ffffff]" : "bg-[#ffffff] border-2 border-[#d1d5db] text-[#111827]"
-                  } ${isActive ? "ring-4 ring-accent/50 scale-110" : ""}`}>
+                  {/* Identifier (jersey or helmet #) in the player's actual jersey
+                      colour, from this session's palette. Styled inline rather than
+                      with utility classes: globals.css's [data-theme="premium"]
+                      override remaps bg-white/text-gray-900/etc with !important for
+                      the dark evaluator theme, which used to repaint the "White"
+                      jersey circle near-black. Inline styles win over that. */}
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none transition-all ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${isActive ? "ring-4 ring-accent/50 scale-110" : ""}`}
+                    style={swatchStyle(jersey)}>
                     {idOf(athlete)}
                   </div>
                   {/* Done = small green check; partial = amber dot */}
@@ -1926,7 +1943,7 @@ function ScoringInterface() {
             </button>
             <div className="flex-1 text-center">
               <div className="flex items-center justify-center gap-2">
-                <div className={`w-5 h-5 rounded-full border-2 ${selected.team_color === "Dark" ? "bg-[#111827] border-[#374151]" : "bg-[#ffffff] border-[#9ca3af]"}`} />
+                <div className="w-5 h-5 rounded-full" style={swatchStyle(colorFor(selected.team_color, teamColors))} />
                 <span className="font-bold font-display text-ink">#{idOf(selected)}</span>
               </div>
               {selected.position && (
@@ -2078,7 +2095,7 @@ function ScoringInterface() {
                 if (theirFilled.length < totalCats) return false; // only fully-rated peers
                 const theirOverall = Math.round((theirFilled.reduce((a, b) => a + b, 0) / theirFilled.length) * 10) / 10;
                 return theirOverall === myOverall;
-              }).map(a => (helmetMode || a.jersey_number) ? `${a.team_color === "Dark" ? "D" : "L"}${idOf(a)}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
+              }).map(a => (helmetMode || a.jersey_number) ? `${colorInitial(a.team_color)}${idOf(a)}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
 
               return (
                 <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl p-3">
