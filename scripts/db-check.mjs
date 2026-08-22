@@ -59,15 +59,26 @@ console.log(`athletes      ${counts.athletes}`);
 console.log(`scores        ${counts.scores}`);
 console.log(`last score    ${last.last_score ? new Date(last.last_score).toISOString() : "(never)"}`);
 
-// A live production database gets scored on evaluation days. A stale copy goes
-// quiet at the moment it stopped being production, which is the tell.
-if (!last.last_score) {
-  console.log(`\nVERDICT  no scores at all -- this is almost certainly NOT production.`);
-  process.exit(2);
-}
-const ageDays = (Date.now() - new Date(last.last_score).getTime()) / 86400000;
-if (ageDays > 3) {
-  console.log(`\nVERDICT  newest score is ${ageDays.toFixed(1)} days old -- likely STALE, not production.`);
-  process.exit(2);
-}
-console.log(`\nVERDICT  newest score is ${ageDays.toFixed(1)} days old -- consistent with live production.`);
+// Deliberately NO automatic production/stale verdict.
+//
+// The first version of this script guessed from the age of the newest score and
+// got it exactly backwards: a Neon dev branch carries production's whole history
+// across at the branch point, so it looks "recently written" no matter how long
+// ago it was cut -- while production itself can sit unscored for weeks between
+// evaluation blocks. Neither age nor row counts separate the two, and a
+// confident wrong answer here is worse than no answer.
+//
+// The host below is the only reliable signal: match it against the compute
+// endpoint Neon lists for each branch (Neon console -> Branches).
+const newest = [
+  ["category_scores", last.last_score],
+  ["player_checkins", (await sql`SELECT MAX(created_at) AS m FROM player_checkins`)[0].m],
+  ["analytics_events", (await sql`SELECT MAX(ts) AS m FROM analytics_events`)[0].m],
+].filter(([, v]) => v);
+
+console.log(`\nnewest activity:`);
+for (const [t, v] of newest) console.log(`  ${t.padEnd(18)} ${new Date(v).toISOString()}`);
+
+console.log(`\nWhich branch is this? Compare the host above against Neon ->`);
+console.log(`Branches -> each branch's compute endpoint. This script cannot tell`);
+console.log(`them apart from the data: a branch inherits production's full history.`);
