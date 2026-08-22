@@ -263,7 +263,7 @@ function GroupsManagerInner() {
   const [jerseyMode, setJerseyMode] = useState(false); // show per-player colour switches
   const [movingAthleteId, setMovingAthleteId] = useState(null);
   const moveTeamPlayer = async (athleteId, toTeamId) => {
-    if (!toTeamId) return;
+    if (!Number.isFinite(athleteId) || !Number.isFinite(toTeamId)) return;
     setMovingAthleteId(athleteId);
     try {
       await fetch(`/api/categories/${catId}/scrimmage-teams`, {

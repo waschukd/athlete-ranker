@@ -90,9 +90,14 @@ export default function ScrimmageTeams({ catId }) {
     };
     const up = (e) => {
       const z = zoneAt(e.clientX, e.clientY);
-      const athleteId = drag.athleteId;
+      const athleteId = drag?.athleteId;
+      const toTeamId = z ? parseInt(z) : null;
       setDrag(null); setOverTeam(null);
-      if (z) post({ action: "move_player", athlete_id: athleteId, to_team_id: parseInt(z) });
+      // Guard both ids -- a malformed request here used to reach the server
+      // as a raw NaN and 500 instead of just quietly not moving anyone.
+      if (Number.isFinite(athleteId) && Number.isFinite(toTeamId)) {
+        post({ action: "move_player", athlete_id: athleteId, to_team_id: toTeamId });
+      }
     };
     window.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", up, { once: true });
@@ -123,7 +128,7 @@ export default function ScrimmageTeams({ catId }) {
       <select
         value={teamId ?? ""}
         onPointerDown={(e) => e.stopPropagation()}
-        onChange={(e) => { const v = e.target.value; if (v) post({ action: "move_player", athlete_id: a.id, to_team_id: parseInt(v) }); }}
+        onChange={(e) => { const v = e.target.value ? parseInt(e.target.value) : null; if (Number.isFinite(a.id) && Number.isFinite(v)) post({ action: "move_player", athlete_id: a.id, to_team_id: v }); }}
         disabled={busy}
         title="Move to team"
         className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-50">

@@ -57,7 +57,16 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, teams });
     }
     if (body.action === "move_player") {
-      await moveAthlete(params.catId, parseInt(body.athlete_id), parseInt(body.to_team_id));
+      const athleteId = parseInt(body.athlete_id);
+      const toTeamId = parseInt(body.to_team_id);
+      // Unlike rename/remove_team below, this had no validation at all --
+      // a malformed/missing athlete_id parsed to NaN and blew up the DELETE
+      // query with a raw Postgres "invalid input syntax for type integer"
+      // error (500) instead of a clean 400.
+      if (!Number.isFinite(athleteId) || !Number.isFinite(toTeamId)) {
+        return NextResponse.json({ error: "athlete_id and to_team_id required" }, { status: 400 });
+      }
+      await moveAthlete(params.catId, athleteId, toTeamId);
       // Without this, moving someone here didn't touch any game's already-
       // resolved roster -- a director would move a player, look at Manage
       // Groups, and see no change until someone separately hit "Apply to
