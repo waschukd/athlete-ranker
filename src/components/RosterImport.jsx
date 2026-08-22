@@ -9,7 +9,7 @@ import {
 // Universal roster import: drop in a raw RAMP / TeamSnap / TeamLinkt (or our own
 // template) CSV, auto-maps the columns, lets you correct them, pick which
 // division(s) belong to this category, preview, then import.
-export default function RosterImport({ catId, categoryName, onImported }) {
+export default function RosterImport({ catId, categoryName, isTournament, onImported }) {
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState([]);
   const [rows, setRows] = useState([]);
@@ -28,7 +28,7 @@ export default function RosterImport({ catId, categoryName, onImported }) {
       const text = await file.text();
       const { headers: hdrs, rows: parsed } = parseCsv(text);
       if (!hdrs.length) { setError("Couldn't read any columns from that file."); return; }
-      const m = detectMapping(hdrs);
+      const m = detectMapping(hdrs, parsed, isTournament);
       setFileName(file.name);
       setHeaders(hdrs);
       setRows(parsed);
@@ -163,7 +163,15 @@ export default function RosterImport({ catId, categoryName, onImported }) {
           <HeaderSelect label="Parent email" k="parentEmail" />
           <HeaderSelect label="Parent email 2 (optional)" k="parentEmail2" />
           <HeaderSelect label="Division / group" k="division" />
+          {isTournament && <HeaderSelect label="Scrimmage team" k="scrimmageTeam" />}
         </div>
+        {isTournament && (
+          <p className="text-xs text-gray-400 mt-3">
+            {mapping.scrimmageTeam
+              ? <>Detected from <b className="text-ink">{mapping.scrimmageTeam}</b> — teams will be created automatically from whatever's in that column ("Team A", "Gold", etc.) if they don't already exist.</>
+              : "No team column detected — if this file has one, pick it above and teams will be created automatically on import."}
+          </p>
+        )}
       </div>
 
       {/* Division filter */}
@@ -197,7 +205,7 @@ export default function RosterImport({ catId, categoryName, onImported }) {
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr><th className="text-left px-4 py-2">Name</th><th className="text-left px-4 py-2">Birth yr</th><th className="text-left px-4 py-2">Pos</th><th className="text-left px-4 py-2">Parent email</th></tr>
+              <tr><th className="text-left px-4 py-2">Name</th><th className="text-left px-4 py-2">Birth yr</th><th className="text-left px-4 py-2">Pos</th><th className="text-left px-4 py-2">Parent email</th>{isTournament && <th className="text-left px-4 py-2">Team</th>}</tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {preview.map((a, i) => (
@@ -206,6 +214,7 @@ export default function RosterImport({ catId, categoryName, onImported }) {
                   <td className="px-4 py-2 text-gray-600 tabular-nums">{a.birth_year || "—"}</td>
                   <td className="px-4 py-2 text-gray-600 capitalize">{a.position || "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{a.parent_email || "—"}</td>
+                  {isTournament && <td className="px-4 py-2 text-gray-700 font-medium">{a.scrimmage_team || "—"}</td>}
                 </tr>
               ))}
             </tbody>

@@ -62,6 +62,11 @@ const SYN = {
   parentEmail2: ["parent 2 email", "guardian parent 2 email", "guardian 2 email", "second parent email", "other parent email", "secondary email", "parent email 2"],
   division: ["participant group", "hockey canada division", "division", "age group", "team", "group", "category", "level"],
   helmet: ["helmet number", "helmet #", "helmet sticker", "helmet", "sticker number", "sticker #", "sticker"],
+  // Deliberately its own synonym list, not sharing "team"/"group" with division
+  // above -- those stay ambiguous on purpose for standard categories (a plain
+  // "Team" column usually does mean division there). Tournament-format
+  // categories get a dedicated, unambiguous header to ask for instead.
+  scrimmageTeam: ["scrimmage team", "scrimmage group", "tournament team", "team assignment", "assigned team", "roster team"],
 };
 
 // Headers that should NOT be picked as the athlete's own name/email even if they
@@ -116,11 +121,56 @@ export function parseNonContact(cell, header = "") {
   return false;
 }
 
-// Best-guess column mapping for a set of headers.
-export function detectMapping(headers) {
+// A cell that reads like a team label: "Team A", "A", "Gold", "1" -- short,
+// and not itself a recognizable age-group/division string (which tend to be
+// longer, e.g. "U13 AA"). Used only as a last-resort column guess below, for
+// files whose team-assignment header got mangled beyond synonym matching
+// (copy/paste corruption, autocomplete gone wrong, etc.) -- real-world example:
+// a header of "SGroup CrimmGroup Age TeGroup Am" over a column of clean
+// "Team A" / "Team B" / "Team C" values.
+function looksLikeTeamLabel(v) {
+  const t = (v || "").trim();
+  if (!t) return false;
+  return /^team\s+[a-z0-9]{1,4}$/i.test(t) || /^[a-z0-9]{1,3}$/i.test(t);
+}
+
+// Scan every still-unclaimed column for one whose values are overwhelmingly
+// team-label-shaped. Requires the column to be populated for most rows and
+// >=85% of its non-blank values to match, so it doesn't false-positive on
+// something like a jersey-number or position column.
+function detectTeamColumnByValues(headers, rows, claimed) {
+  if (!rows.length) return null;
+  let best = null, bestCount = 0;
+  for (const h of headers) {
+    if (claimed.includes(h)) continue;
+    const vals = rows.map(r => (r[h] || "").trim()).filter(Boolean);
+    if (vals.length < Math.max(2, rows.length * 0.5)) continue;
+    const matching = vals.filter(looksLikeTeamLabel).length;
+    if (matching / vals.length >= 0.85 && matching > bestCount) { best = h; bestCount = matching; }
+  }
+  return best;
+}
+
+// Best-guess column mapping for a set of headers. `rows` + `isTournament` are
+// optional and only used for the team-column value-based fallback above --
+// existing callers that don't pass them just skip that step.
+export function detectMapping(headers, rows = [], isTournament = false) {
   const firstName = pickHeader(headers, "firstName", { excludeNameish: true });
   const lastName = pickHeader(headers, "lastName", { excludeNameish: true });
   const fullName = (firstName && lastName) ? null : pickHeader(headers, "fullName", { excludeNameish: true });
+  let division = pickHeader(headers, "division");
+  let scrimmageTeam = pickHeader(headers, "scrimmageTeam");
+  if (!scrimmageTeam && isTournament) {
+    // NOT excluding `division` here on purpose: a mangled team-assignment
+    // header commonly gets claimed by division's fuzzy "group"/"team"
+    // substring match first (e.g. "SGroup CrimmGroup Age TeGroup Am" contains
+    // "group" three times over). If the value-based scan finds real
+    // team-label data sitting under that same column, team assignment wins
+    // and division's claim on it is cleared below.
+    const claimed = [firstName, lastName, fullName].filter(Boolean);
+    scrimmageTeam = detectTeamColumnByValues(headers, rows, claimed);
+    if (scrimmageTeam && scrimmageTeam === division) division = null;
+  }
   return {
     firstName,
     lastName,
@@ -135,7 +185,8 @@ export function detectMapping(headers) {
       const second = pickHeader(headers, "parentEmail2", { excludeNameish: false });
       return second && second !== primary ? second : null;
     })(),
-    division: pickHeader(headers, "division"),
+    division,
+    scrimmageTeam,
     helmet: pickHeader(headers, "helmet"),
     contact: pickContactHeader(headers),
   };
@@ -199,6 +250,7 @@ export function toAthlete(row, mapping) {
     helmet_number: mapping.helmet ? (row[mapping.helmet] || "").trim().slice(0, 4) : "",
     non_contact: mapping.contact ? parseNonContact(row[mapping.contact], mapping.contact) : false,
     _division: mapping.division ? (row[mapping.division] || "").trim() : "",
+    scrimmage_team: mapping.scrimmageTeam ? (row[mapping.scrimmageTeam] || "").trim() : "",
   };
 }
 
