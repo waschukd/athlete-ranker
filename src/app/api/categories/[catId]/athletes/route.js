@@ -3,6 +3,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { applyAllMatchups } from "@/lib/scrimmageTeams";
 
 // Roster mutations (bulk import, quick-add, deactivate) are for admins/directors —
 // authorizeCategoryAccess alone also admits plain evaluators, who should only GET.
@@ -84,7 +85,11 @@ export async function POST(request, { params }) {
           // importer's column auto-mapper (src/lib/rosterImport.js) already treats
           // a header literally named "Team" as a synonym for age-category
           // Division, so reusing it here would silently misfile this value.
-          const scrimmageTeamLabel = (athlete["Scrimmage Team"] || athlete.scrimmage_team || "").toString().trim();
+          // Accept "Scrimmage Group" too -- BAHA's own roster template uses that
+          // exact wording, and this route (unlike rosterImport.js's flexible
+          // synonym matching) only ever matched literal header text, so it was
+          // silently importing every player with no team assigned.
+          const scrimmageTeamLabel = (athlete["Scrimmage Team"] || athlete["Scrimmage Group"] || athlete.scrimmage_team || athlete.scrimmage_group || "").toString().trim();
 
           if (!first_name || !last_name) { skipped++; continue; }
 
@@ -155,6 +160,9 @@ export async function POST(request, { params }) {
           skipped++;
         }
       }
+      // If any games already had a matchup picked before the roster showed up,
+      // re-resolve now that the teams they name actually have players.
+      if (isTournament) { try { await applyAllMatchups(catId); } catch (e) { console.error("athletes import: re-apply matchups failed:", e?.message); } }
       return NextResponse.json({ success: true, imported, updated, skipped, errors });
     }
 
