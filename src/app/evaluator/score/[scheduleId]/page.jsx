@@ -606,8 +606,14 @@ function ScoringInterface() {
     return false;
   };
   const sortKey = (a) => (helmetMode ? (parseInt(a.helmet_number) || 9999) : (a.jersey_number || 999));
+  // Never hide the athlete currently being scored, even once they're
+  // "complete" -- e.g. a decimal like "6.5" spoken on the last category can
+  // land as a plain "6" if the recognizer's silence-detection finalizes early
+  // between "six" and "point five". If hideCompleted yanks the row away the
+  // instant that partial score completes them, the evaluator loses the row
+  // (grid) or jersey button (pool) they were about to correct mid-sentence.
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
-    .filter(a => !hideCompleted || getStatus(a.id, scores, totalCats) !== "complete")
+    .filter(a => !hideCompleted || a.id === selected?.id || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
     .sort((a,b) => sortKey(a) - sortKey(b));
 
