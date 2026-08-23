@@ -63,6 +63,7 @@ describe("SP leads POST — security", () => {
     getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);              // admin id lookup
+    sql.mockResolvedValueOnce([{ x: 1 }]);                      // inPool check → is a pool member
     sql.mockResolvedValueOnce([{ association_id: "A" }]);       // linked set: only A
     const { POST } = await import("@/app/api/service-provider/leads/route");
     const res = await POST(makeReq({ email: "lead@test", association_ids: ["A", "B"] }));
@@ -77,6 +78,7 @@ describe("SP leads POST — happy path (existing user)", () => {
     getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);                                   // admin id lookup
+    sql.mockResolvedValueOnce([{ x: 1 }]);                                           // inPool check → is a pool member
     sql.mockResolvedValueOnce([{ association_id: "A" }, { association_id: "B" }]);   // linked set covers A,B
     sql.mockResolvedValueOnce([{ id: "auth-1" }]);                                   // auth_users lookup → exists
     sql.mockResolvedValueOnce([{ id: "user-1", role: "director" }]);                 // users lookup → exists
@@ -96,6 +98,7 @@ describe("SP leads POST — happy path (existing user)", () => {
     getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);                       // admin id lookup
+    sql.mockResolvedValueOnce([{ x: 1 }]);                               // inPool check → is a pool member
     sql.mockResolvedValueOnce([{ association_id: "A" }]);                // linked set
     sql.mockResolvedValueOnce([{ id: "auth-1" }]);                       // auth_users exists
     sql.mockResolvedValueOnce([{ id: "user-1", role: "super_admin" }]);  // users exists w/ protected role
@@ -114,6 +117,7 @@ describe("SP leads POST — create path (new user)", () => {
     getSession.mockResolvedValue({ email: "spadmin@test", role: "service_provider_admin" });
     resolveSpOrgId.mockResolvedValue("sp1");
     sql.mockResolvedValueOnce([{ id: "admin1" }]);            // admin id lookup
+    sql.mockResolvedValueOnce([{ x: 1 }]);                    // inPool check → is a pool member
     sql.mockResolvedValueOnce([{ association_id: "A" }]);     // linked set
     sql.mockResolvedValueOnce([]);                            // auth_users lookup → none
     sql.mockResolvedValueOnce([{ id: "auth-new" }]);          // INSERT auth_users RETURNING
