@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon, Send, MessageSquare } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon, MessageSquare } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -11,6 +11,11 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import SessionRosterModal from "@/components/SessionRosterModal";
 import { parseTeamColors, colorFor, swatchStyle, colorInitial } from "@/lib/teamColors";
+import GuideModal from "@/components/evaluator-scoring/GuideModal";
+import RangesModal from "@/components/evaluator-scoring/RangesModal";
+import TeamPingModal from "@/components/evaluator-scoring/TeamPingModal";
+import PingToast from "@/components/evaluator-scoring/PingToast";
+import AddPlayerModal from "@/components/evaluator-scoring/AddPlayerModal";
 
 const qc = new QueryClient();
 
@@ -112,9 +117,6 @@ function ScoringInterface() {
   const [pingSending, setPingSending] = useState(false);
   const [lastSeenPingId, setLastSeenPingId] = useState(0);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
-  const [addPlayerForm, setAddPlayerForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
-  const [addPlayerSaving, setAddPlayerSaving] = useState(false);
-  const [addPlayerError, setAddPlayerError] = useState("");
   const [collapseList, setCollapseList] = useState(false); // hide player grid while scoring a selected player
   const [viewerKind, setViewerKind] = useState(null); // 'goalie' | 'coach' | 'standard' — scopes the roster
   const [listExpanded, setListExpanded] = useState(false); // temporary re-open of the grid when collapsed
@@ -1434,31 +1436,7 @@ function ScoringInterface() {
           sticky` ancestor with its own z-index, it was getting capped to
           that ancestor's context and losing to the Grid view's own sticky
           z-10 header. */}
-      {guideOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setGuideOpen(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><BookOpen size={17} className="text-accent" /> Scoring guide {guideData?.age_tier && guideData.age_tier !== "ALL" ? `— ${guideData.age_tier}` : ""}</h3>
-              <button onClick={() => setGuideOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="p-4 space-y-5">
-              {(guideData?.guide || []).filter(g => g.bands.length > 0).map(g => (
-                <div key={g.scoring_category_id}>
-                  <h4 className="text-sm font-bold text-ink mb-1.5">{g.name}</h4>
-                  <div className="space-y-1">
-                    {g.bands.map((b, i) => (
-                      <div key={i} className="flex gap-2 text-xs">
-                        <span className="font-mono font-bold text-accent flex-shrink-0 w-10">{b.band_min}–{b.band_max}</span>
-                        <span className="text-gray-600 leading-snug">{b.description}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {guideOpen && <GuideModal guideData={guideData} onClose={() => setGuideOpen(false)} />}
 
       {/* Settings — everything that isn't needed at a glance while scoring
           lives here now: scoring guide, calibration numbers, layout, consensus,
@@ -1491,7 +1469,7 @@ function ScoringInterface() {
               </div>
 
               {!readOnly && (
-                <button onClick={() => { setSettingsOpen(false); setAddPlayerError(""); setAddPlayerOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                <button onClick={() => { setSettingsOpen(false); setAddPlayerOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
                   <span>+ Add player (on ice, not checked in)</span>
                   <ChevronRight size={15} className="text-gray-400" />
                 </button>
@@ -1562,156 +1540,41 @@ function ScoringInterface() {
         </div>
       )}
 
-      {/* Add an on-ice player who was never checked in — creates the athlete
-          (if new), drops them into this game's group, and checks them in via
-          the same add_player action the volunteer check-in screen uses, so
-          they show up in the roster immediately, ready to score. */}
       {addPlayerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => !addPlayerSaving && setAddPlayerOpen(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-ink">Add player</h3>
-              <button onClick={() => setAddPlayerOpen(false)} disabled={addPlayerSaving} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-40"><X size={18} /></button>
-            </div>
-            <div className="p-4 space-y-3">
-              <p className="text-xs text-gray-400">For a player who's on the ice but never got checked in — adds them to this roster and checks them in so they're ready to score.</p>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={addPlayerForm.first_name} onChange={e => setAddPlayerForm(f => ({ ...f, first_name: e.target.value }))} placeholder="First name" autoFocus className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
-                <input value={addPlayerForm.last_name} onChange={e => setAddPlayerForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Last name" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={addPlayerForm.jersey_number} onChange={e => setAddPlayerForm(f => ({ ...f, jersey_number: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" placeholder="Jersey #" className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30" />
-                <select value={addPlayerForm.team_color} onChange={e => setAddPlayerForm(f => ({ ...f, team_color: e.target.value }))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30">
-                  {teamColors.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                </select>
-              </div>
-              {addPlayerError && <p className="text-xs text-red-500">{addPlayerError}</p>}
-              <button
-                disabled={addPlayerSaving || !addPlayerForm.first_name.trim() || !addPlayerForm.last_name.trim()}
-                onClick={async () => {
-                  setAddPlayerSaving(true); setAddPlayerError("");
-                  try {
-                    const res = await fetch(`/api/checkin/${scheduleId}`, {
-                      method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        action: "add_player",
-                        first_name: addPlayerForm.first_name.trim(),
-                        last_name: addPlayerForm.last_name.trim(),
-                        jersey_number: addPlayerForm.jersey_number ? parseInt(addPlayerForm.jersey_number) : null,
-                        team_color: addPlayerForm.team_color,
-                      }),
-                    });
-                    const d = await res.json();
-                    if (!res.ok || !d.success) { setAddPlayerError(d.error || "Couldn't add player — try again."); setAddPlayerSaving(false); return; }
-                    await refetchSession();
-                    setAddPlayerForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
-                    setAddPlayerOpen(false);
-                  } catch { setAddPlayerError("Network error — try again."); }
-                  setAddPlayerSaving(false);
-                }}
-                className="w-full py-2.5 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
-                {addPlayerSaving ? "Adding…" : "Add & check in"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AddPlayerModal
+          scheduleId={scheduleId}
+          teamColors={teamColors}
+          onAdded={refetchSession}
+          onClose={() => setAddPlayerOpen(false)}
+        />
       )}
 
       {pingToast && (
-        <div className="fixed top-2 left-2 right-2 z-[70] flex justify-center pointer-events-none">
-          <button
-            onClick={() => { setPingToast(null); setShowPings(true); markPingsSeen(); }}
-            className="pointer-events-auto max-w-sm w-full bg-ink text-white rounded-xl shadow-lg px-4 py-3 flex items-start gap-2.5 text-left hover:opacity-95"
-          >
-            <span className="text-lg leading-none flex-shrink-0">💬</span>
-            <span className="min-w-0">
-              <span className="block text-xs font-bold uppercase tracking-wide text-white/60">{pingToast.name}</span>
-              <span className="block text-sm truncate">{pingToast.message}</span>
-            </span>
-          </button>
-        </div>
+        <PingToast toast={pingToast} onClick={() => { setPingToast(null); setShowPings(true); markPingsSeen(); }} />
       )}
 
       {showRoster && <SessionRosterModal scheduleId={scheduleId} onClose={() => setShowRoster(false)} />}
 
-      {/* Team ping — a quick shared board for the evaluators actually signed
-          up to THIS session, for exactly the kind of thing that comes up
-          mid-session: "running late", "anyone see a black #23?". Not a
-          general chat and not tied to the SP<->evaluator messages inbox. */}
       {showPings && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowPings(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
-              <h3 className="font-display font-bold text-ink">Team ping</h3>
-              <button onClick={() => setShowPings(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {pings.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-400">No pings yet — say hi to whoever else is on this session.</div>
-              ) : (
-                [...pings].reverse().map(p => (
-                  <div key={p.id} className={`rounded-xl px-3 py-2 max-w-[85%] ${p.user_id === pingsData?.meUserId ? "ml-auto bg-accent text-white" : "bg-gray-100 text-ink"}`}>
-                    {p.user_id !== pingsData?.meUserId && <div className="text-[10px] font-bold uppercase tracking-wide opacity-60 mb-0.5">{p.name}</div>}
-                    <div className="text-sm break-words">{p.message}</div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="p-3 border-t border-gray-100 flex-shrink-0 space-y-2">
-              <div className="flex gap-1.5 flex-wrap">
-                {["Running late", "Taking a quick break", "Anyone see a black #?"].map(canned => (
-                  <button key={canned} disabled={pingSending} onClick={() => sendPing(canned)} className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-full text-gray-600 hover:bg-gray-50 disabled:opacity-50">{canned}</button>
-                ))}
-              </div>
-              <form onSubmit={e => { e.preventDefault(); sendPing(pingText); }} className="flex items-center gap-2">
-                <input
-                  value={pingText}
-                  onChange={e => setPingText(e.target.value)}
-                  placeholder="Message the group…"
-                  maxLength={200}
-                  className="flex-1 min-w-0 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-                />
-                <button type="submit" disabled={!pingText.trim() || pingSending} className="p-2.5 bg-accent text-white rounded-full disabled:opacity-40 flex-shrink-0"><Send size={16} /></button>
-              </form>
-            </div>
-          </div>
-        </div>
+        <TeamPingModal
+          pings={pings}
+          meUserId={pingsData?.meUserId}
+          sending={pingSending}
+          text={pingText}
+          setText={setPingText}
+          onSend={sendPing}
+          onClose={() => setShowPings(false)}
+        />
       )}
 
-      {/* Ranges — every group's score range for this session so far (not just
-          earlier ones), so an evaluator who thinks a player deserves to beat
-          another group's top score knows exactly what number that takes.
-          Group-level only, never names a player. */}
       {showRanges && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowRanges(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-ink">Ranges — Session {scheduleData?.session_number}</h3>
-              <button onClick={() => setShowRanges(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="p-4">
-              <p className="text-xs text-gray-400 mb-3">Lowest-to-highest average score each group has landed so far, out of {scale}. If a player in front of you deserves to beat a group's top score, that's the number to give them.</p>
-              {!rangesData ? (
-                <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
-              ) : rangesData.ranges.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-400">No groups set up yet for this session.</div>
-              ) : (
-                <div className="space-y-1.5">
-                  {rangesData.ranges.map(r => (
-                    <div key={r.group_number} className={`flex items-center justify-between rounded-lg px-3 py-2 ${r.group_number === scheduleData?.group_number ? "bg-accent-soft border border-accent/30" : "bg-gray-50"}`}>
-                      <span className="text-sm font-semibold text-ink">Group {r.group_number}{r.group_number === scheduleData?.group_number ? " (you)" : ""}</span>
-                      {r.floor != null ? (
-                        <span className="text-sm font-mono font-bold text-amber-600">{r.ceiling}–{r.floor} <span className="text-xs text-gray-400 font-normal">({r.athletes_counted})</span></span>
-                      ) : (
-                        <span className="text-xs text-gray-300 italic">not scored yet</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <RangesModal
+          rangesData={rangesData}
+          sessionNumber={scheduleData?.session_number}
+          groupNumber={scheduleData?.group_number}
+          scale={scale}
+          onClose={() => setShowRanges(false)}
+        />
       )}
 
       {/* ── Jersey grid ────────────────────────────────────── */}
