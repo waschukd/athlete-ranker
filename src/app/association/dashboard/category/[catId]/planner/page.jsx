@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, Lock, Target, AlertTriangle, Save, Users } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -15,7 +15,11 @@ const STATUS = {
 function PlannerInner() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
-  const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
+  // useParams() is SSR-safe; reading window.location.pathname directly gave
+  // the server "null" and the client the real id on its first render, a
+  // guaranteed hydration mismatch (React errors #418/#422) on every load.
+  const params = useParams();
+  const catId = params.catId;
 
   const [theme, toggleTheme] = useTheme();
   const [data, setData] = useState(null);

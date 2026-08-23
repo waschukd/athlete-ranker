@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Download, Users, Shuffle, ChevronDown, ChevronUp, Mail, ClipboardList } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
@@ -20,7 +20,11 @@ const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
 function TeamGeneratorInner() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
-  const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
+  // useParams() is SSR-safe; reading window.location.pathname directly gave
+  // the server "null" and the client the real id on its first render, a
+  // guaranteed hydration mismatch (React errors #418/#422) on every load.
+  const params = useParams();
+  const catId = params.catId;
 
   const [step, setStep] = useState("setup"); // setup | review
   const [teamConfig, setTeamConfig] = useState(() => {

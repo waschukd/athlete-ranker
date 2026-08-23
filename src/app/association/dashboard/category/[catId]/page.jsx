@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import CategoryDashboard from "@/components/CategoryDashboard";
@@ -12,7 +12,13 @@ function CategoryHub() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org");
   const initialTab = searchParams.get("tab");
-  const catId = typeof window !== "undefined" ? window.location.pathname.split("/")[4] : null;
+  // useParams() is SSR-safe -- it resolves from the matched route on both
+  // server and client. Reading window.location.pathname directly gave the
+  // server "null" (no window) and the client the real id on its very first
+  // render, a guaranteed hydration mismatch (React errors #418/#422) on
+  // every load of this page.
+  const params = useParams();
+  const catId = params.catId;
   useTrackPageView("category.viewed", { catId, orgId });
 
   return <CategoryDashboard role="association" catId={catId} orgId={orgId} initialTab={initialTab} />;
