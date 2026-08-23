@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, MessageSquare } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, X, RotateCcw, RefreshCw } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers, stripSentencePunctuation } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -21,6 +21,8 @@ import ConsensusModal from "@/components/evaluator-scoring/ConsensusModal";
 import ExcusalModal from "@/components/evaluator-scoring/ExcusalModal";
 import TopBar from "@/components/evaluator-scoring/TopBar";
 import GridView from "@/components/evaluator-scoring/GridView";
+import NotesSheetModal from "@/components/evaluator-scoring/NotesSheetModal";
+import PlayerPool from "@/components/evaluator-scoring/PlayerPool";
 import { getStatus } from "@/lib/scoringStatus";
 
 const qc = new QueryClient();
@@ -1384,100 +1386,21 @@ function ScoringInterface() {
         />
       )}
 
-      {/* Note sheet — opened from the grid's notes icon. Writes through the same
-          updateNotes() the card view uses, so it syncs (and queues offline)
-          identically and lands in the CSV export's Notes column. */}
-      {notesForId && (() => {
-        const a = athletes.find(x => x.id === notesForId);
-        if (!a) return null;
-        return (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setNotesForId(null)}>
-            <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm" onClick={e => e.stopPropagation()}>
-              <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full" style={swatchStyle(colorFor(a.team_color, teamColors))} />
-                  <h3 className="font-display font-bold text-ink">
-                    {isAnon ? anonLabel(a) : `${a.last_name}, ${a.first_name?.[0]}.`}
-                  </h3>
-                </div>
-                <button onClick={() => setNotesForId(null)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-              </div>
-              <div className="p-4">
-                <textarea
-                  autoFocus
-                  value={scores[notesForId]?.notes || ""}
-                  onChange={e => updateNotes(notesForId, e.target.value)}
-                  placeholder="Type notes here..."
-                  rows={5}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
-                />
-                <button onClick={() => setNotesForId(null)} className="mt-3 w-full py-2.5 bg-accent text-white rounded-xl font-semibold text-sm">Done</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Compact mode: grid collapsed to a slim bar while a player is selected */}
-      {(viewMode === "card" || viewMode === "numpad") && collapseList && selected && !listExpanded && (
-        <div className="px-3 pt-3 pb-1">
-          <button onClick={() => setListExpanded(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:border-gray-300">
-            <ChevronDown size={15} /> Show all players ({filtered.length})
-          </button>
-        </div>
+      {notesForId && (
+        <NotesSheetModal
+          athleteId={notesForId} athletes={athletes} scores={scores}
+          isAnon={isAnon} anonLabel={anonLabel} teamColors={teamColors}
+          updateNotes={updateNotes} onClose={() => setNotesForId(null)}
+        />
       )}
-      {(viewMode === "card" || viewMode === "numpad") && !(collapseList && selected && !listExpanded) && (<div className="px-3 pt-3 pb-2">
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-3 px-1">
-          {[
-            { color: "bg-gray-300", label: "Not started" },
-            { color: "bg-amber-400", label: "Partial" },
-            { color: "bg-green-500", label: "Complete" },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-full ${l.color}`} />
-              <span className="text-xs text-gray-600">{l.label}</span>
-            </div>
-          ))}
-        </div>
 
-        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))" }}>
-          {filtered.map(athlete => {
-            const status = getStatus(athlete.id, scores, totalCats);
-            const isActive = selected?.id === athlete.id;
-            const jersey = colorFor(athlete.team_color, teamColors);
-
-            return (
-              <button
-                key={athlete.id}
-                onClick={() => { setSelected(isActive ? null : athlete); if (collapseList) setListExpanded(false); }}
-                className="relative flex items-center justify-center select-none transition-transform"
-                style={{ minHeight: "52px" }}
-              >
-                <div className="relative">
-                  {/* Identifier (jersey or helmet #) in the player's actual jersey
-                      colour, from this session's palette. Styled inline rather than
-                      with utility classes: globals.css's [data-theme="premium"]
-                      override remaps bg-white/text-gray-900/etc with !important for
-                      the dark evaluator theme, which used to repaint the "White"
-                      jersey circle near-black. Inline styles win over that. */}
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display font-extrabold leading-none transition-all ${String(idOf(athlete)).length > 2 ? "text-sm" : "text-lg"} ${isActive ? "ring-4 ring-accent/50 scale-110" : ""}`}
-                    style={swatchStyle(jersey)}>
-                    {idOf(athlete)}
-                  </div>
-                  {/* Done = small green check; partial = amber dot */}
-                  {status === "complete" && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white text-white text-[9px] font-black flex items-center justify-center leading-none">✓</span>
-                  )}
-                  {status === "partial" && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white" />
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>)}
+      {(viewMode === "card" || viewMode === "numpad") && (
+        <PlayerPool
+          filtered={filtered} scores={scores} totalCats={totalCats}
+          selected={selected} setSelected={setSelected} teamColors={teamColors}
+          idOf={idOf} collapseList={collapseList} listExpanded={listExpanded} setListExpanded={setListExpanded}
+        />
+      )}
 
       {/* ── Score panel (card view only) ──────────────────── */}
       {selected && (viewMode === "card" || viewMode === "numpad") && (
