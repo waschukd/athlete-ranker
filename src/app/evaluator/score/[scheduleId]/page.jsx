@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, Settings as SettingsIcon, MessageSquare } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, MessageSquare } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -18,6 +18,8 @@ import PingToast from "@/components/evaluator-scoring/PingToast";
 import AddPlayerModal from "@/components/evaluator-scoring/AddPlayerModal";
 import SettingsModal from "@/components/evaluator-scoring/SettingsModal";
 import ConsensusModal from "@/components/evaluator-scoring/ConsensusModal";
+import ExcusalModal from "@/components/evaluator-scoring/ExcusalModal";
+import TopBar from "@/components/evaluator-scoring/TopBar";
 
 const qc = new QueryClient();
 
@@ -1284,152 +1286,20 @@ function ScoringInterface() {
         </div>
       )}
 
-      {/* ── Top bar ────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="flex items-center justify-between px-3 py-3">
-          <a href="/evaluator/dashboard" className="p-1.5 text-gray-500 hover:text-ink rounded-lg">
-            <ArrowLeft size={20} />
-          </a>
-          <div className="text-center flex-1 mx-2">
-            <div className="flex items-center justify-center gap-1.5">
-              {/* Connection dot — moved inline with the title so status is a
-                  glance, not its own row */}
-              <div
-                className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors duration-500 ${
-                  online ? 'bg-green-500 shadow-[0_0_6px_#4ade80]' : Object.keys(pending).length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
-                }`}
-                title={online ? 'Connected' : Object.keys(pending).length > 0 ? `${Object.keys(pending).length} pending sync` : 'Offline'}
-              />
-              <span className="text-sm font-bold font-display text-ink leading-tight">
-                {sessionData?.schedule?.org_name} · S{sessionData?.schedule?.session_number} G{sessionData?.schedule?.group_number}
-              </span>
-            </div>
-            <div className="flex items-center justify-center gap-3 mt-1">
-              <span className="text-xs text-green-600 font-semibold">{complete} ✓</span>
-              <span className="text-xs text-amber-500 font-semibold">{partial} partial</span>
-              <span className="text-xs text-gray-400">{remaining} left</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Transient "just happened" message — auto-clears in a couple seconds */}
-            {syncStatus && (
-              <span className={`text-xs px-2 py-1 rounded-lg ${
-                syncStatus.includes('✓') ? 'text-green-600' :
-                syncStatus.includes('fail') || syncStatus.includes('Error') ? 'text-red-500' :
-                'text-amber-500'
-              }`}>{syncStatus}</span>
-            )}
-            {/* The connection dot next to the title is the save indicator now --
-                green = connected, red = save manually via Settings > Backup.
-                This pill said the same thing with more words. */}
-            {/* Everything else (scoring guide, floor/room calibration, layout,
-                consensus, backup, theme) lives behind this one button now — the
-                header was showing too much at once. */}
-            <button onClick={() => setSettingsOpen(true)} className="p-1.5 text-gray-500 hover:text-ink rounded-lg" title="Settings">
-              <SettingsIcon size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* Calibration check banner */}
-        {calibration && !calibrationDismissed && (
-          <div className="mx-3 mt-2 bg-white border border-border rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 bg-accent-soft">
-              <span className="text-xs font-semibold text-accent">📊 Session {calibration.prev_session} Review</span>
-              <button onClick={() => setCalibrationDismissed(true)} className="text-xs text-gray-400 hover:text-ink">Dismiss</button>
-            </div>
-            <div className="px-4 py-2 border-b border-gray-200">
-              <p className="text-[11px] text-gray-500 leading-relaxed">Quick look at how your rankings compared to the group last session. This isn't about right or wrong — it's about awareness. If you ranked a player very differently from the group, keep an eye on them today.</p>
-            </div>
-            <div className="px-4 py-3 space-y-2">
-              <div className="flex items-center gap-4">
-                <div className="text-center" title="How often your ranking order matched the group's order">
-                  <div className={`text-lg font-bold font-display ${calibration.rank_match >= 85 ? "text-green-600" : calibration.rank_match >= 70 ? "text-amber-500" : "text-red-500"}`}>{calibration.rank_match}%</div>
-                  <div className="text-[10px] text-gray-400">Ranking alignment</div>
-                </div>
-                <div className="text-center" title="How many points of the scoring scale you used (higher = better differentiation)">
-                  <div className="text-lg font-bold font-display text-ink">{calibration.spread}</div>
-                  <div className="text-[10px] text-gray-400">Score range</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold font-display text-ink">{calibration.athletes_scored}</div>
-                  <div className="text-[10px] text-gray-400">Athletes</div>
-                </div>
-              </div>
-              {calibration.disagreements?.length > 0 && (
-                <div>
-                  <div className="text-[10px] text-gray-400 mb-1">Players you ranked differently from the group — worth a closer look today:</div>
-                  {calibration.disagreements.slice(0, 3).map((d, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-                      <span className="text-ink flex-1">{d.name}</span>
-                      <span className="text-gray-500">You: #{d.your_rank}</span>
-                      <span className="text-gray-500">Group: #{d.group_rank}</span>
-                      <span className={`font-bold ${d.diff >= 5 ? "text-red-500" : "text-amber-500"}`}>±{d.diff}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {Object.keys(calibration.category_bias || {}).length > 0 && (
-                <div>
-                  <div className="text-[10px] text-gray-400 mb-1">Your avg vs group avg per category (+ means you scored higher, - means lower):</div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(calibration.category_bias).map(([cat, bias]) => (
-                      <span key={cat} className={`text-[10px] px-1.5 py-0.5 rounded ${Math.abs(bias) > 0.5 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-gray-100 text-gray-500"}`}>
-                        {cat.split(/[\s/]/)[0]}: {bias > 0 ? "+" : ""}{bias}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <button onClick={() => setCalibrationDismissed(true)} className="w-full py-2 text-xs font-semibold text-accent bg-accent-soft hover:opacity-90 border-t border-accent/20">
-              Got it — Start Scoring
-            </button>
-          </div>
-        )}
-
-        {/* Team filter tabs */}
-        <div className="flex border-t border-gray-200">
-          {["all", ...teamColors.map(c => c.name)].map(t => (
-            <button key={t} onClick={() => setTeamFilter(t)}
-              className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize flex items-center justify-center gap-1.5 ${
-                teamFilter === t
-                  ? "text-accent border-b-2 border-accent"
-                  : "text-gray-400 border-b-2 border-transparent"
-              }`}>
-              {t !== "all" && (
-                <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ background: colorFor(t, teamColors).hex, border: `1px solid ${colorFor(t, teamColors).border}` }} />
-              )}
-              {t === "all" ? `All (${athletes.length})` : `${t} (${athletes.filter(a => sameTeam(a.team_color, t)).length})`}
-            </button>
-          ))}
-        </div>
-          <div className="flex items-center justify-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
-            <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
-              {hideCompleted ? "✓ Hiding" : "Hide done"}
-            </button>
-            {viewMode !== "grid" && (
-              <button
-                onClick={() => { setCollapseList(v => !v); setListExpanded(false); }}
-                title="When on, the player grid collapses after you pick someone so the score inputs are right at the top — no scrolling."
-                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${collapseList ? "bg-accent border-accent text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}
-              >
-                {collapseList ? "✓ Compact" : "Compact"}
-              </button>
-            )}
-            {!readOnly && (
-              <button onClick={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }} className="px-3 py-1 text-xs font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">
-                Consensus
-              </button>
-            )}
-            {Object.keys(pending).length > 0 && (
-              <button onClick={resyncNow} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
-                Resync now
-              </button>
-            )}
-          </div>
-      </div>
+      <TopBar
+        online={online} pendingCount={Object.keys(pending).length}
+        orgName={sessionData?.schedule?.org_name} sessionNumber={sessionData?.schedule?.session_number} groupNumber={sessionData?.schedule?.group_number}
+        complete={complete} partial={partial} remaining={remaining}
+        syncStatus={syncStatus}
+        onOpenSettings={() => setSettingsOpen(true)}
+        calibration={calibration} calibrationDismissed={calibrationDismissed} onDismissCalibration={() => setCalibrationDismissed(true)}
+        teamColors={teamColors} teamFilter={teamFilter} setTeamFilter={setTeamFilter} athletes={athletes}
+        hideCompleted={hideCompleted} setHideCompleted={setHideCompleted}
+        viewMode={viewMode} collapseList={collapseList} setCollapseList={setCollapseList} setListExpanded={setListExpanded}
+        readOnly={readOnly}
+        onOpenConsensus={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
+        onResync={resyncNow}
+      />
 
       {/* Scoring guide modal — "what does a 0 look like, what does a 10 look
           like" reference, per skill, for this category's age tier.
@@ -1940,38 +1810,13 @@ function ScoringInterface() {
 
       {/* ── Excusal step: mark unscored players absent/injured before closing ── */}
       {excusalNeeded && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style={{ maxHeight: "85vh" }}>
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="font-display font-extrabold text-ink text-lg leading-tight">Before you close</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {excusalNeeded.length} player{excusalNeeded.length === 1 ? "" : "s"} {excusalNeeded.length === 1 ? "has" : "have"} no score. Mark why for each — that's the only way to close a player out without scoring them.
-              </p>
-            </div>
-            <div className="overflow-y-auto px-5 py-2 flex-1 divide-y divide-gray-50">
-              {excusalNeeded.map(a => (
-                <div key={a.athlete_id} className="py-2.5 flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-gray-900 min-w-0 truncate">{a.name}</span>
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    {[["absent", "Not here"], ["injured", "Got hurt"]].map(([val, label]) => (
-                      <button key={val} onClick={() => setExcusals(e => ({ ...e, [a.athlete_id]: val }))}
-                        className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium ${excusals[a.athlete_id] === val ? "bg-accent text-white border-accent" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
-              <button onClick={() => setExcusalNeeded(null)} disabled={closing} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium disabled:opacity-50">Back to scoring</button>
-              <button onClick={() => attemptClose(excusals)} disabled={closing || excusalNeeded.some(a => !excusals[a.athlete_id])}
-                className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-40">
-                {closing ? "Closing…" : "Confirm & close"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExcusalModal
+          needed={excusalNeeded}
+          excusals={excusals} setExcusals={setExcusals}
+          closing={closing}
+          onBack={() => setExcusalNeeded(null)}
+          onConfirm={() => attemptClose(excusals)}
+        />
       )}
 
       {/* ── Voice bar — fixed at bottom ─────────────────────── */}
