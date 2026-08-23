@@ -2199,15 +2199,23 @@ function ScoringInterface() {
                   <div className="mb-5">
                     <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
                     <div className="space-y-2">
-                      {consensusData.athletes.filter(a => a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => (
+                      {consensusData.athletes.filter(a => a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => {
+                        const full = (sessionData?.athletes || []).find(x => x.id === a.athlete_id) || a;
+                        return (
                         <div key={a.athlete_id} className={`bg-white border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-200" : a.severity === "critical" ? "border-red-200" : "border-amber-200"}`}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${a.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                                 {a.severity === "critical" ? "TOP↔BOTTOM" : "TIER SPLIT"}
                               </span>
-                              <span className="text-sm font-semibold text-ink">{a.first_name} {a.last_name}</span>
-                              {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
+                              {isAnon ? (
+                                <span className="text-sm font-semibold text-ink">{anonLabel(full)}</span>
+                              ) : (
+                                <>
+                                  <span className="text-sm font-semibold text-ink">{a.first_name} {a.last_name}</span>
+                                  {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
+                                </>
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5">
                               <button
@@ -2249,7 +2257,7 @@ function ScoringInterface() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      );})}
                     </div>
                   </div>
                 )}
@@ -2260,12 +2268,14 @@ function ScoringInterface() {
                     <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                       <div className="grid grid-cols-2 gap-1">
-                        {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => (
+                        {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => {
+                          const full = (sessionData?.athletes || []).find(x => x.id === a.athlete_id) || a;
+                          return (
                           <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100">
-                            <span className="text-xs text-gray-700">{a.first_name} {a.last_name}</span>
+                            <span className="text-xs text-gray-700">{isAnon ? anonLabel(full) : `${a.first_name} ${a.last_name}`}</span>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-100 text-green-700" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{a.unique_tiers?.[0]}</span>
                           </div>
-                        ))}
+                          );})}
                       </div>
                     </div>
                   </div>
