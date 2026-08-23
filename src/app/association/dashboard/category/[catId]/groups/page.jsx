@@ -185,7 +185,7 @@ function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, team
                   <div key={player.athlete_id} className={`flex items-center gap-3 px-3 py-2.5 ${player.checked_in ? "bg-green-50/30" : ""}`}>
                     <div
                       onClick={() => setColor(player.athlete_id, player.schedule_id, nextColor(player.team_color, teamColorsFor(player.schedule_id)))}
-                      title="Click to switch jersey colour (White / Dark)"
+                      title="Click to switch jersey colour"
                       style={swatchStyle(colorFor(player.team_color, teamColorsFor(player.schedule_id)))}
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
                       {player.jersey_number || (idx + 1)}
@@ -987,10 +987,10 @@ function GroupsManagerInner() {
                           {movement.up.has(String(player.athlete_id)) && <FlagInfo dir="up" why={movement.why[String(player.athlete_id)]} priority={movement.pri[String(player.athlete_id)]} />}
                           {movement.down.has(String(player.athlete_id)) && <FlagInfo dir="down" why={movement.why[String(player.athlete_id)]} priority={movement.pri[String(player.athlete_id)]} />}
 
-                          {/* Jersey colour indicator — click any time to switch White/Dark (balance the teams) */}
+                          {/* Jersey colour indicator — click any time to switch teams (balance the roster) */}
                           <div
                             onClick={(e) => { e.stopPropagation(); setColor(player.athlete_id, player.schedule_id, nextColor(player.team_color, teamColorsFor(player.schedule_id))); }}
-                            title="Click to switch jersey colour (White / Dark)"
+                            title="Click to switch jersey colour"
                             style={swatchStyle(colorFor(player.team_color, teamColorsFor(player.schedule_id)))}
                             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-[#0b5cd6]/50">
                             {player.jersey_number || (idx + 1)}

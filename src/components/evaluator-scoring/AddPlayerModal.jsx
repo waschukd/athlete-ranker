@@ -8,7 +8,7 @@ import { X } from "lucide-react";
 // add_player action the volunteer check-in screen uses, so they show up in
 // the roster immediately, ready to score.
 export default function AddPlayerModal({ scheduleId, teamColors, onAdded, onClose }) {
-  const [form, setForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", jersey_number: "", team_color: teamColors[0]?.name || "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,7 +28,7 @@ export default function AddPlayerModal({ scheduleId, teamColors, onAdded, onClos
       const d = await res.json();
       if (!res.ok || !d.success) { setError(d.error || "Couldn't add player — try again."); setSaving(false); return; }
       await onAdded();
-      setForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+      setForm({ first_name: "", last_name: "", jersey_number: "", team_color: teamColors[0]?.name || "" });
       onClose();
     } catch { setError("Network error — try again."); }
     setSaving(false);

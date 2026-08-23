@@ -161,7 +161,8 @@ export async function matchupLabel(catId, teamAId, teamBId) {
 // still tweak the roster in the Groups UI afterwards.
 //
 // When scheduleId is given, also pre-colors every player's jersey by which of
-// the two teams they're on (teamIds[0] -> White, teamIds[1] -> Dark) via
+// the two teams they're on (teamIds[0] -> first palette colour, teamIds[1] ->
+// second) via
 // player_checkins.team_color. Without this, a freshly-built roster rendered as
 // one undifferentiated list — every jersey circle the same neutral grey until
 // someone manually clicked each one — which reads as "one big team" rather

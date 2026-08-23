@@ -15,10 +15,14 @@
 // shape in place, and colorFor() falls back to the default palette by name, so
 // untouched sessions keep rendering exactly as they did.
 
-/** The pair every session gets unless someone picks something else. */
+/** The pair every session gets unless someone picks something else. Evaluators
+ *  found White/Dark hard to tell apart at a glance, so new sessions now default
+ *  to a genuinely distinguishable pair. White/Dark are no longer offered or
+ *  defaulted to anywhere -- they only still resolve (via LEGACY_TEAM_COLORS
+ *  below) so sessions created before this change keep rendering correctly. */
 export const DEFAULT_TEAM_COLORS = [
-  { name: "White", hex: "#ffffff", text: "#111827", border: "#9ca3af" },
-  { name: "Dark", hex: "#111827", text: "#ffffff", border: "#374151" },
+  { name: "Red", hex: "#dc2626", text: "#ffffff", border: "#991b1b" },
+  { name: "Blue", hex: "#2563eb", text: "#ffffff", border: "#1e40af" },
 ];
 
 /**
@@ -27,8 +31,6 @@ export const DEFAULT_TEAM_COLORS = [
  * yellow circle needs dark ink and one on navy needs white.
  */
 export const PRESET_TEAM_COLORS = [
-  { name: "White", hex: "#ffffff", text: "#111827", border: "#9ca3af" },
-  { name: "Dark", hex: "#111827", text: "#ffffff", border: "#374151" },
   { name: "Red", hex: "#dc2626", text: "#ffffff", border: "#991b1b" },
   { name: "Blue", hex: "#2563eb", text: "#ffffff", border: "#1e40af" },
   { name: "Green", hex: "#16a34a", text: "#ffffff", border: "#15803d" },
@@ -41,11 +43,20 @@ export const PRESET_TEAM_COLORS = [
   { name: "Maroon", hex: "#7f1d1d", text: "#ffffff", border: "#450a0a" },
 ];
 
+// No longer offered in the picker -- kept only so a session created before
+// this change (literally stored as "White"/"Dark") still resolves to a
+// renderable colour instead of the blank UNKNOWN_TEAM_COLOR placeholder.
+const LEGACY_TEAM_COLORS = [
+  { name: "White", hex: "#ffffff", text: "#111827", border: "#9ca3af" },
+  { name: "Dark", hex: "#111827", text: "#ffffff", border: "#374151" },
+];
+
 /** Rendered when a stored team_color matches nothing in the palette. */
 export const UNKNOWN_TEAM_COLOR = { name: "", hex: "#f3f4f6", text: "#4b5563", border: "#e5e7eb" };
 
 const byName = (name) =>
-  PRESET_TEAM_COLORS.find(c => c.name.toLowerCase() === String(name).toLowerCase());
+  PRESET_TEAM_COLORS.find(c => c.name.toLowerCase() === String(name).toLowerCase()) ||
+  LEGACY_TEAM_COLORS.find(c => c.name.toLowerCase() === String(name).toLowerCase());
 
 /**
  * Normalize whatever is in checkin_sessions.team_colors into full entries.
@@ -84,16 +95,15 @@ export function parseTeamColors(raw) {
 
 /**
  * Resolve a stored player_checkins.team_color to a renderable entry.
- * Falls back to the default palette so a legacy "White"/"Dark" row still
- * renders correctly even on a session that has since picked custom colours.
+ * Falls back to the preset/legacy palettes so a colour from an old session
+ * (including a legacy "White"/"Dark" row) still renders correctly even after
+ * the session's own configured palette has moved on to something else.
  */
 export function colorFor(teamColor, colors) {
   if (!teamColor) return UNKNOWN_TEAM_COLOR;
   const list = Array.isArray(colors) && colors.length ? colors : DEFAULT_TEAM_COLORS;
   const match = list.find(c => c.name.toLowerCase() === String(teamColor).toLowerCase());
-  if (match) return match;
-  const legacy = DEFAULT_TEAM_COLORS.find(c => c.name.toLowerCase() === String(teamColor).toLowerCase());
-  return legacy || byName(teamColor) || UNKNOWN_TEAM_COLOR;
+  return match || byName(teamColor) || UNKNOWN_TEAM_COLOR;
 }
 
 /** Inline style for a jersey circle. Inline on purpose: [data-theme="premium"]

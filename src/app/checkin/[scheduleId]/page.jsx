@@ -86,7 +86,7 @@ function CheckinPageInner() {
     await doAction("checkin", {
       athlete_id: athlete.id,
       jersey_number: jersey,
-      team_color: athlete.team_color || "White",
+      team_color: athlete.team_color || teamColors[0].name,
     });
   };
 
@@ -114,7 +114,7 @@ function CheckinPageInner() {
 
   const checkInExisting = async (athleteId) => {
     await doAction("add_existing", { athlete_id: athleteId });
-    setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+    setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: teamColors[0].name });
     setMatches([]);
   };
 
@@ -342,7 +342,7 @@ function CheckinPageInner() {
                 if (!addForm.first_name || !addForm.last_name) return;
                 setAddLoading(true);
                 await doAction("add_player", { ...addForm, jersey_number: parseInt(addForm.jersey_number) || null });
-                setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: "White" });
+                setAddForm({ first_name: "", last_name: "", jersey_number: "", team_color: teamColors[0].name });
                 setMatches([]);
                 setAddLoading(false);
               }}

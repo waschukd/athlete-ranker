@@ -368,7 +368,7 @@ export async function POST(request, { params }) {
       const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
       if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
-      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
+      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["Red","Blue"]', false) RETURNING id`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
         VALUES (${athleteId}, ${scheduleId}, ${csRows[0].id}, ${color}, false)
@@ -386,7 +386,7 @@ export async function POST(request, { params }) {
       const schedOwned = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
       if (!schedOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       let csRows = await sql`SELECT id FROM checkin_sessions WHERE schedule_id = ${scheduleId} LIMIT 1`;
-      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["White","Dark"]', false) RETURNING id`;
+      if (!csRows.length) csRows = await sql`INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open) VALUES (${scheduleId}, ${catId}, '["Red","Blue"]', false) RETURNING id`;
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, checked_in)
         VALUES (${athleteId}, ${scheduleId}, ${csRows[0].id}, ${num}, false)
@@ -469,7 +469,7 @@ async function applySnakeDraftColors(catId, sessionNumber, groups) {
   // Batch: ensure checkin_sessions exist for all schedule IDs (insert missing ones)
   await sql`
     INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
-    SELECT s.id, ${catId}, '["White","Dark"]', false
+    SELECT s.id, ${catId}, '["Red","Blue"]', false
     FROM unnest(${scheduleIds}::int[]) AS s(id)
     WHERE NOT EXISTS (SELECT 1 FROM checkin_sessions cs WHERE cs.schedule_id = s.id)`;
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_TEAM_COLORS,
+  PRESET_TEAM_COLORS,
   UNKNOWN_TEAM_COLOR,
   parseTeamColors,
   colorFor,
@@ -10,9 +11,13 @@ import {
   colorNames,
 } from "@/lib/teamColors";
 
-// The whole point of this module is that it cannot change how existing sessions
-// render. Every row in production is "White" or "Dark" and every checkin_session
-// holds the literal ["White","Dark"], so those cases are asserted hardest.
+// This module must never break how sessions created BEFORE the White/Dark ->
+// Red/Blue default switch render -- every one of those rows is "White" or
+// "Dark" and every checkin_session from that era holds the literal
+// ["White","Dark"], so those legacy cases are asserted hardest. Going forward,
+// White/Dark are no longer offered or defaulted to anywhere (evaluators found
+// them too hard to differentiate), so DEFAULT_TEAM_COLORS/PRESET_TEAM_COLORS
+// are asserted against Red/Blue instead.
 
 describe("parseTeamColors — legacy shapes", () => {
   it("upgrades the legacy [\"White\",\"Dark\"] array to full entries", () => {
@@ -102,8 +107,14 @@ describe("swatchStyle", () => {
 
 describe("nextColor — the tap-to-switch toggle", () => {
   it("flips between the two default colours", () => {
-    expect(nextColor("White", DEFAULT_TEAM_COLORS)).toBe("Dark");
-    expect(nextColor("Dark", DEFAULT_TEAM_COLORS)).toBe("White");
+    expect(nextColor("Red", DEFAULT_TEAM_COLORS)).toBe("Blue");
+    expect(nextColor("Blue", DEFAULT_TEAM_COLORS)).toBe("Red");
+  });
+
+  it("still flips a legacy White/Dark session", () => {
+    const legacy = parseTeamColors(["White", "Dark"]);
+    expect(nextColor("White", legacy)).toBe("Dark");
+    expect(nextColor("Dark", legacy)).toBe("White");
   });
 
   it("flips between two custom colours", () => {
@@ -120,8 +131,20 @@ describe("nextColor — the tap-to-switch toggle", () => {
   });
 
   it("starts at the first colour when the current one is unset or unknown", () => {
-    expect(nextColor(null, DEFAULT_TEAM_COLORS)).toBe("White");
-    expect(nextColor("Chartreuse", DEFAULT_TEAM_COLORS)).toBe("White");
+    expect(nextColor(null, DEFAULT_TEAM_COLORS)).toBe("Red");
+    expect(nextColor("Chartreuse", DEFAULT_TEAM_COLORS)).toBe("Red");
+  });
+});
+
+describe("no more White/Dark by default", () => {
+  it("defaults new sessions to Red/Blue, not White/Dark", () => {
+    expect(DEFAULT_TEAM_COLORS.map(c => c.name)).toEqual(["Red", "Blue"]);
+  });
+
+  it("no longer offers White or Dark in the picker", () => {
+    const names = PRESET_TEAM_COLORS.map(c => c.name.toLowerCase());
+    expect(names).not.toContain("white");
+    expect(names).not.toContain("dark");
   });
 });
 
@@ -137,6 +160,6 @@ describe("helpers", () => {
   it("colorNames returns plain names and accepts every stored shape", () => {
     expect(colorNames(["White", "Dark"])).toEqual(["White", "Dark"]);
     expect(colorNames('["Red","Blue"]')).toEqual(["Red", "Blue"]);
-    expect(colorNames(null)).toEqual(["White", "Dark"]);
+    expect(colorNames(null)).toEqual(["Red", "Blue"]);
   });
 });

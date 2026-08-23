@@ -87,7 +87,7 @@ export async function GET(request, { params }) {
     if (!checkinSession.length) {
       checkinSession = await sql`
         INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
-        VALUES (${scheduleId}, ${sched.category_id}, '["White","Dark"]', true)
+        VALUES (${scheduleId}, ${sched.category_id}, '["Red","Blue"]', true)
         RETURNING *
       `;
     } else {
@@ -271,13 +271,10 @@ export async function GET(request, { params }) {
         total: athletes.length,
         checked_in: athletes.filter(a => a.checked_in).length,
         not_checked_in: athletes.filter(a => !a.checked_in).length,
-        // Per-colour tallies keyed by name, for any palette. white_count and
-        // dark_count are kept so existing callers keep working unchanged.
+        // Per-colour tallies keyed by name, for any palette.
         by_color: Object.fromEntries(teamColors.map(c => [
           c.name, athletes.filter(a => String(a.team_color || "").toLowerCase() === c.name.toLowerCase()).length,
         ])),
-        white_count: athletes.filter(a => a.team_color === "White").length,
-        dark_count: athletes.filter(a => a.team_color === "Dark").length,
       },
     });
   } catch (error) {
