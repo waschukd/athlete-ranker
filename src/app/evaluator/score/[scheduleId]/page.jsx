@@ -260,11 +260,13 @@ function ScoringInterface() {
   // session's real colour name rather than a Light/Dark abstraction the evaluator
   // would have to translate against the jersey actually in front of them.
   const sameTeam = (a, b) => String(a ?? "").toLowerCase() === String(b ?? "").toLowerCase();
+  // "" (not a fabricated colour word) when this player was never assigned one --
+  // anonLabel below drops the colour entirely rather than showing a made-up name.
   const teamLabel = (a) =>
-    colorFor(a?.team_color, parseTeamColors(sessionData?.checkinSession?.team_colors)).name || "Light";
+    colorFor(a?.team_color, parseTeamColors(sessionData?.checkinSession?.team_colors)).name || "";
   // What the evaluator sees for a player: helmet sticker # in helmet mode, else jersey #.
   const idOf = (a) => helmetMode ? (a?.helmet_number || "?") : (a?.jersey_number ?? "?");
-  const anonLabel = (a) => `${teamLabel(a)} ${idOf(a)}`;
+  const anonLabel = (a) => { const tl = teamLabel(a); return tl ? `${tl} ${idOf(a)}` : `#${idOf(a)}`; };
   const scheduleData = sessionData?.schedule;
   // Read-only when this evaluator has closed (locked) their own session. The
   // server also rejects edits — this just keeps the UI honest.

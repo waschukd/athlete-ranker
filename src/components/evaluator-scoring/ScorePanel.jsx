@@ -181,7 +181,7 @@ export default function ScorePanel({
             if (theirFilled.length < totalCats) return false; // only fully-rated peers
             const theirOverall = Math.round((theirFilled.reduce((a, b) => a + b, 0) / theirFilled.length) * 10) / 10;
             return theirOverall === myOverall;
-          }).map(a => (helmetMode || a.jersey_number) ? `${colorInitial(a.team_color)}${idOf(a)}` : (isAnon ? `${teamLabel(a)} ?` : `${a.last_name}, ${a.first_name?.[0]}.`));
+          }).map(a => (helmetMode || a.jersey_number) ? `${colorInitial(a.team_color)}${idOf(a)}` : (isAnon ? `${teamLabel(a) ? teamLabel(a) + " " : ""}?` : `${a.last_name}, ${a.first_name?.[0]}.`));
 
           return (
             <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl p-3">

@@ -17,7 +17,11 @@ export default function GridView({
       <table className="w-full text-sm border-collapse">
         <thead className="sticky top-0 z-10">
           <tr className="bg-gray-50">
-            <th className="text-left py-2 px-2 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 min-w-[140px]">Name</th>
+            {/* Anonymous labels ("Red 12") are far shorter than a full name --
+                giving this column the full-name width regardless pushed the
+                category columns (and Notes/✓ at the far end) off-screen on a
+                phone, forcing a horizontal scroll just to see them. */}
+            <th className={`text-left py-2 px-2 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 ${isAnon ? "min-w-[76px]" : "min-w-[140px]"}`}>Name</th>
             {scoringCats.map(cat => (
               <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
             ))}
