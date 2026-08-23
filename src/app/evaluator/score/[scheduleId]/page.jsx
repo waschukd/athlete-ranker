@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, BookOpen, Settings as SettingsIcon, MessageSquare } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, Settings as SettingsIcon, MessageSquare } from "lucide-react";
 import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
@@ -16,6 +16,8 @@ import RangesModal from "@/components/evaluator-scoring/RangesModal";
 import TeamPingModal from "@/components/evaluator-scoring/TeamPingModal";
 import PingToast from "@/components/evaluator-scoring/PingToast";
 import AddPlayerModal from "@/components/evaluator-scoring/AddPlayerModal";
+import SettingsModal from "@/components/evaluator-scoring/SettingsModal";
+import ConsensusModal from "@/components/evaluator-scoring/ConsensusModal";
 
 const qc = new QueryClient();
 
@@ -1444,100 +1446,24 @@ function ScoringInterface() {
           counts, the team filter, and the save indicator. Same top-level
           placement reasoning as the guide modal above. */}
       {settingsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-ink flex items-center gap-1.5"><SettingsIcon size={17} className="text-accent" /> Settings</h3>
-              <button onClick={() => setSettingsOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="p-4 space-y-5">
-              <div>
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Find a player</h4>
-                <div className="relative">
-                  <input
-                    value={jerseySearch}
-                    onChange={e => { setJerseySearch(e.target.value); setSettingsOpen(false); }}
-                    inputMode="numeric"
-                    placeholder={isAnon ? "Find #" : "Find # or name"}
-                    autoFocus
-                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent/30"
-                  />
-                  {jerseySearch && (
-                    <button onClick={() => setJerseySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-base leading-none">×</button>
-                  )}
-                </div>
-              </div>
-
-              {!readOnly && (
-                <button onClick={() => { setSettingsOpen(false); setAddPlayerOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                  <span>+ Add player (on ice, not checked in)</span>
-                  <ChevronRight size={15} className="text-gray-400" />
-                </button>
-              )}
-
-              <button onClick={() => { setSettingsOpen(false); setShowRoster(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                <span>Who's evaluating with me</span>
-                <ChevronRight size={15} className="text-gray-400" />
-              </button>
-
-              {!readOnly && (
-                <button onClick={() => { setSettingsOpen(false); setShowPings(true); markPingsSeen(); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                  <span className="flex items-center gap-2">
-                    Team ping
-                    {unreadPings > 0 && <span className="w-5 h-5 flex items-center justify-center rounded-full bg-accent text-white text-[10px] font-bold">{unreadPings}</span>}
-                  </span>
-                  <ChevronRight size={15} className="text-gray-400" />
-                </button>
-              )}
-
-              {hasGuideContent && (
-                <button onClick={() => { setSettingsOpen(false); setGuideOpen(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                  <span className="flex items-center gap-2"><BookOpen size={15} className="text-accent" /> Scoring guide</span>
-                  <ChevronRight size={15} className="text-gray-400" />
-                </button>
-              )}
-
-              <button onClick={() => { setSettingsOpen(false); setShowRanges(true); }} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
-                <span>Ranges</span>
-                <ChevronRight size={15} className="text-gray-400" />
-              </button>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>
-                <div className="flex bg-gray-100 rounded-lg border border-gray-300 overflow-hidden">
-                  {[
-                    { id: "card", label: "Buttons" },
-                    { id: "numpad", label: "Numpad" },
-                    { id: "grid", label: "Grid" },
-                  ].map(m => (
-                    <button key={m.id} onClick={() => { if (viewMode !== m.id) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m.id, scheduleId } }); setViewMode(m.id); }}
-                      className={`flex-1 px-2.5 py-2 text-xs font-semibold transition-colors ${viewMode === m.id ? "bg-accent text-white" : "text-gray-500"}`}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Backup</h4>
-                <div className="space-y-1">
-                  <button onClick={() => downloadBackup()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download CSV (readable)</button>
-                  <button onClick={() => downloadBackupJson()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200">Download backup file</button>
-                  <label className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
-                    Restore from file…
-                    <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; setSettingsOpen(false); restoreFromFile(f); }} />
-                  </label>
-                  <p className="px-1 pt-1 text-xs text-gray-400 leading-snug">Emergency use — your scores already save to this device and sync automatically.</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Appearance</h4>
-                <ThemeToggle theme={theme} onToggle={toggleTheme} />
-              </div>
-            </div>
-          </div>
-        </div>
+        <SettingsModal
+          onClose={() => setSettingsOpen(false)}
+          jerseySearch={jerseySearch} setJerseySearch={setJerseySearch} isAnon={isAnon}
+          readOnly={readOnly}
+          onOpenAddPlayer={() => { setSettingsOpen(false); setAddPlayerOpen(true); }}
+          onOpenRoster={() => { setSettingsOpen(false); setShowRoster(true); }}
+          onOpenPings={() => { setSettingsOpen(false); setShowPings(true); markPingsSeen(); }}
+          unreadPings={unreadPings}
+          hasGuideContent={hasGuideContent}
+          onOpenGuide={() => { setSettingsOpen(false); setGuideOpen(true); }}
+          onOpenRanges={() => { setSettingsOpen(false); setShowRanges(true); }}
+          viewMode={viewMode}
+          onSetViewMode={(m) => { if (viewMode !== m) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m, scheduleId } }); setViewMode(m); }}
+          onDownloadBackup={downloadBackup}
+          onDownloadBackupJson={downloadBackupJson}
+          onRestoreFromFile={restoreFromFile}
+          theme={theme} onToggleTheme={toggleTheme}
+        />
       )}
 
       {addPlayerOpen && (
@@ -1997,170 +1923,19 @@ function ScoringInterface() {
 
       {/* ── Consensus overlay ─────────────────────────────────── */}
       {showConsensus && (
-        <div className="fixed inset-0 z-30 bg-black/40 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 py-6">
-            <div className="bg-white rounded-2xl border border-gray-200 px-4 py-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-ink">Consensus Review</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Do evaluators rank athletes in the same tier?</p>
-              </div>
-              <button onClick={() => setShowConsensus(false)} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
-                <X size={20} />
-              </button>
-            </div>
-
-            {consensusLoading ? (
-              <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" /></div>
-            ) : !consensusData?.athletes?.length ? (
-              <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
-            ) : (
-              <>
-                {/* Evaluator filter — narrow the discussion list to just one
-                    evaluator's disagreements, useful when several evaluators
-                    are reviewing together and want to focus on one at a time. */}
-                {(() => {
-                  const evalNames = [...new Set(consensusData.athletes.flatMap(a => (a.per_evaluator || []).map(e => e.evaluator_name)).filter(Boolean))].sort();
-                  return evalNames.length > 1 ? (
-                    <div className="mb-4">
-                      <select value={consensusEvalFilter} onChange={e => setConsensusEvalFilter(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30">
-                        <option value="">All evaluators</option>
-                        {evalNames.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Summary */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
-                    <div className="text-xl font-bold text-ink">{consensusData.athletes.length}</div>
-                    <div className="text-[10px] text-gray-500">Athletes</div>
-                  </div>
-                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
-                    <div className={`text-xl font-bold ${consensusData.flagged_count > 0 ? "text-amber-600" : "text-green-600"}`}>{consensusData.flagged_count}</div>
-                    <div className="text-[10px] text-gray-500">Need Discussion</div>
-                  </div>
-                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center">
-                    <div className="text-xl font-bold text-green-600">{consensusData.athletes.length - consensusData.flagged_count}</div>
-                    <div className="text-[10px] text-gray-500">Agreed</div>
-                  </div>
-                </div>
-
-                {/* Tier info */}
-                {consensusData.tier_info && (
-                  <div className="flex items-center gap-2 mb-4 text-[10px] text-gray-500">
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">Top {consensusData.tier_info.top}</span>
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Middle</span>
-                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded">Bottom {consensusData.tier_info.total - consensusData.tier_info.bottom + 1}</span>
-                    <span className="text-gray-400">of {consensusData.tier_info.total} athletes</span>
-                  </div>
-                )}
-
-                {/* Flagged athletes — tier splits */}
-                {consensusData.flagged_count > 0 && (
-                  <div className="mb-5">
-                    <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Needs Discussion — Evaluators Ranked in Different Tiers</div>
-                    <div className="space-y-2">
-                      {consensusData.athletes.filter(a => a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => {
-                        const full = (sessionData?.athletes || []).find(x => x.id === a.athlete_id) || a;
-                        return (
-                        <div key={a.athlete_id} className={`bg-white border rounded-xl p-4 ${reviewedFlags.has(a.athlete_id) ? "border-green-200" : a.severity === "critical" ? "border-red-200" : "border-amber-200"}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${a.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                                {a.severity === "critical" ? "TOP↔BOTTOM" : "TIER SPLIT"}
-                              </span>
-                              {isAnon ? (
-                                <span className="text-sm font-semibold text-ink">{anonLabel(full)}</span>
-                              ) : (
-                                <>
-                                  <span className="text-sm font-semibold text-ink">{a.first_name} {a.last_name}</span>
-                                  {a.jersey_number && <span className="text-xs text-gray-500">#{a.jersey_number}</span>}
-                                </>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => {
-                                  const ath = (sessionData?.athletes || []).find(x => x.id === a.athlete_id);
-                                  if (ath) { setSelected(ath); setShowConsensus(false); logClientEvent("consensus.fix_score_clicked", { metadata: { catId, athleteId: a.athlete_id } }); }
-                                }}
-                                className="text-xs px-2.5 py-1 bg-accent-soft text-accent rounded-lg hover:opacity-90 font-semibold">Fix score →</button>
-                              {!reviewedFlags.has(a.athlete_id) ? (
-                                <button onClick={() => { setReviewedFlags(prev => new Set([...prev, a.athlete_id])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId: a.athlete_id, severity: a.severity } }); }} className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Discussed ✓</button>
-                              ) : (
-                                <span className="text-xs text-green-600">✓ Done</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Per-evaluator rankings */}
-                          <div className="space-y-1.5">
-                            {a.per_evaluator?.map(ev => (
-                              <div key={ev.evaluator_id} className={`flex items-center gap-2 ${consensusEvalFilter && ev.evaluator_name === consensusEvalFilter ? "bg-accent-soft rounded-lg px-1.5 py-0.5 -mx-1.5" : ""}`}>
-                                <span className="text-xs text-gray-600 w-28 truncate">{ev.evaluator_name}</span>
-                                <span className={`text-xs font-bold w-8 text-center ${ev.tier === "top" ? "text-green-600" : ev.tier === "bottom" ? "text-amber-600" : "text-gray-700"}`}>#{ev.rank}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.tier === "top" ? "bg-green-100 text-green-700" : ev.tier === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{ev.tier}</span>
-                                <span className="text-xs text-gray-400 ml-auto">avg {ev.avg_score}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Category detail */}
-                          <div className="mt-3 pt-2 border-t border-gray-200">
-                            <div className="flex flex-wrap gap-3">
-                              {a.categories?.map(cat => (
-                                <div key={cat.name} className="text-xs">
-                                  <span className="text-gray-500">{cat.name}: </span>
-                                  <span className="text-ink font-mono">{cat.avg}</span>
-                                  {cat.spread > 0 && <span className={`ml-1 ${cat.spread > 2 ? "text-red-600" : cat.spread > 1 ? "text-amber-600" : "text-gray-500"}`}>(±{cat.spread})</span>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      );})}
-                    </div>
-                  </div>
-                )}
-
-                {/* Agreed athletes */}
-                {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).length > 0 && (
-                  <div className="mb-5">
-                    <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2">All Evaluators Agree on Tier — No Discussion Needed</div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                      <div className="grid grid-cols-2 gap-1">
-                        {consensusData.athletes.filter(a => !a.flagged && (!consensusEvalFilter || a.per_evaluator?.some(ev => ev.evaluator_name === consensusEvalFilter))).map(a => {
-                          const full = (sessionData?.athletes || []).find(x => x.id === a.athlete_id) || a;
-                          return (
-                          <div key={a.athlete_id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100">
-                            <span className="text-xs text-gray-700">{isAnon ? anonLabel(full) : `${a.first_name} ${a.last_name}`}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${a.unique_tiers?.[0] === "top" ? "bg-green-100 text-green-700" : a.unique_tiers?.[0] === "bottom" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{a.unique_tiers?.[0]}</span>
-                          </div>
-                          );})}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Close Session */}
-                <div className="border-t border-gray-200 pt-4">
-                  <p className="text-xs text-gray-500 mb-3">
-                    {consensusData.flagged_count > 0 && [...reviewedFlags].length < consensusData.flagged_count
-                      ? `Discuss ${consensusData.flagged_count - [...reviewedFlags].length} remaining athlete(s) before closing, or they'll be reported as unreviewed.`
-                      : "All flagged athletes reviewed. Ready to close."}
-                  </p>
-                  <button onClick={closeSession} disabled={closing}
-                    className="w-full py-3 bg-accent text-white rounded-xl font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-                    {closing ? "Closing..." : "Close Session"}
-                  </button>
-                </div>
-              </>
-            )}
-            </div>
-          </div>
-        </div>
+        <ConsensusModal
+          data={consensusData} loading={consensusLoading}
+          evalFilter={consensusEvalFilter} setEvalFilter={setConsensusEvalFilter}
+          reviewedFlags={reviewedFlags}
+          onDiscussed={(athleteId, severity) => { setReviewedFlags(prev => new Set([...prev, athleteId])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId, severity } }); }}
+          isAnon={isAnon} anonLabel={anonLabel} athletes={sessionData?.athletes}
+          onFixScore={(athleteId) => {
+            const ath = (sessionData?.athletes || []).find(x => x.id === athleteId);
+            if (ath) { setSelected(ath); setShowConsensus(false); logClientEvent("consensus.fix_score_clicked", { metadata: { catId, athleteId } }); }
+          }}
+          closing={closing} onCloseSession={closeSession}
+          onClose={() => setShowConsensus(false)}
+        />
       )}
 
       {/* ── Excusal step: mark unscored players absent/injured before closing ── */}
