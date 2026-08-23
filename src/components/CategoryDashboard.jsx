@@ -393,10 +393,18 @@ export default function CategoryDashboard({
       // robin, standard makes testing groups.
       if (!category?.setup_complete) return null;
       if (athletes.length === 0) return { kind: "add_players" };
-      // Welcome families next — but only when there are emails to send to and it
-      // hasn't been done yet; otherwise skip straight to groups/teams.
-      const hasParentEmails = athletes.some(a => a.parent_email || a.parent_email_2);
-      if (hasParentEmails && !category?.welcome_sent_at) return { kind: "welcome_players" };
+      // Welcome families next — but only when there's actually someone who
+      // hasn't gotten it yet. welcome_sent_at is stamped once, the first time
+      // the button is clicked, but registration keeps rolling in afterward --
+      // a category welcomed at 4 athletes and now sitting at 130 still has 126
+      // families who've never seen it. Re-flag whenever an athlete with a
+      // parent email was added after the last send (or nothing's gone out at
+      // all yet).
+      const hasUnwelcomed = athletes.some(a =>
+        (a.parent_email || a.parent_email_2) &&
+        (!category?.welcome_sent_at || new Date(a.created_at) > new Date(category.welcome_sent_at))
+      );
+      if (hasUnwelcomed) return { kind: "welcome_players" };
       return category?.eval_format === "round_robin"
         ? { kind: "make_teams", href: `/association/dashboard/category/${catId}/teams?org=${orgId}` }
         : { kind: "make_groups", next: 1, href: `/association/dashboard/category/${catId}/groups?org=${orgId}&session=1` };
