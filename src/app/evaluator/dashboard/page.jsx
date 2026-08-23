@@ -1123,6 +1123,15 @@ function EvaluatorDashboard() {
     () => mineFilter === "all" ? combinedMine : combinedMine.filter(s => s.__kind === mineFilter),
     [combinedMine, mineFilter]
   );
+  // Completed (past the 4h grace) sessions move to their own collapsed section
+  // instead of sitting at the top of the board, forcing a scroll past a done day
+  // to reach tomorrow's.
+  const mineActive = useMemo(() => mineFiltered.filter(s => !isSessionPast(s)), [mineFiltered]);
+  const mineCompleted = useMemo(
+    () => mineFiltered.filter(s => isSessionPast(s))
+      .sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || "") || (b.start_time || "").localeCompare(a.start_time || "")),
+    [mineFiltered]
+  );
   const mineCounts = useMemo(() => ({
     all: combinedMine.length,
     testing: combinedMine.filter(s => s.__kind === "testing").length,
@@ -1232,17 +1241,6 @@ function EvaluatorDashboard() {
   // day rolls over.
   const upcoming = combinedMine.filter(s => !isSessionPast(s));
   const past = combinedMine.filter(s => isSessionPast(s));
-
-  // Group My Sessions so unfinished work floats up: Today → Needs scoring → Upcoming → Done
-  const _today = localToday();
-  const grp = { today: [], needs: [], upcoming: [], done: [] };
-  for (const s of mineSessions) {
-    const d = s.scheduled_date?.toString().split("T")[0];
-    const scored = parseInt(s.my_scored_athletes || 0) > 0;
-    if (isSessionPast(s)) (scored ? grp.done : grp.needs).push(s);
-    else if (d > _today) grp.upcoming.push(s);
-    else grp.today.push(s);
-  }
 
   // Hold render until capabilities resolve (so a pure tester never flashes the
   // evaluator shell before the redirect above sends them to /tester/dashboard).
@@ -1401,9 +1399,10 @@ function EvaluatorDashboard() {
                   <SessionTypeTabs value={mineFilter} onChange={setMineFilter} counts={mineCounts} />
                 )}
                 <ScheduleBoard
-                  sessions={mineFiltered}
+                  sessions={mineActive}
                   storageKey="eval-mine-view"
                   subscribeEndpoint="/api/evaluator/calendar-link"
+                  emptyText="Nothing left to do — everything's completed below."
                   renderRow={(s) => (
                     <SessionCard session={s} mode="mine" kind={isTester && isEvaluator ? s.__kind : undefined}
                       onCancel={() => {}}
@@ -1414,6 +1413,26 @@ function EvaluatorDashboard() {
                       onSignup={() => {}} />
                   )}
                 />
+                {mineCompleted.length > 0 && (
+                  <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between hover:bg-gray-50">
+                      <span className="text-sm font-semibold text-ink">Completed ({mineCompleted.length})</span>
+                      <span className="text-gray-400 text-xs group-open:hidden">Show</span>
+                      <span className="text-gray-400 text-xs hidden group-open:inline">Hide</span>
+                    </summary>
+                    <div className="border-t border-gray-100 p-4 space-y-2">
+                      {mineCompleted.map(s => (
+                        <SessionCard key={s.schedule_id} session={s} mode="mine" kind={isTester && isEvaluator ? s.__kind : undefined}
+                          onCancel={() => {}}
+                          onCancelWithReason={(id, reason) => s.__kind === "testing"
+                            ? testerCancelMutation.mutate(id)
+                            : cancelMutation.mutate({ schedule_id: id, reason })}
+                          cancelPending={s.__kind === "testing" ? testerCancelMutation.isPending : cancelMutation.isPending}
+                          onSignup={() => {}} />
+                      ))}
+                    </div>
+                  </details>
+                )}
               </>
             )}
           </div>

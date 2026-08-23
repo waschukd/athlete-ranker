@@ -56,6 +56,12 @@ export default function TesterDashboard() {
 
   const mine = data?.mine || [];
   const available = data?.available || [];
+  // Completed (past the 4h grace) sessions get their own collapsed section
+  // instead of sitting at the top of My Sessions, forcing a scroll past a done
+  // day to reach tomorrow's.
+  const mineActive = mine.filter(s => !isSessionPast(s));
+  const mineCompleted = mine.filter(s => isSessionPast(s))
+    .sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || "") || (b.start_time || "").localeCompare(a.start_time || ""));
   // What the Available tab renders: fresh server list + just-signed-up snapshots
   // re-inserted (ScheduleBoard sorts by date/time, so each lands back in place).
   const availDisplay = justSignedUp.size === 0 ? available
@@ -198,8 +204,23 @@ export default function TesterDashboard() {
             </div>
 
             {tab === "mine" && (
-              <ScheduleBoard sessions={mine} storageKey="tester-mine-view" subscribeEndpoint="/api/tester/calendar-link"
-                emptyText="You haven't signed up for any testing sessions yet — check Available." renderRow={(s) => <Row s={s} mineRow />} />
+              <>
+                <ScheduleBoard sessions={mineActive} storageKey="tester-mine-view" subscribeEndpoint="/api/tester/calendar-link"
+                  emptyText={mineCompleted.length > 0 ? "Nothing left to do — everything's completed below." : "You haven't signed up for any testing sessions yet — check Available."}
+                  renderRow={(s) => <Row s={s} mineRow />} />
+                {mineCompleted.length > 0 && (
+                  <details className="group bg-white border border-gray-200 rounded-xl overflow-hidden mt-4">
+                    <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between hover:bg-gray-50">
+                      <span className="text-sm font-semibold text-ink">Completed ({mineCompleted.length})</span>
+                      <span className="text-gray-400 text-xs group-open:hidden">Show</span>
+                      <span className="text-gray-400 text-xs hidden group-open:inline">Hide</span>
+                    </summary>
+                    <div className="border-t border-gray-100 p-4 space-y-2">
+                      {mineCompleted.map(s => <Row key={s.schedule_id} s={s} mineRow />)}
+                    </div>
+                  </details>
+                )}
+              </>
             )}
             {tab === "available" && (
               <ScheduleBoard sessions={availDisplay} storageKey="tester-avail-view"
