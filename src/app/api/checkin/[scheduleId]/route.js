@@ -288,8 +288,13 @@ export async function POST(request, { params }) {
     }
 
     if (action === "undo_checkin") {
+      // jersey_number is scoped to the active check-in -- the "checkin" action
+      // above always overwrites it fresh (even to null) whenever someone checks
+      // in, so undoing should clear it the same way. Otherwise a corrected/mis-
+      // typed number lingers on the roster until the player is checked in again.
+      // team_color is a longer-lived team assignment, not check-in state -- leave it.
       await sql`
-        UPDATE player_checkins SET checked_in = false, checked_in_at = NULL
+        UPDATE player_checkins SET checked_in = false, checked_in_at = NULL, jersey_number = NULL
         WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}
       `;
       return NextResponse.json({ success: true });
