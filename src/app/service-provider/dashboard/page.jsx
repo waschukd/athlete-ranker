@@ -15,6 +15,8 @@ import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import { downloadContactsCsv, formatTime, localToday, formatDate, sessionStaffing } from "@/lib/spDashboardUtils";
+import { SessionRow, OpenSpotsTracker } from "@/components/service-provider/OverviewWidgets";
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -25,104 +27,6 @@ const SESSION_TYPE_COLORS = {
   skills: "bg-purple-100 text-purple-700",
   scrimmage: "bg-green-100 text-green-700",
 };
-
-// CSV field-quoting: wrap in quotes only when it contains something that
-// would otherwise break the format (comma, quote, newline); double up any
-// internal quotes. Plain values pass through untouched.
-function csvField(v) {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-function downloadContactsCsv(rows, filename) {
-  const header = ["Name", "Email", "Phone", "Status"];
-  const lines = [header.join(",")];
-  for (const r of rows) {
-    lines.push([r.name, r.email, r.phone || "", r.status || r.membership_status || ""].map(csvField).join(","));
-  }
-  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
-  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function formatTime(t) {
-  if (!t) return "";
-  const [h, m] = t.toString().split(":");
-  const hr = parseInt(h);
-  return `${hr > 12 ? hr - 12 : hr}:${m} ${hr >= 12 ? "PM" : "AM"}`;
-}
-
-// Today in the viewer's LOCAL timezone (UTC toISOString rolls over mid-evening).
-function localToday() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-function formatDate(d) {
-  if (!d) return "";
-  const str = d.toString().split("T")[0];
-  const [year, month, day] = str.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-}
-
-// Relevant staffing for a session: testing sessions are staffed by TESTERS, not
-// evaluators — so a testing session with 0 evaluators required must not read as
-// "Staffed" just because it needs no evaluators.
-function sessionStaffing(s) {
-  const isTesting = s.session_type === "testing" && !s.is_goalie_sp;
-  if (isTesting) {
-    // The server only puts tester_spots_open on its byDate; the flat `schedule`
-    // the dashboard uses carries the raw counts, so compute the gap here.
-    const req = parseInt(s.testers_required) || 0;
-    const signed = parseInt(s.testers_signed_up) || 0;
-    return { isTesting: true, open: Math.max(0, req - signed), req, noun: "tester" };
-  }
-  return { isTesting: false, open: parseInt(s.spots_open) || 0, req: null, noun: "evaluator" };
-}
-
-// Compact session line used on the Overview (home) tab for Today's / Upcoming lists.
-function SessionRow({ s, showDate }) {
-  const st = sessionStaffing(s);
-  return (
-    <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
-      <div className="min-w-[10rem] flex-1">
-        <div className="text-sm font-semibold text-gray-900 truncate">{s.org_name} · {s.category_name}</div>
-        <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
-          <span>S{s.session_number}{s.group_number ? ` · G${s.group_number}` : ""}</span>
-          {showDate && <><span className="text-gray-300">·</span><span>{formatDate(s.scheduled_date)}</span></>}
-          {s.start_time && <><span className="text-gray-300">·</span><span className="inline-flex items-center gap-1"><Clock size={11} />{formatTime(s.start_time)}{s.end_time ? `–${formatTime(s.end_time)}` : ""}</span></>}
-          {s.location && <><span className="text-gray-300">·</span><span className="inline-flex items-center gap-1"><MapPin size={11} />{s.location}</span></>}
-        </div>
-      </div>
-      {st.isTesting && st.req === 0
-        ? <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full font-medium flex-shrink-0">Set testers</span>
-        : st.open > 0
-        ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">needs {st.open} more {st.noun}{st.open === 1 ? "" : "s"}</span>
-        : <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium flex-shrink-0">Staffed</span>}
-      {s.is_goalie_sp
-        ? <a href={`/evaluator/score/${s.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md flex-shrink-0 inline-flex items-center gap-1.5"><Star size={12} /> Evaluate</a>
-        : <a href={`/checkin/${s.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-shrink-0">Check-in</a>}
-    </div>
-  );
-}
-
-// Compact banner atop the Evaluator/Tester Pool tabs — "how many spots need
-// filled" is the first thing an SP wants to know before triaging the roster.
-function OpenSpotsTracker({ open, sessions, noun }) {
-  if (open <= 0) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
-        <CheckCircle size={16} className="flex-shrink-0" />
-        <span>All upcoming {noun} sessions are fully staffed.</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-      <AlertTriangle size={16} className="flex-shrink-0" />
-      <span><b>{open}</b> open {noun} spot{open === 1 ? "" : "s"} across <b>{sessions}</b> upcoming session{sessions === 1 ? "" : "s"}.</span>
-    </div>
-  );
-}
 
 // Per-association colour picker for the SP master schedule. Presets match the
 // built-in palette; a custom hex or "Auto" (clear) are also available.
