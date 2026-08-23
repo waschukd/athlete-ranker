@@ -1005,7 +1005,7 @@ function ScoringInterface() {
       let scored = 0;
       for (const cat of cats) {
         const catName = cat.name.toLowerCase();
-        // Try full name first, then each individual word (for multi-word categories like "Hockey IQ")
+        // Try full name first, then each individual word (for multi-word categories like "Hockey Sense")
         const words = catName.split(/[\s/]+/).filter(w => w.length >= 2);
         const keywords = [
           catName.replace(/[^a-z0-9]/g, "\\s*"), // full name flexible spacing

@@ -6,7 +6,7 @@ import { ArrowLeft, MapPin, Plus, X } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const AREAS = ["Skating", "Puck Skills", "Hockey IQ", "Effort & Compete", "Goaltending", "Strength & Conditioning"];
+const AREAS = ["Skating", "Puck Skills", "Hockey Sense", "Effort & Compete", "Goaltending", "Strength & Conditioning"];
 
 function ProvidersInner() {
   const searchParams = useSearchParams();

@@ -56,7 +56,7 @@ const G_SAVE = (n) => n.includes("save") || n.includes("rebound") || n.includes(
 const G_READ = (n) => n.includes("anticip") || n.includes("read") || n.includes("track") || n.includes("iq") || n.includes("sense") || n.includes("compete");
 
 // What each graded skill actually measures (skater four: Skating, Puck Skills,
-// Hockey IQ, Effort & Compete; goalie four above) — keyword-matched so custom
+// Hockey Sense, Effort & Compete; goalie four above) — keyword-matched so custom
 // category names still resolve.
 function skillInfo(name, isGoalie) {
   const n = (name || "").toLowerCase();

@@ -15,12 +15,12 @@ const WORDS = {
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
 };
 
-// Default 4-skill skater set (Skating, Puck Skills, Hockey IQ, Effort & Compete)
+// Default 4-skill skater set (Skating, Puck Skills, Hockey Sense, Effort & Compete)
 // with aliases covering how evaluators say them and how Whisper commonly mishears.
 export const DEFAULT_CATEGORIES = [
   { id: "skating", name: "Skating", aliases: ["skating", "skate", "skater"] },
   { id: "puck", name: "Puck Skills", aliases: ["puck skills", "puck skill", "puckskills", "puck", "stick skills", "stickhandling", "stick handling"] },
-  { id: "iq", name: "Hockey IQ", aliases: ["hockey iq", "hockey i q", "hockey sense", "game sense", "iq"] },
+  { id: "iq", name: "Hockey Sense", aliases: ["hockey sense", "hockey iq", "hockey i q", "game sense", "iq"] },
   { id: "compete", name: "Effort & Compete", aliases: ["effort and compete", "effort & compete", "compete level", "compete", "effort", "battle", "compete level"] },
 ];
 

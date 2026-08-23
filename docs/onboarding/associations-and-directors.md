@@ -27,7 +27,7 @@ can click straight through and only the roster is truly required.
 1. **Sessions** — how many sessions and their weights (defaults: 4 sessions). Tip: use
    **Auto-balance to 100%** if weights don't add up.
 2. **Scoring** — scale (1–10), increment, and skill categories (Skating, Puck Skills,
-   Effort/Compete, Hockey IQ by default). Toggle position tagging if you score by position.
+   Effort/Compete, Hockey Sense by default). Toggle position tagging if you score by position.
 3. **Athletes** — **upload your registration export** (RAMP, TeamSnap, or TeamLinkt).
    The importer auto-detects columns, splits combined names, pulls birth year from the
    birthdate, and lets you preview before importing. *Tip: upload only the division for

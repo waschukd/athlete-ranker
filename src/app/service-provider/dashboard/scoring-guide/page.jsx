@@ -12,7 +12,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const SKILLS = [
   { key: "skating", label: "Skating" }, { key: "puck", label: "Puck Skills" },
-  { key: "iq", label: "Hockey IQ" }, { key: "compete", label: "Effort & Compete" },
+  { key: "iq", label: "Hockey Sense" }, { key: "compete", label: "Effort & Compete" },
   { key: "shot", label: "Shot" }, { key: "pass", label: "Passing" },
   { key: "g_movement", label: "Goalie: Movement & Mobility" }, { key: "g_positioning", label: "Goalie: Positioning" },
   { key: "g_saves", label: "Goalie: Save Execution" }, { key: "g_reading", label: "Goalie: Reading the Play" },

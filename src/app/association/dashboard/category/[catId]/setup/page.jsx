@@ -46,7 +46,7 @@ const DEFAULT_SCORING_CATS = [
   { name: "Skating", applies_to: "all" },
   { name: "Puck Skills", applies_to: "all" },
   { name: "Effort / Compete", applies_to: "all" },
-  { name: "Hockey IQ", applies_to: "all" },
+  { name: "Hockey Sense", applies_to: "all" },
 ];
 const DEFAULT_GOALIE_CATS = [
   { name: "Skating / Balance / Agility" },

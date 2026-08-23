@@ -11,7 +11,7 @@ const ADMIN_ROLES = new Set(["super_admin", "association_admin", "service_provid
 const DEFAULT_TESTING_TESTERS = 7;
 
 // Standard defaults — same shape the setup wizard seeds.
-const SKATER_CATS = ["Skating", "Puck Skills", "Effort / Compete", "Hockey IQ"];
+const SKATER_CATS = ["Skating", "Puck Skills", "Effort / Compete", "Hockey Sense"];
 const GOALIE_CATS = ["Skating / Balance / Agility", "Positioning / Angles / Net Coverage", "Feet / Hands / Stick / Rebounds", "Anticipation / Reading the Play"];
 const GOALIE_SKILLS_CATS = ["Mobility", "Rebound Control", "Positioning & Awareness", "Battle & Compete"];
 const GOALIE_CONFIG = {
