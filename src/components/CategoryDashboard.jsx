@@ -2125,6 +2125,17 @@ export default function CategoryDashboard({
                   </button>
                 </div>
               </div>
+              {isTournament && (
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div><div className="text-sm font-medium text-gray-700">Carry jersey numbers between sessions</div><div className="text-xs text-gray-400 mt-0.5">Tournament only. Pre-fills each player's jersey number at check-in from their last session — still editable, useful when the number stays with the player all tournament (like a helmet sticker) unless teams get rebalanced.</div></div>
+                    <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: category?.evaluators_anonymous ?? true, sticky_jersey_numbers: !category?.sticky_jersey_numbers, categories: scoringCategories } }) }); queryClient.invalidateQueries({ queryKey: ["category-setup", catId] }); }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${category?.sticky_jersey_numbers ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${category?.sticky_jersey_numbers ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div><h3 className="text-sm font-semibold text-gray-900">Directors</h3><p className="text-xs text-gray-400 mt-0.5">Assign directors to this age category</p></div>

@@ -172,13 +172,18 @@ export async function POST(request, { params }) {
 
       case "scoring": {
         // SKATER scoring only. Goalie config/categories are handled in goalie_scoring.
+        // sticky_jersey_numbers is COALESCEd (not defaulted) -- this step also runs
+        // from the plain setup wizard, which knows nothing about that field; a hard
+        // default would silently flip a category's toggle back off on its next
+        // unrelated scoring save.
         await sql`
           UPDATE age_categories SET
             scoring_scale = ${data.scoring_scale},
             scoring_increment = ${data.scoring_increment},
             position_tagging = ${data.position_tagging},
             director_can_edit_scores = ${data.director_can_edit_scores || false},
-            evaluators_anonymous = ${data.evaluators_anonymous ?? true}
+            evaluators_anonymous = ${data.evaluators_anonymous ?? true},
+            sticky_jersey_numbers = COALESCE(${data.sticky_jersey_numbers ?? null}, sticky_jersey_numbers)
           WHERE id = ${catId}
         `;
         // Recreate SKATER categories (all/skaters); leave goalie sets untouched.

@@ -71,7 +71,7 @@ export async function GET(request, { params }) {
 
     const scheduleInfo = await sql`
       SELECT sch.*, ac.id as category_id, ac.name as category_name,
-        ac.position_tagging, ac.eval_format, o.name as org_name
+        ac.position_tagging, ac.eval_format, ac.sticky_jersey_numbers, o.name as org_name
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
       JOIN organizations o ON o.id = ac.organization_id
@@ -203,6 +203,39 @@ export async function GET(request, { params }) {
         for (const t of teamRows) teamByAthlete[t.athlete_id] = t.name;
         athletes = athletes.map(a => ({ ...a, team_name: teamByAthlete[a.id] || null }));
       } catch (e) { console.error("checkin: team_name lookup failed:", e?.message); }
+    }
+
+    // Tournament opt-in: carry a player's jersey number forward from their most
+    // recent earlier session in this category, pre-filling it here (still fully
+    // editable via the normal jersey field) rather than starting blank every
+    // session. Never touches anyone already checked in, and never overwrites a
+    // number already set for this session.
+    if (sched.eval_format === "round_robin" && sched.sticky_jersey_numbers && athletes.length) {
+      try {
+        const needsFill = athletes.filter(a => !a.jersey_number && !a.checked_in).map(a => a.id);
+        if (needsFill.length) {
+          const prior = await sql`
+            SELECT DISTINCT ON (pc.athlete_id) pc.athlete_id, pc.jersey_number
+            FROM player_checkins pc
+            JOIN evaluation_schedule es ON es.id = pc.schedule_id
+            WHERE es.age_category_id = ${sched.category_id}
+              AND es.session_number < ${sched.session_number}
+              AND pc.athlete_id = ANY(${needsFill})
+              AND pc.jersey_number IS NOT NULL
+            ORDER BY pc.athlete_id, es.session_number DESC
+          `;
+          const priorByAthlete = {};
+          for (const p of prior) priorByAthlete[p.athlete_id] = p.jersey_number;
+          for (const athleteId of Object.keys(priorByAthlete).map(Number)) {
+            await sql`
+              UPDATE player_checkins SET jersey_number = ${priorByAthlete[athleteId]}
+              WHERE athlete_id = ${athleteId} AND schedule_id = ${scheduleId}
+                AND jersey_number IS NULL AND checked_in IS NOT TRUE
+            `;
+          }
+          athletes = athletes.map(a => (!a.jersey_number && priorByAthlete[a.id] != null) ? { ...a, jersey_number: priorByAthlete[a.id] } : a);
+        }
+      } catch (e) { console.error("checkin: sticky jersey prefill failed:", e?.message); }
     }
 
     // Full {name,hex,text,border} entries -- the UIs render jersey circles from
