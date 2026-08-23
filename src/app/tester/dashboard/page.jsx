@@ -9,6 +9,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
+import { isSessionPast } from "@/lib/sessionTiming";
 
 const fmtTime = (t) => {
   if (!t) return "";
@@ -17,8 +18,6 @@ const fmtTime = (t) => {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m || 0).padStart(2, "0")} ${ampm}`;
 };
-const todayKey = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`; };
-
 export default function TesterDashboard() {
   const [theme, toggleTheme] = useTheme();
   const [data, setData] = useState(null);
@@ -104,7 +103,7 @@ export default function TesterDashboard() {
 
   const Row = ({ s, mineRow }) => {
     const filled = parseInt(s.testers_signed_up || 0), need = parseInt(s.testers_required || 0);
-    const isPast = (s.scheduled_date?.toString().split("T")[0] || "") < todayKey();
+    const isPast = isSessionPast(s);
     const signedUp = !mineRow && justSignedUp.has(s.schedule_id);
     const conflict = !mineRow && !signedUp ? conflictFor(s) : null;
     return (

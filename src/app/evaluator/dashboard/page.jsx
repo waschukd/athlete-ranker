@@ -7,6 +7,7 @@ import { colorForOrg, OrgChip } from "@/lib/orgVisuals";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BatchSignupPrompt from "@/components/BatchSignupPrompt";
 import { contiguousBlock } from "@/lib/sessionBlocks";
+import { isSessionPast } from "@/lib/sessionTiming";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
@@ -221,17 +222,19 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
   const reqCount = parseInt(isTesting ? session.testers_required : session.evaluators_required);
   const spotsLeft = reqCount - parseInt((isTesting ? session.testers_signed_up : session.evaluators_signed_up) || 0);
   const spotsAfterMe = reqCount - parseInt((isTesting ? session.testers_signed_up : session.evaluators_signed_up) || 1);
-  const isUpcoming = new Date(session.scheduled_date?.toString().split("T")[0]) >= new Date(localToday());
+  const isUpcoming = !isSessionPast(session);
   const [showInvite, setShowInvite] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Status badge (My Sessions only): TODAY / Needs scoring / Scored / Upcoming.
   // Testing sessions don't carry scoring state here, so they show plain when-badges.
+  // "Past" is 4 hours after the session's end (isSessionPast), not midnight --
+  // a session that ended at 6pm shouldn't still read "Today" at 7pm.
   const dateStr = session.scheduled_date?.toString().split("T")[0];
   const todayStr = localToday();
   const scored = parseInt(session.my_scored_athletes || 0) > 0;
-  const isToday = dateStr === todayStr;
-  const isPast = dateStr < todayStr;
+  const isPast = isSessionPast(session);
+  const isToday = dateStr === todayStr && !isPast;
   const badge = mode !== "mine" ? null
     : session.closed ? { t: "Closed ✓", c: "bg-green-100 text-green-700" }
     : isTesting
@@ -1224,8 +1227,11 @@ function EvaluatorDashboard() {
   // Counts (and the My Sessions tab badge) reflect the COMBINED list — evaluation
   // + testing commitments — so they match what's rendered below. Using mineSessions
   // here under-counted a dual-role person's day by leaving out their testing.
-  const upcoming = combinedMine.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) >= new Date(localToday()));
-  const past = combinedMine.filter(s => new Date(s.scheduled_date?.toString().split("T")[0]) < new Date(localToday()));
+  // "Past" is 4 hours after end_time (isSessionPast), not midnight -- otherwise a
+  // session that ended hours ago still clutters Today/Upcoming until the calendar
+  // day rolls over.
+  const upcoming = combinedMine.filter(s => !isSessionPast(s));
+  const past = combinedMine.filter(s => isSessionPast(s));
 
   // Group My Sessions so unfinished work floats up: Today → Needs scoring → Upcoming → Done
   const _today = localToday();
@@ -1233,9 +1239,9 @@ function EvaluatorDashboard() {
   for (const s of mineSessions) {
     const d = s.scheduled_date?.toString().split("T")[0];
     const scored = parseInt(s.my_scored_athletes || 0) > 0;
-    if (d === _today) grp.today.push(s);
+    if (isSessionPast(s)) (scored ? grp.done : grp.needs).push(s);
     else if (d > _today) grp.upcoming.push(s);
-    else (scored ? grp.done : grp.needs).push(s);
+    else grp.today.push(s);
   }
 
   // Hold render until capabilities resolve (so a pure tester never flashes the
