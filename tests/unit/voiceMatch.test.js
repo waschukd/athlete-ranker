@@ -5,7 +5,29 @@ import {
   buildAliasLookup,
   normalizeForMatch,
   normalizeSpokenNumbers,
+  stripSentencePunctuation,
 } from "@/lib/voiceMatch";
+
+describe("stripSentencePunctuation", () => {
+  it("strips a trailing period from a single-word command", () => {
+    expect(stripSentencePunctuation("notes.")).toBe("notes");
+  });
+  it("strips a trailing period after a bare command word", () => {
+    expect(stripSentencePunctuation("next.")).toBe("next");
+  });
+  it("strips a trailing period after a digit", () => {
+    expect(stripSentencePunctuation("skating 8.")).toBe("skating 8");
+  });
+  it("preserves a decimal point between two digits", () => {
+    expect(stripSentencePunctuation("skating 7.5")).toBe("skating 7.5");
+  });
+  it("strips commas and question marks", () => {
+    expect(stripSentencePunctuation("score 14, next?")).toBe("score 14 next");
+  });
+  it("collapses whitespace left behind after stripping", () => {
+    expect(stripSentencePunctuation("mic off!")).toBe("mic off");
+  });
+});
 
 describe("normalizeForMatch", () => {
   it("lowercases and replaces slashes with spaces", () => {

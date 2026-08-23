@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } fr
 import { useParams } from "next/navigation";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, ArrowLeft, WifiOff, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, RefreshCw, MessageSquare } from "lucide-react";
-import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers } from "@/lib/voiceMatch";
+import { findBestCategoryMatch, extractCandidates, buildAliasLookup, normalizeForMatch, normalizeSpokenNumbers, stripSentencePunctuation } from "@/lib/voiceMatch";
 import { isCapacitorApp, createNativeContinuousRecognizer, isAppleSpeechFlaky } from "@/lib/speechAdapter";
 import { useTrackPageView, logClientEvent } from "@/lib/useAnalytics";
 import { useTheme } from "@/lib/useTheme";
@@ -897,7 +897,7 @@ function ScoringInterface() {
     // ── Number normalization ─────────────────────────────────
     let normalized = normalizeSpokenNumbers(text);
     const corrected = normalized.replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck");
-    const t = corrected.trim().toLowerCase();
+    const t = stripSentencePunctuation(corrected.trim().toLowerCase());
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
 
     // ── Mic off ──────────────────────────────────────────

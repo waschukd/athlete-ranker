@@ -211,6 +211,18 @@ export function extractCandidates(text) {
   return candidates;
 }
 
+// ── Strip auto-punctuation from short voice commands ────────────────────────
+// iOS/Android on-device dictation appends sentence punctuation to short
+// utterances ("notes." / "next."). Anchored command regexes (^notes?$ etc.)
+// then never match. Strip trailing/isolated punctuation but leave a decimal
+// point that sits between two digits ("7.5") alone.
+export function stripSentencePunctuation(str) {
+  return str
+    .replace(/(\d)?[.,!?]+(\d)?/g, (m, a, b) => (a && b) ? m : (a || b || ""))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ── Normalize spoken numbers in an utterance ────────────────────────────────
 // Word/compound numbers are converted to digits FIRST, then fractions, so that
 // a spoken "seven point five" becomes "7.5" (not stranded as "7 point five").
