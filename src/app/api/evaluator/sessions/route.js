@@ -97,6 +97,20 @@ export async function GET(request) {
 
       if (!orgIds.length) return NextResponse.json({ sessions: [] });
 
+      // A category_evaluators row (e.g. a coach tied to specific age groups)
+      // restricts that org's sessions to only those categories, instead of the
+      // whole org their membership would otherwise open up. Orgs where this
+      // user has no such row are unaffected — full org visibility, as before.
+      const catScopes = await sql`
+        SELECT ce.age_category_id, ac2.organization_id
+        FROM category_evaluators ce
+        JOIN age_categories ac2 ON ac2.id = ce.age_category_id
+        WHERE ce.user_id = ${appUId} AND ac2.organization_id = ANY(${orgIds})
+      `;
+      const scopedOrgIds = [...new Set(catScopes.map(r => r.organization_id))];
+      const allowedCategoryIds = catScopes.map(r => r.age_category_id);
+      const openOrgIds = orgIds.filter(id => !scopedOrgIds.includes(id));
+
       // Available sessions that still need evaluators
       const sessions = await sql`
         SELECT 
@@ -131,7 +145,7 @@ export async function GET(request) {
         JOIN organizations o ON o.id = ac.organization_id
         LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
         LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
-        WHERE o.id = ANY(${orgIds})
+        WHERE (o.id = ANY(${openOrgIds}) OR ac.id = ANY(${allowedCategoryIds}))
           AND sch.scheduled_date >= CURRENT_DATE
           AND sch.status = 'scheduled'
           AND COALESCE(cs.session_type, '') != 'testing'

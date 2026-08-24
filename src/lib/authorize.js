@@ -110,24 +110,42 @@ export async function authorizeCategoryAccess(session, catId) {
       SELECT id FROM evaluator_memberships
       WHERE user_id = ${userId} AND organization_id = ${orgId} AND status = 'active'
     `;
-    if (membership.length) return { authorized: true, orgId };
+    let orgLevelAccess = membership.length > 0;
 
     // For SP evaluators, also check if their SP is linked to this association.
     // Restrict to SKATER service providers — a goalie SP's evaluators resolve to
     // the same 'service_provider_evaluator' role but must NEVER reach skater
     // category data. (Goalie evaluators score goalies via the check-in flow,
     // which scopes the roster to goalies.)
-    if (session.role === "service_provider_evaluator") {
+    if (!orgLevelAccess && session.role === "service_provider_evaluator") {
       const spLink = await sql`
         SELECT sal.id FROM sp_association_links sal
         JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id
         JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
         WHERE em.user_id = ${userId} AND sal.association_id = ${orgId} AND em.status = 'active'
       `;
-      if (spLink.length) return { authorized: true, orgId };
+      orgLevelAccess = spLink.length > 0;
+    }
+    if (!orgLevelAccess) return { authorized: false };
+
+    // Category-scoped evaluator (e.g. a coach tied to specific age groups, not
+    // the whole association): a category_evaluators row anywhere in this org
+    // restricts them to exactly the categories they're assigned to, rather than
+    // every category their org-level membership would otherwise open up. A
+    // regular pooled evaluator with zero category_evaluators rows is unaffected.
+    const scoped = await sql`
+      SELECT 1 FROM category_evaluators ce
+      JOIN age_categories ac2 ON ac2.id = ce.age_category_id
+      WHERE ce.user_id = ${userId} AND ac2.organization_id = ${orgId}
+    `;
+    if (scoped.length) {
+      const thisCategory = await sql`
+        SELECT 1 FROM category_evaluators WHERE user_id = ${userId} AND age_category_id = ${catId}
+      `;
+      return thisCategory.length ? { authorized: true, orgId } : { authorized: false };
     }
 
-    return { authorized: false };
+    return { authorized: true, orgId };
   }
 
   return { authorized: false };

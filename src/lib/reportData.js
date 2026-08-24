@@ -186,11 +186,12 @@ export async function buildAthleteReport(catId, athleteId) {
     playerBySession[k] = (playerBySession[k] || 0) + parseFloat(s.score);
     playerCntSession[k] = (playerCntSession[k] || 0) + 1;
   }
-  // ── Evaluator notes (no names) ──
+  // ── Evaluator notes (no names, coach notes excluded to match the scores) ──
   const notesRows = await sql`
     SELECT session_number, note_text
     FROM player_notes
     WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
+      AND evaluator_id <> ALL(${coachIds})
     ORDER BY session_number, created_at
   `;
 

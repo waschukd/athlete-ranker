@@ -88,15 +88,42 @@ describe("authorizeCategoryAccess", () => {
     expect(result.authorized).toBe(false);
   });
 
-  it("allows evaluator with active membership", async () => {
+  it("allows evaluator with active membership and no category_evaluators row (unrestricted pooled evaluator)", async () => {
     sql.mockResolvedValueOnce([{ organization_id: "org1" }]); // category
     sql.mockResolvedValueOnce([{ id: "user1" }]); // user
     sql.mockResolvedValueOnce([{ id: "mem1" }]); // membership
+    sql.mockResolvedValueOnce([]); // no category_evaluators rows anywhere in this org
     const result = await authorizeCategoryAccess(
       { email: "eval@test.com", role: "association_evaluator" },
       "cat1"
     );
     expect(result.authorized).toBe(true);
+  });
+
+  it("allows a coach (category_evaluators row) for their own assigned category", async () => {
+    sql.mockResolvedValueOnce([{ organization_id: "org1" }]); // category
+    sql.mockResolvedValueOnce([{ id: "user1" }]); // user
+    sql.mockResolvedValueOnce([{ id: "mem1" }]); // membership
+    sql.mockResolvedValueOnce([{ x: 1 }]); // has category_evaluators rows in this org
+    sql.mockResolvedValueOnce([{ x: 1 }]); // row exists for THIS category
+    const result = await authorizeCategoryAccess(
+      { email: "coach@test.com", role: "association_evaluator" },
+      "cat1"
+    );
+    expect(result.authorized).toBe(true);
+  });
+
+  it("denies a coach (category_evaluators row) for a category they aren't assigned to", async () => {
+    sql.mockResolvedValueOnce([{ organization_id: "org1" }]); // category
+    sql.mockResolvedValueOnce([{ id: "user1" }]); // user
+    sql.mockResolvedValueOnce([{ id: "mem1" }]); // membership
+    sql.mockResolvedValueOnce([{ x: 1 }]); // has category_evaluators rows in this org
+    sql.mockResolvedValueOnce([]); // but not for THIS category
+    const result = await authorizeCategoryAccess(
+      { email: "coach@test.com", role: "association_evaluator" },
+      "cat_other"
+    );
+    expect(result.authorized).toBe(false);
   });
 
   it("denies evaluator without membership", async () => {
