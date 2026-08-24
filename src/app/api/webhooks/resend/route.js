@@ -13,6 +13,8 @@ const EVENT_STATUS = {
   "email.complained": "complained",
   "email.delivery_delayed": "delayed",
   "email.sent": "sent",
+  "email.opened": "opened",
+  "email.clicked": "clicked",
 };
 
 // Svix signature verification (Resend uses Svix). Returns true if valid OR if no
