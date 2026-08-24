@@ -25,6 +25,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import MatchupPicker from "@/components/MatchupPicker";
+import ParentEmailStatusPanel from "@/components/ParentEmailStatusPanel";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -352,6 +353,7 @@ export default function CategoryDashboard({
     } catch { setMsg("Couldn't load a preview"); setTimeout(() => setMsg(""), 5000); }
     finally { setWelcomePreviewLoading(false); }
   };
+  const [welcomeReloadToken, setWelcomeReloadToken] = useState(0);
   const confirmSendWelcome = async () => {
     const setMsg = welcomePreview?.setMsg || setAthleteMsg;
     setWelcomeSending(true);
@@ -361,9 +363,14 @@ export default function CategoryDashboard({
       });
       const data = await res.json();
       setMsg(data.success ? `Welcome email sent to ${data.sent} ${data.sent === 1 ? "family" : "families"}` : "Failed to send");
-      if (data.success) refetchSetup();
+      if (data.success) { refetchSetup(); setWelcomeReloadToken(t => t + 1); }
     } catch { setMsg("Failed to send"); }
     finally { setWelcomeSending(false); setWelcomePreview(null); setTimeout(() => setMsg(""), 5000); }
+  };
+  const resendWelcomeTo = async (athleteId) => {
+    await fetch(`/api/categories/${catId}/notify-parents`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: athleteId }),
+    });
   };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
@@ -1594,21 +1601,24 @@ export default function CategoryDashboard({
             {athletes.length > 0 && (() => {
               const withEmail = athletes.filter(a => a.parent_email);
               return (
-                <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">Parent Notifications</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{withEmail.length} of {athletes.length} athletes have parent emails</div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Parent Notifications</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{withEmail.length} of {athletes.length} athletes have parent emails</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <a href={`/email-templates?org=${orgId}&key=welcome`} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Customize this email</a>
+                      <button
+                        onClick={() => sendWelcome()}
+                        disabled={!withEmail.length || welcomeSending || welcomePreviewLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
+                      >
+                        {welcomePreviewLoading ? "Loading preview…" : welcomeSending ? "Sending…" : "Send Welcome Email"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <a href={`/email-templates?org=${orgId}&key=welcome`} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Customize this email</a>
-                    <button
-                      onClick={() => sendWelcome()}
-                      disabled={!withEmail.length || welcomeSending || welcomePreviewLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0b5cd6] text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-[#0F4FCC]"
-                    >
-                      {welcomePreviewLoading ? "Loading preview…" : welcomeSending ? "Sending…" : "Send Welcome Email"}
-                    </button>
-                  </div>
+                  <ParentEmailStatusPanel catId={catId} type="welcome" reloadToken={welcomeReloadToken} onResend={(row) => resendWelcomeTo(row.athlete_id)} />
                 </div>
               );
             })()}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Mail, Send } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import ParentEmailStatusPanel from "@/components/ParentEmailStatusPanel";
 
 function SendInner() {
   const searchParams = useSearchParams();
@@ -14,6 +15,7 @@ function SendInner() {
   const [spName, setSpName] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!catId) return;
@@ -28,6 +30,13 @@ function SendInner() {
     });
     setResult(await res.json());
     setSending(false);
+    setReloadToken(t => t + 1);
+  };
+
+  const resendTo = async (athleteId) => {
+    await fetch(`/api/categories/${catId}/send-reports`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spName, athlete_id: athleteId }),
+    });
   };
 
   const priceStr = info?.price_cents ? `$${(info.price_cents / 100).toFixed(2)}` : "$24.99";
@@ -79,6 +88,8 @@ function SendInner() {
             )}
           </div>
         )}
+
+        {catId && <ParentEmailStatusPanel catId={catId} type="report" reloadToken={reloadToken} onResend={(row) => resendTo(row.athlete_id)} />}
       </div>
     </div>
   );

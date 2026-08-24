@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendParentReportEmail, parentEmails } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const PRICE_CENTS = parseInt(process.env.REPORT_PRICE_CENTS || "2499", 10);
 
@@ -47,6 +48,7 @@ export async function POST(request, { params }) {
 
   const body = await request.json().catch(() => ({}));
   const spName = (body.spName || "").trim() || null;
+  const athleteId = body.athlete_id || null;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
   const priceStr = `$${(PRICE_CENTS / 100).toFixed(2)}`;
   const userId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id;
@@ -56,8 +58,10 @@ export async function POST(request, { params }) {
     FROM athletes
     WHERE age_category_id = ${params.catId} AND is_active = true
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
+      ${athleteId ? sql`AND id = ${athleteId}` : sql``}
   `;
 
+  await ensureEmailLogTable();
   let sent = 0, skipped = 0, failed = 0;
   for (const a of athletes) {
     let token;
@@ -73,15 +77,19 @@ export async function POST(request, { params }) {
     }
     // Email both households (if a second parent email is on file); they share
     // the one report link — a purchase by either unlocks it for both.
+    const playerName = `${a.first_name} ${a.last_name}`.trim();
     for (const to of parentEmails(a)) {
       const res = await sendParentReportEmail({
-        to,
-        playerName: `${a.first_name} ${a.last_name}`.trim(),
-        orgName: c.orgName, spName,
+        to, playerName, orgName: c.orgName, spName,
         reportUrl: `${baseUrl}/report/${token}`,
         priceStr,
       });
       if (res?.ok) sent++; else if (res?.skipped) skipped++; else failed++;
+      await logEmailSend({
+        catId: params.catId, emailType: "report", athleteId: a.id, athleteName: playerName, to,
+        resendId: res?.id || null, status: res?.ok ? "sent" : (res?.skipped ? "skipped" : "failed"),
+        error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+      });
     }
   }
   return NextResponse.json({ success: true, total: athletes.length, sent, skipped, failed });

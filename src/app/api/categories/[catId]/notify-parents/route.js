@@ -5,6 +5,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc, FROM } from "@/lib/email";
 
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Mass parent communications (onboarding, schedule blasts) are a
 // director/admin-level action -- authorizeCategoryAccess alone also admits
@@ -21,7 +22,7 @@ export async function POST(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { action, session_number, preview } = await request.json();
+    const { action, session_number, preview, athlete_id } = await request.json();
 
     // Get category + org info
     const catInfo = await sql`
@@ -39,6 +40,7 @@ export async function POST(request, { params }) {
       FROM athletes
       WHERE age_category_id = ${catId} AND is_active = true
         AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
+        ${athlete_id ? sql`AND id = ${athlete_id}` : sql``}
     `;
 
     if (!athletes.length) {
@@ -81,20 +83,31 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: true, preview: true, subject, html, recipientCount: athletes.length, hasOverride: !!(override && (override.body_html || override.subject)) });
       }
 
+      await ensureEmailLogTable();
       let sent = 0;
       for (const a of athletes) {
+        const name = `${a.first_name} ${a.last_name}`;
         try {
           const { subject, html } = buildOnboardingEmail(a);
-          for (const to of parentEmails(a)) await sendEmail(to, subject, html);
-          sent++;
+          for (const to of parentEmails(a)) {
+            const res = await sendEmail(to, subject, html);
+            if (res.ok) sent++;
+            await logEmailSend({
+              catId, emailType: "welcome", athleteId: a.id, athleteName: name, to,
+              resendId: res.id || null, status: res.ok ? "sent" : "failed",
+              error: res.ok ? null : (res.error || "send failed").slice(0, 500),
+            });
+          }
         } catch (e) {
           console.error("Failed to send onboarding to athlete " + a.id + ":", e?.message || e);
         }
       }
       // Mark the category as welcomed so the first-step flow can advance from
       // "welcome families" to "make groups/teams". Best-effort (pre-migration DBs
-      // just no-op).
-      if (sent > 0) { try { await sql`UPDATE age_categories SET welcome_sent_at = NOW() WHERE id = ${catId}`; } catch { /* column not migrated */ } }
+      // just no-op). Skipped on a single-family resend -- stamping "now" would
+      // make every athlete already on the roster look welcomed, hiding anyone
+      // who genuinely never got the batch send.
+      if (sent > 0 && !athlete_id) { try { await sql`UPDATE age_categories SET welcome_sent_at = NOW() WHERE id = ${catId}`; } catch { /* column not migrated */ } }
       return NextResponse.json({ success: true, sent, total: athletes.length });
     }
 

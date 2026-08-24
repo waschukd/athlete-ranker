@@ -5,35 +5,12 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, groupAssignmentHtml, parentEmails, sleep } from "@/lib/email";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { signSessionIcsToken, canonicalCalendarBase } from "@/lib/calendar-token";
+import { ensureEmailLogTable } from "@/lib/emailLog";
 
 // Sending the group-assignment email blast is a director/admin-level action --
 // authorizeCategoryAccess alone also admits plain evaluators. The GET
 // preview/status view stays open to any category-authorized role.
 const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
-
-// Per-recipient delivery log for group-assignment emails. Auto-creates so no
-// manual migration is needed. Webhook (/api/webhooks/resend) updates status by
-// resend_id to delivered / bounced / complained.
-async function ensureTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS group_email_log (
-      id SERIAL PRIMARY KEY,
-      age_category_id INTEGER NOT NULL,
-      session_number INTEGER NOT NULL,
-      group_number INTEGER,
-      athlete_id INTEGER,
-      athlete_name TEXT,
-      recipient_email TEXT NOT NULL,
-      resend_id TEXT,
-      status TEXT NOT NULL DEFAULT 'sent',
-      error TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS group_email_log_resend_idx ON group_email_log (resend_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS group_email_log_cat_sess_idx ON group_email_log (age_category_id, session_number)`;
-}
 
 function fmtTime(t) {
   if (!t) return "";
@@ -159,7 +136,7 @@ export async function POST(request, { params }) {
     // must already be on the canonical host.
     const baseUrl = canonicalCalendarBase(new URL(request.url).origin);
 
-    await ensureTable();
+    await ensureEmailLogTable();
     // Fresh batch for this session — clear prior log so the panel reflects this send.
     await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
 
@@ -175,7 +152,7 @@ export async function POST(request, { params }) {
         const emails = parentEmails(m);
         if (!emails.length) {
           skipped++;
-          await sql`INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
+          await sql`INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
           continue;
         }
         // Two "add to calendar" LINKS, never an attachment (Gmail would render
@@ -206,8 +183,8 @@ export async function POST(request, { params }) {
           const res = await sendEmail(to, `${name}'s ice time — ${plan.category_name} (${plan.org_name})`, html);
           if (res.ok) sent++; else failed++;
           await sql`
-            INSERT INTO group_email_log (age_category_id, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
-            VALUES (${catId}, ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
+            INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
+            VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
           `;
           // Pace ourselves under Resend's 10 req/sec cap -- on a busy roster this
           // loop can fire dozens of sends back to back, and sendEmail's own retry
