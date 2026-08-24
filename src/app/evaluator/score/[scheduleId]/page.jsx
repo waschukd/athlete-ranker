@@ -135,6 +135,12 @@ function ScoringInterface() {
   // re-emits the same final transcript when it cycles a session, which
   // doubled the success chime. Suppress repeats within a 1200ms window.
   const lastVoiceRef = useRef({ text: "", ts: 0 });
+  // The single category+value a voice command just scored (only set when a
+  // command scores exactly one category, so a bare correction fragment has
+  // an unambiguous target). Lets "six" immediately followed by "point five"
+  // — the recognizer splitting on the evaluator's own pause, not a bug —
+  // land as 6.5 instead of silently sticking at 6.
+  const lastVoiceScoreRef = useRef(null);
   const deviceChangeRef = useRef(null);
 
   useEffect(() => { notesModeRef.current = notesMode; }, [notesMode]);
@@ -970,6 +976,38 @@ function ScoringInterface() {
       return;
     }
 
+    // ── Decimal continuation: "six" then a pause then "point five" ──────
+    // The recognizer's own silence-detection can finalize on the whole
+    // number before the evaluator finishes saying the decimal, splitting one
+    // spoken score into two utterances. If the very next thing heard is just
+    // a trailing ".5"-shaped fragment, treat it as completing the score just
+    // set on the SAME athlete rather than a new command -- so pausing before
+    // "point five" is safe regardless of cadence, mic, or rink noise.
+    const contMatch = t.match(/^point\s+(\d)$/);
+    if (contMatch) {
+      const last = lastVoiceScoreRef.current;
+      const sel0 = selectedRef.current;
+      if (last && sel0 && last.athleteId === sel0.id && now - last.ts < 4000 && Number.isInteger(last.value)) {
+        const digit = parseInt(contMatch[1]);
+        const corrected = Math.round((last.value + digit / 10) * 10) / 10;
+        const max = parseFloat(scaleRef.current) || 10;
+        const inc = parseFloat(incrementRef.current) || 1;
+        // Don't create a value the category's own scale wouldn't allow
+        // (e.g. an increment-of-1 category has no such thing as "X.5").
+        const onIncrement = Math.abs(Math.round(corrected / inc) * inc - corrected) < 1e-6;
+        if (corrected <= max && onIncrement) {
+          updateScore(sel0.id, last.categoryId, corrected, { allowToggle: false });
+          lastVoiceScoreRef.current = { ...last, value: corrected, ts: now };
+          const catName = scoringCatsRef.current.find(c => c.id === last.categoryId)?.name || "score";
+          setVoiceStatus(`${catName} corrected → ${corrected} ✓`);
+          beepScoreSaved();
+          return;
+        }
+      }
+      // No recent whole-number score to attach to -- fall through to the
+      // normal "not understood" ending rather than guessing.
+    }
+
     // ── Select player: "score red 14" / "white 14" / "black 14" ──
     // Colours come from THIS session's palette so "score red 14" works on a
     // Red/Blue session; "black" stays an alias for "Dark" for the default pair.
@@ -1011,6 +1049,7 @@ function ScoringInterface() {
     if (cats.length) {
       let rangeError = null;
       let scored = 0;
+      let lastScored = null;
       for (const cat of cats) {
         const catName = cat.name.toLowerCase();
         // Try full name first, then each individual word (for multi-word categories like "Hockey Sense")
@@ -1027,7 +1066,7 @@ function ScoringInterface() {
             const inc = parseFloat(incrementRef.current) || 1;
             const max = parseFloat(scaleRef.current) || 10;
             if (val >= inc && val <= max) {
-              if (sel) { updateScore(sel.id, cat.id, val, { allowToggle: false }); scored++; break; }
+              if (sel) { updateScore(sel.id, cat.id, val, { allowToggle: false }); scored++; lastScored = { categoryId: cat.id, value: val }; break; }
               else { setVoiceStatus("Select a player first"); beepError(); break; }
             } else if (!rangeError) {
               rangeError = { cat: cat.name, val, inc, max };
@@ -1035,7 +1074,13 @@ function ScoringInterface() {
           }
         }
       }
-      if (scored > 0) { setVoiceStatus(`${scored} score${scored > 1 ? "s" : ""} saved ✓`); beepScoreSaved(); return; }
+      if (scored > 0) {
+        // Only remember the target when exactly one category was scored --
+        // with several in one breath ("skating 8 puck 7") a trailing decimal
+        // fragment has no unambiguous category to attach to.
+        lastVoiceScoreRef.current = scored === 1 ? { athleteId: sel.id, ...lastScored, ts: now } : null;
+        setVoiceStatus(`${scored} score${scored > 1 ? "s" : ""} saved ✓`); beepScoreSaved(); return;
+      }
 
       // ── Phase 2: Fuzzy fallback when exact matching fails ──
       if (scored === 0 && sel) {
@@ -1051,7 +1096,7 @@ function ScoringInterface() {
               if (cat) {
                 updateScore(sel.id, cat.id, value, { allowToggle: false });
                 scored++;
-                fuzzyMatches.push({ cat: cat.name, value, heard: phrase, method: result.method });
+                fuzzyMatches.push({ cat: cat.name, catId: cat.id, value, heard: phrase, method: result.method });
               }
             }
           } else if (!rangeError) {
@@ -1060,6 +1105,10 @@ function ScoringInterface() {
           }
         }
         if (scored > 0) {
+          // Same one-category-only rule as the exact-match path above.
+          lastVoiceScoreRef.current = fuzzyMatches.length === 1
+            ? { athleteId: sel.id, categoryId: fuzzyMatches[0].catId, value: fuzzyMatches[0].value, ts: now }
+            : null;
           const parts = fuzzyMatches.map(m =>
             m.method === "alias"
               ? `${m.cat} → ${m.value} ✓`
