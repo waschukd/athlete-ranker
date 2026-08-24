@@ -83,7 +83,11 @@ export default function CoachRankingsPanel({ catId, hasPositionTagging }) {
   const goalies = data?.goalies || [];
   const sessions = data?.sessions || [];
 
-  if (!data?.has_scores) {
+  // has_scores reflects the CATEGORY overall (official evaluators may already
+  // have scores while no coach has scored a single athlete yet) -- so check
+  // for real coach attendance directly rather than trusting that flag here.
+  const anyCoachScores = [...athletes, ...goalies].some(a => (a.sessions_attended || 0) > 0);
+  if (!data?.has_scores || !anyCoachScores) {
     return <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">No coach scores recorded yet.</div>;
   }
 
