@@ -8,7 +8,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -26,6 +26,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import MatchupPicker from "@/components/MatchupPicker";
 import ParentEmailStatusPanel from "@/components/ParentEmailStatusPanel";
+import CoachRankingsPanel from "@/components/CoachRankingsPanel";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -71,7 +72,7 @@ export default function CategoryDashboard({
 }) {
   const canManage = role === "association";
 
-  const VALID_TABS = new Set(["rankings", "teams", "schedule", "athletes", "analysis", "audit", "settings"]);
+  const VALID_TABS = new Set(["rankings", "coaches", "teams", "schedule", "athletes", "analysis", "audit", "settings"]);
   const [activeTab, setActiveTab] = useState(VALID_TABS.has(initialTab) ? initialTab : "rankings");
   // Cut-player flow (Tournament ranking page)
   const [cutTarget, setCutTarget] = useState(null); // athlete being cut
@@ -548,6 +549,7 @@ export default function CategoryDashboard({
 
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
+    ...(hasCoaches ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
     { id: "schedule", label: "Schedule", icon: Calendar },
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
@@ -2104,6 +2106,10 @@ export default function CategoryDashboard({
             </div>
           )}
           </div>
+        )}
+
+        {activeTab === "coaches" && hasCoaches && (
+          <CoachRankingsPanel catId={catId} hasPositionTagging={hasPositions && category?.position_tagging} />
         )}
 
         {activeTab === "audit" && (role === "association" || role === "director") && (

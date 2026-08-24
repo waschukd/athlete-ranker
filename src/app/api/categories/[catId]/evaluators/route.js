@@ -5,9 +5,10 @@ import { randomUUID } from "node:crypto";
 import sql from "@/lib/db";
 import { sendEmail, emailWrapper } from "@/lib/email";
 
-// Manage per-category evaluator "kind" (standard | coach | goalie).
-// Assignment is association/director-driven (not via a service provider).
-const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director"]);
+// Manage per-category evaluator "kind" (standard | coach | goalie). An SP
+// admin can manage this for any association their SP actively serves --
+// authorizeCategoryAccess (below) still enforces that scoping per-category.
+const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
 const KINDS = new Set(["standard", "coach", "goalie"]);
 
 async function gate(catId) {
