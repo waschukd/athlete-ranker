@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Mail, X, CheckCircle, AlertTriangle, RefreshCw, Send, Clock } from "lucide-react";
+import { Mail, X, CheckCircle, AlertTriangle, RefreshCw, RotateCcw, Send, Clock } from "lucide-react";
 
 // Group-assignment email sender + live delivery panel for the Groups page.
 // Preview (who gets what, per group) → confirm → send → poll delivered/bounced.
@@ -22,6 +22,7 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
   const [sending, setSending] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState("");
+  const [resendingId, setResendingId] = useState(null);
   const pollRef = useRef(null);
 
   const load = async () => {
@@ -61,6 +62,17 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
       pollRef.current = setInterval(async () => { ticks++; await load(); if (ticks >= 18) clearInterval(pollRef.current); }, 5000);
     } catch { setError("Send failed"); }
     setSending(false);
+  };
+
+  const resendOne = async (athleteId) => {
+    setResendingId(athleteId);
+    try {
+      await fetch(`/api/categories/${catId}/group-emails`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_number: sessionNumber, athlete_id: athleteId }),
+      });
+      await load();
+    } finally { setResendingId(null); }
   };
 
   const counts = data?.counts || {};
@@ -127,7 +139,14 @@ export default function GroupEmailDialog({ catId, sessionNumber, unassignedCount
                               {rows.map((r, i) => (
                                 <div key={i} className="px-4 py-1.5 flex items-center justify-between gap-2 text-xs">
                                   <span className="text-gray-700 truncate">{r.athlete_name}{r.recipient_email ? <span className="text-gray-400"> · {r.recipient_email}</span> : ""}</span>
-                                  <span className={`px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${(STATUS[r.status] || STATUS.failed).cls}`} title={r.error || ""}>{(STATUS[r.status] || { label: r.status }).label}</span>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className={`px-2 py-0.5 rounded-full font-medium ${(STATUS[r.status] || STATUS.failed).cls}`} title={r.error || ""}>{(STATUS[r.status] || { label: r.status }).label}</span>
+                                    {r.athlete_id != null && (
+                                      <button onClick={() => resendOne(r.athlete_id)} disabled={resendingId === r.athlete_id} title="Resend to this family" className="text-gray-400 hover:text-accent disabled:opacity-40">
+                                        <RotateCcw size={12} className={resendingId === r.athlete_id ? "animate-spin" : ""} />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>

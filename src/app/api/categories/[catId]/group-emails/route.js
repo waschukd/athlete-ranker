@@ -100,7 +100,7 @@ export async function GET(request, { params }) {
     let statuses = [];
     try {
       statuses = await sql`
-        SELECT group_number, athlete_name, recipient_email, status, error, updated_at
+        SELECT group_number, athlete_id, athlete_name, recipient_email, status, error, updated_at
         FROM group_email_log
         WHERE age_category_id = ${catId} AND session_number = ${sessionNumber}
         ORDER BY group_number, athlete_name
@@ -126,7 +126,7 @@ export async function POST(request, { params }) {
     const { catId } = params;
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    const { session_number } = await request.json();
+    const { session_number, athlete_id } = await request.json();
     if (!session_number) return NextResponse.json({ error: "session_number required" }, { status: 400 });
 
     const plan = await buildPlan(catId, session_number);
@@ -137,14 +137,21 @@ export async function POST(request, { params }) {
     const baseUrl = canonicalCalendarBase(new URL(request.url).origin);
 
     await ensureEmailLogTable();
-    // Fresh batch for this session — clear prior log so the panel reflects this send.
-    await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
+    // Fresh batch for this session — clear prior log so the panel reflects this
+    // send. A single-family resend only clears that family's own rows, so it
+    // doesn't wipe out everyone else's already-tracked delivery status.
+    if (athlete_id) {
+      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number} AND athlete_id = ${athlete_id}`;
+    } else {
+      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
+    }
 
     const sessionLabel = `${plan.session.name || `Session ${session_number}`}${plan.session.session_type ? ` (${plan.session.session_type})` : ""}`;
     let sent = 0, failed = 0, skipped = 0;
 
     for (const g of plan.groups) {
-      const members = plan.assigns.filter(a => a.session_group_id === g.id);
+      let members = plan.assigns.filter(a => a.session_group_id === g.id);
+      if (athlete_id) members = members.filter(a => String(a.athlete_id) === String(athlete_id));
       const date = fmtDate(g.scheduled_date);
       const time = g.start_time ? `${fmtTime(g.start_time)}${g.end_time ? ` – ${fmtTime(g.end_time)}` : ""}` : "";
       for (const m of members) {
