@@ -175,11 +175,15 @@ export async function POST(request) {
         -- is never written anywhere, so it's not part of this chain — see
         -- organizations/[orgId]/schedule for the same fallback shape.)
         COALESCE(sch.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
-        COUNT(DISTINCT ess.id) as signed_up_count
+        -- Coach signups never fill the official quota -- excluded here too,
+        -- matching the "available" browse list.
+        COUNT(DISTINCT ess.id) FILTER (WHERE ce_coach.id IS NULL) as signed_up_count
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
       LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
       LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
+      LEFT JOIN category_evaluators ce_coach ON ce_coach.age_category_id = sch.age_category_id
+        AND ce_coach.user_id = ess.user_id AND ce_coach.kind = 'coach'
       WHERE sch.id = ${schedule_id}
       GROUP BY sch.id, cs.evaluators_required
     `;
@@ -187,7 +191,14 @@ export async function POST(request) {
     if (!scheduleInfo.length) return NextResponse.json({ error: "Session not found" }, { status: 404 });
     const info = scheduleInfo[0];
 
-    if (parseInt(info.signed_up_count) >= parseInt(info.evaluators_required)) {
+    // A coach signing up for their own assigned category is never blocked by
+    // the official quota -- they're a parallel, comparison-only scorer, not
+    // one of the required evaluators.
+    const coachRow = await sql`
+      SELECT 1 FROM category_evaluators
+      WHERE user_id = ${appUserId} AND age_category_id = ${sched[0].age_category_id} AND kind = 'coach'
+    `;
+    if (!coachRow.length && parseInt(info.signed_up_count) >= parseInt(info.evaluators_required)) {
       return NextResponse.json({ error: "No spots available" }, { status: 400 });
     }
 

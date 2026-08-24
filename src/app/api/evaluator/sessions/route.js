@@ -129,7 +129,10 @@ export async function GET(request) {
           cs.session_type,
           cs.name as session_name,
           COALESCE(sch.evaluators_required, cs.evaluators_required, 4) as evaluators_required,
-          COUNT(DISTINCT ess.id) as evaluators_signed_up,
+          -- Coach signups never fill (or block on) the official evaluator
+          -- quota -- a coach is a parallel, comparison-only scoring track,
+          -- excluded here so the count reflects real official staffing.
+          COUNT(DISTINCT ess.id) FILTER (WHERE ce_coach.id IS NULL) as evaluators_signed_up,
           COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) as already_signed_up,
           -- Overlaps another evaluation this user is already signed up for.
           EXISTS (
@@ -145,6 +148,8 @@ export async function GET(request) {
         JOIN organizations o ON o.id = ac.organization_id
         LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
         LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
+        LEFT JOIN category_evaluators ce_coach ON ce_coach.age_category_id = sch.age_category_id
+          AND ce_coach.user_id = ess.user_id AND ce_coach.kind = 'coach'
         WHERE (o.id = ANY(${openOrgIds}) OR ac.id = ANY(${allowedCategoryIds}))
           AND sch.scheduled_date >= CURRENT_DATE
           AND sch.status = 'scheduled'
@@ -169,7 +174,13 @@ export async function GET(request) {
               )
           )
         GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required
-        HAVING COUNT(DISTINCT ess.id) < COALESCE(sch.evaluators_required, cs.evaluators_required, 4)
+        HAVING (
+          COUNT(DISTINCT ess.id) FILTER (WHERE ce_coach.id IS NULL) < COALESCE(sch.evaluators_required, cs.evaluators_required, 4)
+          -- A coach-scoped viewer sees every upcoming session in their own
+          -- assigned category regardless of official staffing -- they aren't
+          -- filling that quota, so a fully-staffed session must still show.
+          OR ac.id = ANY(${allowedCategoryIds})
+        )
           AND COALESCE(MAX(CASE WHEN ess.user_id = ${appUId} THEN 1 ELSE 0 END), 0) = 0
         ORDER BY sch.scheduled_date, sch.start_time
       `;
