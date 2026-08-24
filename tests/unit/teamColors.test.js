@@ -15,9 +15,10 @@ import {
 // Red/Blue default switch render -- every one of those rows is "White" or
 // "Dark" and every checkin_session from that era holds the literal
 // ["White","Dark"], so those legacy cases are asserted hardest. Going forward,
-// White/Dark are no longer offered or defaulted to anywhere (evaluators found
-// them too hard to differentiate), so DEFAULT_TEAM_COLORS/PRESET_TEAM_COLORS
-// are asserted against Red/Blue instead.
+// the DEFAULT for a brand-new session is Red/Blue, not White/Dark (evaluators
+// found a silent White/Dark default hard to work with) -- but White itself is
+// still a real, selectable colour (plenty of rinks' bags are genuinely white
+// jerseys); only the vague "Dark" name was replaced with a concrete "Black".
 
 describe("parseTeamColors — legacy shapes", () => {
   it("upgrades the legacy [\"White\",\"Dark\"] array to full entries", () => {
@@ -136,14 +137,19 @@ describe("nextColor — the tap-to-switch toggle", () => {
   });
 });
 
-describe("no more White/Dark by default", () => {
+describe("no more silent White/Dark default", () => {
   it("defaults new sessions to Red/Blue, not White/Dark", () => {
     expect(DEFAULT_TEAM_COLORS.map(c => c.name)).toEqual(["Red", "Blue"]);
   });
 
-  it("no longer offers White or Dark in the picker", () => {
+  it("still offers White and Black as real, selectable colours", () => {
     const names = PRESET_TEAM_COLORS.map(c => c.name.toLowerCase());
-    expect(names).not.toContain("white");
+    expect(names).toContain("white");
+    expect(names).toContain("black");
+  });
+
+  it("no longer offers the vague 'Dark' name in the picker", () => {
+    const names = PRESET_TEAM_COLORS.map(c => c.name.toLowerCase());
     expect(names).not.toContain("dark");
   });
 });

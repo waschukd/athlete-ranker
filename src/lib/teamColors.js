@@ -15,11 +15,14 @@
 // shape in place, and colorFor() falls back to the default palette by name, so
 // untouched sessions keep rendering exactly as they did.
 
-/** The pair every session gets unless someone picks something else. Evaluators
- *  found White/Dark hard to tell apart at a glance, so new sessions now default
- *  to a genuinely distinguishable pair. White/Dark are no longer offered or
- *  defaulted to anywhere -- they only still resolve (via LEGACY_TEAM_COLORS
- *  below) so sessions created before this change keep rendering correctly. */
+/** The pair every session gets unless someone picks something else. The old
+ *  default was White/Dark; SILENTLY defaulting to it (never asking) is what
+ *  evaluators actually found hard to work with -- not white or black jerseys
+ *  themselves, which are common and plenty distinguishable. So the DEFAULT
+ *  moved to Red/Blue, but White and Black stayed as real, selectable colours
+ *  below (a rink's bag genuinely does hand out a plain white or black jersey
+ *  sometimes -- there needs to be a real option for that, not just "Grey" as
+ *  a workaround). */
 export const DEFAULT_TEAM_COLORS = [
   { name: "Red", hex: "#dc2626", text: "#ffffff", border: "#991b1b" },
   { name: "Blue", hex: "#2563eb", text: "#ffffff", border: "#1e40af" },
@@ -33,6 +36,8 @@ export const DEFAULT_TEAM_COLORS = [
 export const PRESET_TEAM_COLORS = [
   { name: "Red", hex: "#dc2626", text: "#ffffff", border: "#991b1b" },
   { name: "Blue", hex: "#2563eb", text: "#ffffff", border: "#1e40af" },
+  { name: "White", hex: "#ffffff", text: "#111827", border: "#9ca3af" },
+  { name: "Black", hex: "#111827", text: "#ffffff", border: "#374151" },
   { name: "Green", hex: "#16a34a", text: "#ffffff", border: "#15803d" },
   { name: "Yellow", hex: "#facc15", text: "#111827", border: "#a16207" },
   { name: "Orange", hex: "#ea580c", text: "#ffffff", border: "#9a3412" },
@@ -43,11 +48,11 @@ export const PRESET_TEAM_COLORS = [
   { name: "Maroon", hex: "#7f1d1d", text: "#ffffff", border: "#450a0a" },
 ];
 
-// No longer offered in the picker -- kept only so a session created before
-// this change (literally stored as "White"/"Dark") still resolves to a
+// "Dark" (the old vague name, distinct from the new concrete "Black" choice
+// above) is no longer offered in the picker -- kept only so a session created
+// before this change (literally stored as "Dark") still resolves to a
 // renderable colour instead of the blank UNKNOWN_TEAM_COLOR placeholder.
 const LEGACY_TEAM_COLORS = [
-  { name: "White", hex: "#ffffff", text: "#111827", border: "#9ca3af" },
   { name: "Dark", hex: "#111827", text: "#ffffff", border: "#374151" },
 ];
 
