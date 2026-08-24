@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { sendEmail, esc } from "@/lib/email";
 import { getTier } from "@/lib/scoring";
+import { getCoachUserIds } from "@/lib/categoryEvaluators";
 
 // Closing a session (marks signups complete, runs integrity checks, flags
 // evaluators) is a director/admin-level action, distinct from an evaluator
@@ -24,6 +25,10 @@ export async function GET(request, { params }) {
 
     const category = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
     const scale = parseFloat(category[0]?.scoring_scale || 10);
+    // Coaches are a parallel, comparison-only scoring track -- their scores
+    // never join the official inter-rater agreement/tier-split analysis, and
+    // they must never appear as a "disagreeing" evaluator in this report.
+    const coachIds = await getCoachUserIds(catId);
 
     // A session number can span multiple concurrent groups (e.g. Group 1 already
     // scored, Group 2 scoring live right now) -- without scoping to the CALLING
@@ -56,6 +61,7 @@ export async function GET(request, { params }) {
         JOIN session_groups sg ON sg.id = pga.session_group_id
           AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
         WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber} AND sg.group_number = ${groupNumber}
+          AND cs.evaluator_id <> ALL(${coachIds})
         ORDER BY a.last_name, a.first_name, sc.name
       `
       : await sql`
@@ -71,6 +77,7 @@ export async function GET(request, { params }) {
         JOIN users u ON u.id = cs.evaluator_id
         LEFT JOIN player_checkins pc ON pc.athlete_id = cs.athlete_id AND pc.schedule_id = ${scheduleId}
         WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber}
+          AND cs.evaluator_id <> ALL(${coachIds})
         ORDER BY a.last_name, a.first_name, sc.name
       `;
 
@@ -247,11 +254,15 @@ export async function POST(request, { params }) {
           const totalCheckedIn = parseInt(sched.total_checked_in || 0);
           const now = new Date();
 
-          // Get all evaluator signup data for this session
+          // Get all evaluator signup data for this session. Coaches are exempt
+          // from these integrity checks entirely -- they aren't one of the
+          // required official evaluators, so "too fast"/"late"/"incomplete"
+          // don't apply to them.
+          const coachIds = await getCoachUserIds(catId);
           const signups = await sql`
             SELECT ess.user_id as evaluator_id, ess.first_score_at, ess.last_score_at, ess.athletes_scored
             FROM evaluator_session_signups ess
-            WHERE ess.schedule_id = ${schedule_id}
+            WHERE ess.schedule_id = ${schedule_id} AND ess.user_id <> ALL(${coachIds})
           `;
 
           for (const ev of signups) {
@@ -320,6 +331,7 @@ export async function POST(request, { params }) {
                 AND b.scoring_category_id = a.scoring_category_id
                 AND b.evaluator_id > a.evaluator_id
               WHERE a.age_category_id = ${catId} AND a.session_number = ${session_number}
+                AND a.evaluator_id <> ALL(${coachIds}) AND b.evaluator_id <> ALL(${coachIds})
               GROUP BY a.evaluator_id, b.evaluator_id
               HAVING COUNT(*) >= 5
             `;
