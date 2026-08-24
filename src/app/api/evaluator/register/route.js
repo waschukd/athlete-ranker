@@ -112,6 +112,13 @@ export async function POST(request) {
         is_tester = evaluator_memberships.is_tester OR EXCLUDED.is_tester,
         is_evaluator = evaluator_memberships.is_evaluator OR EXCLUDED.is_evaluator`;
 
+    // Bind any pending per-category designation (coach/goalie) made before this
+    // person had an account, so category-scoped access (authorizeCategoryAccess,
+    // evaluator/sessions availability) takes effect from their very first
+    // session browse -- not lazily on first category-specific access, which
+    // would leave a window where they see every category in the org.
+    await sql`UPDATE category_evaluators SET user_id = ${appUser.id} WHERE user_id IS NULL AND lower(email) = lower(${email})`.catch(() => {});
+
     if (viaInvite) {
       await sql`UPDATE evaluator_invitations SET status = 'accepted', accepted_at = NOW() WHERE id = ${invitationId}`;
       await sendEmail(email, `You're in — welcome to ${orgName}`,
