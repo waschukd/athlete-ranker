@@ -15,12 +15,17 @@ export async function getSpCapabilities(session) {
   const userId = await getAppUserId(session);
   const empty = { userId: null, isTester: false, isEvaluator: false, testerOrgIds: [], evaluatorOrgIds: [], spOrgIds: [] };
   if (!userId) return empty;
+  // No org-type filter: an is_evaluator membership lives directly on the
+  // ASSOCIATION's own org for a direct/coach evaluator (never an SP org), while
+  // is_tester only ever lives on an SP org in practice (testers are always
+  // added through an SP flow) -- so scoping to service_provider/
+  // goalie_service_provider org types here silently dropped every direct
+  // association evaluator's is_evaluator flag, leaving them stuck on "My
+  // Sessions (0) / Available (0)" since the dashboard gates both queries on it.
   const rows = await sql`
     SELECT em.organization_id, em.is_tester, em.is_evaluator
     FROM evaluator_memberships em
-    JOIN organizations o ON o.id = em.organization_id
-    WHERE em.user_id = ${userId} AND em.status = 'active'
-      AND o.type IN ('service_provider', 'goalie_service_provider')`;
+    WHERE em.user_id = ${userId} AND em.status = 'active'`;
   const testerOrgIds = [...new Set(rows.filter(r => r.is_tester).map(r => r.organization_id))];
   const evaluatorOrgIds = [...new Set(rows.filter(r => r.is_evaluator).map(r => r.organization_id))];
   return {
