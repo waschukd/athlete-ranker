@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import sql from "@/lib/db";
 import { sendEmail, emailWrapper } from "@/lib/email";
 
@@ -117,7 +118,13 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Designations aren't available yet (pending migration)." }, { status: 503 });
     }
 
-    // Notify the invitee
+    // Notify the invitee. Someone with no account yet (email-only invite) has
+    // nowhere to go with "open your dashboard" -- that page requires being
+    // signed in already, and the one-line "sign up on your own" footnote gave
+    // them no actual link or code. This previously left email-only invitees
+    // (e.g. a coach evaluator invited by email) with no working way to get in.
+    // A real evaluator_invitations row + a direct /evaluator/signup?invite=
+    // link fixes that, mirroring how a normal SP evaluator invite works.
     const toEmail = email || (userId ? (await sql`SELECT email FROM users WHERE id = ${userId}`)[0]?.email : null);
     if (toEmail) {
       const kindLabel = kind === "coach" ? "Coach evaluator" : "Goalie evaluator";
@@ -125,11 +132,39 @@ export async function POST(request, { params }) {
       const note = kind === "coach"
         ? "Your scores are tracked separately and won't affect the official results."
         : "You'll only see and score the goalies in your sessions.";
+
+      let ctaUrl = `${base}/evaluator/dashboard`;
+      let ctaLabel = "Open your dashboard →";
+      let footnote = "";
+      if (!userId && g.orgId) {
+        try {
+          const existing = await sql`
+            SELECT invite_token FROM evaluator_invitations
+            WHERE organization_id = ${g.orgId} AND lower(email) = lower(${toEmail}) AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at > NOW())
+            LIMIT 1
+          `;
+          const token = existing[0]?.invite_token || randomUUID();
+          if (!existing.length) {
+            const inviterId = (await sql`SELECT id FROM users WHERE email = ${g.session.email}`)[0]?.id || null;
+            await sql`
+              INSERT INTO evaluator_invitations (organization_id, email, invited_by_user_id, invite_token, status, role, expires_at)
+              VALUES (${g.orgId}, ${toEmail}, ${inviterId}, ${token}, 'pending', 'association_evaluator', NOW() + INTERVAL '30 days')
+            `;
+          }
+          ctaUrl = `${base}/evaluator/signup?invite=${token}`;
+          ctaLabel = "Create your account →";
+        } catch (e) {
+          console.error("category-evaluators invitation link error:", e?.message);
+          footnote = "If you don't have an account yet, sign up with the same email and your role will be applied automatically.";
+        }
+      }
+
       const html = emailWrapper(`
         <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#101113;">You're set up as a ${kindLabel}</h2>
         <p style="margin:0 0 16px;font-size:14px;color:#5b606b;line-height:1.6;">You've been added to evaluate <strong style="color:#101113;">${categoryName}</strong>${orgName ? ` at ${orgName}` : ""} as a <strong>${kindLabel}</strong>. ${note}</p>
-        <div style="text-align:center;margin:8px 0 0;"><a href="${base}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Open your dashboard →</a></div>
-        <p style="font-size:12px;color:#9aa0aa;margin:16px 0 0;">If you don't have an account yet, sign up with the same email and your role will be applied automatically.</p>
+        <div style="text-align:center;margin:8px 0 0;"><a href="${ctaUrl}" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">${ctaLabel}</a></div>
+        ${footnote ? `<p style="font-size:12px;color:#9aa0aa;margin:16px 0 0;">${footnote}</p>` : ""}
       `);
       await sendEmail(toEmail, `You're a ${kindLabel} — ${categoryName}`, html);
     }
