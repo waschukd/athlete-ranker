@@ -731,8 +731,8 @@ export default function CategoryDashboard({
         })()}
 
         {activeTab === "rankings" && (
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            <div className="xl:col-span-3 space-y-5">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-6">
+            <div className="space-y-5 min-w-0">
             {/* Rankings hub control row */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               {positionTabs.length > 1 ? (
@@ -1053,29 +1053,29 @@ export default function CategoryDashboard({
             <aside className="space-y-6">
               {/* RAIL CARD A — Session Progress */}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="font-display font-bold text-ink text-sm flex items-center gap-2"><Calendar size={15} className="text-accent" /> Session Progress</h3>
+                <div className="px-4 py-2.5 border-b border-gray-100">
+                  <h3 className="font-display font-bold text-ink text-xs flex items-center gap-1.5"><Calendar size={13} className="text-accent" /> Session Progress</h3>
                 </div>
-                <div className="px-5 py-4 space-y-4">
+                <div className="px-4 py-3 space-y-2">
                   {(sessions || []).length === 0 ? (
-                    <p className="text-sm text-gray-400">No sessions yet.</p>
+                    <p className="text-xs text-gray-400">No sessions yet.</p>
                   ) : (sessions || []).map(s => {
                     const st = sessionStatus?.[s.session_number] || sessionStatus?.[Number(s.session_number)] || "not_started";
                     const isComplete = st === "complete" || (completedSessions || []).some(c => String(c) === String(s.session_number));
                     const isInProgress = !isComplete && (st === "in_progress" || (inProgressSessions || []).some(c => String(c) === String(s.session_number)));
                     const pill = isComplete
-                      ? { cls: "bg-green-100 text-green-700", label: "Complete" }
+                      ? { cls: "bg-green-100 text-green-700", label: "Done" }
                       : isInProgress
-                      ? { cls: "bg-amber-100 text-amber-700", label: "In progress" }
-                      : { cls: "bg-gray-100 text-gray-500", label: "Scheduled" };
+                      ? { cls: "bg-amber-100 text-amber-700", label: "Live" }
+                      : { cls: "bg-gray-100 text-gray-500", label: "—" };
                     const width = isComplete ? "100%" : isInProgress ? "50%" : "0%";
                     return (
                       <div key={s.session_number}>
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-sm font-medium text-ink">Session {s.session_number}{s.weight_percentage != null ? ` · ${s.weight_percentage}%` : ""}</span>
-                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${pill.cls}`}>{pill.label}</span>
+                        <div className="flex items-center justify-between gap-1.5 mb-1">
+                          <span className="text-xs font-medium text-ink truncate">S{s.session_number}{s.weight_percentage != null ? ` · ${s.weight_percentage}%` : ""}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${pill.cls}`}>{pill.label}</span>
                         </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full">
+                        <div className="h-1 bg-gray-100 rounded-full">
                           <div className="h-full bg-accent rounded-full" style={{ width }} />
                         </div>
                       </div>
