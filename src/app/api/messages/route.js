@@ -7,6 +7,8 @@ import { sendEmail, emailWrapper, esc } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin", "director"]);
+// Roles allowed to send a message at all (either direction). Includes testers --
+// they can still message their org's admins, and be messaged via to_all_testers.
 const EVAL_ROLES = new Set(["association_evaluator", "service_provider_evaluator", "service_provider_tester"]);
 
 // GET: the current user's inbox + sent items.
@@ -70,9 +72,22 @@ export async function POST(request) {
       const accessible = await getAccessibleOrgIds(session);
       const orgFilter = accessible === null ? null : accessible;
       orgId = orgFilter && orgFilter.length ? orgFilter[0] : null;
+      // The evaluator pool is defined by the membership's own is_evaluator flag
+      // -- NOT users.role, which is a person's primary account role (e.g. an SP
+      // admin who also evaluates their own clients is still 'service_provider_admin'
+      // at the account level, but is_evaluator=true on the membership is what
+      // actually means "acts as an evaluator"). Coaches (category_evaluators.kind
+      // ='coach') are a parallel, comparison-only scoring track -- never real
+      // evaluators, so excluded here regardless of their membership flags.
       const pool = orgFilter === null
-        ? await sql`SELECT DISTINCT em.user_id FROM evaluator_memberships em JOIN users u ON u.id = em.user_id WHERE em.status='active' AND u.role = ANY(${[...EVAL_ROLES]})`
-        : await sql`SELECT DISTINCT em.user_id FROM evaluator_memberships em JOIN users u ON u.id = em.user_id WHERE em.organization_id = ANY(${orgFilter}) AND em.status='active' AND u.role = ANY(${[...EVAL_ROLES]})`;
+        ? await sql`
+            SELECT DISTINCT em.user_id FROM evaluator_memberships em
+            WHERE em.status='active' AND em.is_evaluator = true
+              AND NOT EXISTS (SELECT 1 FROM category_evaluators ce WHERE ce.user_id = em.user_id AND ce.kind = 'coach')`
+        : await sql`
+            SELECT DISTINCT em.user_id FROM evaluator_memberships em
+            WHERE em.organization_id = ANY(${orgFilter}) AND em.status='active' AND em.is_evaluator = true
+              AND NOT EXISTS (SELECT 1 FROM category_evaluators ce WHERE ce.user_id = em.user_id AND ce.kind = 'coach')`;
       const allowed = new Set(pool.map(p => p.user_id));
       // The tester pool is a separate group, keyed by the is_tester flag (not role).
       const testerPool = orgFilter === null
