@@ -31,6 +31,7 @@ function RankingsTable({ rows, sessions, hasPositionTagging, sortBy, toggleSort,
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12 cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort("rank")}>Rank{sortIcon("rank")}</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort("first")}>First{sortIcon("first")}</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort("last")}>Last{sortIcon("last")}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase" title="Jersey number from their most recent check-in">#</th>
             {hasPositionTagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
             {sessions.map(s => (
               <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}</th>
@@ -49,6 +50,7 @@ function RankingsTable({ rows, sessions, hasPositionTagging, sortBy, toggleSort,
                 {a.last_name}
                 {a.incomplete && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>}
               </td>
+              <td className="px-4 py-3 tabular-nums text-gray-700">{a.last_jersey_number ?? <span className="text-gray-300">-</span>}</td>
               {hasPositionTagging && (
                 <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>
               )}
