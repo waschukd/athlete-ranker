@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { getAccessibleOrgIds } from "@/lib/authorize";
 import { appUserId, createNotification } from "@/lib/notify";
 import { sendEmail, emailWrapper, esc } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin", "director"]);
 const EVAL_ROLES = new Set(["association_evaluator", "service_provider_evaluator", "service_provider_tester"]);
@@ -111,6 +112,7 @@ export async function POST(request) {
     const orgRow = orgId ? await sql`SELECT name FROM organizations WHERE id = ${orgId}` : [];
     const orgName = orgRow[0]?.name || "";
 
+    await ensureEmailLogTable();
     let sent = 0;
     for (const r of recipients) {
       try {
@@ -134,11 +136,16 @@ export async function POST(request) {
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:14px 0;font-size:14px;color:#101113;line-height:1.6;white-space:pre-wrap;">${esc(text)}</div>
         <p style="font-size:12px;color:#9aa0aa;margin:0;">Reply from your Sideline Star dashboard.</p>
       `);
-      await sendEmail(r.email, `Message from ${fromName} — Sideline Star`, html);
-      sent++;
+      const res = await sendEmail(r.email, `Message from ${fromName} — Sideline Star`, html);
+      await logEmailSend({
+        orgId, emailType: "staff_message", recipientUserId: r.id, athleteName: r.name, to: r.email,
+        resendId: res.id || null, status: res.ok ? "sent" : "failed",
+        error: res.ok ? null : (res.error || "send failed").toString().slice(0, 500),
+      });
+      if (res.ok) sent++;
     }
 
-    return NextResponse.json({ success: true, sent });
+    return NextResponse.json({ success: true, sent, org_id: orgId });
   } catch (error) {
     console.error("Messages POST error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

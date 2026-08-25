@@ -1,8 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, Send, Inbox, Reply } from "lucide-react";
+import { X, Send, Inbox, Reply, RefreshCw, RotateCcw } from "lucide-react";
+
+const STATUS_STYLE = {
+  delivered: { label: "Delivered", cls: "bg-green-100 text-green-700" },
+  opened: { label: "Opened", cls: "bg-emerald-100 text-emerald-700" },
+  clicked: { label: "Clicked", cls: "bg-emerald-100 text-emerald-700" },
+  sent: { label: "Sent (pending)", cls: "bg-blue-100 text-blue-700" },
+  delayed: { label: "Delayed", cls: "bg-amber-100 text-amber-700" },
+  bounced: { label: "Bounced", cls: "bg-red-100 text-red-700" },
+  complained: { label: "Spam complaint", cls: "bg-red-100 text-red-700" },
+  failed: { label: "Failed", cls: "bg-red-100 text-red-700" },
+};
+
+// Delivery status for a broadcast staff message -- who actually got it, with a
+// one-click resend per person. Only shown after a to_all_pool/to_all_testers
+// send; a 1:1 reply doesn't need a status list of one.
+function MessageStatusPanel() {
+  const [data, setData] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
+
+  const load = async () => {
+    try {
+      const res = await fetch("/api/messages/status");
+      const d = await res.json();
+      if (res.ok) setData(d);
+    } catch {}
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const resend = async (userId) => {
+    setResendingId(userId);
+    try {
+      await fetch("/api/messages/status", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient_user_id: userId }),
+      });
+      await load();
+    } finally { setResendingId(null); }
+  };
+
+  const statuses = data?.statuses || [];
+  const counts = data?.counts || {};
+  if (!statuses.length) return null;
+
+  return (
+    <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden text-left">
+      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {Object.keys(STATUS_STYLE).filter(k => counts[k]).map(k => (
+            <span key={k} className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_STYLE[k].cls}`}>{counts[k]} {STATUS_STYLE[k].label}</span>
+          ))}
+        </div>
+        <button onClick={load} className="text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 inline-flex items-center gap-1"><RefreshCw size={11} /> Refresh</button>
+      </div>
+      <div className="max-h-56 overflow-y-auto divide-y divide-gray-50">
+        {statuses.map((r, i) => (
+          <div key={i} className="px-4 py-1.5 flex items-center justify-between gap-2 text-xs">
+            <span className="text-gray-700 truncate">{r.athlete_name}<span className="text-gray-400"> · {r.recipient_email}</span></span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className={`px-2 py-0.5 rounded-full font-medium ${(STATUS_STYLE[r.status] || STATUS_STYLE.failed).cls}`} title={r.error || ""}>{(STATUS_STYLE[r.status] || { label: r.status }).label}</span>
+              <button onClick={() => resend(r.recipient_user_id)} disabled={resendingId === r.recipient_user_id} title="Resend to this person" className="text-gray-400 hover:text-accent disabled:opacity-40">
+                <RotateCcw size={12} className={resendingId === r.recipient_user_id ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Compose-message modal — Minimal Athletic look. Self-contained: takes a recipient
 // descriptor and posts to the global /api/messages endpoint, then reports back.
@@ -48,7 +118,8 @@ export function ComposeMessageModal({ recipient, initialSubject = "", onClose, o
         {sentCount !== null ? (
           <div className="text-center py-4">
             <p className="font-semibold text-ink mb-3">Sent to {sentCount} {recipient.noun || "evaluator"}{sentCount === 1 ? "" : "s"}.</p>
-            <button onClick={onClose} className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">Done</button>
+            {(recipient.to_all_pool || recipient.to_all_testers) && <MessageStatusPanel />}
+            <button onClick={onClose} className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 mt-4">Done</button>
           </div>
         ) : (
           <div className="space-y-3">

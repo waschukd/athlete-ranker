@@ -19,7 +19,7 @@ export async function GET(request, { params }) {
     const type = new URL(request.url).searchParams.get("type");
     if (!TYPES.has(type)) return NextResponse.json({ error: "type must be welcome or report" }, { status: 400 });
 
-    const { statuses, counts } = await getEmailStatuses(catId, type);
+    const { statuses, counts } = await getEmailStatuses({ catId, emailType: type });
     return NextResponse.json({ statuses, counts });
   } catch (e) {
     console.error("email-status GET error:", e);
