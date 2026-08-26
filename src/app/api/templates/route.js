@@ -13,10 +13,25 @@ export async function GET(request) {
   if (type === "athletes") {
     // Contact column (BC = body checking, NBC = non-body-checking) is optional and
     // only matters for U15+; leave it blank and everyone imports as body-checking.
-    // Scrimmage Team is only used for tournament-format categories -- a bare
-    // letter (A-F) or a custom name; ignored entirely otherwise. Leave blank for
-    // a standard (non-tournament) category.
-    const csv = [
+    //
+    // Tournament and standard formats are different concepts -- tournaments have
+    // TEAMS (Scrimmage Team), standard has GROUPS (Session N Group #). Serving
+    // "Scrimmage Team" on a standard category's template made no sense (there are
+    // no teams until final teams are drafted from rankings, much later) and there
+    // was no way to pre-assign a standard category's session 1 (or any session)
+    // groups at roster-upload time at all -- an admin had to build them from
+    // scratch afterward on the Groups page even when they already knew the
+    // groupings going in. Default (no `format` param, or format=tournament) keeps
+    // the existing Scrimmage Team column for backward compatibility; format=standard
+    // swaps it for Session N Group # columns that seed session_groups directly.
+    const format = searchParams.get("format");
+    const isStandard = format === "standard";
+    const csv = isStandard ? [
+      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Session 1 Group #,Session 2 Group #",
+      "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC,1,",
+      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC,2,",
+      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234,,,",
+    ].join("\n") : [
       "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Scrimmage Team",
       "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC,A",
       "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC,B",
@@ -26,7 +41,7 @@ export async function GET(request) {
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": "attachment; filename=athlete_roster_template.csv",
+        "Content-Disposition": `attachment; filename=athlete_roster_template${isStandard ? "_standard" : ""}.csv`,
       },
     });
   }
@@ -80,11 +95,16 @@ export async function GET(request) {
   }
 
   if (type === "bulk-roster") {
+    // A whole-association upload mixes tournament and standard divisions in one
+    // file, so both a Scrimmage Team column (tournament divisions) and a Session
+    // N Group # column (standard divisions) are present -- fill in whichever
+    // matches that row's division per the bulk schedule template's Format column;
+    // leave the other blank.
     const csv = [
-      "Division,First Name,Last Name,Position,Birth Year,HC#,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC)",
-      "U11 AA,John,Smith,Forward,2015,HC-123456,parent@email.com,,,",
-      "U15 AA,Jane,Doe,Defense,2011,HC-123457,jane.mom@email.com,jane.dad@email.com,,NBC",
-      "U13 House,Mike,Johnson,Goalie,2013,HC-123458,mike.parent@email.com,,1234,",
+      "Division,First Name,Last Name,Position,Birth Year,HC#,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Scrimmage Team,Session 1 Group #",
+      "U11 AA,John,Smith,Forward,2015,HC-123456,parent@email.com,,,,A,",
+      "U15 AA,Jane,Doe,Defense,2011,HC-123457,jane.mom@email.com,jane.dad@email.com,,NBC,,",
+      "U13 House,Mike,Johnson,Goalie,2013,HC-123458,mike.parent@email.com,,1234,,,1",
     ].join("\n");
     return new NextResponse(csv, { headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=bulk_roster_template.csv" } });
   }

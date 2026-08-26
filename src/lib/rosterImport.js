@@ -69,6 +69,23 @@ const SYN = {
   scrimmageTeam: ["scrimmage team", "scrimmage group", "tournament team", "team assignment", "assigned team", "roster team"],
 };
 
+// Standard-format categories have GROUPS, not teams -- a column like
+// "Session 1 Group #" (any session number, "#" optional) pre-assigns a player
+// into that session's group at roster-upload time, the same way scrimmageTeam
+// does for tournament-format teams. Unlike the single-value fields above, there
+// can be more than one of these (one per session), so it's detected separately
+// and returned as a list rather than through pickHeader.
+const SESSION_GROUP_RE = /^s(?:ession)? ?(\d+) group ?#?$/;
+
+function pickSessionGroupHeaders(headers) {
+  const out = [];
+  for (const h of headers) {
+    const m = norm(h).match(SESSION_GROUP_RE);
+    if (m) out.push({ session_number: parseInt(m[1], 10), header: h });
+  }
+  return out;
+}
+
 // Headers that should NOT be picked as the athlete's own name/email even if they
 // contain "name"/"email" (they belong to a parent/guardian/coach/etc).
 const NAME_EXCLUDE = ["parent", "guardian", "registrant", "emergency", "coach", "contact", "committee", "relation"];
@@ -187,6 +204,7 @@ export function detectMapping(headers, rows = [], isTournament = false) {
     })(),
     division,
     scrimmageTeam,
+    sessionGroupHeaders: pickSessionGroupHeaders(headers),
     helmet: pickHeader(headers, "helmet"),
     contact: pickContactHeader(headers),
   };
@@ -251,6 +269,9 @@ export function toAthlete(row, mapping) {
     non_contact: mapping.contact ? parseNonContact(row[mapping.contact], mapping.contact) : false,
     _division: mapping.division ? (row[mapping.division] || "").trim() : "",
     scrimmage_team: mapping.scrimmageTeam ? (row[mapping.scrimmageTeam] || "").trim() : "",
+    session_groups: (mapping.sessionGroupHeaders || [])
+      .map(({ session_number, header }) => ({ session_number, group_number: (row[header] || "").trim() }))
+      .filter(sg => sg.group_number !== ""),
   };
 }
 

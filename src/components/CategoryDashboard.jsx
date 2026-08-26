@@ -1606,7 +1606,7 @@ export default function CategoryDashboard({
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Athletes ({athletes.length})</h2>
               <div className="flex items-center gap-2 flex-wrap">
-                <a href="/api/templates?type=athletes" download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
+                <a href={`/api/templates?type=athletes&format=${isTournament ? "tournament" : "standard"}`} download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
                 <button onClick={() => setShowImport(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
                   <Upload size={14} /> Import CSV
                 </button>

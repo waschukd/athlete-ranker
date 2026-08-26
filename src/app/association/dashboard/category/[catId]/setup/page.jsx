@@ -279,7 +279,7 @@ function GoalieScoringStep({ goalie, setGoalie }) {
 }
 
 // ─── Athletes ───────────────────────────────────────────────────────────────
-function AthletesStep({ catId, categoryName }) {
+function AthletesStep({ catId, categoryName, isTournament }) {
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -308,9 +308,9 @@ function AthletesStep({ catId, categoryName }) {
       <p className="text-sm text-gray-500 mb-6">Upload your roster via CSV or add players individually.</p>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <p className="text-xs text-gray-400">Works with RAMP, TeamSnap, TeamLinkt, or our template — combined names and birth dates are handled automatically.</p>
-        <a href="/api/templates?type=athletes" download className="text-xs text-accent hover:underline font-medium whitespace-nowrap">↓ Download blank template</a>
+        <a href={`/api/templates?type=athletes&format=${isTournament ? "tournament" : "standard"}`} download className="text-xs text-accent hover:underline font-medium whitespace-nowrap">↓ Download blank template</a>
       </div>
-      <RosterImport catId={catId} categoryName={categoryName} onImported={() => loadAthletes()} />
+      <RosterImport catId={catId} categoryName={categoryName} isTournament={isTournament} onImported={() => loadAthletes()} />
       <div className="flex items-center gap-3 my-6 flex-wrap">
         <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"><Plus size={15} /> Quick Add Player</button>
       </div>
@@ -761,7 +761,7 @@ function SetupWizard() {
             </div>
           )}
           {step === 2 && !goalieOnly && <SkaterScoringStep scoring={scoring} setScoring={setScoring} />}
-          {step === 3 && <AthletesStep catId={catId} categoryName={catName} />}
+          {step === 3 && <AthletesStep catId={catId} categoryName={catName} isTournament={evalFormat === "round_robin"} />}
           {step === 4 && <ScheduleStep catId={catId} sessions={goalieOnly ? goalieSessions : sessions} categoryName={catName} />}
           {step === 5 && <ReviewStep catName={catName} sessions={goalieOnly ? goalieSessions : sessions} scoring={scoring} orgId={orgId} goalieOnly={goalieOnly} goalie={goalie} />}
         </div>

@@ -4,6 +4,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { applyAllMatchups } from "@/lib/scrimmageTeams";
+import { ensureSessionGroup } from "@/lib/sessionGroups";
 
 // Roster mutations (bulk import, quick-add, deactivate) are for admins/directors —
 // authorizeCategoryAccess alone also admits plain evaluators, who should only GET.
@@ -90,6 +91,10 @@ export async function POST(request, { params }) {
           // synonym matching) only ever matched literal header text, so it was
           // silently importing every player with no team assigned.
           const scrimmageTeamLabel = (athlete["Scrimmage Team"] || athlete["Scrimmage Group"] || athlete.scrimmage_team || athlete.scrimmage_group || "").toString().trim();
+          // Standard format: "Session N Group #" columns (see lib/rosterImport.js)
+          // pre-assign a player into that session's group at import time, mirroring
+          // what scrimmageTeamLabel does for tournament teams above.
+          const sessionGroups = Array.isArray(athlete.session_groups) ? athlete.session_groups : [];
 
           if (!first_name || !last_name) { skipped++; continue; }
 
@@ -154,6 +159,25 @@ export async function POST(request, { params }) {
             // second membership -- clear any other team in this category first.
             await sql`DELETE FROM scrimmage_team_members WHERE athlete_id = ${athleteId} AND scrimmage_team_id IN (SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId})`;
             await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${team.id}, ${athleteId}) ON CONFLICT (athlete_id, scrimmage_team_id) DO NOTHING`;
+          }
+
+          // Standard format: seed session_groups + player_group_assignments from
+          // any "Session N Group #" columns, so Manage Groups opens with the
+          // roster already sorted instead of an empty slate to build by hand.
+          if (!isTournament && athleteId && sessionGroups.length) {
+            for (const sg of sessionGroups) {
+              const sNum = parseInt(sg.session_number);
+              const gNum = parseInt(sg.group_number);
+              if (!sNum || !gNum) continue;
+              await ensureSessionGroup(catId, sNum, gNum);
+              const [group] = await sql`SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${sNum} AND group_number = ${gNum}`;
+              if (!group) continue;
+              // A re-upload changing someone's group should move them within this
+              // session, not add a second membership -- same reasoning as the
+              // scrimmage-team clear above.
+              await sql`DELETE FROM player_group_assignments WHERE athlete_id = ${athleteId} AND session_group_id IN (SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${sNum})`;
+              await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${group.id}, 0) ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+            }
           }
         } catch (e) {
           errors.push(`${athlete.first_name || "?"} ${athlete.last_name || "?"}: ${e.message}`);

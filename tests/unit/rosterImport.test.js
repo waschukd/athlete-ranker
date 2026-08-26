@@ -178,3 +178,36 @@ describe("summarizeDivisions", () => {
     expect(out.find(d => d.value === "(blank)").count).toBe(1);
   });
 });
+
+describe("session group columns (standard format)", () => {
+  it("detects one or more 'Session N Group #' headers", () => {
+    const m = detectMapping(["First Name", "Last Name", "Session 1 Group #", "Session 2 Group #"]);
+    expect(m.sessionGroupHeaders).toEqual([
+      { session_number: 1, header: "Session 1 Group #" },
+      { session_number: 2, header: "Session 2 Group #" },
+    ]);
+  });
+
+  it("tolerates 'S1 Group' / no # / extra spacing", () => {
+    const m = detectMapping(["First Name", "Last Name", "S1 Group"]);
+    expect(m.sessionGroupHeaders).toEqual([{ session_number: 1, header: "S1 Group" }]);
+  });
+
+  it("does not confuse it with Scrimmage Team", () => {
+    const m = detectMapping(["First Name", "Last Name", "Scrimmage Team", "Session 1 Group #"]);
+    expect(m.scrimmageTeam).toBe("Scrimmage Team");
+    expect(m.sessionGroupHeaders).toEqual([{ session_number: 1, header: "Session 1 Group #" }]);
+  });
+
+  it("toAthlete carries session_groups through, skipping blank cells", () => {
+    const m = detectMapping(["First Name", "Last Name", "Session 1 Group #", "Session 2 Group #"]);
+    const a = toAthlete({ "First Name": "A", "Last Name": "B", "Session 1 Group #": "2", "Session 2 Group #": "" }, m);
+    expect(a.session_groups).toEqual([{ session_number: 1, group_number: "2" }]);
+  });
+
+  it("returns [] when no session-group columns exist", () => {
+    const m = detectMapping(["First Name", "Last Name"]);
+    expect(m.sessionGroupHeaders).toEqual([]);
+    expect(toAthlete({ "First Name": "A", "Last Name": "B" }, m).session_groups).toEqual([]);
+  });
+});

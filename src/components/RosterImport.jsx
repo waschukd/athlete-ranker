@@ -172,6 +172,11 @@ export default function RosterImport({ catId, categoryName, isTournament, onImpo
               : "No team column detected — if this file has one, pick it above and teams will be created automatically on import."}
           </p>
         )}
+        {!isTournament && mapping.sessionGroupHeaders?.length > 0 && (
+          <p className="text-xs text-gray-400 mt-3">
+            Detected {mapping.sessionGroupHeaders.map(h => `Session ${h.session_number} Group #`).join(", ")} — those groups will be created automatically and players slotted in on import, ready for Manage Groups.
+          </p>
+        )}
       </div>
 
       {/* Division filter */}
@@ -205,7 +210,11 @@ export default function RosterImport({ catId, categoryName, isTournament, onImpo
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr><th className="text-left px-4 py-2">Name</th><th className="text-left px-4 py-2">Birth yr</th><th className="text-left px-4 py-2">Pos</th><th className="text-left px-4 py-2">Parent email</th>{isTournament && <th className="text-left px-4 py-2">Team</th>}</tr>
+              <tr>
+                <th className="text-left px-4 py-2">Name</th><th className="text-left px-4 py-2">Birth yr</th><th className="text-left px-4 py-2">Pos</th><th className="text-left px-4 py-2">Parent email</th>
+                {isTournament && <th className="text-left px-4 py-2">Team</th>}
+                {!isTournament && (mapping.sessionGroupHeaders || []).map(h => <th key={h.session_number} className="text-left px-4 py-2">S{h.session_number} Group</th>)}
+              </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {preview.map((a, i) => (
@@ -215,6 +224,10 @@ export default function RosterImport({ catId, categoryName, isTournament, onImpo
                   <td className="px-4 py-2 text-gray-600 capitalize">{a.position || "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{a.parent_email || "—"}</td>
                   {isTournament && <td className="px-4 py-2 text-gray-700 font-medium">{a.scrimmage_team || "—"}</td>}
+                  {!isTournament && (mapping.sessionGroupHeaders || []).map(h => {
+                    const sg = (a.session_groups || []).find(x => x.session_number === h.session_number);
+                    return <td key={h.session_number} className="px-4 py-2 text-gray-700 font-medium">{sg?.group_number || "—"}</td>;
+                  })}
                 </tr>
               ))}
             </tbody>
