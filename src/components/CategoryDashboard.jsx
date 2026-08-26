@@ -167,6 +167,12 @@ export default function CategoryDashboard({
   // over the already-loaded list — no API call needed since both tabs hold
   // the full athlete set in memory.
   const [tableSearch, setTableSearch] = useState("");
+  // Per-session score columns are the single biggest width driver on the
+  // rankings table -- an 8-session tournament category adds 8 columns on top
+  // of Rank/Name/Total/Trend, pushing Trend off the right edge of the screen
+  // entirely. Collapsed by default so the columns that matter at a glance
+  // always fit; expand on demand for the full session-by-session breakdown.
+  const [showSessions, setShowSessions] = useState(false);
   const matchesSearch = (a) => {
     const q = tableSearch.trim().toLowerCase();
     if (!q) return true;
@@ -794,11 +800,18 @@ export default function CategoryDashboard({
 
             {positionFilter === "goalie" ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
                   <div>
                     <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Goalie Rankings</h3>
                     <p className="text-xs text-gray-400 mt-0.5">Ranked independently — goalie categories only</p>
                   </div>
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={() => setShowSessions(v => !v)}
+                      title={showSessions ? "Hide the per-session columns" : "Show each session's score alongside the total"}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${showSessions ? "bg-accent text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                    >Sessions</button>
+                  )}
                 </div>
                 {goalieAthletes.length === 0 ? (
                   <div className="px-5 py-12 text-center text-sm text-gray-400">No goalies in this category yet. Make sure goalies are tagged with position = goalie in the roster.</div>
@@ -810,7 +823,7 @@ export default function CategoryDashboard({
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
-                          {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
+                          {showSessions && sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
                           <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
                           <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>
                         </tr>
@@ -828,7 +841,7 @@ export default function CategoryDashboard({
                                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                               )}
                             </td>
-                            {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                            {showSessions && sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
                             <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
                             <td className="px-4 py-3 text-center">{renderTrend(a)}</td>
                           </tr>
@@ -863,6 +876,13 @@ export default function CategoryDashboard({
                     )}
                   </div>
                   {/* Position tabs (Overall · F · D · G) live in the rankings header now */}
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={() => setShowSessions(v => !v)}
+                      title={showSessions ? "Hide the per-session columns" : "Show each session's score alongside the total"}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${showSessions ? "bg-accent text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                    >Sessions</button>
+                  )}
                   {hasCoaches && (
                     <button
                       onClick={() => setCompareCoaches(v => !v)}
@@ -879,7 +899,7 @@ export default function CategoryDashboard({
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('first')}>First{sortIcon('first')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('last')}>Last{sortIcon('last')}</th>
                       {hasPositions && category?.position_tagging && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos</th>}
-                      {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}</th>)}
+                      {showSessions && sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort(s.session_number)}>S{s.session_number}{sortIcon(s.session_number)}</th>)}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>}
                       {compareCoaches && hasCoaches && <th className="px-4 py-3 text-center text-xs font-medium text-accent uppercase">Coach rk</th>}
                       {hasScores && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>}
@@ -889,7 +909,7 @@ export default function CategoryDashboard({
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAthletes.filter(matchesSearch).length === 0 && tableSearch && (
-                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 + sessions.length : 5 + sessions.length) : (hasPositions && category?.position_tagging ? 4 + sessions.length : 3 + sessions.length)) + 1 + (compareCoaches && hasCoaches ? 1 : 0) + (category?.eval_format === "round_robin" ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
+                      <tr><td colSpan={(hasScores ? (hasPositions && category?.position_tagging ? 6 : 5) : (hasPositions && category?.position_tagging ? 4 : 3)) + (showSessions ? sessions.length : 0) + 1 + (compareCoaches && hasCoaches ? 1 : 0) + (category?.eval_format === "round_robin" ? 1 : 0)} className="px-4 py-8 text-center text-gray-400 text-sm">No athletes match "{tableSearch}"</td></tr>
                     )}
                     {sortedAthletes.filter(matchesSearch).map(a => (
                       <tr key={a.id} className={`hover:bg-gray-50 ${a.rank === 1 ? "bg-accent-soft" : ""}`}>
@@ -905,7 +925,7 @@ export default function CategoryDashboard({
                           {a.cut_at && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-semibold" title="Cut — not moving forward in this division">Cut</span>}
                         </td>
                         {hasPositions && category?.position_tagging && <td className="px-4 py-3">{a.position ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[a.position] || "bg-gray-100 text-gray-600"}`}>{POSITION_SHORT[a.position] || a.position}</span> : <span className="text-gray-300">-</span>}</td>}
-                        {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
+                        {showSessions && sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">-</span>}</td>; })}
                         {hasScores && <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total?.toFixed(1) || "-"}</td>}
                         {compareCoaches && hasCoaches && (() => {
                           const cr = coachRankMap[a.id];
@@ -960,7 +980,7 @@ export default function CategoryDashboard({
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">Rank</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
-                        {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
+                        {showSessions && sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
@@ -979,7 +999,7 @@ export default function CategoryDashboard({
                               <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                             )}
                           </td>
-                          {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
+                          {showSessions && sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
                           <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
                           <td className="px-4 py-3 text-center">{renderTrend(a)}</td>
                           <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors"><FileText size={13} /> Report</a></td>
