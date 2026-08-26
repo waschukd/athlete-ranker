@@ -7,6 +7,7 @@ import { computeCategoryRankings } from "@/lib/rankings";
 import { sendEmail, parentEmails, esc, parentTeamPlacementHtml, emailWrapper } from "@/lib/email";
 import { signCoachReportToken } from "@/lib/calendar-token";
 import { generateCoachBriefing } from "@/lib/coachBriefing";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Team generation/wiping and mass parent/coach email are director/admin-level
 // actions -- authorizeCategoryAccess alone also admits plain evaluators.
@@ -274,6 +275,7 @@ export async function POST(request, { params }) {
       const teamRows = await sql`
         SELECT id, name, coach_name, coach_email, coach_briefing FROM teams
         WHERE age_category_id = ${catId} AND coach_email IS NOT NULL AND coach_email <> ''`;
+      await ensureEmailLogTable();
       let sent = 0, skipped = 0;
       for (const t of teamRows) {
         try {
@@ -287,8 +289,13 @@ export async function POST(request, { params }) {
             <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">Hi${t.coach_name ? " " + esc(t.coach_name.split(" ")[0]) : ""}, your ${esc(cat.category_name)} team has been finalized. Here's a private development report to help you plan the season — how your roster ranked among teammates, and the development themes evaluators flagged most across the group.</p>
             <p style="margin:0 0 24px;"><a href="${link}" style="display:inline-block;background:#0b5cd6;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:14px;">View your team report →</a></p>
             <p style="margin:0;font-size:12px;color:#9aa0aa;line-height:1.6;">This link is private to you — please don't forward it. Sent by ${esc(cat.org_name)}.</p>`);
-          await sendEmail(t.coach_email, `${t.name} — Team Development Report (${cat.category_name})`, html);
-          sent++;
+          const res = await sendEmail(t.coach_email, `${t.name} — Team Development Report (${cat.category_name})`, html);
+          await logEmailSend({
+            catId, emailType: "coach_team_report", groupNumber: t.id, athleteName: t.coach_name || t.name, to: t.coach_email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++; else skipped++;
         } catch (e) {
           console.error("Coach report email failed for team " + t.id + ":", e?.message || e);
           skipped++;
@@ -321,6 +328,7 @@ export async function POST(request, { params }) {
         WHERE tr.age_category_id = ${catId}`;
       const bodyTpl = String(body.message || DEFAULT_TEAM_MESSAGE);
       const subjectTpl = String(body.subject || `Team placement — ${cat.category_name} (${cat.org_name})`);
+      await ensureEmailLogTable();
       let sent = 0, skipped = 0;
       for (const r of rows) {
         const recipients = parentEmails(r);
@@ -331,7 +339,19 @@ export async function POST(request, { params }) {
         const bodyHtml = mergeTokens(bodyTpl, vars).split(/\n\s*\n/).map(p => esc(p).replace(/\n/g, "<br/>")).join("<br/><br/>");
         const subject = mergeTokens(subjectTpl, vars);
         const html = parentTeamPlacementHtml({ playerName: `${r.first_name} ${r.last_name}`, categoryName: cat.category_name, orgName: cat.org_name, teamName: r.team_name, bodyHtml });
-        try { for (const to of recipients) await sendEmail(to, subject, html); sent++; }
+        try {
+          let anyOk = false;
+          for (const to of recipients) {
+            const res = await sendEmail(to, subject, html);
+            await logEmailSend({
+              catId, emailType: "team_placement", athleteName: `${r.first_name} ${r.last_name}`, to,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) anyOk = true;
+          }
+          if (anyOk) sent++; else skipped++;
+        }
         catch (e) { console.error("Team notify failed for " + r.first_name + " " + r.last_name + ":", e?.message || e); skipped++; }
       }
       return NextResponse.json({ success: true, sent, skipped, total: rows.length });
