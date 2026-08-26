@@ -236,6 +236,23 @@ export default function CategoryDashboard({
 
   const canManageEvaluators = role === "association" || role === "director";
 
+  // Trend cell — shared by the skater and both goalie tables so the "spots
+  // moved since the previous session" behavior can't drift between them.
+  // prev_rank is computed once, format-agnostically, in lib/rankings.js.
+  const renderTrend = (a) => {
+    const prev = a.prev_rank;
+    if (prev == null) return <span className="text-gray-200 text-xs">—</span>;
+    const delta = prev - a.rank; // positive = moved up (better) that many spots
+    const up = delta > 0, dn = delta < 0;
+    const spots = Math.abs(delta);
+    return (
+      <span className={`text-sm font-bold leading-none tabular-nums ${up ? "text-green-500" : dn ? "text-red-400" : "text-gray-300"}`}
+        title={up ? `Up ${spots} spot${spots === 1 ? "" : "s"} since the previous session` : dn ? `Down ${spots} spot${spots === 1 ? "" : "s"} since the previous session` : "No change since the previous session"}>
+        {up ? `▲${spots}` : dn ? `▼${spots}` : "–"}
+      </span>
+    );
+  };
+
   const { data: evaluatorsData, refetch: refetchEvaluators } = useQuery({
     queryKey: ["cat-evaluators", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/evaluators`); return res.json(); },
@@ -772,6 +789,7 @@ export default function CategoryDashboard({
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
                           {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
                           <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -779,9 +797,17 @@ export default function CategoryDashboard({
                           <tr key={a.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                             <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
-                            <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
+                            <td className="px-4 py-3 text-gray-900 font-semibold">
+                              {a.last_name}
+                              {a.low_data ? (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
+                              ) : a.incomplete && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
+                              )}
+                            </td>
                             {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
                             <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                            <td className="px-4 py-3 text-center">{renderTrend(a)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -849,7 +875,7 @@ export default function CategoryDashboard({
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className={`font-semibold hover:text-[#0b5cd6] ${a.cut_at ? "text-gray-400 line-through" : "text-gray-900"}`}>{a.last_name}</a>
                           {a.low_data ? (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Only ${Math.round((a.total_weight_attended || 0) * 100)}% of the season's weight attended — ranked below fully-sampled athletes regardless of prorated total`}>Limited data</span>
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
                           ) : a.incomplete && (
                             <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                           )}
@@ -872,19 +898,7 @@ export default function CategoryDashboard({
                             </td>
                           );
                         })()}
-                        {hasScores && <td className="px-4 py-3 text-center">
-                          {(() => {
-                            const prev = a.prev_rank;
-                            if (prev == null) return <span className="text-gray-200 text-xs">—</span>;
-                            const up = a.rank < prev, dn = a.rank > prev;
-                            return (
-                              <span className={`text-base font-bold leading-none ${up ? "text-green-500" : dn ? "text-red-400" : "text-gray-300"}`}
-                                title={up ? `Up from #${prev} (before the most recent session)` : dn ? `Down from #${prev} (before the most recent session)` : "No change since the previous session"}>
-                                {up ? "▲" : dn ? "▼" : "–"}
-                              </span>
-                            );
-                          })()}
-                        </td>}
+                        {hasScores && <td className="px-4 py-3 text-center">{renderTrend(a)}</td>}
                         {category?.eval_format === "round_robin" && (
                           <td className="px-4 py-3 text-center">
                             {a.cut_at ? (
@@ -925,6 +939,7 @@ export default function CategoryDashboard({
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last</th>
                         {sessions.map(s => <th key={s.session_number} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">S{s.session_number}</th>)}
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trend</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Report</th>
                       </tr>
                     </thead>
@@ -933,9 +948,17 @@ export default function CategoryDashboard({
                         <tr key={a.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3"><RankBadge rank={a.rank} tied={goalieAthletes.filter(x => x.rank === a.rank).length > 1} /></td>
                           <td className="px-4 py-3 text-gray-900 font-medium">{a.first_name}</td>
-                          <td className="px-4 py-3 text-gray-900 font-semibold">{a.last_name}</td>
+                          <td className="px-4 py-3 text-gray-900 font-semibold">
+                            {a.last_name}
+                            {a.low_data ? (
+                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
+                            ) : a.incomplete && (
+                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
+                            )}
+                          </td>
                           {sessions.map(s => { const sd = a.session_scores?.[s.session_number]; return <td key={s.session_number} className="px-4 py-3 text-center tabular-nums">{sd ? <span className="font-medium text-gray-900">{sd.normalized_score?.toFixed(1)}</span> : <span className="text-gray-200">—</span>}</td>; })}
                           <td className={`px-4 py-3 text-center font-display text-lg font-extrabold tabular-nums ${a.rank === 1 ? "text-accent" : "text-ink"}`}>{a.weighted_total > 0 ? a.weighted_total?.toFixed(1) : "—"}</td>
+                          <td className="px-4 py-3 text-center">{renderTrend(a)}</td>
                           <td className="px-4 py-3 text-center"><a href={`/player/report?athlete=${a.id}&cat=${catId}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-accent hover:border-accent text-xs font-semibold transition-colors"><FileText size={13} /> Report</a></td>
                         </tr>
                       ))}

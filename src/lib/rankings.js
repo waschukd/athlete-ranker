@@ -4,16 +4,19 @@ import { getCoachUserIds } from "@/lib/categoryEvaluators";
 import { resolveMatchupTeams } from "@/lib/scrimmageTeams";
 
 // Below this fraction of the GROUP'S OWN MEDIAN weight-attended-so-far, an
-// athlete's prorated total is still shown (their own record/report) but never
-// lets them outrank an adequately-sampled athlete -- see low_data in
-// buildTotals below. Deliberately relative to the field's current progress,
-// not a fixed fraction of the eventual full season: a category-agnostic
-// absolute threshold can't work across "3 sessions, everyone plays all of
-// them" (e.g. SPS Fuzion's tournament format) and "8 sessions, everyone's
-// only expected to play ~4 before cuts" (e.g. EFHA's) -- early in an
-// 8-session season, someone who's played their normal 2-of-8 so far only has
-// 25% of the eventual season's weight, which a fixed threshold flagged as
-// "limited data" for literally everyone, correctly caught up or not.
+// athlete is flagged low_data -- a hover warning on their rank ("results
+// missing, may not paint a clear picture"), never a rank suppression. Per
+// EFHA directly: an athlete ranks on their actual score regardless of how
+// little data it's built on -- a single strong result can legitimately put
+// someone near the top, and demoting them anyway was itself misleading.
+// Deliberately relative to the field's current progress, not a fixed
+// fraction of the eventual full season: a category-agnostic absolute
+// threshold can't work across "3 sessions, everyone plays all of them" (e.g.
+// SPS Fuzion's tournament format) and "8 sessions, everyone's only expected
+// to play ~4 before cuts" (e.g. EFHA's) -- early in an 8-session season,
+// someone who's played their normal 2-of-8 so far only has 25% of the
+// eventual season's weight, which a fixed threshold flagged as "limited
+// data" for literally everyone, correctly caught up or not.
 const LOW_DATA_RELATIVE_THRESHOLD = 0.5;
 
 function median(nums) {
@@ -242,17 +245,17 @@ export async function computeCategoryRankings(catId, opts = {}) {
       list.sort((a, b) => b.score - a.score);
       list.forEach((s, idx) => { (rankHistory[s.id] ||= []).push(idx + 1); });
     }
-    // Fully/adequately-sampled athletes always rank ahead of low-data ones,
-    // regardless of prorated total -- see low_data above.
-    const sorted = [...group].sort((a, b) => {
-      if (a.low_data !== b.low_data) return a.low_data ? 1 : -1;
-      return b.weighted_total !== a.weighted_total
-        ? b.weighted_total - a.weighted_total
-        : a.last_name.localeCompare(b.last_name);
-    });
+    // Rank purely by score -- an athlete with limited data still ranks on the
+    // merits of what they actually scored (a real customer call: someone with
+    // only one strong result can legitimately belong near the top, and
+    // demoting them regardless of score was itself misleading). low_data is
+    // surfaced as a hover flag only (see the UI layer), never a sort factor.
+    const sorted = [...group].sort((a, b) => b.weighted_total !== a.weighted_total
+      ? b.weighted_total - a.weighted_total
+      : a.last_name.localeCompare(b.last_name));
     let currentRank = 1;
     return sorted.map((a, i) => {
-      currentRank = (i > 0 && a.weighted_total === sorted[i - 1].weighted_total && a.low_data === sorted[i - 1].low_data) ? currentRank : i + 1;
+      currentRank = (i > 0 && a.weighted_total === sorted[i - 1].weighted_total) ? currentRank : i + 1;
       return { ...a, rank: currentRank, rank_history: rankHistory[a.id] || [], agreement_pct: agreementMap[a.id] || null };
     });
   };
