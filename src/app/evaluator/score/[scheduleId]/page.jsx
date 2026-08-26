@@ -96,6 +96,7 @@ function ScoringInterface() {
   const [showConsensus, setShowConsensus] = useState(false);
   const [consensusData, setConsensusData] = useState(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
+  const [consensusError, setConsensusError] = useState(false);
   const [reviewedFlags, setReviewedFlags] = useState(new Set());
   const [consensusEvalFilter, setConsensusEvalFilter] = useState("");
   const [closing, setClosing] = useState(false);
@@ -1141,9 +1142,17 @@ function ScoringInterface() {
 
   const loadConsensus = async () => {
     setConsensusLoading(true);
-    const res = await fetch(`/api/categories/${catId}/consensus?schedule_id=${scheduleId}&session=${scheduleData?.session_number}`);
-    const data = await res.json();
-    setConsensusData(data);
+    setConsensusError(false);
+    try {
+      const res = await fetch(`/api/categories/${catId}/consensus?schedule_id=${scheduleId}&session=${scheduleData?.session_number}`);
+      const data = await res.json();
+      setConsensusData(data);
+    } catch {
+      // A flaky rink WiFi connection throwing here (Safari's generic "Load
+      // failed") previously left the modal spinning forever with no way out
+      // but closing it -- this at least surfaces a retry instead of a stuck spinner.
+      setConsensusError(true);
+    }
     setConsensusLoading(false);
   };
 
@@ -1488,7 +1497,7 @@ function ScoringInterface() {
       {/* ── Consensus overlay ─────────────────────────────────── */}
       {showConsensus && (
         <ConsensusModal
-          data={consensusData} loading={consensusLoading}
+          data={consensusData} loading={consensusLoading} error={consensusError} onRetry={loadConsensus}
           evalFilter={consensusEvalFilter} setEvalFilter={setConsensusEvalFilter}
           reviewedFlags={reviewedFlags}
           onDiscussed={(athleteId, severity) => { setReviewedFlags(prev => new Set([...prev, athleteId])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId, severity } }); }}

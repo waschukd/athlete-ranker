@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 
 export default function ConsensusModal({
-  data, loading,
+  data, loading, error, onRetry,
   evalFilter, setEvalFilter,
   reviewedFlags, onDiscussed,
   isAnon, anonLabel, athletes,
@@ -30,6 +30,11 @@ export default function ConsensusModal({
 
         {loading ? (
           <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" /></div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-sm text-gray-500 mb-3">Couldn't load consensus — check your connection.</p>
+            <button onClick={onRetry} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">Retry</button>
+          </div>
         ) : !data?.athletes?.length ? (
           <div className="text-center py-20 text-gray-500 text-sm">No scores submitted yet</div>
         ) : (
