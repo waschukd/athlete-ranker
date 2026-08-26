@@ -2,10 +2,25 @@ import sql from "@/lib/db";
 import { agreementPct, normalizeScore, testingPercentile, round1 } from "@/lib/scoring";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
 
-// Below this fraction of the season's total weight attended, an athlete's
-// prorated total is still shown (their own record/report) but never lets them
-// outrank a fully-sampled athlete -- see low_data in buildTotals below.
-const MIN_WEIGHT_FOR_RANK = 0.5;
+// Below this fraction of the GROUP'S OWN MEDIAN weight-attended-so-far, an
+// athlete's prorated total is still shown (their own record/report) but never
+// lets them outrank an adequately-sampled athlete -- see low_data in
+// buildTotals below. Deliberately relative to the field's current progress,
+// not a fixed fraction of the eventual full season: a category-agnostic
+// absolute threshold can't work across "3 sessions, everyone plays all of
+// them" (e.g. SPS Fuzion's tournament format) and "8 sessions, everyone's
+// only expected to play ~4 before cuts" (e.g. EFHA's) -- early in an
+// 8-session season, someone who's played their normal 2-of-8 so far only has
+// 25% of the eventual season's weight, which a fixed threshold flagged as
+// "limited data" for literally everyone, correctly caught up or not.
+const LOW_DATA_RELATIVE_THRESHOLD = 0.5;
+
+function median(nums) {
+  if (!nums.length) return 0;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
 
 // Single source of truth for category rankings. Pure DB computation — no request
 // or auth context — so it can be called directly from any already-authorized route
@@ -158,47 +173,54 @@ export async function computeCategoryRankings(catId, opts = {}) {
 
   // Weighted total for a set of athletes over a given session set. Prorates from
   // attended sessions only (a missed session doesn't penalise the rest).
-  const buildTotals = (list, sess) => list.map(a => {
-    const athleteScores = scoreMap[a.id] || {};
-    let weightedTotal = 0, totalWeightAttended = 0, sessionsAttended = 0;
-    const sessionBreakdown = {};
-    for (const session of sess) {
-      const sd = athleteScores[session.session_number];
-      if (sd) {
-        const weight = parseFloat(session.weight_percentage) / 100;
-        totalWeightAttended += weight;
-        sessionsAttended++;
-        sessionBreakdown[session.session_number] = { ...sd, weight: session.weight_percentage };
-      }
-    }
-    if (totalWeightAttended > 0) {
-      const prorateFactor = 1 / totalWeightAttended;
+  const buildTotals = (list, sess) => {
+    const raw = list.map(a => {
+      const athleteScores = scoreMap[a.id] || {};
+      let weightedTotal = 0, totalWeightAttended = 0, sessionsAttended = 0;
+      const sessionBreakdown = {};
       for (const session of sess) {
         const sd = athleteScores[session.session_number];
         if (sd) {
           const weight = parseFloat(session.weight_percentage) / 100;
-          const contribution = Math.round(sd.normalized_score * weight * prorateFactor * 10) / 10;
-          weightedTotal += contribution;
-          sessionBreakdown[session.session_number].contribution = contribution;
+          totalWeightAttended += weight;
+          sessionsAttended++;
+          sessionBreakdown[session.session_number] = { ...sd, weight: session.weight_percentage };
         }
       }
-    }
-    return {
-      ...a,
-      weighted_total: Math.round(weightedTotal * 10) / 10,
-      session_scores: sessionBreakdown,
-      sessions_attended: sessionsAttended,
-      sessions_total: sess.length,
-      incomplete: sessionsAttended < sess.length,
-      total_weight_attended: Math.round(totalWeightAttended * 1000) / 1000,
-      // An athlete with only a sliver of the season's weight attended (e.g. just
-      // the 20%-weighted testing session) gets that sliver prorated up to their
-      // FULL total -- a single strong testing rank can outrank kids with two full
-      // sessions of real data. Below this floor they still get a weighted_total
-      // (for their own record/report) but never outrank a fully-sampled athlete.
-      low_data: totalWeightAttended < MIN_WEIGHT_FOR_RANK,
-    };
-  });
+      if (totalWeightAttended > 0) {
+        const prorateFactor = 1 / totalWeightAttended;
+        for (const session of sess) {
+          const sd = athleteScores[session.session_number];
+          if (sd) {
+            const weight = parseFloat(session.weight_percentage) / 100;
+            const contribution = Math.round(sd.normalized_score * weight * prorateFactor * 10) / 10;
+            weightedTotal += contribution;
+            sessionBreakdown[session.session_number].contribution = contribution;
+          }
+        }
+      }
+      return {
+        ...a,
+        weighted_total: Math.round(weightedTotal * 10) / 10,
+        session_scores: sessionBreakdown,
+        sessions_attended: sessionsAttended,
+        sessions_total: sess.length,
+        incomplete: sessionsAttended < sess.length,
+        total_weight_attended: Math.round(totalWeightAttended * 1000) / 1000,
+      };
+    });
+    // low_data is relative to what the FIELD has actually done so far (this
+    // group's median weight-attended), not the eventual full season -- see
+    // LOW_DATA_RELATIVE_THRESHOLD above for why. An athlete who's kept pace
+    // with the field never gets flagged just because the season itself is
+    // long; someone meaningfully behind the field's own pace still does.
+    const med = median(raw.map(a => a.total_weight_attended));
+    const threshold = med * LOW_DATA_RELATIVE_THRESHOLD;
+    // <= rather than < -- someone at EXACTLY half the field's pace (e.g. 1 of
+    // 2 games played so far, same shape as the original bug) should still
+    // read as behind, not just strictly under it.
+    return raw.map(a => ({ ...a, low_data: a.total_weight_attended <= threshold }));
+  };
 
   // Rank a set independently: per-session rank history is computed WITHIN the set
   // (over that set's sessions), overall rank is 1..n. Goalies are ranked separately
