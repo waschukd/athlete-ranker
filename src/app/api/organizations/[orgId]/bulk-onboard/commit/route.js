@@ -81,6 +81,12 @@ export async function POST(request, { params }) {
         summary.categoriesCreated++;
       }
       if (declaredFormat) { try { await sql`UPDATE age_categories SET eval_format = ${declaredFormat} WHERE id = ${catId}`; } catch { /* column not migrated */ } }
+      // Effective format after the update above (or the category's pre-existing
+      // setting when the file didn't declare one, e.g. routed into an existing
+      // category) -- this, not declaredFormat alone, decides whether a roster
+      // row's Scrimmage Team or Session N Group # column applies below.
+      const [{ eval_format: effectiveFormat } = {}] = await sql`SELECT eval_format FROM age_categories WHERE id = ${catId}`;
+      const isTournamentCat = effectiveFormat === "round_robin";
 
       // Session mapping for this category's schedule.
       const { sessionForRow } = deriveSessions(keyRows);
@@ -89,17 +95,51 @@ export async function POST(request, { params }) {
       // conflict key (external_id) or no key at all, so nothing here can race --
       // fire them all concurrently instead of one round trip per athlete.
       const validAthletes = keyAthletes.filter(a => a.first_name && a.last_name);
-      await Promise.all(validAthletes.map(a => {
+      const insertedAthletes = await Promise.all(validAthletes.map(async a => {
         const helmet = a.helmet_number ? String(a.helmet_number).trim().slice(0, 4) || null : null;
-        return a.external_id
-          ? sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+        const rows = a.external_id
+          ? await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
               VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.external_id}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)
               ON CONFLICT (age_category_id, external_id) WHERE external_id IS NOT NULL
-              DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number), is_active = true`
-          : sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
-              VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)`;
+              DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, position = COALESCE(EXCLUDED.position, athletes.position), helmet_number = COALESCE(EXCLUDED.helmet_number, athletes.helmet_number), is_active = true
+              RETURNING id`
+          : await sql`INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, position, birth_year, parent_email, parent_email_2, helmet_number, is_active)
+              VALUES (${orgId}, ${catId}, ${a.first_name}, ${a.last_name}, ${a.position || null}, ${a.birth_year || null}, ${a.parent_email || null}, ${a.parent_email_2 || null}, ${helmet}, true)
+              RETURNING id`;
+        return { athlete: a, id: rows[0]?.id || null };
       }));
       summary.athletesImported += validAthletes.length;
+
+      // Per-athlete team (tournament) or group (standard) assignment from the
+      // roster file -- same Scrimmage Team / Session N Group # columns the
+      // single-category import supports, so a whole-association upload doesn't
+      // leave every division's teams/groups to build by hand afterward. Kept
+      // sequential (not Promise.all) since team/group creation is a
+      // select-then-insert-if-missing that would race on the same new
+      // team/group across concurrent athletes in the same division.
+      for (const { athlete: a, id: athleteId } of insertedAthletes) {
+        if (!athleteId) continue;
+        if (isTournamentCat && a.scrimmage_team) {
+          const label = a.scrimmage_team.trim();
+          const canonicalTeamName = /^[a-f]$/i.test(label) ? `Team ${label.toUpperCase()}` : label;
+          let [team] = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} AND lower(name) = ${canonicalTeamName.toLowerCase()}`;
+          if (!team) {
+            const [{ nextOrder }] = await sql`SELECT COALESCE(MAX(display_order), -1) + 1 AS "nextOrder" FROM scrimmage_teams WHERE age_category_id = ${catId}`;
+            [team] = await sql`INSERT INTO scrimmage_teams (age_category_id, name, display_order) VALUES (${catId}, ${canonicalTeamName}, ${nextOrder}) RETURNING id`;
+          }
+          await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${team.id}, ${athleteId}) ON CONFLICT (athlete_id, scrimmage_team_id) DO NOTHING`;
+        } else if (!isTournamentCat && Array.isArray(a.session_groups) && a.session_groups.length) {
+          for (const sg of a.session_groups) {
+            const sNum = parseInt(sg.session_number);
+            const gNum = parseInt(sg.group_number);
+            if (!sNum || !gNum) continue;
+            await ensureSessionGroup(catId, sNum, gNum);
+            const [group] = await sql`SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = ${sNum} AND group_number = ${gNum}`;
+            if (!group) continue;
+            await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${group.id}, 0) ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+          }
+        }
+      }
 
       // Schedule slots → session (by date/type) with unique-per-session group numbers.
       // The group-number auto-counter is stateful and must stay a plain sequential
