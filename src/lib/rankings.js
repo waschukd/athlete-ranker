@@ -257,6 +257,25 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const trueCompletedSessions = Object.entries(sessionStatus).filter(([,v]) => v === "complete").map(([k]) => parseInt(k));
   const inProgressSessions = Object.entries(sessionStatus).filter(([,v]) => v === "in_progress").map(([k]) => parseInt(k));
 
+  // Trend arrow: rank as of the PREVIOUS completed session vs the current overall
+  // rank -- both computed the same way (blended, prorated, low_data-aware), so it's
+  // apples-to-apples. Previously this compared the overall rank to the athlete's
+  // isolated rank WITHIN just their most recent session (rank_history's last entry),
+  // which mixes two different rank spaces: a session's own internal order rarely
+  // matches the blended weighted order, so "down from #2" could fire on an athlete
+  // who actually climbed overall (e.g. testing rank 2nd but overall 3rd once skills
+  // is blended in reads as "down from 2" despite never having been ranked 2nd overall).
+  const sortedCompleted = [...trueCompletedSessions].sort((a, b) => a - b);
+  if (sortedCompleted.length >= 2) {
+    const prevCheckpoint = sortedCompleted[sortedCompleted.length - 2];
+    const prevSessions = sessions.filter(s => s.session_number <= prevCheckpoint);
+    const prevRanked = rankGroup(buildTotals(athletes.filter(a => !isGoalie(a)), prevSessions), prevSessions);
+    const prevRankById = Object.fromEntries(prevRanked.map(a => [a.id, a.rank]));
+    for (const a of ranked) a.prev_rank = prevRankById[a.id] ?? null;
+  } else {
+    for (const a of ranked) a.prev_rank = null;
+  }
+
   const phase = completedSessions.length === 0 ? "pre_session"
     : trueCompletedSessions.length === sessions.length ? "complete" : "in_progress";
 

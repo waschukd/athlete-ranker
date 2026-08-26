@@ -537,8 +537,8 @@ function GroupsManagerInner() {
     const score = {}, delta = {};
     rankedAthletes.forEach(a => {
       if (a.weighted_total != null) score[String(a.id)] = a.weighted_total;
-      const h = a.rank_history || []; const last = h.length ? h[h.length - 1] : null;
-      delta[String(a.id)] = last == null ? 0 : (last - a.rank); // + climbed spots, − slipped
+      const prev = a.prev_rank;
+      delta[String(a.id)] = prev == null ? 0 : (prev - a.rank); // + climbed spots, − slipped
     });
     const stats = {};
     for (const g of sorted) {

@@ -976,13 +976,12 @@ export default function CategoryDashboard({
                         })()}
                         {hasScores && <td className="px-4 py-3 text-center">
                           {(() => {
-                            const hist = a.rank_history || [];
-                            if (!hist.length) return <span className="text-gray-200 text-xs">—</span>;
-                            const last = hist[hist.length - 1];
-                            const up = a.rank < last, dn = a.rank > last;
+                            const prev = a.prev_rank;
+                            if (prev == null) return <span className="text-gray-200 text-xs">—</span>;
+                            const up = a.rank < prev, dn = a.rank > prev;
                             return (
                               <span className={`text-base font-bold leading-none ${up ? "text-green-500" : dn ? "text-red-400" : "text-gray-300"}`}
-                                title={up ? `Up from #${last}` : dn ? `Down from #${last}` : "No change since last eval"}>
+                                title={up ? `Up from #${prev} (before the most recent session)` : dn ? `Down from #${prev} (before the most recent session)` : "No change since the previous session"}>
                                 {up ? "▲" : dn ? "▼" : "–"}
                               </span>
                             );
