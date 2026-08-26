@@ -60,13 +60,18 @@ export async function POST(request, { params }) {
       const keyRows = scheduleRows.filter(r => r.divisionKey === dec.key);
       const keyAthletes = athletes.filter(a => a.divisionKey === dec.key);
 
-      // Per-division evaluation format from the template's Format column (any
-      // Tournament row ⇒ round_robin). Only applied when the file declared it.
+      // Per-division evaluation format: the reviewer's explicit choice in the
+      // review screen (dec.format) wins over whatever the schedule file's Format
+      // column declared -- tournaments have TEAMS, standard has GROUPS, and an
+      // association may need to override a messy/AI-read file per division.
+      const uiFormat = dec.format === "round_robin" || dec.format === "standard" ? dec.format : null;
       const declaredTournament = keyRows.some(r => r.eval_format === "round_robin");
-      const declaredFormat = keyRows.some(r => r.eval_format) ? (declaredTournament ? "round_robin" : "standard") : null;
+      const fileFormat = keyRows.some(r => r.eval_format) ? (declaredTournament ? "round_robin" : "standard") : null;
+      const declaredFormat = uiFormat || fileFormat;
 
       // Resolve the target category.
       let catId;
+      const isNewCategory = !(dec.action === "existing" && dec.categoryId);
       if (dec.action === "existing" && dec.categoryId) {
         const owned = await sql`SELECT id FROM age_categories WHERE id = ${dec.categoryId} AND organization_id = ${orgId}`;
         if (!owned.length) { summary.skipped++; continue; }
@@ -80,7 +85,11 @@ export async function POST(request, { params }) {
         await seedConfig(catId, sessions);
         summary.categoriesCreated++;
       }
-      if (declaredFormat) { try { await sql`UPDATE age_categories SET eval_format = ${declaredFormat} WHERE id = ${catId}`; } catch { /* column not migrated */ } }
+      // Only ever set format on a category THIS run is creating -- an existing
+      // category's format is a deliberate, established setting from its own setup
+      // wizard, and a later bulk upload routing more rows into it shouldn't
+      // silently flip teams<->groups underneath it.
+      if (isNewCategory && declaredFormat) { try { await sql`UPDATE age_categories SET eval_format = ${declaredFormat} WHERE id = ${catId}`; } catch { /* column not migrated */ } }
       // Effective format after the update above (or the category's pre-existing
       // setting when the file didn't declare one, e.g. routed into an existing
       // category) -- this, not declaredFormat alone, decides whether a roster

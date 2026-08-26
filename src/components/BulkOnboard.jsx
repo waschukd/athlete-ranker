@@ -32,7 +32,15 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
       const init = {};
       for (const div of d.divisions) {
         const match = (d.existing || []).find(c => c.name.toLowerCase() === div.key.toLowerCase());
-        init[div.key] = match ? { action: "existing", categoryId: match.id, name: div.key } : { action: "create", name: div.key };
+        // Tournaments have TEAMS, standard has GROUPS -- default from whatever the
+        // schedule file declared for this division's rows (if anything), but the
+        // association can override it per division below; a file with no Format
+        // column at all defaults to Standard, the more common case.
+        const divRows = (d.scheduleRows || []).filter(r => r.divisionKey === div.key);
+        const format = divRows.some(r => r.eval_format === "round_robin") ? "round_robin" : "standard";
+        init[div.key] = match
+          ? { action: "existing", categoryId: match.id, name: div.key, format }
+          : { action: "create", name: div.key, format };
       }
       setDecisions(init);
       // Pre-fill roster mapping from each source value's canonical suggestion.
@@ -166,7 +174,7 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
               <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto mb-3">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr><th className="text-left px-4 py-2">Category name</th><th className="px-3 py-2">Schedule</th><th className="px-3 py-2">Athletes</th><th className="text-left px-4 py-2">Action</th></tr>
+                    <tr><th className="text-left px-4 py-2">Category name</th><th className="px-3 py-2">Schedule</th><th className="px-3 py-2">Athletes</th><th className="text-left px-3 py-2">Format</th><th className="text-left px-4 py-2">Action</th></tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {parsed.divisions.map(div => {
@@ -178,6 +186,15 @@ export default function BulkOnboard({ orgId, existingCategories = [], onDone, on
                           </td>
                           <td className="px-3 py-2.5 text-center text-gray-600 tabular-nums">{div.scheduleCount || "—"}</td>
                           <td className="px-3 py-2.5 text-center text-gray-600 tabular-nums">{div.athleteCount || "—"}</td>
+                          <td className="px-3 py-2.5">
+                            <select value={dec.format || "standard"} onChange={e => setDec(div.key, { format: e.target.value })}
+                              disabled={dec.action === "skip" || dec.action === "existing"}
+                              title={dec.action === "existing" ? "Format is already set on the existing category" : "Standard = groups. Tournament = teams."}
+                              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white disabled:bg-gray-50 disabled:text-gray-400">
+                              <option value="standard">Standard (groups)</option>
+                              <option value="round_robin">Tournament (teams)</option>
+                            </select>
+                          </td>
                           <td className="px-4 py-2.5">
                             <select value={dec.action === "existing" ? `existing:${dec.categoryId}` : dec.action} onChange={e => {
                               const v = e.target.value;
