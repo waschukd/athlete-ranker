@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calendar, Clock, MapPin, Users, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Plus, Download, LogOut, ClipboardList, Mail, X, Check, ChevronDown, ChevronRight, Copy, AlertCircle, AlertTriangle, Send, Shield } from "lucide-react";
 import { colorForOrg, OrgChip } from "@/lib/orgVisuals";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BatchSignupPrompt from "@/components/BatchSignupPrompt";
@@ -955,6 +955,19 @@ function EvaluatorDashboard() {
     },
   });
 
+  // Association(s) this person is the designated lead of -- their only way to
+  // discover the association dashboard is even reachable for them, since
+  // nothing about their role changes when they're made a lead.
+  const { data: ledOrgsData } = useQuery({
+    queryKey: ["led-orgs"],
+    enabled: isEvaluator,
+    queryFn: async () => {
+      const res = await fetch("/api/evaluator/led-orgs");
+      return res.json();
+    },
+  });
+  const ledOrgs = ledOrgsData?.orgs || [];
+
   const { data: mineData, isLoading: mineLoading } = useQuery({
     queryKey: ["evaluator-sessions-mine"],
     enabled: isEvaluator,
@@ -1375,6 +1388,23 @@ function EvaluatorDashboard() {
             <div>
               <p className="font-bold text-amber-800">Warning — Strike 1 on record</p>
               <p className="text-sm text-amber-600 mt-0.5">You have one late cancellation on record. A second cancellation with less than 24 hours notice will result in automatic suspension.</p>
+            </div>
+          </div>
+        )}
+        {ledOrgs.length > 0 && (
+          <div className="mb-6 p-4 bg-accent-soft border border-accent/20 rounded-xl flex items-start gap-3 flex-wrap">
+            <Shield className="text-accent flex-shrink-0 mt-0.5" size={18} />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-ink">{ledOrgs.length === 1 ? `You're the lead for ${ledOrgs[0].name}` : "You're the lead for these associations"}</p>
+              <p className="text-sm text-gray-500 mt-0.5">Fix scores, manage sessions, and handle day-to-day issues — the same access an admin has, just for {ledOrgs.length === 1 ? "this association" : "these associations"}.</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {ledOrgs.map(o => (
+                  <a key={o.id} href={`/association/dashboard?org=${o.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
+                    Open {o.name} dashboard →
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         )}

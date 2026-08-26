@@ -70,6 +70,20 @@ const ROLE_ROUTES = {
 // group-building and flags sub-pages (the APIs already authorize them per-category).
 const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags)(\/|$)/;
 
+// An evaluator designated as an association's LEAD (evaluator_memberships.
+// is_lead) gets admin-equivalent access to that one association -- but
+// nothing in their JWT role reflects that (is_lead is a per-org DB flag, not
+// a role). This is the same shape as the director carve-out above: coarse,
+// role-based pass-through at the routing layer, with the REAL per-org check
+// enforced by every data endpoint underneath via evaluator_memberships
+// (authorizeOrgAccess / authorizeCategoryAccess already grant access there
+// through a genuine membership row -- setLead() creates one on the
+// association itself even for an SP-side evaluator with no other tie to it).
+// Someone who is NOT actually a lead of the association in the URL reaches
+// an empty/403'd page, never real data -- it is not possible to widen this
+// past what the DB says, no matter what URL is typed.
+const LEAD_ELIGIBLE_ROLES = new Set(["service_provider_evaluator", "association_evaluator"]);
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
@@ -95,6 +109,10 @@ export async function middleware(request) {
     const { payload } = await jwtVerify(token, SECRET);
 
     if (payload.role === "director" && DIRECTOR_ASSOC_ALLOW.test(pathname)) {
+      return NextResponse.next();
+    }
+
+    if (LEAD_ELIGIBLE_ROLES.has(payload.role) && pathname.startsWith("/association/dashboard")) {
       return NextResponse.next();
     }
 
