@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import sql from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Forgot-password is an outbound-email cannon for any logged-out
 // caller, so we cap it twice over:
@@ -100,7 +101,7 @@ export async function POST(request) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/account/reset-password?token=${token}`;
 
-    await sendEmail(email, "Reset your Sideline Star password", `
+    const res = await sendEmail(email, "Reset your Sideline Star password", `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
         <div style="background:linear-gradient(135deg,#0b5cd6,#3b82f6);padding:28px 40px;text-align:center;border-radius:12px 12px 0 0;">
           <div style="font-size:22px;font-weight:800;color:#fff;">Sideline Star</div>
@@ -113,6 +114,17 @@ export async function POST(request) {
         </div>
       </div>
     `);
+    // Log-only, deliberately -- no status UI anywhere reads this. Surfacing
+    // delivery status for a password-reset request would leak whether an
+    // email address has an account, defeating the no-enumeration response
+    // below. This is purely for ops (e.g. "is Resend actually delivering
+    // these") without touching what the caller ever sees.
+    await ensureEmailLogTable();
+    await logEmailSend({
+      emailType: "password_reset", to: email,
+      resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+      error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

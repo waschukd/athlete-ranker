@@ -130,21 +130,30 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: true, sent: 0, skipped: 0, total: athletes.length, message: "No evaluation dates scheduled yet" });
       }
 
+      await ensureEmailLogTable();
       let sent = 0, skipped = 0;
       for (const athlete of athletes) {
+        const name = `${athlete.first_name} ${athlete.last_name}`;
         try {
           const html = parentScheduleHtml({
-            playerName: `${athlete.first_name} ${athlete.last_name}`,
+            playerName: name,
             categoryName: category_name,
             orgName: org_name,
             sessions,
           });
           const recipients = parentEmails(athlete);
           if (!recipients.length) { skipped++; continue; }
+          let anyOk = false;
           for (const to of recipients) {
-            await sendEmail(to, `Evaluation Dates — ${category_name} (${org_name})`, html);
+            const res = await sendEmail(to, `Evaluation Dates — ${category_name} (${org_name})`, html);
+            await logEmailSend({
+              catId, emailType: "evaluation_dates", athleteId: athlete.id, athleteName: name, to,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) anyOk = true;
           }
-          sent++;
+          if (anyOk) sent++; else skipped++;
         } catch (e) {
           console.error("Failed to send dates to athlete " + athlete.id + ":", e?.message || e);
           skipped++;
