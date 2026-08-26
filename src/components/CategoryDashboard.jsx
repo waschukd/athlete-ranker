@@ -8,7 +8,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award, ClipboardList
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -1109,6 +1109,20 @@ export default function CategoryDashboard({
                         <span className="text-sm text-gray-600">{text}</span>
                       </div>
                     ));
+                  })()}
+                  {(() => {
+                    const testingSession = (sessions || []).find(s => s.session_type === "testing");
+                    const st = testingSession && (sessionStatus?.[testingSession.session_number] || sessionStatus?.[Number(testingSession.session_number)]);
+                    if (!testingSession || (st !== "complete" && st !== "in_progress")) return null;
+                    return (
+                      <a href={`/association/dashboard/category/${catId}/testing?org=${orgId}`}
+                        className="flex items-center gap-2.5 -mx-1 px-1 py-1 rounded-lg hover:bg-gray-50 transition-colors">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-blue-50 text-[#0b5cd6] inline-flex items-center justify-center">
+                          <ClipboardList size={13} />
+                        </span>
+                        <span className="text-sm text-[#0b5cd6] font-medium">View raw testing scores</span>
+                      </a>
+                    );
                   })()}
                 </div>
               </div>
