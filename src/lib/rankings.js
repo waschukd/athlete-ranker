@@ -52,7 +52,7 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const category = categoryRes[0];
 
   if (!athletes.length) {
-    return { athletes: [], has_scores: false, phase: "pre_session", sessions, category };
+    return { athletes: [], has_scores: false, phase: "pre_session", sessions, category, has_coaches: coachIds.length > 0 };
   }
 
   const N = athletes.length;
@@ -76,6 +76,11 @@ export async function computeCategoryRankings(catId, opts = {}) {
       athletes: preRank(athletes.filter(a => !isGoalie(a))),
       goalies: preRank(athletes.filter(isGoalie)),
       has_scores: false, phase: "pre_session", sessions, category,
+      // A coach can be designated before anyone's scored anything -- without
+      // this, has_coaches stayed false (and the Coaches tab hidden) until
+      // scoring started, even though the whole point of designating a coach
+      // early is to have somewhere to add/manage them before session 1.
+      has_coaches: coachIds.length > 0,
     };
   }
 

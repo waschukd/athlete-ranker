@@ -549,7 +549,7 @@ export default function CategoryDashboard({
 
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
-    ...(hasCoaches ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
+    ...(hasCoaches || canManageEvaluators ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
     { id: "schedule", label: "Schedule", icon: Calendar },
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
@@ -791,108 +791,6 @@ export default function CategoryDashboard({
               </div>
             ) : (
             <>
-            {/* ── Coach & Goalie evaluators (collapsible) ── */}
-            {canManageEvaluators && (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setEvaluatorsOpen(v => !v)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50/60 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">{categoryEvaluatesGoalies ? "Coach & Goalie evaluators" : "Coach evaluators"}</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">{categoryEvaluatesGoalies ? "Coaches' scores don't count toward results; goalie evaluators only see goalies." : "Their scores don't count toward results."}</p>
-                  </div>
-                  <span className="flex items-center gap-2 text-xs font-semibold text-accent">
-                    {(evalCoaches.length + evalGoalies.length) > 0 && (
-                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent-soft text-accent text-[11px] font-bold">{evalCoaches.length + evalGoalies.length}</span>
-                    )}
-                    {evaluatorsOpen ? "Hide" : "Manage"}
-                    <span className={`text-gray-400 transition-transform ${evaluatorsOpen ? "rotate-180" : ""}`}>▾</span>
-                  </span>
-                </button>
-                {evaluatorsOpen && (
-                  <div className="border-t border-gray-100 px-5 py-5 space-y-5">
-                    {/* Current designations grouped by kind */}
-                    <div className={`grid grid-cols-1 gap-5 ${categoryEvaluatesGoalies ? "md:grid-cols-2" : ""}`}>
-                      {[{ key: "coach", label: "Coaches", list: evalCoaches }, ...(categoryEvaluatesGoalies ? [{ key: "goalie", label: "Goalie evaluators", list: evalGoalies }] : [])].map(group => (
-                        <div key={group.key}>
-                          <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">{group.label} ({group.list.length})</div>
-                          {group.list.length === 0 ? (
-                            <p className="text-xs text-gray-400">None yet.</p>
-                          ) : (
-                            <ul className="space-y-1.5">
-                              {group.list.map(d => (
-                                <li key={d.id} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-medium text-ink truncate">{d.name || d.user_email || d.email || "—"}</div>
-                                    {(d.user_email || d.email) && <div className="text-xs text-gray-400 truncate">{d.user_email || d.email}</div>}
-                                  </div>
-                                  <button
-                                    onClick={() => setEvalRemoveTarget(d)}
-                                    className="flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg w-7 h-7 inline-flex items-center justify-center transition-colors"
-                                    aria-label={`Remove ${d.name || d.email}`}
-                                  ><X size={15} /></button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Add row */}
-                    <div className="border-t border-gray-100 pt-4">
-                      <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">Add evaluator</div>
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="flex-1 min-w-[160px]">
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Existing person</label>
-                          <select
-                            value={evalAddUserId}
-                            onChange={e => { setEvalAddUserId(e.target.value); if (e.target.value) setEvalAddEmail(""); }}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
-                          >
-                            <option value="">Select a candidate…</option>
-                            {evalCandidates.map(c => (
-                              <option key={c.user_id} value={c.user_id}>{c.name || c.email}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <span className="pb-2 text-xs text-gray-400">or</span>
-                        <div className="flex-1 min-w-[160px]">
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Invite by email</label>
-                          <input
-                            type="email"
-                            value={evalAddEmail}
-                            onChange={e => { setEvalAddEmail(e.target.value); if (e.target.value) setEvalAddUserId(""); }}
-                            placeholder="coach@email.com"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-                          />
-                        </div>
-                        {categoryEvaluatesGoalies && (
-                          <div className="min-w-[120px]">
-                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Role</label>
-                            <select
-                              value={evalAddKind}
-                              onChange={e => setEvalAddKind(e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
-                            >
-                              <option value="coach">Coach</option>
-                              <option value="goalie">Goalie</option>
-                            </select>
-                          </div>
-                        )}
-                        <button
-                          onClick={addEvaluator}
-                          disabled={evalAdding || (!evalAddUserId && !evalAddEmail.trim())}
-                          className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
-                        >{evalAdding ? "Adding…" : "Add"}</button>
-                      </div>
-                      {evalMsg && <div className={`mt-2 text-xs font-medium ${evalMsg.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>{evalMsg}</div>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
                 <div>
@@ -2129,8 +2027,115 @@ export default function CategoryDashboard({
           </div>
         )}
 
-        {activeTab === "coaches" && hasCoaches && (
-          <CoachRankingsPanel catId={catId} hasPositionTagging={hasPositions && category?.position_tagging} />
+        {activeTab === "coaches" && (
+          <div className="space-y-4">
+            {/* ── Coach & Goalie evaluators (collapsible) — moved off Rankings,
+                this is now the only place to add/remove them. ── */}
+            {canManageEvaluators && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setEvaluatorsOpen(v => !v)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50/60 transition-colors"
+                >
+                  <div>
+                    <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">{categoryEvaluatesGoalies ? "Coach & Goalie evaluators" : "Coach evaluators"}</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">{categoryEvaluatesGoalies ? "Coaches' scores don't count toward results; goalie evaluators only see goalies." : "Their scores don't count toward results."}</p>
+                  </div>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-accent">
+                    {(evalCoaches.length + evalGoalies.length) > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent-soft text-accent text-[11px] font-bold">{evalCoaches.length + evalGoalies.length}</span>
+                    )}
+                    {evaluatorsOpen ? "Hide" : "Manage"}
+                    <span className={`text-gray-400 transition-transform ${evaluatorsOpen ? "rotate-180" : ""}`}>▾</span>
+                  </span>
+                </button>
+                {evaluatorsOpen && (
+                  <div className="border-t border-gray-100 px-5 py-5 space-y-5">
+                    {/* Current designations grouped by kind */}
+                    <div className={`grid grid-cols-1 gap-5 ${categoryEvaluatesGoalies ? "md:grid-cols-2" : ""}`}>
+                      {[{ key: "coach", label: "Coaches", list: evalCoaches }, ...(categoryEvaluatesGoalies ? [{ key: "goalie", label: "Goalie evaluators", list: evalGoalies }] : [])].map(group => (
+                        <div key={group.key}>
+                          <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">{group.label} ({group.list.length})</div>
+                          {group.list.length === 0 ? (
+                            <p className="text-xs text-gray-400">None yet.</p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {group.list.map(d => (
+                                <li key={d.id} className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-ink truncate">{d.name || d.user_email || d.email || "—"}</div>
+                                    {(d.user_email || d.email) && <div className="text-xs text-gray-400 truncate">{d.user_email || d.email}</div>}
+                                  </div>
+                                  <button
+                                    onClick={() => setEvalRemoveTarget(d)}
+                                    className="flex-shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg w-7 h-7 inline-flex items-center justify-center transition-colors"
+                                    aria-label={`Remove ${d.name || d.email}`}
+                                  ><X size={15} /></button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add row */}
+                    <div className="border-t border-gray-100 pt-4">
+                      <div className="font-display text-xs font-bold tracking-[0.14em] uppercase text-gray-500 mb-2">Add evaluator</div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="flex-1 min-w-[160px]">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Existing person</label>
+                          <select
+                            value={evalAddUserId}
+                            onChange={e => { setEvalAddUserId(e.target.value); if (e.target.value) setEvalAddEmail(""); }}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          >
+                            <option value="">Select a candidate…</option>
+                            {evalCandidates.map(c => (
+                              <option key={c.user_id} value={c.user_id}>{c.name || c.email}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <span className="pb-2 text-xs text-gray-400">or</span>
+                        <div className="flex-1 min-w-[160px]">
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Invite by email</label>
+                          <input
+                            type="email"
+                            value={evalAddEmail}
+                            onChange={e => { setEvalAddEmail(e.target.value); if (e.target.value) setEvalAddUserId(""); }}
+                            placeholder="coach@email.com"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          />
+                        </div>
+                        {categoryEvaluatesGoalies && (
+                          <div className="min-w-[120px]">
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Role</label>
+                            <select
+                              value={evalAddKind}
+                              onChange={e => setEvalAddKind(e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            >
+                              <option value="coach">Coach</option>
+                              <option value="goalie">Goalie</option>
+                            </select>
+                          </div>
+                        )}
+                        <button
+                          onClick={addEvaluator}
+                          disabled={evalAdding || (!evalAddUserId && !evalAddEmail.trim())}
+                          className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                        >{evalAdding ? "Adding…" : "Add"}</button>
+                      </div>
+                      {evalMsg && <div className={`mt-2 text-xs font-medium ${evalMsg.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>{evalMsg}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {hasCoaches && (
+              <CoachRankingsPanel catId={catId} hasPositionTagging={hasPositions && category?.position_tagging} />
+            )}
+          </div>
         )}
 
         {activeTab === "audit" && (role === "association" || role === "director") && (
