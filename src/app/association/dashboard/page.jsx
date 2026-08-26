@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Users, FileText, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles } from "lucide-react";
+import { Trophy, Plus, Copy, Check, Trash2, Mail, X, LogOut, LayoutGrid, UserCheck, Users, FileText, Calendar, CalendarDays, List, Clock, MapPin, AlertTriangle, ChevronRight, Shield, Search, Sparkles, Star } from "lucide-react";
 import { OrgAvatar, buildOrgColorMap, colorForOrg } from "@/lib/orgVisuals";
 import { WeekGrid, MonthCalendar, DateStripBar } from "@/components/SessionDateNav";
 import SessionRosterModal from "@/components/SessionRosterModal";
@@ -265,6 +265,14 @@ function Dashboard() {
     enabled: !!orgId,
   });
 
+  // Point-of-contact lead(s) for this association -- shown near Admin access so
+  // staff know exactly who to reach first, with a one-click way to email them.
+  const { data: leadContactData } = useQuery({
+    queryKey: ["org-lead-contact", orgId],
+    queryFn: async () => { const res = await fetch(`/api/organizations/${orgId}/lead-contact`); return res.ok ? res.json() : { leads: [] }; },
+    enabled: !!orgId,
+  });
+
   const { data: scheduleData } = useQuery({
     queryKey: ["assoc-schedule", orgId],
     queryFn: async () => {
@@ -328,6 +336,7 @@ function Dashboard() {
 
   const org = orgData?.organization;
   const admins = adminsData?.admins || [];
+  const leadContacts = leadContactData?.leads || [];
   const serviceProvider = orgData?.service_provider || null;
   // An SP-served association can add its OWN evaluators only if the SP granted it.
   // Those evaluators are COACH/comparison-only — their scores never count in the
@@ -541,6 +550,19 @@ function Dashboard() {
                   <span><b className="text-ink">{totalAthletes}</b> athletes</span>
                   <span className="text-gray-300">·</span>
                   <span><b className="text-ink">{totalSessions}</b> sessions</span>
+                </div>
+              )}
+              {/* Point-of-contact lead(s) -- who to reach first, with a one-click email */}
+              {leadContacts.length > 0 && (
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400"><Star size={13} className="text-accent" fill="currentColor" /> Your lead</span>
+                  {leadContacts.map(l => (
+                    <a key={l.email} href={`mailto:${l.email}?subject=${encodeURIComponent(`${org?.name || "Association"} — question`)}`}
+                      title={l.email}
+                      className="inline-flex items-center gap-1.5 pl-2.5 pr-3 py-1 rounded-full text-xs font-semibold bg-accent-soft text-accent hover:opacity-80 transition-opacity">
+                      <Mail size={12} /> {l.name}
+                    </a>
+                  ))}
                 </div>
               )}
               {/* Who has admin access to this association */}
