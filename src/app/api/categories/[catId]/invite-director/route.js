@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail } from "@/lib/email";
 import { createAndSendDirectorInvite } from "@/lib/invites";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Guard against bad route params (e.g. "/api/categories/null/...") reaching an
 // integer column — parse to a positive int or treat as missing.
@@ -98,7 +99,7 @@ export async function POST(request, { params }) {
       }
 
       const dashUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/director/dashboard`;
-      await sendEmail(email, `Director Assignment — ${cat.name} at ${cat.org_name}`,
+      const res = await sendEmail(email, `Director Assignment — ${cat.name} at ${cat.org_name}`,
         `<!DOCTYPE html>
         <html>
         <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -134,6 +135,12 @@ export async function POST(request, { params }) {
         </body>
         </html>`
       );
+      await ensureEmailLogTable();
+      await logEmailSend({
+        catId, orgId: cat.org_id, emailType: "director_assignment_notice", recipientUserId: appUser[0].id, athleteName: name, to: email,
+        resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+        error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+      });
 
       await sql`
         INSERT INTO director_assignments (user_id, age_category_id, organization_id, status)

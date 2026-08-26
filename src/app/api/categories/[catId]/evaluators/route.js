@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import sql from "@/lib/db";
 import { sendEmail, emailWrapper } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Manage per-category evaluator "kind" (standard | coach | goalie). An SP
 // admin can manage this for any association their SP actively serves --
@@ -167,7 +168,13 @@ export async function POST(request, { params }) {
         <div style="text-align:center;margin:8px 0 0;"><a href="${ctaUrl}" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">${ctaLabel}</a></div>
         ${footnote ? `<p style="font-size:12px;color:#9aa0aa;margin:16px 0 0;">${footnote}</p>` : ""}
       `);
-      await sendEmail(toEmail, `You're a ${kindLabel} — ${categoryName}`, html);
+      const res = await sendEmail(toEmail, `You're a ${kindLabel} — ${categoryName}`, html);
+      await ensureEmailLogTable();
+      await logEmailSend({
+        catId, orgId: g.orgId, emailType: "coach_goalie_invite", recipientUserId: userId || null, athleteName: kindLabel, to: toEmail,
+        resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+        error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+      });
     }
 
     return NextResponse.json({ success: true });

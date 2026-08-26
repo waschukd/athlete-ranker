@@ -3,11 +3,12 @@ import { randomUUID } from "crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { sendEmail, esc, sleep } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
 // Send one tester invite email. Returns true if actually sent (RESEND configured).
-async function sendTesterInvite(email, signup_url, sp_name) {
+async function sendTesterInvite(email, signup_url, sp_name, orgId) {
   const res = await sendEmail(email, `You've been invited to join the testing crew for ${sp_name || "a hockey organization"}`,
     `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
       <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to be a tester!</h1>
@@ -16,11 +17,16 @@ async function sendTesterInvite(email, signup_url, sp_name) {
       <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
       <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
     </div>`);
+  await logEmailSend({
+    orgId, emailType: "tester_invite", to: email,
+    resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+    error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+  });
   return res.ok;
 }
 
 // Send one evaluator invite email. Returns true if actually sent (RESEND configured).
-async function sendEvaluatorInvite(email, signup_url, sp_name) {
+async function sendEvaluatorInvite(email, signup_url, sp_name, orgId) {
   const res = await sendEmail(email, `You've been invited to evaluate for ${sp_name || "a hockey organization"}`,
     `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
       <h1 style="font-size: 22px; font-weight: 700; color: #111;">You're invited to evaluate!</h1>
@@ -29,6 +35,11 @@ async function sendEvaluatorInvite(email, signup_url, sp_name) {
       <a href="${signup_url}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; margin: 20px 0;">Accept Invitation →</a>
       <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · Athlete Evaluation Platform</p>
     </div>`);
+  await logEmailSend({
+    orgId, emailType: "evaluator_invite", to: email,
+    resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+    error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+  });
   return res.ok;
 }
 
@@ -60,6 +71,7 @@ export async function POST(request) {
       if (!valid.length) return NextResponse.json({ error: "No valid email addresses" }, { status: 400 });
       const inviterId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id || null;
       const origin = process.env.NEXT_PUBLIC_BASE_URL || (body.signup_url ? new URL(body.signup_url).origin : "");
+      await ensureEmailLogTable();
       let sent = 0; const links = [];
       for (const email of valid) {
         const token = randomUUID();
@@ -67,7 +79,7 @@ export async function POST(request) {
           VALUES (${sp_id}, ${email}, ${inviterId}, ${token}, 'pending', ${role}, NOW() + INTERVAL '30 days')`;
         const link = `${origin}/evaluator/signup?invite=${token}`;
         links.push({ email, link });
-        if (isTesterInvite ? await sendTesterInvite(email, link, sp_name) : await sendEvaluatorInvite(email, link, sp_name)) sent++;
+        if (isTesterInvite ? await sendTesterInvite(email, link, sp_name, sp_id) : await sendEvaluatorInvite(email, link, sp_name, sp_id)) sent++;
         // Pace under Resend's 10 req/sec cap for a large batch invite.
         await sleep(110);
       }
@@ -124,8 +136,9 @@ export async function POST(request) {
       const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
       let sent = 0;
       if (process.env.RESEND_API_KEY) {
+        await ensureEmailLogTable();
         for (const t of testers) {
-          await sendEmail(t.email, `Tester needed — ${sched.org_name} ${sessionDate}`,
+          const res = await sendEmail(t.email, `Tester needed — ${sched.org_name} ${sessionDate}`,
             `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <h2 style="color:#111;">A testing spot needs filling</h2>
               ${message ? `<p style="color:#555;">${esc(message)}</p>` : ""}
@@ -138,7 +151,12 @@ export async function POST(request) {
               <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
               <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
             </div>`);
-          sent++;
+          await logEmailSend({
+            catId: sched.age_category_id || null, orgId: sp_id, emailType: "tester_spot_fill", sessionNumber: sched.session_number, groupNumber: sched.group_number, athleteName: t.name, to: t.email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++;
           // Pace under Resend's 10 req/sec cap for a large tester pool.
           await sleep(110);
         }
@@ -150,14 +168,18 @@ export async function POST(request) {
         message: process.env.RESEND_API_KEY ? `Notified ${sent} tester${sent === 1 ? "" : "s"}` : `Would notify ${testers.length} testers (configure RESEND_API_KEY to send)` });
     }
 
-    // Get all evaluators in SP pool who aren't already signed up
+    // Get all evaluators in SP pool who aren't already signed up. Filtered on
+    // the membership's own is_evaluator flag, not u.role -- an SP admin who
+    // also actively evaluates (is_evaluator=true on their membership) was
+    // silently excluded from urgent spot-fill blasts under the old u.role
+    // check, same anti-pattern already fixed in the evaluator-pool broadcast.
     const availableEvaluators = await sql`
       SELECT DISTINCT u.email, u.name
       FROM evaluator_memberships em
       JOIN users u ON u.id = em.user_id
       WHERE em.organization_id = ${sp_id}
         AND em.status = 'active'
-        AND u.role = 'service_provider_evaluator'
+        AND em.is_evaluator = true
         AND u.id NOT IN (
           SELECT user_id FROM evaluator_session_signups
           WHERE schedule_id = ${schedule_id} AND status != 'cancelled'
@@ -174,8 +196,9 @@ export async function POST(request) {
 
     let sent = 0;
     if (process.env.RESEND_API_KEY) {
+      await ensureEmailLogTable();
       for (const evaluator of availableEvaluators) {
-        await sendEmail(evaluator.email, `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sessionDate}`,
+        const res = await sendEmail(evaluator.email, `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sessionDate}`,
           `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <div style="background: #FFF3CD; border: 1px solid #FFD700; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
@@ -195,7 +218,12 @@ export async function POST(request) {
               <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${esc(admin_name)}</p>
             </div>
           `);
-        sent++;
+        await logEmailSend({
+          catId: sched.age_category_id || null, orgId: sp_id, emailType: "evaluator_spot_fill", sessionNumber: sched.session_number, groupNumber: sched.group_number, athleteName: evaluator.name, to: evaluator.email,
+          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+        });
+        if (res?.ok) sent++;
         // Pace under Resend's 10 req/sec cap for a large evaluator pool.
         await sleep(110);
       }

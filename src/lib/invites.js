@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import sql from "@/lib/db";
 import { emailOrgInvite, emailDirectorInvite } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Single source of truth for "invite someone to manage an org" — used by both the
 // org-create flow (SP New Client / God Mode) and the standalone Invite-Admin action.
@@ -23,6 +24,12 @@ export async function createAndSendOrgInvite({ organizationId, email, name, orgN
   const url = `${base}/accept-invite?token=${token}`;
 
   const result = await emailOrgInvite({ name, email, orgName, orgType, inviteUrl: url });
+  await ensureEmailLogTable();
+  await logEmailSend({
+    orgId: organizationId, emailType: "org_admin_invite", athleteName: name, to: email,
+    resendId: result?.id || null, status: result?.ok ? "sent" : "failed",
+    error: result?.ok ? null : (result?.error || "send failed").toString().slice(0, 500),
+  });
 
   return {
     sent: !!result?.ok,
@@ -66,6 +73,12 @@ export async function createAndSendDirectorInvite({ organizationId, email, name,
     : await sql`SELECT id, name FROM age_categories WHERE id = ANY(${mergedIds})`;
 
   const result = await emailDirectorInvite({ name, email, orgName, categoryNames: cats.map(c => c.name), inviteUrl: url });
+  await ensureEmailLogTable();
+  await logEmailSend({
+    orgId: organizationId, catId: categoryIds[0] || null, emailType: "director_invite", athleteName: name, to: email,
+    resendId: result?.id || null, status: result?.ok ? "sent" : "failed",
+    error: result?.ok ? null : (result?.error || "send failed").toString().slice(0, 500),
+  });
 
   return {
     sent: !!result?.ok,

@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeOrgAccess } from "@/lib/authorize";
 import { sendEmail } from "@/lib/email";
 import { createAndSendDirectorInvite } from "@/lib/invites";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Invite one director across MANY categories at once (e.g. "everyone who
 // oversees AA" or "everyone who oversees House") — the per-category
@@ -59,7 +60,7 @@ export async function POST(request, { params }) {
     }
 
     const dashUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/director/dashboard`;
-    await sendEmail(email, `Director Assignment — ${orgName}`,
+    const res = await sendEmail(email, `Director Assignment — ${orgName}`,
       `<!DOCTYPE html>
       <html>
       <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -98,6 +99,12 @@ export async function POST(request, { params }) {
       </body>
       </html>`
     );
+    await ensureEmailLogTable();
+    await logEmailSend({
+      orgId, catId: cats[0]?.id || null, emailType: "director_assignment_notice", recipientUserId: appUser[0].id, athleteName: name, to: email,
+      resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+      error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+    });
 
     for (const cat of cats) {
       await sql`

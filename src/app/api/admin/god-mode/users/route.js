@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { randomTempPassword } from "@/lib/random";
 import { sendEmail, esc } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ROLE_LABELS = {
   super_admin: "Super Admin",
@@ -186,7 +187,13 @@ export async function POST(request) {
     const roleLabel = ROLE_LABELS[role] || role;
 
     const html = buildWelcomeEmailHtml({ name, email, roleLabel, tempPassword, baseUrl: BASE_URL, org });
-    await sendEmail(email, "Welcome to Sideline Star - Your account is ready", html);
+    const res = await sendEmail(email, "Welcome to Sideline Star - Your account is ready", html);
+    await ensureEmailLogTable();
+    await logEmailSend({
+      emailType: "god_mode_welcome", recipientUserId: user[0].id, athleteName: name, to: email,
+      resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+      error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+    });
 
     return NextResponse.json({ user: user[0] }, { status: 201 });
   } catch (error) {
@@ -263,7 +270,13 @@ export async function PATCH(request) {
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
         const roleLabel = ROLE_LABELS[user.role] || user.role;
         const html = buildWelcomeEmailHtml({ name: user.name, email: user.email, roleLabel, tempPassword, baseUrl: BASE_URL });
-        await sendEmail(user.email, "Your Sideline Star credentials have been reset", html);
+        const res = await sendEmail(user.email, "Your Sideline Star credentials have been reset", html);
+        await ensureEmailLogTable();
+        await logEmailSend({
+          emailType: "god_mode_credentials_reset", recipientUserId: user.id, athleteName: user.name, to: user.email,
+          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+        });
       }
 
       const response = { success: true };

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { esc, sendEmail } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 import sql from "@/lib/db";
 
 export async function POST(request) {
@@ -21,7 +22,7 @@ export async function POST(request) {
 
     const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
 
-    await sendEmail(
+    const res = await sendEmail(
       email,
       `${esc(session.name) || "An evaluator"} invited you to evaluate at ${esc(session_info.org_name)}`,
       `
@@ -41,6 +42,12 @@ export async function POST(request) {
         </div>
       `,
     );
+    await ensureEmailLogTable();
+    await logEmailSend({
+      catId: sched[0].age_category_id, emailType: "evaluator_peer_invite", to: email,
+      resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+      error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+    });
 
     // Log the invite
     await sql`
