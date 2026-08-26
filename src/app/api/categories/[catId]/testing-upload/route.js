@@ -72,18 +72,21 @@ export async function POST(request, { params }) {
     try {
       const testUpserts = [];
       for (const m of matched) {
-        for (const t of (m.tests || [])) {
+        // Index in the array = column position in the uploaded CSV, left to
+        // right -- stored so the viewer can show drills in the order they
+        // actually happened instead of an arbitrary/alphabetical order.
+        (m.tests || []).forEach((t, order) => {
           const name = (t.name || "").trim();
           const value = parseFloat(t.value);
-          if (!name || isNaN(value)) continue;
+          if (!name || isNaN(value)) return;
           const trank = parseInt(t.rank);
           testUpserts.push(sql`
-            INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank)
-            VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${name}, ${value}, ${isNaN(trank) ? null : trank})
+            INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank, test_order)
+            VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${name}, ${value}, ${isNaN(trank) ? null : trank}, ${order})
             ON CONFLICT (athlete_id, age_category_id, session_number, test_name)
-            DO UPDATE SET value = ${value}, test_rank = ${isNaN(trank) ? null : trank}, updated_at = NOW()
+            DO UPDATE SET value = ${value}, test_rank = ${isNaN(trank) ? null : trank}, test_order = ${order}, updated_at = NOW()
           `);
-        }
+        });
       }
       // Each (athlete, session, test_name) conflict key is unique within this
       // batch, same reasoning as above.

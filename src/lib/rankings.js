@@ -2,6 +2,11 @@ import sql from "@/lib/db";
 import { agreementPct, normalizeScore, testingPercentile, round1 } from "@/lib/scoring";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
 
+// Below this fraction of the season's total weight attended, an athlete's
+// prorated total is still shown (their own record/report) but never lets them
+// outrank a fully-sampled athlete -- see low_data in buildTotals below.
+const MIN_WEIGHT_FOR_RANK = 0.5;
+
 // Single source of truth for category rankings. Pure DB computation — no request
 // or auth context — so it can be called directly from any already-authorized route
 // instead of self-fetching the /rankings HTTP endpoint (which broke in production
@@ -185,6 +190,13 @@ export async function computeCategoryRankings(catId, opts = {}) {
       sessions_attended: sessionsAttended,
       sessions_total: sess.length,
       incomplete: sessionsAttended < sess.length,
+      total_weight_attended: Math.round(totalWeightAttended * 1000) / 1000,
+      // An athlete with only a sliver of the season's weight attended (e.g. just
+      // the 20%-weighted testing session) gets that sliver prorated up to their
+      // FULL total -- a single strong testing rank can outrank kids with two full
+      // sessions of real data. Below this floor they still get a weighted_total
+      // (for their own record/report) but never outrank a fully-sampled athlete.
+      low_data: totalWeightAttended < MIN_WEIGHT_FOR_RANK,
     };
   });
 
@@ -202,12 +214,17 @@ export async function computeCategoryRankings(catId, opts = {}) {
       list.sort((a, b) => b.score - a.score);
       list.forEach((s, idx) => { (rankHistory[s.id] ||= []).push(idx + 1); });
     }
-    const sorted = [...group].sort((a, b) => b.weighted_total !== a.weighted_total
-      ? b.weighted_total - a.weighted_total
-      : a.last_name.localeCompare(b.last_name));
+    // Fully/adequately-sampled athletes always rank ahead of low-data ones,
+    // regardless of prorated total -- see low_data above.
+    const sorted = [...group].sort((a, b) => {
+      if (a.low_data !== b.low_data) return a.low_data ? 1 : -1;
+      return b.weighted_total !== a.weighted_total
+        ? b.weighted_total - a.weighted_total
+        : a.last_name.localeCompare(b.last_name);
+    });
     let currentRank = 1;
     return sorted.map((a, i) => {
-      currentRank = (i > 0 && a.weighted_total === sorted[i - 1].weighted_total) ? currentRank : i + 1;
+      currentRank = (i > 0 && a.weighted_total === sorted[i - 1].weighted_total && a.low_data === sorted[i - 1].low_data) ? currentRank : i + 1;
       return { ...a, rank: currentRank, rank_history: rankHistory[a.id] || [], agreement_pct: agreementMap[a.id] || null };
     });
   };

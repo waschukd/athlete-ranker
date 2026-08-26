@@ -21,7 +21,7 @@ export async function GET(request, { params }) {
         ORDER BY tdr.session_number, tdr.overall_rank
       `,
       sql`
-        SELECT athlete_id, session_number, test_name, value, test_rank
+        SELECT athlete_id, session_number, test_name, value, test_rank, test_order
         FROM testing_results
         WHERE age_category_id = ${catId}
         ORDER BY session_number, athlete_id
@@ -40,10 +40,28 @@ export async function GET(request, { params }) {
       });
     }
 
-    const testNamesBySession = {};
+    // Column order = the order drills happened in, left to right on the
+    // original upload -- not alphabetical/insertion order, which scrambled
+    // the sequence and made the results confusing to read.
+    const testOrderBySession = {};
     for (const t of testRows) {
-      if (!testNamesBySession[t.session_number]) testNamesBySession[t.session_number] = new Set();
-      testNamesBySession[t.session_number].add(t.test_name);
+      if (!testOrderBySession[t.session_number]) testOrderBySession[t.session_number] = {};
+      const known = testOrderBySession[t.session_number][t.test_name];
+      if (t.test_order != null && (known == null || t.test_order < known)) {
+        testOrderBySession[t.session_number][t.test_name] = t.test_order;
+      } else if (known === undefined) {
+        testOrderBySession[t.session_number][t.test_name] = null;
+      }
+    }
+    const testNamesBySession = {};
+    for (const [sNum, order] of Object.entries(testOrderBySession)) {
+      testNamesBySession[sNum] = Object.keys(order).sort((a, b) => {
+        const oa = order[a], ob = order[b];
+        if (oa == null && ob == null) return a.localeCompare(b);
+        if (oa == null) return 1;
+        if (ob == null) return -1;
+        return oa - ob;
+      });
     }
 
     const sessionsMap = {};

@@ -40,43 +40,45 @@ function TestingContent() {
   const testNames = current?.test_names || [];
 
   return (
-    <div data-theme={theme} className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div className="min-w-0">
+    <div data-theme={theme} className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      <div className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="min-w-0 flex items-center gap-3 flex-wrap">
               <a href={`/association/dashboard/category/${catId}?org=${orgId}`}
-                className="inline-flex items-center gap-1.5 font-display text-xs font-bold tracking-[0.2em] uppercase text-accent hover:opacity-70 transition-opacity mb-2">
-                <ArrowLeft size={13} /> Back to rankings
+                className="inline-flex items-center gap-1.5 font-display text-[11px] font-bold tracking-[0.15em] uppercase text-accent hover:opacity-70 transition-opacity">
+                <ArrowLeft size={12} /> Back
               </a>
-              <h1 className="font-display font-black tracking-tight text-ink text-4xl sm:text-5xl leading-none">
+              <span className="text-gray-300">·</span>
+              <h1 className="font-display font-extrabold tracking-tight text-ink text-lg leading-none">
                 Raw Testing Scores
               </h1>
               {data?.category?.name && (
-                <p className="text-sm text-gray-500 font-medium mt-3">{data.category.name}</p>
+                <span className="text-xs text-gray-500 font-medium">{data.category.name}</span>
               )}
             </div>
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
-          </div>
-
-          {sessions.length > 1 && (
-            <div className="flex gap-1 mt-4 overflow-x-auto">
-              {sessions.map(s => (
-                <button key={s.session_number} onClick={() => setActiveSession(s.session_number)}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap transition-colors ${
-                    activeSession === s.session_number
-                      ? "bg-accent text-white border-accent"
-                      : "border-gray-200 text-gray-600 hover:border-accent hover:text-accent"
-                  }`}>
-                  Session {s.session_number}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              {sessions.length > 1 && (
+                <div className="flex gap-1">
+                  {sessions.map(s => (
+                    <button key={s.session_number} onClick={() => setActiveSession(s.session_number)}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-medium whitespace-nowrap transition-colors ${
+                        activeSession === s.session_number
+                          ? "bg-accent text-white border-accent"
+                          : "border-gray-200 text-gray-600 hover:border-accent hover:text-accent"
+                      }`}>
+                      S{s.session_number}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-3 space-y-2 flex-1 min-h-0 flex flex-col">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
@@ -89,49 +91,47 @@ function TestingContent() {
         ) : (
           <>
             {current.missing.length > 0 && (
-              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
-                <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-800">
-                  <b>{current.missing.length} athlete{current.missing.length !== 1 ? "s" : ""} on the roster with no testing score:</b>{" "}
-                  {current.missing.map(a => `${a.first_name} ${a.last_name}`).join(", ")}.
-                  {" "}Usually means they joined the roster after the results were uploaded — re-upload the CSV or add them directly.
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex-shrink-0">
+                <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <b>{current.missing.length} athlete{current.missing.length !== 1 ? "s" : ""} with no score:</b>{" "}
+                  {current.missing.map(a => `${a.first_name} ${a.last_name}`).join(", ")}
                 </div>
               </div>
             )}
 
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ClipboardList size={16} className="text-accent" />
-                  <span className="text-base font-semibold text-gray-900">
-                    {current.athletes.length} Athlete{current.athletes.length !== 1 ? "s" : ""} Tested
-                  </span>
-                </div>
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col">
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
+                <ClipboardList size={14} className="text-accent" />
+                <span className="text-sm font-semibold text-gray-900">
+                  {current.athletes.length} Athlete{current.athletes.length !== 1 ? "s" : ""} Tested
+                </span>
+                <span className="text-xs text-gray-400 font-normal">· drills shown left to right in the order they were run</span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+              <div className="overflow-auto flex-1 min-h-0">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-14">Rank</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Athlete</th>
+                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase w-10">Rank</th>
+                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase">Athlete</th>
                       {testNames.map(name => (
-                        <th key={name} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{name}</th>
+                        <th key={name} className="px-2.5 py-1.5 text-center text-[10px] font-medium text-gray-500 uppercase whitespace-nowrap">{name}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {[...current.athletes].sort((a, b) => a.overall_rank - b.overall_rank).map(a => (
                       <tr key={a.athlete_id} className="hover:bg-gray-50">
-                        <td className={`px-4 py-3 font-display text-lg font-extrabold tabular-nums ${medalColor(a.overall_rank)}`}>{a.overall_rank}</td>
-                        <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
+                        <td className={`px-3 py-1 font-display text-sm font-extrabold tabular-nums ${medalColor(a.overall_rank)}`}>{a.overall_rank}</td>
+                        <td className="px-3 py-1 text-gray-900 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
                         {testNames.map(name => {
                           const t = a.tests.find(x => x.test_name === name);
                           return (
-                            <td key={name} className="px-4 py-3 text-center tabular-nums text-gray-700">
+                            <td key={name} className="px-2.5 py-1 text-center tabular-nums text-gray-700 whitespace-nowrap">
                               {t ? (
                                 <span>
                                   {t.value}
-                                  {t.rank != null && <span className="text-gray-400 text-xs ml-1">(#{t.rank})</span>}
+                                  {t.rank != null && <span className="text-gray-400 ml-1">#{t.rank}</span>}
                                 </span>
                               ) : <span className="text-gray-200">—</span>}
                             </td>
