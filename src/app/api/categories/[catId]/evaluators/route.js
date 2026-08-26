@@ -11,6 +11,14 @@ import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 // authorizeCategoryAccess (below) still enforces that scoping per-category.
 const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
 const KINDS = new Set(["standard", "coach", "goalie"]);
+// The association side (its own admin, or a director -- typically the
+// association's own staff) may only see/manage coach & goalie evaluators for
+// an SP-served association if the SP has explicitly granted it (sp_association_
+// links.allow_association_evaluators) -- this is the SP's call to make per
+// association, not the association's own to opt into. SP-tier roles (and
+// super_admin) always pass regardless; a self-serve association with no SP
+// link at all is unaffected (nothing to gate against).
+const ASSOCIATION_SIDE_ROLES = new Set(["association_admin", "director"]);
 
 async function gate(catId) {
   const session = await getSession();
@@ -18,6 +26,13 @@ async function gate(catId) {
   if (!MANAGE_ROLES.has(session.role)) return { error: "Forbidden", status: 403 };
   const auth = await authorizeCategoryAccess(session, catId);
   if (!auth.authorized) return { error: "Forbidden", status: 403 };
+  if (ASSOCIATION_SIDE_ROLES.has(session.role)) {
+    const [link] = await sql`
+      SELECT allow_association_evaluators FROM sp_association_links
+      WHERE association_id = ${auth.orgId} AND status = 'active' LIMIT 1
+    `.catch(() => []);
+    if (link && !link.allow_association_evaluators) return { error: "Forbidden", status: 403 };
+  }
   return { session, orgId: auth.orgId };
 }
 

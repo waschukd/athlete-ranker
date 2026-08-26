@@ -79,3 +79,53 @@ describe("GET/POST /api/categories/[catId]/evaluators — SP admin access", () =
     expect(authorizeCategoryAccess).not.toHaveBeenCalled();
   });
 });
+
+describe("GET/POST /api/categories/[catId]/evaluators — association-side gated by the SP's grant", () => {
+  it("denies an association_admin when the SP has NOT granted allow_association_evaluators", async () => {
+    getSession.mockResolvedValue({ email: "assoc@test.com", role: "association_admin" });
+    authorizeCategoryAccess.mockResolvedValue({ authorized: true, orgId: 49 });
+    mockSqlByQuery([
+      ["FROM sp_association_links", [{ allow_association_evaluators: false }]],
+    ]);
+    const { GET } = await import("@/app/api/categories/[catId]/evaluators/route");
+    const res = await GET(makeGetReq(), { params: { catId: "113" } });
+    expect(res.status).toBe(403);
+  });
+
+  it("denies a director the same way", async () => {
+    getSession.mockResolvedValue({ email: "dir@test.com", role: "director" });
+    authorizeCategoryAccess.mockResolvedValue({ authorized: true, orgId: 49 });
+    mockSqlByQuery([
+      ["FROM sp_association_links", [{ allow_association_evaluators: false }]],
+    ]);
+    const { POST } = await import("@/app/api/categories/[catId]/evaluators/route");
+    const res = await POST(makeReq({ email: "coach@test.com", kind: "coach" }), { params: { catId: "113" } });
+    expect(res.status).toBe(403);
+  });
+
+  it("allows an association_admin once the SP HAS granted allow_association_evaluators", async () => {
+    getSession.mockResolvedValue({ email: "assoc@test.com", role: "association_admin" });
+    authorizeCategoryAccess.mockResolvedValue({ authorized: true, orgId: 49 });
+    mockSqlByQuery([
+      ["FROM sp_association_links", [{ allow_association_evaluators: true }]],
+      ["FROM category_evaluators ce", []],
+      ["FROM evaluator_session_signups ess", []],
+    ]);
+    const { GET } = await import("@/app/api/categories/[catId]/evaluators/route");
+    const res = await GET(makeGetReq(), { params: { catId: "113" } });
+    expect(res.status).toBe(200);
+  });
+
+  it("allows an association_admin when there's no SP link at all (self-serve association)", async () => {
+    getSession.mockResolvedValue({ email: "assoc@test.com", role: "association_admin" });
+    authorizeCategoryAccess.mockResolvedValue({ authorized: true, orgId: 49 });
+    mockSqlByQuery([
+      ["FROM sp_association_links", []],
+      ["FROM category_evaluators ce", []],
+      ["FROM evaluator_session_signups ess", []],
+    ]);
+    const { GET } = await import("@/app/api/categories/[catId]/evaluators/route");
+    const res = await GET(makeGetReq(), { params: { catId: "113" } });
+    expect(res.status).toBe(200);
+  });
+});

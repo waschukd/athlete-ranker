@@ -8,7 +8,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award, ClipboardList
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award, ClipboardList, Flag
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -234,7 +234,30 @@ export default function CategoryDashboard({
     refetchInterval: 120000,
   });
 
-  const canManageEvaluators = role === "association" || role === "director";
+  // Coach/goalie evaluator management is the SP's call to grant per association
+  // it serves (sp_association_links.allow_association_evaluators), never the
+  // association's own to opt into -- the "association" role prop above is the
+  // same for both Dan (the SP, viewing his client's dashboard) and the
+  // association's own admin, so it alone can't tell them apart. SP-tier
+  // accounts (checked via their REAL account role, not this shell's role prop)
+  // always pass; association_admin/director are gated on the grant. The API
+  // (categories/[catId]/evaluators) enforces the same rule server-side --
+  // this only controls whether the UI offers something that would 403 anyway.
+  const SP_TIER_ROLES = new Set(["service_provider_admin", "goalie_service_provider_admin", "super_admin"]);
+  const { data: meData } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: async () => { const res = await fetch("/api/auth/me"); return res.json(); },
+  });
+  const myRealRole = meData?.user?.role;
+  const { data: orgSpInfo } = useQuery({
+    queryKey: ["org-sp-info", orgId],
+    queryFn: async () => { const res = await fetch(`/api/organizations/${orgId}`); return res.json(); },
+    enabled: !!orgId,
+  });
+  const allowAssociationEvaluators = !orgSpInfo?.service_provider || !!orgSpInfo?.service_provider?.allow_association_evaluators;
+  const canManageEvaluators = myRealRole
+    ? (SP_TIER_ROLES.has(myRealRole) || (["association_admin", "director"].includes(myRealRole) && allowAssociationEvaluators))
+    : false;
 
   // Trend cell — shared by the skater and both goalie tables so the "spots
   // moved since the previous session" behavior can't drift between them.
@@ -800,7 +823,7 @@ export default function CategoryDashboard({
                             <td className="px-4 py-3 text-gray-900 font-semibold">
                               {a.last_name}
                               {a.low_data ? (
-                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
+                                <span className="inline-block ml-1.5 align-text-bottom" title="Results missing — may not paint a clear picture"><Flag size={12} className="text-amber-500 fill-amber-500" /></span>
                               ) : a.incomplete && (
                                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                               )}
@@ -875,7 +898,7 @@ export default function CategoryDashboard({
                         <td className="px-4 py-3">
                           <a href={`/player/report?athlete=${a.id}&cat=${catId}`} className={`font-semibold hover:text-[#0b5cd6] ${a.cut_at ? "text-gray-400 line-through" : "text-gray-900"}`}>{a.last_name}</a>
                           {a.low_data ? (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
+                            <span className="inline-block ml-1.5 align-text-bottom" title="Results missing — may not paint a clear picture"><Flag size={12} className="text-amber-500 fill-amber-500" /></span>
                           ) : a.incomplete && (
                             <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                           )}
@@ -951,7 +974,7 @@ export default function CategoryDashboard({
                           <td className="px-4 py-3 text-gray-900 font-semibold">
                             {a.last_name}
                             {a.low_data ? (
-                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title="Results missing — may not paint a clear picture">Limited data</span>
+                              <span className="inline-block ml-1.5 align-text-bottom" title="Results missing — may not paint a clear picture"><Flag size={12} className="text-amber-500 fill-amber-500" /></span>
                             ) : a.incomplete && (
                               <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium" title={`Attended ${a.sessions_attended} of ${a.sessions_total} sessions — prorated`}>*</span>
                             )}
