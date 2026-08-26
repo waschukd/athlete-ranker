@@ -1110,22 +1110,26 @@ export default function CategoryDashboard({
                       </div>
                     ));
                   })()}
-                  {(() => {
-                    const testingSession = (sessions || []).find(s => s.session_type === "testing");
-                    const st = testingSession && (sessionStatus?.[testingSession.session_number] || sessionStatus?.[Number(testingSession.session_number)]);
-                    if (!testingSession || (st !== "complete" && st !== "in_progress")) return null;
-                    return (
-                      <a href={`/association/dashboard/category/${catId}/testing?org=${orgId}`}
-                        className="flex items-center gap-2.5 -mx-1 px-1 py-1 rounded-lg hover:bg-gray-50 transition-colors">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-blue-50 text-[#0b5cd6] inline-flex items-center justify-center">
-                          <ClipboardList size={13} />
-                        </span>
-                        <span className="text-sm text-[#0b5cd6] font-medium">View raw testing scores</span>
-                      </a>
-                    );
-                  })()}
                 </div>
               </div>
+
+              {/* RAIL CARD C — Raw Testing Scores (shown once testing data exists) */}
+              {(() => {
+                const testingSession = (sessions || []).find(s => s.session_type === "testing");
+                const st = testingSession && (sessionStatus?.[testingSession.session_number] || sessionStatus?.[Number(testingSession.session_number)]);
+                if (!testingSession || (st !== "complete" && st !== "in_progress")) return null;
+                return (
+                  <a href={`/association/dashboard/category/${catId}/testing?org=${orgId}`}
+                    className="block bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-[#0b5cd6] transition-colors">
+                    <div className="px-5 py-4 flex items-center gap-2.5">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-blue-50 text-[#0b5cd6] inline-flex items-center justify-center">
+                        <ClipboardList size={13} />
+                      </span>
+                      <span className="text-sm text-[#0b5cd6] font-medium">View raw testing scores</span>
+                    </div>
+                  </a>
+                );
+              })()}
             </aside>
           </div>
         )}
