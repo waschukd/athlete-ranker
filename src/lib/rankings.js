@@ -241,11 +241,13 @@ export async function computeCategoryRankings(catId, opts = {}) {
     if (!hasData) { sessionStatus[sNum] = "not_started"; continue; }
 
     if (session.session_type === "testing") {
-      // Testing complete when the SKATERS have ranks — goalies don't do testing
-      // (they run goalie stations instead), so don't hold the session open for them.
-      const skaterCount = athletes.filter(a => (a.position || "").toLowerCase() !== "goalie").length;
-      const testingCount = testingRanks.filter(t => parseInt(t.session_number) === sNum).length;
-      sessionStatus[sNum] = testingCount >= skaterCount ? "complete" : "in_progress";
+      // Testing is a one-shot CSV upload, not a live session evaluators trickle
+      // scores into -- there's no second upload coming to fill in stragglers, so
+      // requiring every roster skater to have a result held this "in_progress"
+      // forever whenever anyone was absent or joined the roster late. The upload
+      // itself is the completion signal; any roster/skater who didn't match gets
+      // surfaced separately on the raw testing scores page instead.
+      sessionStatus[sNum] = "complete";
     } else {
       // Skills/scrimmage: complete if all athletes have been scored by required evaluators
       const scoredAthletes = [...new Set(sessionScores.filter(s => parseInt(s.session_number) === sNum).map(s => s.athlete_id))];
