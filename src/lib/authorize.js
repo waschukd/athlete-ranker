@@ -151,6 +151,23 @@ export async function authorizeCategoryAccess(session, catId) {
   return { authorized: false };
 }
 
+// Is this user the designated lead of this ONE organization? Scoped strictly
+// to that org_id -- an SP evaluator who leads association A gets no elevated
+// rights on association B just because they also evaluate there. Backed by
+// the same evaluator_memberships.is_lead flag canManageSessionAssignments
+// already checks for staffing authority; this is the broader "same as an
+// admin, but only for this association" grant (score edits, etc.) layered on
+// top of whatever authorizeCategoryAccess already gave them as an evaluator.
+export async function isOrgLead(userId, orgId) {
+  if (!userId || !orgId) return false;
+  const lead = await sql`
+    SELECT 1 FROM evaluator_memberships
+    WHERE user_id = ${userId} AND organization_id = ${orgId}
+      AND status = 'active' AND is_lead = true
+  `;
+  return lead.length > 0;
+}
+
 /**
  * Check if a user session has access to a specific organization.
  * Used by the organizations API to filter results.

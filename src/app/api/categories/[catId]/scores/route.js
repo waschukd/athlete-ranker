@@ -1,5 +1,5 @@
 import { getSession, getAppUserId } from "@/lib/auth";
-import { authorizeCategoryAccess } from "@/lib/authorize";
+import { authorizeCategoryAccess, isOrgLead } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
@@ -11,18 +11,29 @@ import sql from "@/lib/db";
 // below needs this on top of authorizeCategoryAccess.
 const SCORE_MANAGE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin", "director"]);
 
+// An org's designated lead gets the same score-management rights as an admin,
+// but ONLY within that one association -- checked per-request against
+// auth.orgId (never session.role, which has no notion of "lead"). Every
+// handler below needs this on top of authorizeCategoryAccess + the check.
+async function canManageScores(session, editorId, orgId) {
+  if (SCORE_MANAGE_ROLES.has(session.role)) return { allowed: true, asLead: false };
+  if (await isOrgLead(editorId, orgId)) return { allowed: true, asLead: true };
+  return { allowed: false, asLead: false };
+}
+
 // ── PATCH: Edit a single evaluator score (admin/director override) ────────
 export async function PATCH(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const editorId = await getAppUserId(session);
+    const { allowed, asLead } = await canManageScores(session, editorId, auth.orgId);
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const body = await request.json();
     const { athlete_id, evaluator_id, scoring_category_id, session_number, new_score, reason } = body;
 
@@ -59,7 +70,7 @@ export async function PATCH(request, { params }) {
         INSERT INTO audit_log (user_id, action, entity_type, entity_id, field_changed, old_value, new_value, notes, age_category_id)
         VALUES (${editorId}, 'score_bump', 'athlete', ${athlete_id}, 'all scores',
           ${(delta > 0 ? "+" : "") + delta + " levels"}, ${changed + " scores"},
-          ${JSON.stringify({ delta, changed, evaluator_id: evId, session_number: sess, reason: reason || null, editor_role: session.role })}, ${catId})`;
+          ${JSON.stringify({ delta, changed, evaluator_id: evId, session_number: sess, reason: reason || null, editor_role: session.role, acted_as: asLead ? "association_lead" : session.role })}, ${catId})`;
       return NextResponse.json({ success: true, changed, delta });
     }
 
@@ -115,6 +126,7 @@ export async function PATCH(request, { params }) {
           scoring_category_id,
           reason: reason || null,
           editor_role: session.role,
+          acted_as: asLead ? "association_lead" : session.role,
         })},
         ${catId})
     `;
@@ -130,11 +142,14 @@ export async function DELETE(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const editorId = await getAppUserId(session);
+    const { allowed } = await canManageScores(session, editorId, auth.orgId);
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (session.role === "director") {
       return NextResponse.json({ error: "Directors cannot delete scores" }, { status: 403 });
@@ -167,6 +182,17 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "session number required" }, { status: 400 });
     }
 
+    // Bulk score deletion had no audit trail at all before this -- for anyone,
+    // not just leads. Given a lead's write access now reaches this same
+    // destructive, irreversible action, it needs one.
+    await sql`
+      INSERT INTO audit_log (user_id, action, entity_type, entity_id, field_changed, old_value, new_value, notes, age_category_id)
+      VALUES (${editorId}, 'scores_deleted', 'category_scores', ${sessionNumber}, 'session_number',
+        ${deleted.length + " scores"}, '0 scores',
+        ${JSON.stringify({ session_number: sessionNumber, evaluator_id: evaluatorId || null, editor_role: session.role, acted_as: SCORE_MANAGE_ROLES.has(session.role) ? session.role : "association_lead" })},
+        ${catId})
+    `;
+
     return NextResponse.json({ success: true, deleted: deleted.length });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -177,11 +203,14 @@ export async function GET(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const editorId = await getAppUserId(session);
+    const { allowed } = await canManageScores(session, editorId, auth.orgId);
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const sessionNumber = searchParams.get("session");
@@ -268,11 +297,14 @@ export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!SCORE_MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const postEditorId = await getAppUserId(session);
+    const { allowed } = await canManageScores(session, postEditorId, auth.orgId);
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { evaluatorName, sessionNumber, rows } = await request.json();
 
