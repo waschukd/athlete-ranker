@@ -4,6 +4,15 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { generateICS } from "@/lib/calendar";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
+
+async function logResult(orgId, emailType, to, name, res) {
+  await logEmailSend({
+    orgId, emailType, athleteName: name, to,
+    resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+    error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+  });
+}
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -65,6 +74,7 @@ export async function POST(request) {
         } catch { /* column not migrated yet */ }
       }
       const reasonLine = cancelReason ? `<p style="margin:8px 0 0;"><strong>Reason given:</strong> ${esc(cancelReason)}</p>` : "";
+      await ensureEmailLogTable();
 
       // Get evaluator info
       const evalUser = await sql`SELECT name, email FROM users WHERE id = ${appUserId}`;
@@ -121,35 +131,40 @@ export async function POST(request) {
           `;
 
           // Notify evaluator — suspended (shared branded template, was hand-rolled)
-          await emailStrike2Suspended({ name: evalName, email: evalEmail, orgName: sched.org_name });
+          const susRes = await emailStrike2Suspended({ name: evalName, email: evalEmail, orgName: sched.org_name });
+          await logResult(sched.organization_id, "evaluator_suspended", evalEmail, evalName, susRes);
 
           // Notify SP admins
           for (const admin of spAdmins) {
-            await sendEmail(admin.email, `🚨 Evaluator Suspended: ${evalName}`,
+            const res = await sendEmail(admin.email, `🚨 Evaluator Suspended: ${evalName}`,
               `<p>${esc(evalName)} has received their second late cancellation strike and has been automatically suspended from all future sessions.</p>
               <p>Session cancelled: ${esc(sched.org_name)} · S${esc(sched.session_number)} G${esc(sched.group_number)}</p>${reasonLine}
               <p>Log in to reinstate them if needed.</p>`
             );
+            await logResult(sched.organization_id, "evaluator_suspended_admin_alert", admin.email, admin.name, res);
           }
         } else {
           // Strike 1 warning (shared branded template, was hand-rolled)
-          await emailStrike1({ name: evalName, email: evalEmail, orgName: sched.org_name, sessionDate: sched.scheduled_date?.toString().split("T")[0] });
+          const s1Res = await emailStrike1({ name: evalName, email: evalEmail, orgName: sched.org_name, sessionDate: sched.scheduled_date?.toString().split("T")[0] });
+          await logResult(sched.organization_id, "evaluator_strike1", evalEmail, evalName, s1Res);
 
           // Notify SP admins
           for (const admin of spAdmins) {
-            await sendEmail(admin.email, `⚠ Late Cancellation: ${evalName} (Strike 1)`,
+            const res = await sendEmail(admin.email, `⚠ Late Cancellation: ${evalName} (Strike 1)`,
               `<p>${esc(evalName)} cancelled with ${parseFloat(hoursUntil).toFixed(1)} hours notice for ${esc(sched.org_name)} S${esc(sched.session_number)} G${esc(sched.group_number)}.</p>${reasonLine}
               <p>This is their first strike. One open spot now needs to be filled.</p>`
             );
+            await logResult(sched.organization_id, "evaluator_strike1_admin_alert", admin.email, admin.name, res);
           }
         }
       } else {
         // Normal cancellation — just notify SP
         for (const admin of spAdmins) {
-          await sendEmail(admin.email, `Evaluator Cancelled: ${evalName}`,
+          const res = await sendEmail(admin.email, `Evaluator Cancelled: ${evalName}`,
             `<p>${esc(evalName)} has cancelled their signup for ${esc(sched.org_name)} · ${esc(sched.category_name)} S${esc(sched.session_number)} G${esc(sched.group_number)}.</p>
             <p>Session date: ${sched.scheduled_date?.toString().split("T")[0]}</p>${reasonLine}`
           );
+          await logResult(sched.organization_id, "evaluator_cancelled_admin_alert", admin.email, admin.name, res);
         }
       }
 
@@ -317,7 +332,8 @@ export async function POST(request) {
       const timeStr = info.start_time ? `${info.start_time}${info.end_time ? ` - ${info.end_time}` : ""}` : "TBD";
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
-      await sendEmail(
+      await ensureEmailLogTable();
+      const confRes = await sendEmail(
         evalUser[0].email,
         `Session Confirmed — ${catInfo[0]?.category_name || "Evaluation"} S${info.session_number}`,
         `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
@@ -342,6 +358,11 @@ export async function POST(request) {
           </div>`,
         [{ filename: "session.ics", content: Buffer.from(icalData).toString("base64") }],
       );
+      await logEmailSend({
+        catId: info.age_category_id, emailType: "evaluator_session_confirmation", athleteName: evalUser[0].name, to: evalUser[0].email,
+        resendId: confRes?.id || null, status: confRes?.ok ? "sent" : "failed",
+        error: confRes?.ok ? null : (confRes?.error || "send failed").toString().slice(0, 500),
+      });
     }
 
     return NextResponse.json({ success: true, message: "Signed up successfully", ical: icalData });

@@ -15,6 +15,7 @@ import { getSession, getAppUserId } from "@/lib/auth";
 import { canManageSessionAssignments } from "@/lib/authorize";
 import { eligiblePeople, eligibilityOf } from "@/lib/sessionRoster";
 import { sendEmail, emailWrapper, esc } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 function fmtDate(d) {
   if (!d) return "TBD";
@@ -247,7 +248,13 @@ export async function DELETE(request, { params }) {
             Hi ${esc(removed.name || "there")}, you were signed up as a ${kind} for <strong style="color:#111827;">${esc(s.category_name || "")}${s.org_name ? ` at ${esc(s.org_name)}` : ""}</strong> — Session ${s.session_number}${s.group_number ? ` · Group ${s.group_number}` : ""} (${esc(when)}) — but have been removed and no longer need to attend.
           </p>
         `);
-        await sendEmail(removed.email, `Removed from a session — ${s.category_name || "Sideline Star"}`, html);
+        const res = await sendEmail(removed.email, `Removed from a session — ${s.category_name || "Sideline Star"}`, html);
+        await ensureEmailLogTable();
+        await logEmailSend({
+          catId: s.age_category_id || null, orgId: auth.orgId, emailType: "removed_from_session", recipientUserId: user_id, athleteName: removed.name, to: removed.email,
+          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+        });
       }
     } catch (e) { console.error("roster DELETE notify:", e?.message); }
 

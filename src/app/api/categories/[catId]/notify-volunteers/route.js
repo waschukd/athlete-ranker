@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, esc, sleep } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Assigning volunteers to check-in duty is a director/admin-level action --
 // authorizeCategoryAccess alone also admits plain evaluators, which would
@@ -70,10 +71,16 @@ export async function POST(request, { params }) {
       </div>
     `;
 
+    await ensureEmailLogTable();
     let sent = 0;
     for (const email of emails) {
-      await sendEmail(email.trim(), "Volunteer assignment - " + categoryName + " Session " + sessionNum, html);
-      sent++;
+      const res = await sendEmail(email.trim(), "Volunteer assignment - " + categoryName + " Session " + sessionNum, html);
+      await logEmailSend({
+        catId, emailType: "volunteer_assignment", sessionNumber: sessionNum || null, to: email.trim(),
+        resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+        error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+      });
+      if (res?.ok) sent++;
       await sleep(110); // pace under Resend's 10 req/sec cap
     }
 

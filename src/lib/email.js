@@ -174,7 +174,7 @@ export async function emailWelcomeAssociation({ name, email, tempPassword, orgNa
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in and update your password to get started.</p>
     ${btn(`${BASE_URL}/account/signin`, "Sign In to Sideline Star →")}
   `);
-  await sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
+  return sendEmail(email, `Welcome to Sideline Star — ${orgName}`, html);
 }
 
 // Invite to finish setting up an org account (sets their own password via the
@@ -214,7 +214,7 @@ export async function emailEvaluatorApproved({ name, email, orgName, evaluatorId
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Sign in to view your upcoming sessions.</p>
     ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}
   `);
-  await sendEmail(email, `Approved — ${orgName} Evaluator`, html);
+  return sendEmail(email, `Approved — ${orgName} Evaluator`, html);
 }
 
 export async function emailEvaluatorDenied({ name, email, orgName }) {
@@ -223,7 +223,7 @@ export async function emailEvaluatorDenied({ name, email, orgName }) {
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, unfortunately your evaluator application for <strong style="color:#111827;">${esc(orgName)}</strong> was not approved at this time.</p>
     <p style="font-size:13px;color:#6b7280;">If you believe this is an error, please contact the organization directly.</p>
   `);
-  await sendEmail(email, `Application Update — ${orgName}`, html);
+  return sendEmail(email, `Application Update — ${orgName}`, html);
 }
 
 export async function emailEvaluatorPendingApproval({ adminEmail, adminName, evalName, evalEmail, orgName }) {
@@ -234,7 +234,7 @@ export async function emailEvaluatorPendingApproval({ adminEmail, adminName, eva
     <p style="font-size:13px;color:#6b7280;margin:0 0 20px;">Review and approve or deny their application.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "Review Application →")}
   `);
-  await sendEmail(adminEmail, `New Evaluator Application — ${orgName}`, html);
+  return sendEmail(adminEmail, `New Evaluator Application — ${orgName}`, html);
 }
 
 // A goalie SP proactively invites an association that ALREADY has an account on
@@ -258,7 +258,7 @@ export async function emailSPLinkedToAssociation({ spAdminEmail, spAdminName, sp
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(spAdminName)}</strong>, <strong style="color:#111827;">${esc(assocName)}</strong> has been linked to <strong style="color:#111827;">${esc(spName)}</strong> on Sideline Star.</p>
     ${btn(`${BASE_URL}/service-provider/dashboard`, "View Dashboard →")}
   `);
-  await sendEmail(spAdminEmail, `New Association Linked — ${assocName}`, html);
+  return sendEmail(spAdminEmail, `New Association Linked — ${assocName}`, html);
 }
 
 export async function emailStrike1({ name, email, orgName, sessionDate }) {
@@ -270,7 +270,7 @@ export async function emailStrike1({ name, email, orgName, sessionDate }) {
     </div>
     ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Sessions →")}
   `);
-  await sendEmail(email, `⚠️ Strike 1 — Late Cancellation Warning`, html);
+  return sendEmail(email, `⚠️ Strike 1 — Late Cancellation Warning`, html);
 }
 
 export async function emailStrike2Suspended({ name, email, orgName }) {
@@ -281,7 +281,7 @@ export async function emailStrike2Suspended({ name, email, orgName }) {
       <p style="margin:0;font-size:13px;color:#991b1b;">Please contact ${esc(orgName)} directly to discuss reinstatement.</p>
     </div>
   `);
-  await sendEmail(email, `Account Suspended — ${orgName}`, html);
+  return sendEmail(email, `Account Suspended — ${orgName}`, html);
 }
 
 // ── Staffing / Session Reports ────────────────────────────────────────────────
@@ -333,7 +333,7 @@ export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName
       ${btn(`${BASE_URL}/service-provider/dashboard`, "View Dashboard →")}
     </div>
   `);
-  await sendEmail(adminEmail, `📋 Weekly Staffing Report — ${orgName}`, html);
+  return sendEmail(adminEmail, `📋 Weekly Staffing Report — ${orgName}`, html);
 }
 
 export async function emailDailyStaffingAlert({ adminEmail, adminName, orgName, openSessions }) {
@@ -354,11 +354,13 @@ export async function emailDailyStaffingAlert({ adminEmail, adminName, orgName, 
     ${rows}
     ${btn(`${BASE_URL}/service-provider/dashboard`, "Fill Open Spots →")}
   `);
-  await sendEmail(adminEmail, `🚨 ${openSessions.length} Session${openSessions.length !== 1 ? "s" : ""} Need Evaluators — ${orgName}`, html);
+  return sendEmail(adminEmail, `🚨 ${openSessions.length} Session${openSessions.length !== 1 ? "s" : ""} Need Evaluators — ${orgName}`, html);
 }
 
-export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSessions, adminName }) {
-  // Send to all evaluators in pool about open sessions
+// Returns [{ user_id, email, ok, id, error }] per recipient so the caller can
+// log delivery status -- email.js just sends, the route owns the DB write.
+export async function emailOpenSessionsBlast({ evaluators, orgName, openSessions, adminName }) {
+  // evaluators = [{ id, email }]
   const rows = openSessions.map(s => `
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
       <div style="font-size:14px;font-weight:700;color:#111827;">${esc(s.date)} at ${esc(s.time)}</div>
@@ -374,11 +376,13 @@ export async function emailOpenSessionsBlast({ evaluatorEmails, orgName, openSes
     <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">Sent by ${esc(adminName)} · ${esc(orgName)}</p>
   `);
 
-  // Send to each evaluator
-  for (const email of evaluatorEmails) {
-    await sendEmail(email, `📢 Open Evaluator Sessions Available — ${orgName}`, html);
+  const results = [];
+  for (const ev of evaluators) {
+    const res = await sendEmail(ev.email, `📢 Open Evaluator Sessions Available — ${orgName}`, html);
+    results.push({ user_id: ev.id, email: ev.email, ...res });
     await sleep(110); // pace under Resend's 10 req/sec cap
   }
+  return results;
 }
 
 // ── Parent Emails ─────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailOpenSessionsBlast } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 async function getOrgId(session) {
   // Canonical resolver: skater or goalie SP — contact_email, admin role, or membership.
@@ -95,17 +96,25 @@ export async function POST(request) {
 
       // Get all active evaluators in pool
       const evaluators = await sql`
-        SELECT DISTINCT u.email FROM users u
+        SELECT DISTINCT u.id, u.name, u.email FROM users u
         JOIN evaluator_memberships em ON em.user_id = u.id
         WHERE em.organization_id = ${orgId}
           AND em.status = 'active'
           AND u.email IS NOT NULL
       `;
-      const evalEmails = evaluators.map(e => e.email);
-      if (!evalEmails.length) return NextResponse.json({ error: "No active evaluators in pool" }, { status: 400 });
+      if (!evaluators.length) return NextResponse.json({ error: "No active evaluators in pool" }, { status: 400 });
 
-      await emailOpenSessionsBlast({ evaluatorEmails: evalEmails, orgName, openSessions, adminName });
-      return NextResponse.json({ success: true, message: `Blast sent to ${evalEmails.length} evaluators about ${openSessions.length} open sessions` });
+      const results = await emailOpenSessionsBlast({ evaluators, orgName, openSessions, adminName });
+      await ensureEmailLogTable();
+      const nameById = Object.fromEntries(evaluators.map(e => [e.id, e.name]));
+      for (const r of results) {
+        await logEmailSend({
+          orgId, emailType: "open_sessions_blast", recipientUserId: r.user_id, athleteName: nameById[r.user_id], to: r.email,
+          resendId: r.id || null, status: r.ok ? "sent" : "failed",
+          error: r.ok ? null : (r.error || "send failed").toString().slice(0, 500),
+        });
+      }
+      return NextResponse.json({ success: true, message: `Blast sent to ${evaluators.length} evaluators about ${openSessions.length} open sessions` });
     }
 
     if (action === "evaluator_efficiency") {

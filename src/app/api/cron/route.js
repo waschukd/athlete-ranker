@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -72,19 +73,25 @@ export async function GET(request) {
     `;
 
     let sent = 0;
+    await ensureEmailLogTable();
 
     for (const admin of admins) {
       const sessions = await getSessionStaffing(admin.organization_id, job === "weekly_report" ? 7 : 2);
 
     if (job === "weekly_report") {
         try {
-          await emailWeeklyStaffingReport({
+          const res = await emailWeeklyStaffingReport({
             adminEmail: admin.email,
             adminName: admin.name,
             orgName: admin.org_name,
             sessions,
           });
-          sent++;
+          await logEmailSend({
+            orgId: admin.organization_id, emailType: "weekly_staffing_report", athleteName: admin.name, to: admin.email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++;
         } catch (emailErr) { console.error("Email failed:", emailErr); }
         // Pace under Resend's 10 req/sec cap -- this loop runs across every org.
         await sleep(110);
@@ -93,10 +100,10 @@ export async function GET(request) {
       // Also send weekly schedule to evaluators signed up for sessions this week
       if (job === "weekly_report") {
         const evalSignups = await sql`
-          SELECT DISTINCT u.email, u.name,
+          SELECT DISTINCT u.id AS user_id, u.email, u.name,
             es.scheduled_date, es.start_time, es.end_time, es.location,
             es.session_number, es.group_number,
-            ac.name as category_name, o.name as org_name
+            ac.name as category_name, o.name as org_name, o.id AS org_id
           FROM evaluator_session_signups ess
           JOIN users u ON u.id = ess.user_id
           JOIN evaluation_schedule es ON es.id = ess.schedule_id
@@ -111,7 +118,7 @@ export async function GET(request) {
         // Group by evaluator
         const byEval = {};
         for (const row of evalSignups) {
-          if (!byEval[row.email]) byEval[row.email] = { name: row.name, sessions: [] };
+          if (!byEval[row.email]) byEval[row.email] = { name: row.name, userId: row.user_id, orgId: row.org_id, sessions: [] };
           byEval[row.email].sessions.push(row);
         }
 
@@ -146,7 +153,15 @@ export async function GET(request) {
             </div>
             <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
           `);
-          try { await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
+          try {
+            const res = await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html);
+            await logEmailSend({
+              orgId: data.orgId, emailType: "weekly_evaluator_schedule", recipientUserId: data.userId, athleteName: data.name, to: email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) sent++;
+          } catch (emailErr) { console.error("Email failed:", emailErr); }
           await sleep(110); // pace under Resend's 10 req/sec cap
         }
       }
@@ -155,13 +170,18 @@ export async function GET(request) {
         const openSessions = sessions.filter(s => s.signed_up < s.required);
         if (openSessions.length) {
           try {
-            await emailDailyStaffingAlert({
+            const res = await emailDailyStaffingAlert({
               adminEmail: admin.email,
               adminName: admin.name,
               orgName: admin.org_name,
               openSessions,
             });
-            sent++;
+            await logEmailSend({
+              orgId: admin.organization_id, emailType: "daily_staffing_alert", athleteName: admin.name, to: admin.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) sent++;
           } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
       }

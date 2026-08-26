@@ -6,6 +6,7 @@ import sql from "@/lib/db";
 import { sendEmail, esc } from "@/lib/email";
 import { getTier } from "@/lib/scoring";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Closing a session (marks signups complete, runs integrity checks, flags
 // evaluators) is a director/admin-level action, distinct from an evaluator
@@ -386,8 +387,14 @@ export async function POST(request, { params }) {
             <p style="color:#6b7280;font-size:13px;">These players may require additional review or re-evaluation.</p>
           </div>`;
 
+          await ensureEmailLogTable();
           for (const admin of spAdmins) {
-            await sendEmail(admin.email, `⚠️ Consensus Skipped — ${s.category_name} Group ${s.group_number}`, html);
+            const res = await sendEmail(admin.email, `⚠️ Consensus Skipped — ${s.category_name} Group ${s.group_number}`, html);
+            await logEmailSend({
+              catId, emailType: "consensus_unreviewed_alert", athleteName: admin.name, to: admin.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
           }
         }
       }
