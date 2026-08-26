@@ -1,6 +1,7 @@
 import sql from "@/lib/db";
 import { agreementPct, normalizeScore, testingPercentile, round1 } from "@/lib/scoring";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
+import { resolveMatchupTeams } from "@/lib/scrimmageTeams";
 
 // Below this fraction of the GROUP'S OWN MEDIAN weight-attended-so-far, an
 // athlete's prorated total is still shown (their own record/report) but never
@@ -255,6 +256,43 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const ranked = rankGroup(buildTotals(athletes.filter(a => !isGoalie(a)), sessions), sessions);
   const rankedGoalies = rankGroup(buildTotals(athletes.filter(isGoalie), goalieSessions), goalieSessions);
 
+  // Tournament format: each session_number is ONE GAME between two of the
+  // category's teams, not an event the whole roster attends -- a 43-player
+  // category with 3 teams sees ~28 players in any given game, never 70% of
+  // the full 43. Scoping "complete" to the roster this session's game(s)
+  // actually involve (each matchup's two teams' members) instead of the
+  // whole category fixes that; unresolvable matchups (a label that doesn't
+  // parse, e.g. "Post-cut: White vs Blue") fall back to the whole-roster
+  // check below rather than getting stuck unable to ever complete.
+  let expectedBySession = null;
+  if (category?.eval_format === "round_robin") {
+    const matchupRows = await sql`
+      SELECT DISTINCT session_number, matchup FROM evaluation_schedule
+      WHERE age_category_id = ${catId} AND matchup IS NOT NULL AND matchup <> ''
+    `;
+    if (matchupRows.length) {
+      const teamIdsBySession = {};
+      const allTeamIds = new Set();
+      for (const row of matchupRows) {
+        const teamIds = await resolveMatchupTeams(catId, row.matchup);
+        if (!teamIds.length) continue;
+        (teamIdsBySession[row.session_number] ||= new Set());
+        for (const id of teamIds) { teamIdsBySession[row.session_number].add(id); allTeamIds.add(id); }
+      }
+      if (allTeamIds.size) {
+        const members = await sql`SELECT scrimmage_team_id, athlete_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${[...allTeamIds]})`;
+        const athletesByTeam = {};
+        for (const m of members) (athletesByTeam[m.scrimmage_team_id] ||= new Set()).add(m.athlete_id);
+        expectedBySession = {};
+        for (const [sNum, teamIds] of Object.entries(teamIdsBySession)) {
+          const set = new Set();
+          for (const tid of teamIds) for (const aid of (athletesByTeam[tid] || [])) set.add(aid);
+          if (set.size) expectedBySession[sNum] = set;
+        }
+      }
+    }
+  }
+
   // Determine per-session status: not_started / in_progress / complete
   const sessionStatus = {};
   for (const session of sessions) {
@@ -273,8 +311,10 @@ export async function computeCategoryRankings(catId, opts = {}) {
     } else {
       // Skills/scrimmage: complete if all athletes have been scored by required evaluators
       const scoredAthletes = [...new Set(sessionScores.filter(s => parseInt(s.session_number) === sNum).map(s => s.athlete_id))];
-      // Complete if at least 70% of athletes scored (handles partial imports/no-shows)
-      sessionStatus[sNum] = scoredAthletes.length >= Math.ceil(athletes.length * 0.7) ? "complete" : "in_progress";
+      const expected = expectedBySession?.[sNum];
+      const roster = expected ? expected.size : athletes.length;
+      // Complete if at least 70% of the relevant roster scored (handles partial imports/no-shows)
+      sessionStatus[sNum] = scoredAthletes.length >= Math.ceil(roster * 0.7) ? "complete" : "in_progress";
     }
   }
 
