@@ -30,6 +30,12 @@ const insertedRoles = () => ran().filter((s) => s.includes("INSERT INTO user_org
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // clearAllMocks wipes call history but NOT the queued mockResolvedValueOnce
+  // values, so an unconsumed queue leaks into the next test. Reset sql outright
+  // and default it to [] so a missing mock fails an assertion instead of
+  // crashing the route on `undefined.map()`.
+  sql.mockReset();
+  sql.mockResolvedValue([]);
 });
 
 describe("SP leads POST — security", () => {
