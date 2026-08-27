@@ -338,12 +338,7 @@ function Dashboard() {
   const admins = adminsData?.admins || [];
   const leadContacts = leadContactData?.leads || [];
   const serviceProvider = orgData?.service_provider || null;
-  // An SP-served association can add its OWN evaluators only if the SP granted it.
-  // Those evaluators are COACH/comparison-only — their scores never count in the
-  // official (SP) ranking. A self-serve association (no SP) manages evaluators normally.
-  const canManageEvaluators = !serviceProvider || !!serviceProvider.allow_association_evaluators;
   const helmetOn = !!org?.identify_by_helmet; // current association default (passed into setup)
-  const spComparisonMode = !!serviceProvider && !!serviceProvider.allow_association_evaluators;
   // Order categories by age group (U9 before U11AA), then by name — so the grid
   // flows youngest → oldest regardless of when each was created.
   const ageKey = (name) => { const m = String(name || "").match(/\d+/); return m ? parseInt(m[0], 10) : 999; };

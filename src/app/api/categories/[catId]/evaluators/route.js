@@ -13,11 +13,11 @@ const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "s
 const KINDS = new Set(["standard", "coach", "goalie"]);
 // The association side (its own admin, or a director -- typically the
 // association's own staff) may only see/manage coach & goalie evaluators for
-// an SP-served association if the SP has explicitly granted it (sp_association_
-// links.allow_association_evaluators) -- this is the SP's call to make per
-// association, not the association's own to opt into. SP-tier roles (and
-// super_admin) always pass regardless; a self-serve association with no SP
-// link at all is unaffected (nothing to gate against).
+// a category the SP has explicitly granted it on (age_categories.coach_
+// evaluators_enabled) -- this is the SP's call to make per CATEGORY, not per
+// association and not the association's own to opt into. An association with
+// several categories may be granted on only some of them. SP-tier roles (and
+// super_admin) always pass regardless.
 const ASSOCIATION_SIDE_ROLES = new Set(["association_admin", "director"]);
 
 async function gate(catId) {
@@ -27,11 +27,8 @@ async function gate(catId) {
   const auth = await authorizeCategoryAccess(session, catId);
   if (!auth.authorized) return { error: "Forbidden", status: 403 };
   if (ASSOCIATION_SIDE_ROLES.has(session.role)) {
-    const [link] = await sql`
-      SELECT allow_association_evaluators FROM sp_association_links
-      WHERE association_id = ${auth.orgId} AND status = 'active' LIMIT 1
-    `.catch(() => []);
-    if (link && !link.allow_association_evaluators) return { error: "Forbidden", status: 403 };
+    const [cat] = await sql`SELECT coach_evaluators_enabled FROM age_categories WHERE id = ${catId}`.catch(() => []);
+    if (!cat?.coach_evaluators_enabled) return { error: "Forbidden", status: 403 };
   }
   return { session, orgId: auth.orgId };
 }

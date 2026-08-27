@@ -241,27 +241,23 @@ export default function CategoryDashboard({
     refetchInterval: 120000,
   });
 
-  // Coach/goalie evaluator management is the SP's call to grant per association
-  // it serves (sp_association_links.allow_association_evaluators), never the
-  // association's own to opt into -- the "association" role prop above is the
-  // same for both Dan (the SP, viewing his client's dashboard) and the
+  // Coach/goalie evaluator management is the SP's call to grant per CATEGORY
+  // (age_categories.coach_evaluators_enabled), never the association's own to
+  // opt into and never on for an association's other categories just because
+  // one of them was granted -- the "association" role prop above is the same
+  // for both Dan (the SP, viewing his client's dashboard) and the
   // association's own admin, so it alone can't tell them apart. SP-tier
   // accounts (checked via their REAL account role, not this shell's role prop)
-  // always pass; association_admin/director are gated on the grant. The API
-  // (categories/[catId]/evaluators) enforces the same rule server-side --
-  // this only controls whether the UI offers something that would 403 anyway.
+  // always pass; association_admin/director are gated on the per-category flag.
+  // The API (categories/[catId]/evaluators) enforces the same rule server-side
+  // -- this only controls whether the UI offers something that would 403 anyway.
   const SP_TIER_ROLES = new Set(["service_provider_admin", "goalie_service_provider_admin", "super_admin"]);
   const { data: meData } = useQuery({
     queryKey: ["auth-me"],
     queryFn: async () => { const res = await fetch("/api/auth/me"); return res.json(); },
   });
   const myRealRole = meData?.user?.role;
-  const { data: orgSpInfo } = useQuery({
-    queryKey: ["org-sp-info", orgId],
-    queryFn: async () => { const res = await fetch(`/api/organizations/${orgId}`); return res.json(); },
-    enabled: !!orgId,
-  });
-  const allowAssociationEvaluators = !orgSpInfo?.service_provider || !!orgSpInfo?.service_provider?.allow_association_evaluators;
+  const allowAssociationEvaluators = !!setupData?.category?.coach_evaluators_enabled;
   const canManageEvaluators = myRealRole
     ? (SP_TIER_ROLES.has(myRealRole) || (["association_admin", "director"].includes(myRealRole) && allowAssociationEvaluators))
     : false;
@@ -596,7 +592,7 @@ export default function CategoryDashboard({
 
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
-    ...(hasCoaches || canManageEvaluators ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
+    ...(canManageEvaluators ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
     { id: "schedule", label: "Schedule", icon: Calendar },
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
@@ -2246,6 +2242,21 @@ export default function CategoryDashboard({
                   </button>
                 </div>
               </div>
+              {SP_TIER_ROLES.has(myRealRole) && (
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div><div className="text-sm font-medium text-gray-700">Let this association manage coach & goalie evaluators</div><div className="text-xs text-gray-400 mt-0.5">Your call only, per category — the association's own admins/directors can't turn this on themselves, and it never carries over from other categories.</div></div>
+                    <button onClick={async () => {
+                        const next = !allowAssociationEvaluators;
+                        await fetch(`/api/categories/${catId}/coach-access`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+                        queryClient.invalidateQueries({ queryKey: ["category-setup", catId] });
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${allowAssociationEvaluators ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${allowAssociationEvaluators ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
               {isTournament && (
                 <div className="bg-white border border-gray-200 rounded-xl p-5">
                   <div className="flex items-center justify-between">

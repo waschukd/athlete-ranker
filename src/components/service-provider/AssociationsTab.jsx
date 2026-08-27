@@ -133,31 +133,9 @@ export default function AssociationsTab({ associations, assocLoading, schedule, 
                   <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.athletes || 0}</div><div className="text-xs text-gray-400">Athletes</div></div>
                   <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assocSessions.length}</div><div className="text-xs text-gray-400">Upcoming</div></div>
                 </div>
-                <label className="flex items-start gap-2.5 mb-3 px-3 py-2.5 bg-gray-50 rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!assoc.allow_association_evaluators}
-                    onChange={async (e) => {
-                      const allow = e.target.checked;
-                      try {
-                        const res = await fetch(`/api/service-provider/associations${sp?.id ? `?org=${sp.id}` : ""}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "set_evaluator_access", association_id: assoc.id, allow }),
-                        });
-                        if (!res.ok) throw new Error();
-                        queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
-                      } catch {
-                        queryClient.invalidateQueries({ queryKey: ["sp-associations"] });
-                      }
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0b5cd6] focus:ring-[#0b5cd6]/30"
-                  />
-                  <span className="text-xs text-gray-600 leading-snug">
-                    <span className="font-semibold text-gray-800">Let them add their own evaluators</span><br />
-                    Their coaches' scores show as a <b>comparison only</b> — your evaluators' scores stay the official ranking.
-                  </span>
-                </label>
+                <p className="text-xs text-gray-400 mb-3 px-1">
+                  Coach & goalie evaluator access is granted per age category now, not per association — open a category's <b className="text-gray-500">Settings</b> tab to turn it on for that one specifically.
+                </p>
                 <a href={`/association/dashboard?org=${assoc.id}`} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold hover:shadow-md transition-shadow">
                   <ExternalLink size={14} /> Open Dashboard
                 </a>

@@ -40,6 +40,7 @@ beforeEach(() => {
 describe("POST /api/categories/[catId]/evaluators — goalie kind gated on evaluates_goalies", () => {
   it("rejects a goalie invite when the category doesn't evaluate goalies", async () => {
     mockSqlByQuery([
+      ["FROM age_categories WHERE id", [{ coach_evaluators_enabled: true }]],
       ["SELECT ac.name AS category_name, ac.evaluates_goalies", [{ category_name: "U13 AA", evaluates_goalies: false, org_name: "EFHA" }]],
     ]);
     const { POST } = await import("@/app/api/categories/[catId]/evaluators/route");
@@ -52,6 +53,7 @@ describe("POST /api/categories/[catId]/evaluators — goalie kind gated on evalu
 
   it("allows a goalie invite when the category does evaluate goalies", async () => {
     mockSqlByQuery([
+      ["FROM age_categories WHERE id", [{ coach_evaluators_enabled: true }]],
       ["SELECT ac.name AS category_name, ac.evaluates_goalies", [{ category_name: "U13 AA", evaluates_goalies: true, org_name: "EFHA" }]],
       ["INSERT INTO category_evaluators", []],
       ["SELECT email FROM users", [{ email: "g@test.com" }]],
@@ -64,6 +66,7 @@ describe("POST /api/categories/[catId]/evaluators — goalie kind gated on evalu
 
   it("still allows a coach invite when the category doesn't evaluate goalies", async () => {
     mockSqlByQuery([
+      ["FROM age_categories WHERE id", [{ coach_evaluators_enabled: true }]],
       ["SELECT ac.name AS category_name, ac.evaluates_goalies", [{ category_name: "U13 AA", evaluates_goalies: false, org_name: "EFHA" }]],
       ["INSERT INTO category_evaluators", []],
       ["SELECT email FROM users", [{ email: "c@test.com" }]],
