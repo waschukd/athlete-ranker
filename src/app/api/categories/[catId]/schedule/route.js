@@ -258,6 +258,14 @@ export async function PATCH(request, { params }) {
         matchup = ${matchup}
       WHERE id = ${id} RETURNING *
     `;
+    // Stamp the revision. Separate statement, and tolerant of the column not
+    // being migrated yet, so this cannot break editing a session. The .ics feed
+    // derives SEQUENCE from this -- without a revision timestamp a calendar
+    // client has no way to know the event changed and keeps showing the old
+    // time, which is exactly how an evaluator turns up an hour early.
+    try { await sql`UPDATE evaluation_schedule SET updated_at = NOW() WHERE id = ${id}`; }
+    catch { /* column not migrated yet — see scripts/migrate-schedule-updated-at.mjs */ }
+
     // `matchup` above is already derived from EITHER a raw body.matchup OR
     // team_a_id/team_b_id -- gating on "did the request send a raw matchup
     // string" missed every real call, since MatchupPicker (the only UI that
@@ -355,6 +363,8 @@ export async function DELETE(request, { params }) {
     const [row] = await sql`
       UPDATE evaluation_schedule SET status = 'cancelled' WHERE id = ${scheduleId} RETURNING *
     `;
+    try { await sql`UPDATE evaluation_schedule SET updated_at = NOW() WHERE id = ${scheduleId}`; }
+    catch { /* column not migrated yet */ }
     // Release sign-ups so the slot frees up and evaluators stop counting toward staffing
     await sql`
       UPDATE evaluator_session_signups SET status = 'released'

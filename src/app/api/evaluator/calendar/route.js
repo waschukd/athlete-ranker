@@ -60,6 +60,29 @@ function nowStampUTC() {
   );
 }
 
+// Zulu stamp for an arbitrary timestamp (LAST-MODIFIED), not just now.
+function utcStamp(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return nowStampUTC();
+  return (
+    d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" +
+    pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + "Z"
+  );
+}
+
+// SEQUENCE must be a non-negative integer that only ever increases for a given
+// UID. Seconds between creation and last edit gives exactly that: 0 for a
+// never-edited session, larger after each change. Using raw epoch seconds would
+// also work but wastes headroom and looks alarming in a calendar client's
+// debug view; using a bare counter would need a column we do not have.
+function revisionSeq(createdAt, updatedAt) {
+  if (!updatedAt || !createdAt) return 0;
+  const c = new Date(createdAt).getTime();
+  const u = new Date(updatedAt).getTime();
+  if (Number.isNaN(c) || Number.isNaN(u) || u <= c) return 0;
+  return Math.min(2147483647, Math.floor((u - c) / 1000));
+}
+
 // Fold lines to 75 octets per RFC 5545. Most clients are forgiving but
 // Outlook is not. Cheap to do, may as well do it right.
 function fold(line) {
@@ -91,7 +114,11 @@ export async function GET(request) {
       sch.session_number,
       sch.group_number,
       ac.name             AS category_name,
-      o.name              AS org_name
+      o.name              AS org_name,
+      -- Via to_jsonb so this query still runs before
+      -- scripts/migrate-schedule-updated-at.mjs has added the column.
+      (to_jsonb(sch) ->> 'updated_at')  AS updated_at,
+      (to_jsonb(sch) ->> 'created_at')  AS created_at
     FROM evaluator_session_signups es
     JOIN evaluation_schedule sch ON sch.id = es.schedule_id
     JOIN age_categories ac       ON ac.id  = sch.age_category_id
@@ -149,6 +176,15 @@ export async function GET(request) {
     lines.push("BEGIN:VEVENT");
     lines.push(fold(`UID:signup-${s.schedule_id}-${userId}@sidelinestar.com`));
     lines.push(`DTSTAMP:${stamp}`);
+    // RFC 5545: a client only treats an event as REVISED when SEQUENCE goes up.
+    // DTSTAMP is "now" on every fetch, so it is not a revision signal -- without
+    // SEQUENCE, Google and Outlook kept showing the ORIGINAL time after a
+    // session moved, and an evaluator turned up at the wrong hour.
+    // Seconds since the row was created: 0 until the first edit, monotonically
+    // increasing after, and small enough to stay a valid 32-bit integer.
+    const seq = revisionSeq(s.created_at, s.updated_at);
+    lines.push(`SEQUENCE:${seq}`);
+    if (s.updated_at) lines.push(`LAST-MODIFIED:${utcStamp(s.updated_at)}`);
     lines.push(`DTSTART;TZID=America/Edmonton:${dtStart}`);
     lines.push(`DTEND;TZID=America/Edmonton:${dtEnd}`);
     lines.push(fold(`SUMMARY:${escapeICS(summary)}`));
