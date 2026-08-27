@@ -74,8 +74,10 @@ const SYN = {
 // into that session's group at roster-upload time, the same way scrimmageTeam
 // does for tournament-format teams. Unlike the single-value fields above, there
 // can be more than one of these (one per session), so it's detected separately
-// and returned as a list rather than through pickHeader.
-const SESSION_GROUP_RE = /^s(?:ession)? ?(\d+) group ?#?$/;
+// and returned as a list rather than through pickHeader. Matched as a prefix
+// (no end anchor) so trailing clarifying text -- e.g. "Session 1 Group # If
+// Wanted (numbers only)" on the current template -- doesn't break detection.
+const SESSION_GROUP_RE = /^s(?:ession)? ?(\d+) group ?#?/;
 
 function pickSessionGroupHeaders(headers) {
   const out = [];

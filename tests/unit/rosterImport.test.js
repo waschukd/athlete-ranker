@@ -210,4 +210,11 @@ describe("session group columns (standard format)", () => {
     expect(m.sessionGroupHeaders).toEqual([]);
     expect(toAthlete({ "First Name": "A", "Last Name": "B" }, m).session_groups).toEqual([]);
   });
+
+  it("tolerates trailing clarifying text, matching the current template header", () => {
+    const m = detectMapping(["First Name", "Last Name", "Session 1 Group # If Wanted (numbers only)"]);
+    expect(m.sessionGroupHeaders).toEqual([{ session_number: 1, header: "Session 1 Group # If Wanted (numbers only)" }]);
+    const a = toAthlete({ "First Name": "A", "Last Name": "B", "Session 1 Group # If Wanted (numbers only)": "3" }, m);
+    expect(a.session_groups).toEqual([{ session_number: 1, group_number: "3" }]);
+  });
 });

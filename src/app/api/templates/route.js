@@ -27,10 +27,10 @@ export async function GET(request) {
     const format = searchParams.get("format");
     const isStandard = format === "standard";
     const csv = isStandard ? [
-      "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Session 1 Group #,Session 2 Group #",
-      "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC,1,",
-      "Jane,Doe,HC-123457,Defense,2008,jane.mom@email.com,jane.dad@email.com,,NBC,2,",
-      "Mike,Johnson,HC-123458,Goalie,2007,mike.parent@email.com,,1234,,,",
+      "First Name,Last Name,Position,Birth Year,Parent Email,Parent Email 2,Session 1 Group # If Wanted (numbers only),HC#,Helmet #,Body Contact or Not (BC/NBC)",
+      "John,Smith,Forward,2008,parent@email.com,,1,HC-123456,,BC",
+      "Jane,Doe,Defense,2008,jane.mom@email.com,jane.dad@email.com,2,HC-123457,,NBC",
+      "Mike,Johnson,Goalie,2007,mike.parent@email.com,,,HC-123458,,",
     ].join("\n") : [
       "First Name,Last Name,HC#,Position,Birth Year,Parent Email,Parent Email 2,Helmet #,Contact (BC/NBC),Scrimmage Team",
       "John,Smith,HC-123456,Forward,2008,parent@email.com,,,BC,A",
