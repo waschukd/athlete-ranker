@@ -25,7 +25,13 @@ function fmtDate(d) {
 // scheduleId: used to target evaluators signed up to THIS session (omit for bulk)
 // summary: optional human string describing what changed ("moved to Mar 14, 7:00 PM")
 // initiator: { name, role } of whoever made the change
-export async function notifySessionChange({ catId, scheduleRow, scheduleId, changeType, summary, initiator }) {
+// `alsoNotify` exists because of an ordering trap: cancelling a session
+// releases its sign-ups BEFORE this runs, and the hard-delete path removes the
+// rows outright, so by the time the query below looks for status='signed_up'
+// there is nobody left and the people who most needed the email -- the
+// evaluators actually rostered on it -- were the only ones who never got it.
+// Callers that mutate sign-ups must capture the roster first and pass it here.
+export async function notifySessionChange({ catId, scheduleRow, scheduleId, changeType, summary, initiator, alsoNotify = [] }) {
   try {
     const catInfo = await sql`
       SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name, o.contact_email AS org_email
@@ -51,6 +57,8 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
           JOIN users u ON u.id = ess.user_id
           WHERE es.age_category_id = ${catId} AND ess.status = 'signed_up'`;
     evals.forEach(e => add(e.email, e.name));
+    // Roster captured by the caller before it released/deleted the sign-ups.
+    for (const e of alsoNotify) add(e?.email, e?.name);
 
     // Service provider(s) linked to this association + their admins
     const sps = await sql`

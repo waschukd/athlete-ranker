@@ -97,7 +97,11 @@ export async function GET(request) {
     JOIN age_categories ac       ON ac.id  = sch.age_category_id
     JOIN organizations o         ON o.id   = ac.organization_id
     WHERE es.user_id = ${userId}
-      AND es.status != 'cancelled'
+      -- es.status is the SIGN-UP's. Cancelling a session sets it to 'released',
+      -- which is not 'cancelled', so cancelled sessions kept publishing into
+      -- the evaluator's subscribed phone calendar. Check the SESSION too.
+      AND es.status NOT IN ('cancelled', 'released')
+      AND sch.status <> 'cancelled'
     ORDER BY sch.scheduled_date, sch.start_time
   `;
 

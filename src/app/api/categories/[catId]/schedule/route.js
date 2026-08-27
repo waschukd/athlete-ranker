@@ -328,6 +328,17 @@ export async function DELETE(request, { params }) {
     // Hard remove: actually delete the session (used when fixing/redoing a schedule),
     // not the soft-cancel below. Releases sign-ups and drops check-ins first so no
     // orphan rows remain, then notifies everyone the session is gone.
+    // Capture who is actually rostered BEFORE the sign-ups are released or
+    // deleted below. notifySessionChange looks for status='signed_up', so once
+    // these rows are mutated it finds nobody and the rostered evaluators --
+    // the only people who have to change their plans -- get no email at all.
+    const rostered = await sql`
+      SELECT DISTINCT u.email, u.name
+      FROM evaluator_session_signups ess
+      JOIN users u ON u.id = ess.user_id
+      WHERE ess.schedule_id = ${scheduleId} AND ess.status = 'signed_up'
+    `;
+
     if (searchParams.get("hard") === "1") {
       const prev = entry[0];
       await sql`DELETE FROM evaluator_session_signups WHERE schedule_id = ${scheduleId}`;
@@ -336,6 +347,7 @@ export async function DELETE(request, { params }) {
       const { notified } = await notifySessionChange({
         catId, scheduleRow: prev, scheduleId: prev.id, changeType: "cancelled",
         summary: "This session was removed from the schedule.", initiator: initiatorOf(session),
+        alsoNotify: rostered,
       });
       return NextResponse.json({ success: true, removed: true, notified });
     }
@@ -352,6 +364,7 @@ export async function DELETE(request, { params }) {
     const { notified } = await notifySessionChange({
       catId, scheduleRow: row, scheduleId: row.id, changeType: "cancelled",
       summary: "This session has been cancelled.", initiator: initiatorOf(session),
+      alsoNotify: rostered,
     });
 
     // Parents only get pinged if the cancellation is last-minute (session within ~48h).

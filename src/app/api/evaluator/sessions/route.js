@@ -63,7 +63,13 @@ export async function GET(request) {
         LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
         LEFT JOIN evaluator_session_signups ess2 ON ess2.schedule_id = sch.id AND ess2.status != 'cancelled'
         WHERE es.user_id = ${appUserId}
-          AND es.status != 'cancelled'
+          -- es.status is the SIGN-UP's status. Cancelling a session sets the
+          -- sign-up to 'released', which is not 'cancelled', so the row sailed
+          -- through this filter and a cancelled session stayed on the
+          -- evaluator's schedule -- they had no way to know not to show up.
+          -- Filter the SESSION's status too, and drop released sign-ups.
+          AND es.status NOT IN ('cancelled', 'released')
+          AND sch.status <> 'cancelled'
         GROUP BY es.id, sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required
         ORDER BY sch.scheduled_date, sch.start_time
       `;
