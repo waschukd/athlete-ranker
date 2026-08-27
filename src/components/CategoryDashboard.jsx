@@ -592,7 +592,7 @@ export default function CategoryDashboard({
 
   const tabs = [
     { id: "rankings", label: "Rankings", icon: BarChart3 },
-    ...(canManageEvaluators ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
+    ...(allowAssociationEvaluators ? [{ id: "coaches", label: "Coaches", icon: Award }] : []),
     { id: "schedule", label: "Schedule", icon: Calendar },
     ...(category?.eval_format === "round_robin" ? [{ id: "teams", label: "Teams", icon: Users }] : []),
     { id: "analysis", label: "Analysis", icon: FileText },
