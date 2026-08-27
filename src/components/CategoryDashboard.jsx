@@ -20,6 +20,7 @@ import ManualScoreUpload from "@/components/ManualScoreUpload";
 import RosterImport from "@/components/RosterImport";
 import ScoreEditor from "@/components/ScoreEditor";
 import PlayerComparison from "@/components/PlayerComparison";
+import RankByCategory from "@/components/RankByCategory";
 import { generateICS, downloadICS } from "@/lib/calendar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTheme } from "@/lib/useTheme";
@@ -1786,6 +1787,10 @@ export default function CategoryDashboard({
               ))}
             </div>
             <h2 className="font-display text-xl font-extrabold tracking-tight text-ink">Reports</h2>
+
+            {/* Rank by Category — per-criterion averages, sortable. Answers
+                "who are my best skaters", which Rankings (overall only) can't. */}
+            <RankByCategory catId={catId} />
 
             {/* Player Comparison Tool */}
             <PlayerComparison catId={catId} initialPlayerIds={[]} />
