@@ -1,9 +1,13 @@
 // Cut a player from an elite/Tournament division. Two modes:
 //   "move"    — re-register them one level down (e.g. U11 AA → U11 house). A fresh
-//               athlete is created in the destination category with a clean slate.
+//               athlete is created in the destination category with a clean slate,
+//               and the destination's director (or the association's admin, if it
+//               has no director) is always emailed to expect them -- regardless of
+//               whether the parent-facing notify checkbox below was used.
 //   "release" — they've finished tryouts here and go nowhere (common in AA, where a
-//               cut player simply leaves). No re-registration; the parents get a
-//               warm "thank you for coming out" note. cut_to_category_id stays NULL.
+//               cut player simply leaves). No re-registration, no director to alert;
+//               the parents get a warm "thank you for coming out" note instead.
+//               cut_to_category_id stays NULL.
 // In both modes the source athlete is stamped cut_at (kept active + visible, flagged
 // "Cut", real scores intact) and pulled from future teams/rosters. Scores are keyed
 // by athlete_id + session and never deleted.
@@ -12,7 +16,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { emailPlayerCut, parentEmails } from "@/lib/email";
+import { emailPlayerCut, emailPlayerIncoming, parentEmails } from "@/lib/email";
 import { resolveTemplate, renderTemplate } from "@/lib/emailTemplates";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
@@ -103,6 +107,49 @@ export async function POST(request, { params }) {
       await sql`
         INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, is_active)
         VALUES (${fromCat.organization_id}, ${toCategoryId}, ${athlete.first_name}, ${athlete.last_name}, ${athlete.external_id || null}, ${athlete.position || null}, ${athlete.birth_year || null}, ${athlete.parent_email || null}, ${athlete.parent_email_2 || null}, true)`;
+
+      // Alert whoever now owns this player's pool. A release goes nowhere, so
+      // there's no one to tell -- this only ever fires on a move, and always
+      // (not tied to the parent-notify checkbox below, since it's an internal
+      // operational heads-up, not a courtesy). Prefer the destination
+      // category's own director(s); an association with no director assigned
+      // falls back to its admin (role-table entry, or the org's contact_email
+      // owner if that predates the role-table link -- same duality used to
+      // resolve "the admin of this org" elsewhere, e.g. notifySessionChange).
+      try {
+        const directors = await sql`
+          SELECT DISTINCT u.email, u.name FROM director_assignments da
+          JOIN users u ON u.id = da.user_id
+          WHERE da.age_category_id = ${toCategoryId} AND da.status = 'active'
+        `;
+        let recipients = directors;
+        if (!recipients.length) {
+          const admins = await sql`
+            SELECT DISTINCT u.name, u.email FROM user_organization_roles uor
+            JOIN users u ON u.id = uor.user_id
+            WHERE uor.organization_id = ${toCat.organization_id} AND uor.role = 'association_admin'
+          `;
+          const [owner] = await sql`
+            SELECT u.name, u.email FROM organizations o JOIN users u ON u.email = o.contact_email
+            WHERE o.id = ${toCat.organization_id}
+          `;
+          const seen = new Set();
+          recipients = [];
+          for (const r of [...admins, ...(owner ? [owner] : [])]) {
+            const key = (r.email || "").toLowerCase().trim();
+            if (key && !seen.has(key)) { seen.add(key); recipients.push(r); }
+          }
+        }
+        const incomingPlayerName = `${athlete.first_name || ""} ${athlete.last_name || ""}`.trim();
+        for (const r of recipients) {
+          if (!r.email) continue;
+          await emailPlayerIncoming({
+            to: r.email, recipientName: r.name, playerName: incomingPlayerName,
+            orgName: org?.name || "the association",
+            fromCategoryName: fromCat.name, toCategoryName: toCat.name, toCategoryId,
+          }).catch((e) => console.error("emailPlayerIncoming send failed:", e?.message));
+        }
+      } catch (e) { console.error("director notification lookup failed:", e?.message); }
     }
 
     // 3) Optional gentle email to the parents — placement note for a move, a warm

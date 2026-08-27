@@ -563,3 +563,20 @@ export async function emailPlayerCut({ to, playerName, orgName, message, subject
   `);
   return sendEmail(to, subject || `Evaluation update — ${orgName}`, html);
 }
+
+// A player cut from one division and MOVED into another (never sent for a
+// release, since there's no destination pool to alert) — goes to the
+// destination category's director(s), or the association's admin when it has
+// no director assigned. Data-forward and addressed to the recipient as the
+// person responsible for the pool, unlike emailPlayerCut's player-facing letter.
+export async function emailPlayerIncoming({ to, recipientName, playerName, orgName, fromCategoryName, toCategoryName, toCategoryId }) {
+  const html = emailWrapper(`
+    ${emailHeader(`${esc(orgName)} &middot; Roster Update`, "A player is joining your pool")}
+    <p style="margin:18px 0 16px;font-size:14px;color:#5b606b;line-height:1.6;">Hi <strong style="color:#101113;">${esc(recipientName || "there")}</strong>, <strong style="color:#101113;">${esc(playerName)}</strong> was cut from <strong style="color:#101113;">${esc(fromCategoryName)}</strong> and has been placed in <strong style="color:#101113;">${esc(toCategoryName)}</strong>.</p>
+    ${infoCard("Action needed", `
+      <p style="margin:0;font-size:13.5px;color:#374151;line-height:1.7;">Please make sure <strong>${esc(playerName)}</strong> is added to your evaluator pool, and confirm their registration is in place for ${esc(toCategoryName)}.</p>
+    `)}
+    <div style="text-align:center;margin:24px 0 0;">${btn(`${BASE_URL}/association/dashboard/category/${toCategoryId}`, `Open ${esc(toCategoryName)} →`)}</div>
+  `);
+  return sendEmail(to, `New player joining your pool — ${toCategoryName}`, html);
+}
