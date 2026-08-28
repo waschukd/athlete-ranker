@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { sendEmail, emailWrapper, parentOnboardingHtml, parentScheduleHtml, parentEmails, esc, FROM } from "@/lib/email";
+import { sendEmail, emailWrapper, parentOnboardingHtml, parentEmails, esc } from "@/lib/email";
 
 import { getEmailTemplate, renderTemplate } from "@/lib/emailTemplates";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
@@ -22,7 +22,7 @@ export async function POST(request, { params }) {
     const auth = await authorizeCategoryAccess(session, catId);
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { action, session_number, preview, athlete_id } = await request.json();
+    const { action, preview, athlete_id } = await request.json();
 
     // Get category + org info
     const catInfo = await sql`
@@ -111,57 +111,10 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, sent, total: athletes.length });
     }
 
-    // ── Evaluation Dates Push ─────────────────────────────
-    // Category-level DATES only — not a per-group schedule. Families don't know
-    // their group yet, so we send every family the same list of session dates
-    // (Groups & time TBD); the exact ice time follows in its own per-session
-    // email once groups are set. No .ics here — there's no confirmed time to add.
-    if (action === "schedule") {
-      const dateRows = await sql`
-        SELECT DISTINCT session_number, scheduled_date
-        FROM evaluation_schedule
-        WHERE age_category_id = ${catId} AND scheduled_date IS NOT NULL
-        ${session_number ? sql`AND session_number = ${session_number}` : sql``}
-        ORDER BY session_number, scheduled_date
-      `;
-      const sessions = dateRows.map(r => ({ session_number: r.session_number, date: r.scheduled_date }));
-
-      if (!sessions.length) {
-        return NextResponse.json({ success: true, sent: 0, skipped: 0, total: athletes.length, message: "No evaluation dates scheduled yet" });
-      }
-
-      await ensureEmailLogTable();
-      let sent = 0, skipped = 0;
-      for (const athlete of athletes) {
-        const name = `${athlete.first_name} ${athlete.last_name}`;
-        try {
-          const html = parentScheduleHtml({
-            playerName: name,
-            categoryName: category_name,
-            orgName: org_name,
-            sessions,
-          });
-          const recipients = parentEmails(athlete);
-          if (!recipients.length) { skipped++; continue; }
-          let anyOk = false;
-          for (const to of recipients) {
-            const res = await sendEmail(to, `Evaluation Dates — ${category_name} (${org_name})`, html);
-            await logEmailSend({
-              catId, emailType: "evaluation_dates", athleteId: athlete.id, athleteName: name, to,
-              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-            });
-            if (res?.ok) anyOk = true;
-          }
-          if (anyOk) sent++; else skipped++;
-        } catch (e) {
-          console.error("Failed to send dates to athlete " + athlete.id + ":", e?.message || e);
-          skipped++;
-        }
-      }
-
-      return NextResponse.json({ success: true, sent, skipped, total: athletes.length });
-    }
+    // The "schedule" action lived here: a category-wide "here are your dates,
+    // groups/time TBD" push, sent before any session had groups. Never wired
+    // to a button -- eliminated from the parent funnel as dead weight rather
+    // than kept as an unreachable code path. parentScheduleHtml went with it.
 
     // The "session_update" action lived here: a second way to email parents
     // their session details, duplicating the group email but with no preview,

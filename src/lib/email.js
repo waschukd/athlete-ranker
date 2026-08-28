@@ -412,44 +412,6 @@ export function parentOnboardingHtml({ playerName: _pn, categoryName: _cn, orgNa
 
 // Format a "YYYY-MM-DD" (or any parseable) date into "Sat, Sep 6, 2026". Parses
 // date-only strings as local midnight so they never roll to the previous day.
-function fmtDateLong(d) {
-  if (!d) return "TBD";
-  const m = String(d).match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return String(d);
-  return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-}
-
-// The evaluation DATES for a category — NOT a group-specific schedule. At this
-// point families don't know their group, so we never show a group-specific time
-// (that would imply a placement and invite comparison). We give them the dates to
-// hold; the exact ice time for each session arrives in its own email once groups
-// are set. `sessions` = [{ session_number, date }] (date is "YYYY-MM-DD").
-export function parentScheduleHtml({ playerName: _pn, categoryName: _cn, orgName: _on, sessions }) {
-  const playerName = esc(_pn), categoryName = esc(_cn), orgName = esc(_on);
-  const th = `padding:11px 16px;font-size:10px;color:${GOLD_DEEP};text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;`;
-  const rows = sessions.map(s => `
-    <tr style="border-top:1px solid ${GOLD_LINE};">
-      <td style="padding:11px 16px;font-size:13px;color:${INK};font-weight:700;white-space:nowrap;">Session ${s.session_number}</td>
-      <td style="padding:11px 16px;font-size:13px;color:#4a4f57;">${fmtDateLong(s.date)}</td>
-      <td style="padding:11px 16px;font-size:12px;color:${GOLD_DEEP};font-weight:600;">Group &amp; time TBD</td>
-    </tr>
-  `).join("");
-
-  return emailWrapper(`
-    ${emailHeader(`${esc(orgName)} &middot; ${esc(categoryName)}`, "Evaluation Dates")}
-    <p style="margin:14px auto 24px;max-width:436px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Here are the dates <strong style="color:${INK};">${esc(playerName)}</strong>'s evaluations will be held. Groups and exact ice times are set closer to each session — you'll get ${esc(playerName)}'s specific time in a separate email before each one.</p>
-    <div style="border:1px solid ${GOLD_LINE};border-radius:14px;overflow:hidden;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr style="background:${GOLD_SOFT};">
-          <th style="${th}">Session</th><th style="${th}">Date</th><th style="${th}">Ice time</th>
-        </tr>
-        ${rows}
-      </table>
-    </div>
-    <p style="margin:18px auto 0;max-width:436px;font-size:12.5px;color:${MUTED};text-align:center;line-height:1.6;">Please keep these dates open. Your child's group and exact ice time for each session — plus a calendar invite — will follow before that session.</p>
-  `);
-}
-
 // A player's ice time for one session — date, time, rink. Sent from the Groups
 // page once the director has set that session's groups.
 //

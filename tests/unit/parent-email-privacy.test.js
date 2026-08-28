@@ -9,7 +9,7 @@
 // into the parent's calendar. These pin all three.
 
 import { describe, it, expect } from "vitest";
-import { groupAssignmentHtml, parentScheduleHtml } from "@/lib/email";
+import { groupAssignmentHtml } from "@/lib/email";
 import { generateICS, googleCalendarUrl } from "@/lib/calendar";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -93,22 +93,6 @@ describe("parent emails never name the group", () => {
     // caller shouldn't be able to put the group back on the page.
     const html = groupAssignmentHtml({ ...ICE_TIME, groupNumber: 2 });
     expect(html).not.toMatch(GROUPY);
-  });
-
-  it("schedule (dates) email has no group and no group-specific time", () => {
-    const html = parentScheduleHtml({
-      playerName: "Ella Boyd", categoryName: "U11 House", orgName: "Demo Soci",
-      sessions: [
-        { session_number: 1, date: "2026-09-06" },
-        { session_number: 2, date: "2026-09-13" },
-      ],
-    });
-    // Dates only — group and exact ice time stay TBD (families don't know their group yet).
-    expect(html).toContain("Evaluation Dates");
-    expect(html).toContain("Sep 6");
-    expect(html).toContain("TBD");
-    expect(html).not.toMatch(GROUPY);
-    expect(html).not.toMatch(/<th[^>]*>\s*Group\s*<\/th>/i);
   });
 
   it("names no group when carrying the session-complete framing either", () => {
