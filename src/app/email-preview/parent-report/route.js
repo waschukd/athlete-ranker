@@ -15,7 +15,7 @@ export async function GET() {
     orgName: "Riverside Minor Hockey",
     spName: "Competitive Thread",
     reportUrl: "https://sidelinestar.com/report/SAMPLE-TOKEN",
-    priceStr: "$24.99",
+    priceStr: "$34.99",
   });
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

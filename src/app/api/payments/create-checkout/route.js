@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
-import { resolveReportProvider, isPurchasable, purchaseBlockedReason, platformFeeCents } from "@/lib/reportProvider";
+import { resolveReportProvider, isPurchasable, purchaseBlockedReason, resolveReportPrice, splitReportSale } from "@/lib/reportProvider";
 
 // Charge currency. Defaults to usd to preserve existing behaviour — the one
 // completed purchase to date was USD. The associations are Albertan, so "cad" is
@@ -51,7 +51,7 @@ export async function POST(request) {
 
     // Look up the report link
     const link = await sql`
-      SELECT rl.*, a.first_name, a.last_name, ac.name as category_name
+      SELECT rl.*, a.first_name, a.last_name, ac.name as category_name, ac.organization_id
       FROM report_links rl
       JOIN athletes a ON a.id = rl.athlete_id
       JOIN age_categories ac ON ac.id = rl.age_category_id
@@ -100,10 +100,13 @@ export async function POST(request) {
       );
     }
 
-    const priceCents = parseInt(process.env.REPORT_PRICE_CENTS || "2499");
-    // Recorded per sale so a provider statement reads off the ledger rather than
-    // recomputing against a rate that may have moved since.
-    const feeCents = platformFeeCents(priceCents);
+    // The association's own price if the SP granted them control and they've
+    // set one, else the platform default -- resolved server-side, same as the
+    // provider above, never trusted from the client.
+    const { priceCents } = await resolveReportPrice(link[0].organization_id);
+    // Recorded per sale so a statement reads off the ledger rather than
+    // recomputing against rates/prices that may have moved since.
+    const { spFeeCents, associationFeeCents } = splitReportSale(priceCents);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
     // Plain charge on Sideline Star's own account — no destination/transfer.
@@ -136,7 +139,8 @@ export async function POST(request) {
         athlete_id: String(athlete_id),
         age_category_id: String(age_category_id),
         provider_org_id: String(provider.orgId),
-        platform_fee_cents: String(feeCents),
+        platform_fee_cents: String(spFeeCents),
+        association_fee_cents: String(associationFeeCents),
       },
       success_url: `${baseUrl}/report/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/report/${token}?payment=cancelled`,
@@ -147,9 +151,9 @@ export async function POST(request) {
     // it recorded USD in the ledger while Stripe charged REPORT_CURRENCY (cad).
     await sql`
       INSERT INTO report_purchases (athlete_id, age_category_id, buyer_email, stripe_session_id, amount_cents, currency, status, report_link_token,
-                                    platform_fee_cents, provider_org_id)
+                                    platform_fee_cents, provider_org_id, association_fee_cents)
       VALUES (${athlete_id}, ${age_category_id}, '', ${session.id}, ${priceCents}, ${REPORT_CURRENCY}, 'pending', ${token},
-              ${feeCents}, ${provider.orgId})
+              ${spFeeCents}, ${provider.orgId}, ${associationFeeCents})
     `;
 
     return NextResponse.json({ checkout_url: session.url });

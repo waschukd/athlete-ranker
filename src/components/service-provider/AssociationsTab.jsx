@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus, X, Building2, ExternalLink } from "lucide-react";
 import { OrgAvatar } from "@/lib/orgVisuals";
-import { AssocColorPicker } from "@/components/service-provider/AssociationWidgets";
+import { AssocColorPicker, ReportControlToggle } from "@/components/service-provider/AssociationWidgets";
 
 export default function AssociationsTab({ associations, assocLoading, schedule, today, sp, spUrl, queryClient }) {
   const [showNewClient, setShowNewClient] = useState(false);
@@ -132,6 +132,9 @@ export default function AssociationsTab({ associations, assocLoading, schedule, 
                   <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.age_categories || 0}</div><div className="text-xs text-gray-400">Categories</div></div>
                   <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assoc.athletes || 0}</div><div className="text-xs text-gray-400">Athletes</div></div>
                   <div className="bg-gray-50 rounded-lg py-2"><div className="text-lg font-bold text-gray-900">{assocSessions.length}</div><div className="text-xs text-gray-400">Upcoming</div></div>
+                </div>
+                <div className="flex justify-end mb-3">
+                  <ReportControlToggle assoc={assoc} spId={sp?.id} onSaved={() => queryClient.invalidateQueries({ queryKey: ["sp-associations"] })} />
                 </div>
                 <p className="text-xs text-gray-400 mb-3 px-1">
                   Coach & goalie evaluator access is granted per age category now, not per association — open a category's <b className="text-gray-500">Settings</b> tab to turn it on for that one specifically.

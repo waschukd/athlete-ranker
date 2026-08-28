@@ -41,6 +41,60 @@ export function AssocColorPicker({ assoc, spId, onSaved }) {
   );
 }
 
+// Per-association grant for their own Development Report pricing. Off by
+// default -- nobody can self-serve this, only the SP flips it here. Granting
+// only unlocks their own dashboard card to set a price; it never sets one
+// for them.
+export function ReportControlToggle({ assoc, spId, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const granted = !!assoc.report_control_granted;
+  const priceStr = assoc.custom_report_price_cents ? `$${(assoc.custom_report_price_cents / 100).toFixed(2)}` : null;
+
+  const setGranted = async (next) => {
+    setSaving(true);
+    try {
+      await fetch(`/api/service-provider/associations${spId ? `?org=${spId}` : ""}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_report_control", association_id: assoc.id, granted: next }),
+      });
+      onSaved?.();
+    } finally { setSaving(false); setOpen(false); }
+  };
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Report pricing control"
+        className={`text-[11px] px-2 py-1 rounded-full font-semibold border ${granted ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+      >
+        Reports: {granted ? `Granted${priceStr ? ` · ${priceStr}` : ""}` : "Default"}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-3">
+            <div className="text-[11px] font-semibold text-gray-500 mb-1">Development Report pricing</div>
+            <p className="text-xs text-gray-500 mb-3">
+              {granted
+                ? `This association can set their own report price from their dashboard${priceStr ? ` — currently ${priceStr}` : " — no price set yet, so the $34.99 default applies"}. You still keep $34.99 flat on every sale.`
+                : "This association is charged the platform default ($34.99) and it's entirely yours. Grant them control to let them set their own price."}
+            </p>
+            <button
+              disabled={saving}
+              onClick={() => setGranted(!granted)}
+              className={`w-full py-2 rounded-lg text-xs font-semibold disabled:opacity-50 ${granted ? "border border-red-200 text-red-600 hover:bg-red-50" : "bg-accent text-white hover:opacity-90"}`}
+            >
+              {saving ? "Saving…" : granted ? "Revoke pricing control" : "Grant pricing control"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function JoinCodesPanel({ orgId, data, refetch }) {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(null);

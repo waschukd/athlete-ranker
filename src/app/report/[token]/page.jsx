@@ -69,7 +69,7 @@ export default function PublicReportPage({ params }) {
   const { athlete, category, org_name, standing, purchased, price } = data;
   const scale = category?.scoring_scale || 10;
   const skillProfile = data.skillProfile || [];
-  const priceStr = `$${((price || 2499) / 100).toFixed(2)}`;
+  const priceStr = `$${((price || 3499) / 100).toFixed(2)}`;
   const firstName = athlete?.first_name || "your athlete";
 
   return (

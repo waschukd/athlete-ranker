@@ -4,8 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendParentReportEmail, parentEmails } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
-
-const PRICE_CENTS = parseInt(process.env.REPORT_PRICE_CENTS || "2499", 10);
+import { resolveReportPrice } from "@/lib/reportProvider";
 
 // Emailing every parent a paid-report link (and minting the report_links
 // tokens) is a director/admin-level action -- the GET dry-run count stays
@@ -35,7 +34,8 @@ export async function GET(request, { params }) {
     WHERE age_category_id = ${params.catId} AND is_active = true
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
   `;
-  return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: PRICE_CENTS });
+  const { priceCents } = await resolveReportPrice(c.auth.orgId);
+  return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: priceCents });
 }
 
 // Email each parent a link to their child's report (free preview → paywall).
@@ -50,7 +50,8 @@ export async function POST(request, { params }) {
   const spName = (body.spName || "").trim() || null;
   const athleteId = body.athlete_id || null;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
-  const priceStr = `$${(PRICE_CENTS / 100).toFixed(2)}`;
+  const { priceCents } = await resolveReportPrice(c.auth.orgId);
+  const priceStr = `$${(priceCents / 100).toFixed(2)}`;
   const userId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id;
 
   const athletes = await sql`

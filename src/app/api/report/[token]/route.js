@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { resolveReportProvider, isPurchasable } from "@/lib/reportProvider";
+import { resolveReportProvider, isPurchasable, resolveReportPrice } from "@/lib/reportProvider";
 import { logEvent } from "@/lib/analytics";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 import { buildAthleteReport } from "@/lib/reportData";
@@ -9,7 +9,6 @@ import { generateParentNarrative } from "@/lib/parentNarrative";
 // Default lifetime for a parent-facing share link. Bounded so that a link leaked
 // into search engines or a parents' group chat can't be replayed forever.
 const TOKEN_TTL_DAYS = parseInt(process.env.REPORT_TOKEN_TTL_DAYS || "90", 10);
-const PRICE_CENTS = parseInt(process.env.REPORT_PRICE_CENTS || "2499", 10);
 
 export async function GET(request, { params }) {
   try {
@@ -60,6 +59,7 @@ export async function GET(request, { params }) {
       const provider = await resolveReportProvider(age_category_id);
       purchasable = isPurchasable(provider);
     }
+    const { priceCents } = await resolveReportPrice(link[0].organization_id);
 
     const report = await buildAthleteReport(age_category_id, athlete_id);
     if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
@@ -79,7 +79,7 @@ export async function GET(request, { params }) {
       total_athletes: report.total_athletes,
       purchased,
       purchasable,
-      price: PRICE_CENTS,
+      price: priceCents,
     };
 
     if (purchased) {

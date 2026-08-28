@@ -12,6 +12,7 @@ const { default: sql } = await import("@/lib/db");
 const {
   resolveReportProvider, isPurchasable, purchaseBlockedReason,
   platformFeeCents, providerAmountCents, PLATFORM_FEE_BPS,
+  resolveReportPrice, splitReportSale, DEFAULT_REPORT_PRICE_CENTS, SP_FLAT_FEE_CENTS, ASSOCIATION_TX_FEE_CENTS,
 } = await import("@/lib/reportProvider");
 
 const CAT_ROW = {
@@ -153,5 +154,73 @@ describe("GST is not revenue", () => {
   it("cut + owed reconciles to pre-tax revenue, with tax outside the split", () => {
     const fee = platformFeeCents(PRICE);
     expect(fee + providerAmountCents(PRICE, fee)).toBe(PRICE);
+  });
+});
+
+describe("resolveReportPrice — association-granted custom pricing", () => {
+  it("charges the platform default when never granted", async () => {
+    sql.mockResolvedValueOnce([{ report_control_granted: false, custom_report_price_cents: null }]);
+    const r = await resolveReportPrice(37);
+    expect(r).toEqual({ priceCents: DEFAULT_REPORT_PRICE_CENTS, granted: false, isCustom: false });
+  });
+
+  it("ignores a leftover custom price if the grant was revoked", async () => {
+    // Reflects reality without the SP having to clear the old number too.
+    sql.mockResolvedValueOnce([{ report_control_granted: false, custom_report_price_cents: 5500 }]);
+    const r = await resolveReportPrice(37);
+    expect(r.priceCents).toBe(DEFAULT_REPORT_PRICE_CENTS);
+  });
+
+  it("charges the association's own price once granted and set", async () => {
+    sql.mockResolvedValueOnce([{ report_control_granted: true, custom_report_price_cents: 5500 }]);
+    const r = await resolveReportPrice(37);
+    expect(r).toEqual({ priceCents: 5500, granted: true, isCustom: true });
+  });
+
+  it("falls back to default when granted but no price set yet", async () => {
+    sql.mockResolvedValueOnce([{ report_control_granted: true, custom_report_price_cents: null }]);
+    const r = await resolveReportPrice(37);
+    expect(r).toEqual({ priceCents: DEFAULT_REPORT_PRICE_CENTS, granted: true, isCustom: false });
+  });
+});
+
+describe("splitReportSale — BAHA's worked example", () => {
+  it("$55.00: SP keeps $34.99 flat, association eats a 70-cent fee, keeps the rest", () => {
+    expect(splitReportSale(5500)).toEqual({ spFeeCents: 3499, associationFeeCents: 70, associationAmountCents: 2001 - 70 });
+  });
+
+  it("at the platform default, the association gets nothing and pays no fee", () => {
+    expect(splitReportSale(DEFAULT_REPORT_PRICE_CENTS)).toEqual({ spFeeCents: SP_FLAT_FEE_CENTS, associationFeeCents: 0, associationAmountCents: 0 });
+  });
+
+  it("clamps to zero instead of going negative when the custom price barely clears the SP cut", () => {
+    // $35.00 leaves only 1 cent after the SP's cut -- less than the 70-cent fee.
+    const r = splitReportSale(3500);
+    expect(r.associationAmountCents).toBe(0);
+    expect(r.associationFeeCents).toBe(1); // takes only what's left, never more than the remainder
+  });
+
+  it("a price below the SP's flat cut never makes the SP's share negative", () => {
+    const r = splitReportSale(1000); // hypothetical: below SP_FLAT_FEE_CENTS
+    expect(r.spFeeCents).toBe(1000);
+    expect(r.associationFeeCents).toBe(0);
+    expect(r.associationAmountCents).toBe(0);
+  });
+
+  it("reconciles exactly: SP cut + association fee + association amount = the charge", () => {
+    for (const price of [DEFAULT_REPORT_PRICE_CENTS, 4000, 5500, 10000, 3500, 3499, 100]) {
+      const r = splitReportSale(price);
+      expect(r.spFeeCents + r.associationFeeCents + r.associationAmountCents).toBe(price);
+    }
+  });
+
+  it("the split must run on the pre-tax amount — same GST trap as platformFeeCents above", () => {
+    // amount_cents is stored pre-tax; splitting a tax-inclusive total would
+    // hand the association a slice of GST that's actually owed to the CRA.
+    const PRICE = 5500, GST = 275, TOTAL = PRICE + GST;
+    const correct = splitReportSale(PRICE);
+    const wrong = splitReportSale(TOTAL);
+    expect(wrong.associationAmountCents).not.toBe(correct.associationAmountCents);
+    expect(wrong.associationAmountCents - correct.associationAmountCents).toBe(GST);
   });
 });

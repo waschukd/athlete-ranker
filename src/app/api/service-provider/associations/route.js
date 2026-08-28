@@ -26,6 +26,21 @@ export async function PATCH(request) {
       return NextResponse.json({ success: true, color });
     }
 
+    // Grant/revoke an association's own control over their report price and
+    // purchasing switch. Off by default and nobody can self-serve it -- only
+    // the SP flips this, from here. Revoking leaves any custom price they'd
+    // set in place (harmless — resolveReportPrice ignores it while not
+    // granted) so re-granting later doesn't require them to re-enter it.
+    if (body.action === "set_report_control") {
+      const linked = await sql`
+        SELECT 1 FROM sp_association_links
+        WHERE service_provider_id = ${spId} AND association_id = ${associationId} LIMIT 1`;
+      if (!linked.length) return NextResponse.json({ error: "Not one of your associations" }, { status: 403 });
+      const granted = body.granted === true;
+      await sql`UPDATE organizations SET report_control_granted = ${granted} WHERE id = ${associationId}`;
+      return NextResponse.json({ success: true, granted });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error("SP associations PATCH error:", error);
@@ -48,6 +63,7 @@ export async function GET(request) {
     const associations = await sql`
       SELECT
         o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url,
+        o.report_control_granted, o.custom_report_price_cents,
         sal.linked_at, sal.status,
         COUNT(DISTINCT ac.id) as age_categories,
         COUNT(DISTINCT a.id) FILTER (WHERE a.is_active = true AND ((${isGoalie}::boolean AND a.position = 'goalie') OR (NOT ${isGoalie}::boolean))) as athletes,
@@ -65,7 +81,8 @@ export async function GET(request) {
       LEFT JOIN athletes a ON a.organization_id = o.id
       LEFT JOIN evaluation_schedule es ON es.age_category_id = ac.id
       WHERE sal.service_provider_id = ${spId}
-      GROUP BY o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url, sal.linked_at, sal.status
+      GROUP BY o.id, o.name, o.contact_email, o.contact_name, o.org_code, o.logo_url,
+               o.report_control_granted, o.custom_report_price_cents, sal.linked_at, sal.status
       ORDER BY o.name
     `;
 

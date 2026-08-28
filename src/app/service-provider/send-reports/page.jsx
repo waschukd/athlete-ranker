@@ -39,7 +39,7 @@ function SendInner() {
     });
   };
 
-  const priceStr = info?.price_cents ? `$${(info.price_cents / 100).toFixed(2)}` : "$24.99";
+  const priceStr = info?.price_cents ? `$${(info.price_cents / 100).toFixed(2)}` : "$34.99";
 
   return (
     <div className="min-h-screen bg-gray-50" data-theme={theme}>

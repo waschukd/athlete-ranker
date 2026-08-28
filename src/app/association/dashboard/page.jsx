@@ -15,6 +15,7 @@ import GoalieTemplateEditor from "@/components/GoalieTemplateEditor";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import InstallAppButton from "@/components/InstallAppButton";
+import EndOfEvalReportsCard from "@/components/EndOfEvalReportsCard";
 
 const qc = new QueryClient();
 
@@ -784,6 +785,8 @@ function Dashboard() {
                   </div>
                 )}
               </div>
+
+              <EndOfEvalReportsCard orgId={orgId} />
             </div>
           </div>
           )}

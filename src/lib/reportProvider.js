@@ -92,3 +92,48 @@ export function purchaseBlockedReason(provider) {
   if (!provider.purchasingEnabled) return "purchasing_disabled";
   return null;
 }
+
+// ── Association-granted custom pricing ──────────────────────────────────────
+//
+// A SEPARATE money question from resolveReportProvider() above: not "who ran
+// the evals," but "did the SP (owner's call, granted per-association from the
+// SP dashboard's Associations tab -- never self-serve) let THIS association
+// set their own price." Independent of eval-provider-share bookkeeping --
+// when granted, the association keeps everything above the SP's flat cut
+// regardless of who's recorded as the provider.
+//
+// Default price, and the SP's flat cut when a custom price is active. Same
+// number by design: an association with no grant is charged exactly what the
+// SP keeps, so there's nothing left over -- one formula, not a special case.
+export const DEFAULT_REPORT_PRICE_CENTS = 3499;
+export const SP_FLAT_FEE_CENTS = 3499;
+// Flat, not Stripe's actual percentage rate -- simple to explain to an
+// association ("you eat 70 cents a sale"), and stable regardless of card type
+// or Stripe's own pricing changes.
+export const ASSOCIATION_TX_FEE_CENTS = 70;
+
+// What a parent actually pays for this organization's report right now.
+export async function resolveReportPrice(organizationId) {
+  const [org] = await sql`
+    SELECT report_control_granted, custom_report_price_cents
+    FROM organizations WHERE id = ${organizationId}
+  `;
+  const granted = !!org?.report_control_granted;
+  const custom = granted ? org?.custom_report_price_cents : null;
+  const priceCents = Number.isFinite(custom) && custom > 0 ? custom : DEFAULT_REPORT_PRICE_CENTS;
+  return { priceCents, granted, isCustom: priceCents !== DEFAULT_REPORT_PRICE_CENTS };
+}
+
+// Splits a sale between the SP's flat cut and the association's remainder.
+// At the default price there's nothing left over (see DEFAULT_REPORT_PRICE_CENTS
+// above), so no transaction fee applies -- only a genuinely custom, above-cut
+// price ever costs the association anything. Never goes negative: a price set
+// at or below the SP cut + fee just zeroes the association's share rather
+// than charging them for someone else's decision.
+export function splitReportSale(priceCents) {
+  const spFeeCents = Math.min(SP_FLAT_FEE_CENTS, priceCents);
+  const remainder = priceCents - spFeeCents;
+  const associationFeeCents = remainder > 0 ? Math.min(ASSOCIATION_TX_FEE_CENTS, remainder) : 0;
+  const associationAmountCents = Math.max(0, remainder - associationFeeCents);
+  return { spFeeCents, associationFeeCents, associationAmountCents };
+}
