@@ -25,9 +25,10 @@ const qc = new QueryClient();
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
   defense: "bg-purple-100 text-purple-700",
+  forward_defense: "bg-teal-100 text-teal-700",
   goalie: "bg-amber-100 text-amber-700",
 };
-const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
+const POSITION_SHORT = { forward: "F", defense: "D", forward_defense: "F/D", goalie: "G" };
 
 // The green/red movement arrow — click it for a brief explanation of why the
 // player is flagged (hover still shows it as a title too).
@@ -347,6 +348,7 @@ function GroupsManagerInner() {
 
   const unassigned = assignments.filter(a => !groups.find(g => g.id === a.session_group_id));
   const goalies = groupsData?.goalies || [];
+  const unassignedSkaters = groupsData?.unassigned_skaters || [];
   const lockedAt = groupsData?.locked_at || null;
   const locked = !!lockedAt;
   const currentSession = sessions.find(s => s.session_number === selectedSession);
@@ -874,7 +876,7 @@ function GroupsManagerInner() {
               players.forEach(p => {
                 const t = groupPalette.find(c => c.name.toLowerCase() === String(p.team_color || "").toLowerCase())?.name;
                 if (!t) return;
-                const pos = p.position === "defense" ? "D" : p.position === "goalie" ? "G" : "F";
+                const pos = p.position === "defense" || p.position === "forward_defense" ? "D" : p.position === "goalie" ? "G" : "F";
                 teamStats[t][pos]++;
               });
               const hasColors = Object.values(teamStats).some(s => s.F + s.D + s.G > 0);
@@ -1062,6 +1064,42 @@ function GroupsManagerInner() {
             })}
           </div>
           </>
+        )}
+
+        {/* Not-Yet-Placed Skaters Panel — most commonly a player added via the
+            Athletes tab after this session's groups were already built. */}
+        {unassignedSkaters.length > 0 && (
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-blue-800 mb-1">
+              Not Yet Placed ({unassignedSkaters.length})
+            </h3>
+            <p className="text-xs text-blue-600 mb-4">Added after groups were built for this session, so they were never placed in one. Assign them to a group below.</p>
+            <div className="flex flex-wrap gap-3">
+              {unassignedSkaters.map(p => (
+                <div key={p.id} className="bg-white border border-blue-200 rounded-xl px-3 py-2">
+                  <div className="text-sm font-medium text-gray-900">{p.last_name}, {p.first_name}</div>
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {groups.map(group => (
+                      <button
+                        key={group.id}
+                        onClick={async () => {
+                          await fetch(`/api/categories/${catId}/groups`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "assign_player", athlete_id: p.id, group_id: group.id }),
+                          });
+                          refetch();
+                        }}
+                        className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"
+                      >
+                        → G{group.group_number}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Goalie Assignment Panel */}

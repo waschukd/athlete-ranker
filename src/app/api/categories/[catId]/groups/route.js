@@ -86,6 +86,23 @@ export async function GET(request, { params }) {
         )
       ORDER BY a.last_name` : [];
 
+    // Skaters (everyone else, incl. no position set) with no row in this session's
+    // groups at all -- e.g. added via the Athletes tab AFTER groups were already
+    // built, which never touches player_group_assignments. Without this they're
+    // simply invisible on this page: `assignments` above is built by INNER JOIN
+    // from player_group_assignments, so a never-assigned player appears nowhere,
+    // not even in an "unassigned" bucket, unlike goalies above.
+    const unassigned_skaters = sessionNum ? await sql`
+      SELECT a.id, a.first_name, a.last_name, a.external_id, a.position
+      FROM athletes a
+      WHERE a.age_category_id = ${catId} AND a.is_active = true AND COALESCE(a.position, '') <> 'goalie'
+        AND a.id NOT IN (
+          SELECT pga.athlete_id FROM player_group_assignments pga
+          JOIN session_groups sg ON sg.id = pga.session_group_id
+          WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sessionNum}
+        )
+      ORDER BY a.last_name` : [];
+
     let locked_at = null;
     if (sessionNum) {
       try {
@@ -103,7 +120,7 @@ export async function GET(request, { params }) {
       for (const r of rows) team_colors_by_schedule[r.schedule_id] = parseTeamColors(r.team_colors);
     }
 
-    return NextResponse.json({ groups, assignments, goalies, locked_at, team_colors_by_schedule });
+    return NextResponse.json({ groups, assignments, goalies, unassigned_skaters, locked_at, team_colors_by_schedule });
   } catch (error) {
     console.error("Groups GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -394,19 +411,33 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, jersey_number: num });
     }
 
-    if (action === "assign_goalie") {
-      const { athlete_id, group_id } = body;
-      const group = await sql`SELECT * FROM session_groups WHERE id = ${group_id} AND age_category_id = ${catId}`;
+    // Shared by assign_goalie and assign_player below -- both just place a
+    // not-yet-assigned athlete into a group; the position split is only about
+    // which pool the UI surfaces them from, not how the placement itself works.
+    async function assignToGroup(athleteId, groupId) {
+      const group = await sql`SELECT * FROM session_groups WHERE id = ${groupId} AND age_category_id = ${catId}`;
       if (!group.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      const athleteOwned = await sql`SELECT id FROM athletes WHERE id = ${athlete_id} AND age_category_id = ${catId}`;
+      const athleteOwned = await sql`SELECT id FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
       if (!athleteOwned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      const existingGoalie = await sql`SELECT id FROM player_group_assignments WHERE athlete_id = ${athlete_id} AND session_group_id = ${group_id}`;
-      if (!existingGoalie.length) {
-        await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athlete_id}, ${group_id}, 99)`;
+      const existing = await sql`SELECT id FROM player_group_assignments WHERE athlete_id = ${athleteId} AND session_group_id = ${groupId}`;
+      if (!existing.length) {
+        await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${groupId}, 99)`;
       }
-
       await applySnakeDraftColors(catId, group[0]?.session_number, [group[0]]);
       return NextResponse.json({ success: true });
+    }
+
+    if (action === "assign_goalie") {
+      return await assignToGroup(body.athlete_id, body.group_id);
+    }
+
+    // Places a skater who has no row at all in this session's groups -- most
+    // commonly a player added via the Athletes tab after groups were already
+    // built, which never touches player_group_assignments (unlike bulk import,
+    // which does via ensureSessionGroup). move_player can't help here since it
+    // requires an existing from_group_id.
+    if (action === "assign_player") {
+      return await assignToGroup(body.athlete_id, body.group_id);
     }
 
     if (action === "apply_colors") {
