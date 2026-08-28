@@ -213,17 +213,30 @@ export async function offerOpenSession({ catId, scheduleRow }) {
   }
 }
 
-// Notify parents ONLY when a change is last-minute (the session is within ~48h).
-// Earlier changes don't need a parent notice — groups for a soon-to-be-cancelled
-// session wouldn't be set up yet. Targets only parents of athletes assigned to the
-// affected session's group.
+// Notify parents when a change is last-minute (session within ~48h) OR when
+// they were already told a now-wrong time: the per-session "ice time" email
+// (group-emails route, logged to group_email_log) quotes the OLD date/time
+// verbatim, and nothing else ever corrects it if the edit happens further
+// out than 48h -- a family could be sitting on a stale email with no way to
+// know it changed. Sessions more than ~24h in the past are never notified
+// either way; nothing to act on.
 export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }) {
   try {
     const r = scheduleRow;
     if (!r?.scheduled_date) return { notified: 0, skipped: "no_date" };
     const when = new Date(r.scheduled_date);
     const hoursUntil = (when.getTime() - Date.now()) / 3_600_000;
-    if (!(hoursUntil <= 48) || hoursUntil < -24) return { notified: 0, skipped: "not_imminent" };
+    if (hoursUntil < -24) return { notified: 0, skipped: "already_past" };
+
+    let alreadyToldParents = false;
+    if (r.session_number != null && r.group_number != null) {
+      const sent = await sql`
+        SELECT 1 FROM group_email_log
+        WHERE age_category_id = ${catId} AND session_number = ${r.session_number}
+          AND group_number = ${r.group_number} AND status = 'sent' LIMIT 1`;
+      alreadyToldParents = sent.length > 0;
+    }
+    if (hoursUntil > 48 && !alreadyToldParents) return { notified: 0, skipped: "not_imminent" };
 
     const parents = await sql`
       SELECT DISTINCT a.id, a.parent_email, a.parent_email_2, a.first_name, a.last_name

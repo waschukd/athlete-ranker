@@ -294,7 +294,8 @@ export async function PATCH(request, { params }) {
     // If the session needs more evaluators (e.g. moved date freed people up), recruit.
     const offer = await offerOpenSession({ catId, scheduleRow: row });
 
-    // Last-minute date/time change → tell the affected parents.
+    // Tell affected parents if it's last-minute, or if they were already
+    // emailed this session's now-wrong time (see notifyParentsIfImminent).
     const timeChanged = fmt(prev.scheduled_date) !== fmt(row.scheduled_date)
       || (prev.start_time || "") !== (row.start_time || "");
     if (timeChanged || reinstating) {
@@ -377,7 +378,8 @@ export async function DELETE(request, { params }) {
       alsoNotify: rostered,
     });
 
-    // Parents only get pinged if the cancellation is last-minute (session within ~48h).
+    // Parents get pinged if the cancellation is last-minute (session within ~48h)
+    // or if they were already emailed this session's now-cancelled ice time.
     const parents = await notifyParentsIfImminent({ catId, scheduleRow: row, changeType: "cancelled" });
 
     return NextResponse.json({ success: true, notified, parentsNotified: parents.notified });
