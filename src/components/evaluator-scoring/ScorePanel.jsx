@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, X, RotateCcw, WifiOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, RotateCcw, WifiOff, AlertTriangle } from "lucide-react";
 import { colorFor, swatchStyle, colorInitial } from "@/lib/teamColors";
+import { checkNoteTone } from "@/lib/noteToneCheck";
 
 // Card/Numpad view's per-player scoring panel: header (nav + compare toggle),
 // the category inputs (numpad or button grid depending on viewMode), notes,
@@ -151,6 +152,12 @@ export default function ScorePanel({
             rows={3}
             className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
           />
+          {checkNoteTone(scores[selected.id]?.notes).flagged && (
+            <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+              <span>This note goes straight to the family — take a second look at the wording.</span>
+            </div>
+          )}
         </div>
 
         {/* Sync status for this player */}

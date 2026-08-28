@@ -1,7 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { colorFor, swatchStyle } from "@/lib/teamColors";
+import { checkNoteTone } from "@/lib/noteToneCheck";
 
 // Opened from the Grid view's notes icon. Writes through the same updateNotes()
 // the card view uses, so it syncs (and queues offline) identically and lands
@@ -9,6 +10,7 @@ import { colorFor, swatchStyle } from "@/lib/teamColors";
 export default function NotesSheetModal({ athleteId, athletes, scores, isAnon, anonLabel, teamColors, updateNotes, onClose }) {
   const a = athletes.find(x => x.id === athleteId);
   if (!a) return null;
+  const { flagged } = checkNoteTone(scores[athleteId]?.notes);
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
       <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:max-w-sm" onClick={e => e.stopPropagation()}>
@@ -30,6 +32,12 @@ export default function NotesSheetModal({ athleteId, athletes, scores, isAnon, a
             rows={5}
             className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
           />
+          {flagged && (
+            <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+              <span>This note goes straight to the family — take a second look at the wording before you move on.</span>
+            </div>
+          )}
           <button onClick={onClose} className="mt-3 w-full py-2.5 bg-accent text-white rounded-xl font-semibold text-sm">Done</button>
         </div>
       </div>

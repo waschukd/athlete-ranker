@@ -143,6 +143,10 @@ function ScoringInterface() {
   // land as 6.5 instead of silently sticking at 6.
   const lastVoiceScoreRef = useRef(null);
   const deviceChangeRef = useRef(null);
+  // When notes mode was last (re)entered — an evaluator who gets pulled away
+  // mid-dictation and never says "finish notes" would otherwise capture
+  // everything the mic hears indefinitely, including unrelated rink chatter.
+  const notesModeStartedAtRef = useRef(0);
 
   useEffect(() => { notesModeRef.current = notesMode; }, [notesMode]);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
@@ -907,6 +911,19 @@ function ScoringInterface() {
     const t = stripSentencePunctuation(corrected.trim().toLowerCase());
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
 
+    // Hoisted above notes mode (below) so a stray "white 14" said out of habit
+    // while dictating can be recognized as a command shape and skipped instead
+    // of landing in the note as text. Colours come from THIS session's palette
+    // so "score red 14" works on a Red/Blue session; "black" stays an alias
+    // for "Dark" for the default pair.
+    const voicePalette = parseTeamColors(sessionData?.checkinSession?.team_colors);
+    const voiceAliases = { black: "Dark", wh: "White", dk: "Dark", bl: "Dark" };
+    // Escape each word and sort longest-first so "dark" cannot be shadowed by a
+    // shorter alternative that happens to prefix it.
+    const voiceWords = [...voicePalette.map(c => c.name.toLowerCase()), ...Object.keys(voiceAliases)]
+      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .sort((a, b) => b.length - a.length);
+
     // ── Mic off ──────────────────────────────────────────
     if (/^(mic off|microphone off|stop listening|turn off mic)$/i.test(t)) {
       stopVoice();
@@ -921,8 +938,38 @@ function ScoringInterface() {
       return;
     }
 
-    // ── Notes dictation mode — append everything ──────────
+    // ── Notes dictation mode — append everything (with guards) ──────────
     if (notesModeRef.current) {
+      // An evaluator who gets pulled away mid-dictation and never says
+      // "finish notes" would otherwise have the mic capture indefinitely --
+      // including conversation never meant to end up in a player's record.
+      // 90s of continuous notes mode with no stop phrase auto-closes it;
+      // this utterance is dropped rather than appended, since the auto-close
+      // boundary itself is the safer place to draw the line.
+      const NOTES_MODE_MAX_MS = 90_000;
+      if (now - notesModeStartedAtRef.current > NOTES_MODE_MAX_MS) {
+        setNotesMode(false);
+        setVoiceStatus("Notes mode auto-ended after 90s of silence on 'finish notes' — say 'notes' to resume");
+        beepNotesEnd();
+        return;
+      }
+
+      // A short, standalone utterance shaped exactly like a scoring command
+      // ("white 33", a bare jersey number, "next"/"prev") is almost always
+      // the evaluator lapsing back into normal scoring habit mid-dictation,
+      // not an actual note -- skip it instead of saving it as note text.
+      // Anchored full-string match so it can't fire on a real sentence that
+      // happens to mention a colour and a number in passing.
+      const isStrayCommand =
+        new RegExp(`^(?:score\\s+)?(${voiceWords.join("|")})\\s+\\d+$`, "i").test(t) ||
+        /^\d+$/.test(t) ||
+        /^(next|prev|previous|back)$/.test(t);
+      if (isStrayCommand) {
+        setVoiceStatus(`Heard "${text}" — sounds like a command, not a note. Ignored (say 'finish notes' first if you meant to score).`);
+        beepError();
+        return;
+      }
+
       const a = selectedRef.current;
       if (a) {
         setScores(prev => {
@@ -972,6 +1019,7 @@ function ScoringInterface() {
     if (/^(start notes?|notes?|add notes?|take notes?|begin notes?|open notes?|record notes?)$/i.test(t)) {
       if (!selectedRef.current) { setVoiceStatus("Select a player first"); beepError(); return; }
       setNotesMode(true);
+      notesModeStartedAtRef.current = now;
       setVoiceStatus("Notes mode — speak freely, say 'finish notes' to stop");
       beepNotesStart();
       return;
@@ -1010,15 +1058,7 @@ function ScoringInterface() {
     }
 
     // ── Select player: "score red 14" / "white 14" / "black 14" ──
-    // Colours come from THIS session's palette so "score red 14" works on a
-    // Red/Blue session; "black" stays an alias for "Dark" for the default pair.
-    const voicePalette = parseTeamColors(sessionData?.checkinSession?.team_colors);
-    const voiceAliases = { black: "Dark", wh: "White", dk: "Dark", bl: "Dark" };
-    // Escape each word and sort longest-first so "dark" cannot be shadowed by a
-    // shorter alternative that happens to prefix it.
-    const voiceWords = [...voicePalette.map(c => c.name.toLowerCase()), ...Object.keys(voiceAliases)]
-      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .sort((a, b) => b.length - a.length);
+    // voicePalette/voiceAliases/voiceWords are computed above, before notes mode.
     const playerMatch = t.match(new RegExp(`(?:score\\s+)?(${voiceWords.join("|")})\\s+(\\d+)`, "i"));
     if (playerMatch) {
       const raw = playerMatch[1].toLowerCase();
