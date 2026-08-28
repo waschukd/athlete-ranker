@@ -50,10 +50,17 @@ export async function POST(request, { params }) {
       }
     }
     if (body.action === "seed") {
-      // Create the teams first if none exist, then seed.
+      // Create the teams first if none exist, then seed. Also used to RESEED
+      // an existing set (e.g. after a round of cuts shrinks the roster) --
+      // seedTeams() clears and refills current membership either way.
       const existing = await getScrimmageTeams(params.catId);
       if (!existing.length) await createTeams(params.catId, body.count || 3);
       const teams = await seedTeams(params.catId, body.mode || "alphabetical");
+      // Same as move_player/remove_team: keep any already-resolved-but-unplayed
+      // game in sync with the new membership instead of leaving it stale until
+      // someone separately hits "Apply to schedule". Frozen (past/checked-in)
+      // games are untouched. Best-effort: a failure here must never undo the reseed.
+      try { await applyAllMatchups(params.catId); } catch (e) { console.error("seed: re-apply matchups failed:", e?.message); }
       return NextResponse.json({ success: true, teams });
     }
     if (body.action === "move_player") {

@@ -72,6 +72,17 @@ export default function ScrimmageTeams({ catId }) {
     setBusy(false);
   };
 
+  // Redistribute everyone across the CURRENT teams from scratch -- e.g. after a
+  // round of cuts shrinks the roster and hand-dragging each remaining player is
+  // impractical. Only cut_at IS NULL players are eligible (seedTeams' own query),
+  // so cut players never come back. Clears every existing placement first, so a
+  // director who already fine-tuned a lineup should use the per-player dropdown
+  // instead -- this is for a fresh redistribution, not a nudge.
+  const reseed = async (mode) => {
+    if (!confirm(`Clear every player's current team and redistribute all ${roster.length} of them ${mode === "even" ? "by jersey #" : "alphabetically"} across the ${teams.length} existing team${teams.length === 1 ? "" : "s"}? This can't be undone.`)) return;
+    await post({ action: "seed", mode, count: teams.length });
+  };
+
   const teams = data?.teams || [];
   const unassigned = data?.unassigned || [];
   const roster = useMemo(() => [
@@ -117,7 +128,14 @@ export default function ScrimmageTeams({ catId }) {
             <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
               Apply to schedule
             </button>
-            <span className="text-[11px] text-gray-400">Pick a team from each player's dropdown — it updates that team's column instantly.</span>
+            <span className="w-px h-4 bg-gray-200" />
+            <button onClick={() => reseed("alphabetical")} disabled={busy} title="Clear all placements and redistribute alphabetically" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              <Shuffle size={13} /> Reseed alphabetically
+            </button>
+            <button onClick={() => reseed("even")} disabled={busy} title="Clear all placements and redistribute evenly by jersey #" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              Reseed even split
+            </button>
+            <span className="text-[11px] text-gray-400 w-full">Pick a team from each player's dropdown to nudge one player, or Reseed to redistribute everyone from scratch (e.g. after cuts).</span>
             {applied && <span className="text-[11px] text-gray-500 w-full">Filled {applied.applied} upcoming game{applied.applied === 1 ? "" : "s"}{applied.skipped ? ` · ${applied.skipped} already played/unresolved` : ""}.</span>}
           </>
         )}
