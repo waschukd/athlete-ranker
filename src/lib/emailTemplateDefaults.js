@@ -20,12 +20,12 @@ export const DEFAULT_TEMPLATES = {
     description:
       "Sent to parents when a player is moved out of a division. Written to be read by the player too — keep it warm.",
     fields: ["player_name", "org_name", "from_category", "to_category"],
-    subject: "Your {{to_category}} placement — {{org_name}}",
+    subject: "Your next step — {{to_category}} — {{org_name}}",
     body: `Hi {{player_name}},
 
 Thank you for coming out to {{from_category}} evaluations. You put in the work on the ice, and our evaluators noticed the effort you brought to every session.
 
-After watching all of the sessions closely, we've placed you in {{to_category}} for this season. It's the group where we think you'll get the most ice time, the most touches on the puck, and the best chance to keep growing your game.
+After watching all of the sessions closely, we're moving you into {{to_category}} evaluations, where we think you'll get a great look and a real chance to show what you can do at that level.
 
 Evaluations are only ever a snapshot of a few days. Lots of players have their best season right where you're headed, and we'll be watching for it.
 
