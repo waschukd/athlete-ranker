@@ -7,7 +7,7 @@ import { colorForOrg, OrgChip } from "@/lib/orgVisuals";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BatchSignupPrompt from "@/components/BatchSignupPrompt";
 import { contiguousBlock } from "@/lib/sessionBlocks";
-import { isSessionPast } from "@/lib/sessionTiming";
+import { isSessionPast, pickScoreNow } from "@/lib/sessionTiming";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
@@ -1291,24 +1291,21 @@ function EvaluatorDashboard() {
             {/* ── Score Now widget ── */}
             {(() => {
               if (upcoming.length === 0) return null;
-              const todayStr = localToday();
-              const todaySessions = upcoming.filter(s => s.scheduled_date?.toString().split("T")[0] === todayStr);
-              // If no sessions today, find the soonest upcoming date
-              let featured = todaySessions;
-              let isToday = true;
-              if (featured.length === 0) {
-                const soonestDate = upcoming.map(s => s.scheduled_date?.toString().split("T")[0]).filter(Boolean).sort()[0];
-                featured = upcoming.filter(s => s.scheduled_date?.toString().split("T")[0] === soonestDate);
-                isToday = false;
-              }
-              const shown = featured.slice(0, 2);
+              // Advances as sessions are closed — see pickScoreNow.
+              const { shown, isToday, todayTotal, todayDone } = pickScoreNow(upcoming, localToday());
+              if (shown.length === 0) return null;
               return (
                 <div className="mt-4 bg-white border border-[#0b5cd6]/25 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <ClipboardList size={15} className="text-[#0b5cd6]" />
                     <span className="font-display font-bold text-ink text-sm tracking-tight">Score Now</span>
                     {isToday && (
-                      <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f0fd] text-[#0b5cd6] uppercase tracking-wide">Today</span>
+                      <span className="ml-auto inline-flex items-center gap-1.5">
+                        {todayDone > 0 && (
+                          <span className="text-[11px] font-semibold text-gray-400">{todayDone} of {todayTotal} done</span>
+                        )}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f0fd] text-[#0b5cd6] uppercase tracking-wide">Today</span>
+                      </span>
                     )}
                   </div>
                   <div className="space-y-2">
