@@ -4,7 +4,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { applyAllMatchups } from "@/lib/scrimmageTeams";
-import { ensureSessionGroup } from "@/lib/sessionGroups";
+import { ensureSessionGroup, autoPlaceInExistingGroups } from "@/lib/sessionGroups";
 import { normalizePosition } from "@/lib/rosterImport";
 
 // Roster mutations (bulk import, quick-add, deactivate) are for admins/directors —
@@ -169,6 +169,13 @@ export async function POST(request, { params }) {
               await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${group.id}, 0) ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
             }
           }
+          // Any OTHER session that already has groups built (this row's CSV had no
+          // column for it, or didn't cover every session) gets the same fallback
+          // as quick-add below -- drop into that session's smallest open group
+          // rather than leaving the player invisible on Manage Groups.
+          if (!isTournament && athleteId) {
+            try { await autoPlaceInExistingGroups(catId, athleteId, position); } catch (e) { console.error("import: auto-place failed for athlete", athleteId, e?.message); }
+          }
         } catch (e) {
           errors.push(`${athlete.first_name || "?"} ${athlete.last_name || "?"}: ${e.message}`);
           skipped++;
@@ -187,12 +194,22 @@ export async function POST(request, { params }) {
     }
     const helmet = helmet_number ? String(helmet_number).trim().slice(0, 4) || null : null;
 
+    const normalizedPosition = normalizePosition(position);
     const result = await sql`
       INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, external_id, position, birth_year, parent_email, parent_email_2, helmet_number, non_contact, is_active)
-      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizePosition(position)}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet}, ${non_contact === true}, true)
+      VALUES (${orgId}, ${catId}, ${first_name}, ${last_name}, ${external_id || null}, ${normalizedPosition}, ${birth_year || null}, ${parent_email || null}, ${parent_email_2 || null}, ${helmet}, ${non_contact === true}, true)
       RETURNING *
     `;
-    return NextResponse.json({ athlete: result[0] }, { status: 201 });
+    // Drop them straight into the smallest open group of every session that
+    // already has groups built, so they don't sit invisible on Manage Groups
+    // until someone remembers to place them by hand (round-robin/tournament
+    // categories place skaters via scrimmage teams instead, not this).
+    let auto_placed = [];
+    if (!isTournament && result[0]) {
+      try { ({ placed: auto_placed } = await autoPlaceInExistingGroups(catId, result[0].id, normalizedPosition)); }
+      catch (e) { console.error("quick-add: auto-place failed for athlete", result[0].id, e?.message); }
+    }
+    return NextResponse.json({ athlete: result[0], auto_placed }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

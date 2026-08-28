@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
 import { computeCategoryRankings } from "@/lib/rankings";
+import { applySnakeDraftColors } from "@/lib/sessionGroups";
 
 // Group-building (auto-assign, moves, lock/unlock, colors, jersey pre-assign)
 // is the association's "Groups" tab -- middleware's DIRECTOR_ASSOC_ALLOW only
@@ -471,89 +472,4 @@ function distributeSequential(ids, numGroups, maxPerGroup = null) {
     }
   }
   return assignments;
-}
-
-async function applySnakeDraftColors(catId, sessionNumber, groups) {
-  const validGroups = groups.filter(g => g);
-  if (!validGroups.length) return;
-
-  const groupNumbers = validGroups.map(g => g.group_number);
-  const effectiveSession = sessionNumber || validGroups[0].session_number;
-
-  // Fix any null group_numbers in evaluation_schedule (legacy data from single-group categories)
-  await sql`
-    UPDATE evaluation_schedule SET group_number = 1
-    WHERE age_category_id = ${catId} AND session_number = ${effectiveSession} AND group_number IS NULL`;
-
-  // Batch: fetch all schedule entries for these groups at once
-  const scheduleEntries = await sql`
-    SELECT id, group_number FROM evaluation_schedule
-    WHERE age_category_id = ${catId}
-      AND session_number = ${effectiveSession}
-      AND group_number = ANY(${groupNumbers})`;
-  const scheduleByGroup = {};
-  for (const se of scheduleEntries) scheduleByGroup[se.group_number] = se.id;
-
-  const scheduleIds = scheduleEntries.map(se => se.id);
-  if (!scheduleIds.length) return;
-
-  // Batch: ensure checkin_sessions exist for all schedule IDs (insert missing ones)
-  await sql`
-    INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
-    SELECT s.id, ${catId}, '["Red","Blue"]', false
-    FROM unnest(${scheduleIds}::int[]) AS s(id)
-    WHERE NOT EXISTS (SELECT 1 FROM checkin_sessions cs WHERE cs.schedule_id = s.id)`;
-
-  // Batch: fetch all checkin_sessions for these schedule IDs
-  const allCs = await sql`
-    SELECT id, schedule_id, team_colors FROM checkin_sessions
-    WHERE schedule_id = ANY(${scheduleIds})`;
-  const csBySchedule = {};
-  const csColors = {};
-  for (const cs of allCs) { csBySchedule[cs.schedule_id] = cs.id; csColors[cs.id] = cs.team_colors; }
-
-  // Batch: fetch all player assignments for these groups at once
-  const groupIds = validGroups.map(g => g.id);
-  const allPlayers = await sql`
-    SELECT pga.athlete_id, pga.session_group_id
-    FROM player_group_assignments pga
-    WHERE pga.session_group_id = ANY(${groupIds})
-    ORDER BY pga.session_group_id, pga.display_order, pga.athlete_id`;
-
-  // Group players by session_group_id
-  const playersByGroup = {};
-  for (const p of allPlayers) {
-    if (!playersByGroup[p.session_group_id]) playersByGroup[p.session_group_id] = [];
-    playersByGroup[p.session_group_id].push(p.athlete_id);
-  }
-
-  // Build bulk upsert data for player_checkins
-  const upsertAthletes = [];
-  const upsertSchedules = [];
-  const upsertCsIds = [];
-  const upsertColors = [];
-
-  for (const group of validGroups) {
-    const scheduleId = scheduleByGroup[group.group_number] || scheduleByGroup[1];
-    if (!scheduleId) continue;
-    const csId = csBySchedule[scheduleId];
-    if (!csId) continue;
-    const players = playersByGroup[group.id] || [];
-    const palette = colorNames(csColors[csId]);
-    for (let i = 0; i < players.length; i++) {
-      upsertAthletes.push(players[i]);
-      upsertSchedules.push(scheduleId);
-      upsertCsIds.push(csId);
-      upsertColors.push(palette[i % palette.length]);
-    }
-  }
-
-  if (upsertAthletes.length) {
-    for (let i = 0; i < upsertAthletes.length; i++) {
-      await sql`
-        INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color, checked_in)
-        VALUES (${upsertAthletes[i]}, ${upsertSchedules[i]}, ${upsertCsIds[i]}, ${upsertColors[i]}, false)
-        ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET team_color = EXCLUDED.team_color`;
-    }
-  }
 }
