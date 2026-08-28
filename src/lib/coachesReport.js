@@ -117,7 +117,7 @@ export async function buildCoachesReport(catId) {
     // Roster shape
     const shape = { forwards: 0, defense: 0, goalies: 0 };
     for (const r of roster) {
-      if (r.position === "defense") shape.defense++;
+      if (r.position === "defense" || r.position === "forward_defense") shape.defense++;
       else if (r.position === "goalie") shape.goalies++;
       else shape.forwards++;
     }

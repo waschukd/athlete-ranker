@@ -8,8 +8,8 @@ import RankBadge from "@/components/RankBadge";
 // the official Rankings tab, scoped to ONLY coach-evaluator scores (scope=coach).
 // Coaches never touch the official ranking; this is the dedicated view for
 // associations/coaches to see their own ranked, sorted results at season's end.
-const POSITION_COLORS = { forward: "bg-blue-100 text-blue-700", defense: "bg-purple-100 text-purple-700", goalie: "bg-amber-100 text-amber-700" };
-const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
+const POSITION_COLORS = { forward: "bg-blue-100 text-blue-700", defense: "bg-purple-100 text-purple-700", forward_defense: "bg-teal-100 text-teal-700", goalie: "bg-amber-100 text-amber-700" };
+const POSITION_SHORT = { forward: "F", defense: "D", forward_defense: "F/D", goalie: "G" };
 
 function RankingsTable({ rows, sessions, hasPositionTagging, sortBy, toggleSort, sortIcon }) {
   const sorted = sortBy ? [...rows].sort((a, b) => {

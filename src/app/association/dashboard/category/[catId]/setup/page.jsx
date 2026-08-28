@@ -322,7 +322,7 @@ function AthletesStep({ catId, categoryName, isTournament }) {
             <input type="text" placeholder="Last Name *" required value={quickAdd.last_name} onChange={e => setQuickAdd(p => ({ ...p, last_name: e.target.value }))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             <input type="text" placeholder="HC# / Player ID" value={quickAdd.external_id} onChange={e => setQuickAdd(p => ({ ...p, external_id: e.target.value }))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             <select value={quickAdd.position} onChange={e => setQuickAdd(p => ({ ...p, position: e.target.value }))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-              <option value="">Position (optional)</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
+              <option value="">Position (optional)</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="forward_defense">Forward/Defense</option><option value="goalie">Goalie</option>
             </select>
             <input type="number" placeholder="Birth Year" value={quickAdd.birth_year} onChange={e => setQuickAdd(p => ({ ...p, birth_year: e.target.value }))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
           </div>

@@ -82,6 +82,14 @@ describe("normalizePosition", () => {
     expect(normalizePosition("")).toBeNull();
     expect(normalizePosition("Mystery")).toBeNull();
   });
+  it("maps a two-way player regardless of separator or order", () => {
+    expect(normalizePosition("F/D")).toBe("forward_defense");
+    expect(normalizePosition("d/f")).toBe("forward_defense");
+    expect(normalizePosition("F-D")).toBe("forward_defense");
+    expect(normalizePosition("F / D")).toBe("forward_defense");
+    expect(normalizePosition("Forward/Defense")).toBe("forward_defense");
+    expect(normalizePosition("Defence/Forward")).toBe("forward_defense");
+  });
 });
 
 // Real RAMP export header set (subset, in original order)

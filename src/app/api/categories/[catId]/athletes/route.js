@@ -5,21 +5,11 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { applyAllMatchups } from "@/lib/scrimmageTeams";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
+import { normalizePosition } from "@/lib/rosterImport";
 
 // Roster mutations (bulk import, quick-add, deactivate) are for admins/directors —
 // authorizeCategoryAccess alone also admits plain evaluators, who should only GET.
 const ROSTER_WRITE_ROLES = new Set(["super_admin", "association_admin", "service_provider_admin", "goalie_service_provider_admin", "director"]);
-
-const positionMap = {
-  "f": "forward", "forward": "forward", "fwd": "forward",
-  "d": "defense", "defense": "defense", "def": "defense", "defence": "defense",
-  "g": "goalie", "goalie": "goalie", "gk": "goalie",
-};
-
-function normalizePosition(pos) {
-  if (!pos) return null;
-  return positionMap[pos.toLowerCase().trim()] || pos.toLowerCase().trim();
-}
 
 function extractBirthYear(val) {
   if (val == null || val === "") return null;

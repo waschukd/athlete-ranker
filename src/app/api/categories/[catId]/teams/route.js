@@ -406,8 +406,11 @@ function buildTeamAssignments(skaters, teamConfig, method, positionBalanced) {
 
   if (positionBalanced) {
     const forwards = skaters.filter(a => a.position === "forward");
-    const defense = skaters.filter(a => a.position === "defense");
-    const other = skaters.filter(a => a.position !== "forward" && a.position !== "defense");
+    // Forward/Defense players are D-capable, so they compete for the D target
+    // first (like pure defense) -- any left over once the target's filled
+    // cascade into the forward pass below via dLeft, same as a natural F.
+    const defense = skaters.filter(a => a.position === "defense" || a.position === "forward_defense");
+    const other = skaters.filter(a => a.position !== "forward" && a.position !== "defense" && a.position !== "forward_defense");
     const dTarget = size.map(s => Math.min(6, Math.round(s / 3)));   // ~5 D, cap 6
     const dLeft = assignPhase(defense, dTarget);                      // D up to target
     const fLeft = assignPhase(forwards, size.slice());               // F fill to full size (uses any empty D slots)

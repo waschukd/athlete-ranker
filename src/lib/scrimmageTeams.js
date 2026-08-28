@@ -62,7 +62,10 @@ export async function seedTeams(catId, mode = "alphabetical") {
   // Clear current membership.
   await sql`DELETE FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teams.map(t => t.id)})`;
 
-  const isD = (a) => (a.position || "").toLowerCase().startsWith("d");
+  // Forward/Defense players count as D-capable here too, so a team seeded
+  // "D-first" doesn't end up short a blueliner because a hybrid got sorted
+  // into the forward pass instead.
+  const isD = (a) => { const p = (a.position || "").toLowerCase(); return p.startsWith("d") || p === "forward_defense"; };
   const order = mode === "even"
     ? [...athletes].sort((a, b) => (Number(a.jersey_number) || 999) - (Number(b.jersey_number) || 999))
     : athletes; // already alphabetical

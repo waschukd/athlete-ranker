@@ -13,9 +13,10 @@ const qc = new QueryClient();
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
   defense: "bg-purple-100 text-purple-700",
+  forward_defense: "bg-teal-100 text-teal-700",
   goalie: "bg-amber-100 text-amber-700",
 };
-const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
+const POSITION_SHORT = { forward: "F", defense: "D", forward_defense: "F/D", goalie: "G" };
 
 function TeamGeneratorInner() {
   const searchParams = useSearchParams();

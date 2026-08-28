@@ -32,9 +32,10 @@ import CoachRankingsPanel from "@/components/CoachRankingsPanel";
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
   defense: "bg-purple-100 text-purple-700",
+  forward_defense: "bg-teal-100 text-teal-700",
   goalie: "bg-amber-100 text-amber-700",
 };
-const POSITION_SHORT = { forward: "F", defense: "D", goalie: "G" };
+const POSITION_SHORT = { forward: "F", defense: "D", forward_defense: "F/D", goalie: "G" };
 
 // Calendar helpers for the per-category schedule: color by session TYPE (one
 // category, so org color would be flat), label by session/group.
@@ -1616,7 +1617,7 @@ export default function CategoryDashboard({
                   ))}
                   <div><label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
                     <select value={athleteForm.position} onChange={e => setAthleteForm(f => ({ ...f, position: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
-                      <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
+                      <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="forward_defense">Forward/Defense</option><option value="goalie">Goalie</option>
                     </select>
                   </div>
                   {u15Plus && (
@@ -1752,7 +1753,7 @@ export default function CategoryDashboard({
                 ))}
                 <div><label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
                   <select value={editForm.position} onChange={e => setEditForm(f => ({ ...f, position: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]">
-                    <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="goalie">Goalie</option>
+                    <option value="">-</option><option value="forward">Forward</option><option value="defense">Defense</option><option value="forward_defense">Forward/Defense</option><option value="goalie">Goalie</option>
                   </select>
                 </div>
               </div>
@@ -1856,14 +1857,14 @@ export default function CategoryDashboard({
 
             {/* ─── Positional Breakdown ──────────────────────── */}
             {hasScores && category?.position_tagging && (() => {
-              const positions = ["forward", "defense", "goalie"];
-              const posLabels = { forward: "Forwards", defense: "Defense", goalie: "Goalies" };
-              const posColors = { forward: "from-blue-500 to-blue-600", defense: "from-purple-500 to-purple-600", goalie: "from-amber-500 to-amber-600" };
-              const posTextColors = { forward: "text-blue-600", defense: "text-purple-600", goalie: "text-amber-600" };
+              const positions = ["forward", "defense", "forward_defense", "goalie"];
+              const posLabels = { forward: "Forwards", defense: "Defense", forward_defense: "Forward/Defense", goalie: "Goalies" };
+              const posColors = { forward: "from-blue-500 to-blue-600", defense: "from-purple-500 to-purple-600", forward_defense: "from-teal-500 to-teal-600", goalie: "from-amber-500 to-amber-600" };
+              const posTextColors = { forward: "text-blue-600", defense: "text-purple-600", forward_defense: "text-teal-600", goalie: "text-amber-600" };
               return (
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 mb-3">Positional Breakdown</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                     {positions.map(pos => {
                       const posAthletes = rankedAthletes.filter(a => a.position === pos).sort((a, b) => (a.weighted_total || 0) > (b.weighted_total || 0) ? -1 : 1);
                       let posRank = 0;

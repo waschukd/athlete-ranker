@@ -8,7 +8,7 @@ import { Loader2, Pencil, Trash2, Plus, Shuffle, Search, Users } from "lucide-re
 // roster on the right, updating live. No drag-and-drop -- native HTML5 drag
 // doesn't fire on touch devices (iOS/Android), which is how this is used
 // rinkside. Rendered on the Teams tab when eval_format = 'round_robin'.
-const posShort = (p) => { const s = (p || "").toLowerCase(); return s.startsWith("d") ? "D" : s.startsWith("g") ? "G" : "F"; };
+const posShort = (p) => { const s = (p || "").toLowerCase(); return s === "forward_defense" ? "F/D" : s.startsWith("d") ? "D" : s.startsWith("g") ? "G" : "F"; };
 const nameOf = (a) => `${a.first_name || ""} ${a.last_name || ""}`.trim() || `#${a.jersey_number ?? "?"}`;
 const teamLabel = (name) => String(name || "").replace(/^team\s+/i, "").trim() || name;
 

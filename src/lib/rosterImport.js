@@ -236,11 +236,16 @@ const POS = {
   f: "forward", forward: "forward", fwd: "forward", fw: "forward",
   d: "defense", def: "defense", defense: "defense", defence: "defense", defenceman: "defense", defenseman: "defense",
   g: "goalie", gk: "goalie", goalie: "goalie", goaltender: "goalie", goalkeeper: "goalie",
+  // Some associations (e.g. BAHA) roster kids who play both ways -- "F/D", "D-F",
+  // "fwd / def" all mean the same thing once slashes/dashes are collapsed below.
+  "f/d": "forward_defense", "d/f": "forward_defense", "fd": "forward_defense", "df": "forward_defense",
+  "forward/defense": "forward_defense", "defense/forward": "forward_defense",
+  "forward/defence": "forward_defense", "defence/forward": "forward_defense",
 };
 // Registration exports often say "Player" or leave it blank — those are not skating
 // positions, so they normalize to null (unknown) rather than a bogus value.
 export function normalizePosition(val) {
-  const v = (val || "").toLowerCase().trim();
+  const v = (val || "").toLowerCase().trim().replace(/\s*[/-]\s*/g, "/");
   if (!v || v === "player" || v === "skater") return null;
   return POS[v] || null;
 }

@@ -2,7 +2,7 @@
 
 import { Target, ListOrdered, Lightbulb, Compass, LayoutGrid, CalendarRange, Users, Sparkles } from "lucide-react";
 
-const POS_SHORT = { forward: "F", defense: "D", goalie: "G" };
+const POS_SHORT = { forward: "F", defense: "D", forward_defense: "F/D", goalie: "G" };
 
 // Lightweight renderer for the AI briefing text: headers (# / N. TITLE / ALLCAPS),
 // bullets (-, *, •), and **bold**. Keeps it readable without a markdown dep.

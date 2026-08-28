@@ -65,8 +65,8 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
 
   const FILTERS = [
     { key: "skaters", label: "All Skaters", match: (r) => r.pool === "skater" },
-    { key: "forward", label: "Forwards", match: (r) => r.position === "forward" },
-    { key: "defense", label: "Defense", match: (r) => r.position === "defense" },
+    { key: "forward", label: "Forwards", match: (r) => r.position === "forward" || r.position === "forward_defense" },
+    { key: "defense", label: "Defense", match: (r) => r.position === "defense" || r.position === "forward_defense" },
     { key: "goalie", label: "Goalies", match: (r) => r.pool === "goalie" },
   ];
   const filteredRoster = useMemo(() => {
