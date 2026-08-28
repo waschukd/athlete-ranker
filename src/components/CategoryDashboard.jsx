@@ -28,6 +28,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import MatchupPicker from "@/components/MatchupPicker";
 import ParentEmailStatusPanel from "@/components/ParentEmailStatusPanel";
 import CoachRankingsPanel from "@/components/CoachRankingsPanel";
+import NotesReviewPanel from "@/components/NotesReviewPanel";
 
 const POSITION_COLORS = {
   forward: "bg-blue-100 text-blue-700",
@@ -1581,6 +1582,8 @@ export default function CategoryDashboard({
               </div>
             )}
             {athleteMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{athleteMsg}</div>}
+
+            <NotesReviewPanel catId={catId} />
 
             {/* Parent Notifications */}
             {athletes.length > 0 && (() => {

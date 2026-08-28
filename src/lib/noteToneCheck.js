@@ -27,3 +27,28 @@ export function checkNoteTone(text) {
   const match = PATTERN.exec(text || "");
   return { flagged: !!match, match: match?.[0] || null };
 }
+
+// Catches dictation the recognizer cut off mid-thought ("...skates hunched
+// over when carrying the") -- found in real production notes. Not a
+// mistranscription (nothing to correct, since we don't know the intended
+// ending), so this doesn't rewrite anything; it's for a review queue to
+// surface before the note reaches a report.
+// Only words that can NEVER end a grammatical English sentence -- articles,
+// conjunctions, prepositions, subordinators. Deliberately excludes anything
+// that can also stand alone as an object pronoun or complete a common phrase
+// -- verbs like "was"/"has"/"needs" ("...knowing where puck was"), "his/her/
+// their/this" ("...who is around her", "has the ability to do so" -> "so"
+// also excluded for the same reason) -- all real, complete production notes
+// that false-positived during testing.
+const TRAILING_WORDS = new Set([
+  "a", "an", "the", "and", "but", "or", "to", "on", "in", "with",
+  "for", "of", "as", "that", "when", "while", "because", "if",
+]);
+
+export function looksIncomplete(text) {
+  const t = (text || "").trim();
+  if (!t || /[.!?]$/.test(t)) return false;
+  const words = t.split(/\s+/);
+  const last = words[words.length - 1].replace(/[.,!?;:'"]+$/, "").toLowerCase();
+  return TRAILING_WORDS.has(last);
+}

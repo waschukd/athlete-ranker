@@ -907,7 +907,14 @@ function ScoringInterface() {
 
     // ── Number normalization ─────────────────────────────────
     let normalized = normalizeSpokenNumbers(text);
-    const corrected = normalized.replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck");
+    // "fuck" for "puck" is the recognizer mishearing the hard C; "pot" is the
+    // same word losing its ending -- found verbatim in real notes ("get the
+    // pot goes to the high slot", "overhandling the pot"). Scoped to the
+    // article/possessive pattern actually seen, not a blanket "pot" -> "puck"
+    // swap, since a real note has no other reason to say "pot".
+    const corrected = normalized
+      .replace(/\bfuck\s+skills?/gi, "puck skills").replace(/\bfuck(?=\s)/gi, "puck")
+      .replace(/\b(the|a|his|her|their)\s+pot\b/gi, "$1 puck");
     const t = stripSentencePunctuation(corrected.trim().toLowerCase());
     setVoiceStatus(`"${text}"${normalized !== text.trim().toLowerCase() ? ' → ' + normalized : ''}`);
 
@@ -970,14 +977,25 @@ function ScoringInterface() {
         return;
       }
 
+      // A stop phrase said at the end of a longer, un-isolated utterance
+      // ("...call for the puck intercepted done.") doesn't match the exact
+      // check above, so the recognizer's whole run-on sentence -- stop word
+      // included -- would otherwise land in the note verbatim and notes mode
+      // would never turn off. Found exactly this in a real production note.
+      // Strip the trailing stop phrase off, keep whatever came before it as
+      // the note, and end notes mode for real this time.
+      const stopSuffixMatch = corrected.match(/[.\s]+(finish notes?|stop notes?|end notes?|done notes?|done|close notes?|save notes?|that'?s it|that is it)[.\s]*$/i);
+      const endNotesAfter = !!stopSuffixMatch;
+      const effectiveText = stopSuffixMatch ? corrected.slice(0, stopSuffixMatch.index).trim() : text;
+
       const a = selectedRef.current;
-      if (a) {
+      if (a && effectiveText) {
         setScores(prev => {
           const existing = prev[a.id]?.notes || "";
           let newNotes;
 
           if (!existing) {
-            newNotes = text;
+            newNotes = effectiveText;
           } else {
             // Android's recognizer splits dictation into multiple sessions and returns
             // CUMULATIVE text each time ("quick" → "quick skeeter" → "quick skeeter and").
@@ -990,16 +1008,16 @@ function ScoringInterface() {
             const lastSegment = lastSepIdx >= 0 ? existing.slice(lastSepIdx + 2) : existing;
             const prefix = lastSepIdx >= 0 ? existing.slice(0, lastSepIdx + 2) : "";
             const lastLower = lastSegment.trim().toLowerCase();
-            const textLower = text.trim().toLowerCase();
+            const textLower = effectiveText.trim().toLowerCase();
 
             if (textLower === lastLower) {
               return prev;
             } else if (textLower.startsWith(lastLower) && lastLower.length > 0) {
-              newNotes = prefix + text;
+              newNotes = prefix + effectiveText;
             } else if (lastLower.startsWith(textLower) && textLower.length > 0) {
               return prev;
             } else {
-              newNotes = existing + ". " + text;
+              newNotes = existing + ". " + effectiveText;
             }
           }
 
@@ -1010,6 +1028,12 @@ function ScoringInterface() {
           saveLocal(scheduleId, currentUserId, updated);
           return updated;
         });
+      }
+      if (endNotesAfter) {
+        setNotesMode(false);
+        setVoiceStatus(effectiveText ? "Note added, notes mode ended ✓" : "Notes mode ended ✓");
+        beepNotesEnd();
+      } else {
         setVoiceStatus(`Note added ✓`);
       }
       return;
