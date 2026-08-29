@@ -103,6 +103,41 @@ export async function rankMap(catId) {
   }
 }
 
+// Snake one group across T teams, optionally starting on a team other than the
+// first. Each round hands out exactly one player per team, so counts stay even
+// no matter where the snake starts.
+function snake(list, T, startOffset = 0) {
+  return list.map((athlete, i) => {
+    const round = Math.floor(i / T);
+    const pos = i % T;
+    const base = round % 2 === 0 ? pos : T - 1 - pos;
+    return { athlete, teamIdx: (base + startOffset) % T };
+  });
+}
+
+// Decide who goes where. Defense is drafted first so no team ends up short a
+// blueliner, then forwards.
+//
+// Rule: the top-ranked defender and the top-ranked forward never land on the
+// same team. The old single continuous snake ran D and F as one sequence, so
+// with an ODD number of defenders it turned back on itself at the boundary and
+// handed the same team both -- EFHA's U13 came out with the #1 D and the #1
+// forward together, which is the opposite of a balanced draft. Starting the
+// forward pass one team along fixes it structurally rather than by swapping
+// players afterwards, and because each snake still gives one player per team
+// per round, roster sizes stay as even as before.
+//
+// Exported for testing: this is the part that has to stay correct.
+export function draftAssignments(dRanked, fRanked, T) {
+  if (T < 1) return [];
+  const dPicks = snake(dRanked, T, 0);
+  // Only shift when there is actually a top D to avoid -- with no defenders the
+  // forwards should start at team 0 like any other single group.
+  const forwardOffset = dRanked.length && T > 1 ? 1 : 0;
+  const fPicks = snake(fRanked, T, forwardOffset);
+  return [...dPicks, ...fPicks];
+}
+
 // Seed players into the teams.
 //
 // mode:
@@ -141,14 +176,9 @@ export async function seedTeams(catId, mode = "alphabetical") {
   } else {
     order = athletes; // already alphabetical
   }
-  // Defense first, then forwards — snake across teams so counts stay even.
-  const ranked = [...order.filter(isD), ...order.filter(a => !isD(a))];
-  const T = teams.length;
-  for (let i = 0; i < ranked.length; i++) {
-    const round = Math.floor(i / T);
-    const pos = i % T;
-    const teamIdx = round % 2 === 0 ? pos : T - 1 - pos; // snake
-    await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${teams[teamIdx].id}, ${ranked[i].id}) ON CONFLICT DO NOTHING`;
+  const assignments = draftAssignments(order.filter(isD), order.filter(a => !isD(a)), teams.length);
+  for (const { athlete, teamIdx } of assignments) {
+    await sql`INSERT INTO scrimmage_team_members (scrimmage_team_id, athlete_id) VALUES (${teams[teamIdx].id}, ${athlete.id}) ON CONFLICT DO NOTHING`;
   }
   return getScrimmageTeams(catId);
 }
