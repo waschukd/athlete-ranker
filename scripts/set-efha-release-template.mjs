@@ -41,6 +41,13 @@ const KEYS = ["player_released", "player_cut"];
 //   "Return to Primary Minor Hockey Association" -> "Return to your primary
 //                                          minor hockey association"
 // Nothing else is changed: no sentence reordered, nothing added or removed.
+//
+// The "Krista Anderson / Elite Director" signature was dropped at EFHA's
+// request -- this is an association-wide template that other directors (Brad,
+// and whoever runs the other age groups) also send, so signing it with one
+// person's name would be wrong on most of the letters that go out. The
+// association name stays as the sign-off, and the email already closes with
+// "Questions? Simply reply to Edmonton Female Hockey Alliance".
 const BODY = `Hi {{player_name}},
 
 Thank you, {{player_name}}, for attending the EFHA AA tryouts and for the effort and commitment you showed throughout the process.
@@ -63,8 +70,6 @@ https://www.afhl.ca/afhl-tryouts-guide
 
 2. Return to your primary minor hockey association.
 
-Krista Anderson
-Elite Director
 Edmonton Female Hockey Alliance`;
 
 const [org] = await sql`SELECT id, name FROM organizations WHERE id = ${ORG}`;
