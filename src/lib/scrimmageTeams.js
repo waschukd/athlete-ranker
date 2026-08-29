@@ -174,11 +174,34 @@ async function findTeamByLabel(catId, label) {
 export async function resolveMatchupTeams(catId, matchup) {
   const s = String(matchup || "").trim();
   if (!s) return [];
-  const m = s.match(/^(.+?)\s*(?:vs\.?|\/)\s*(.+)$/i);
-  if (!m) return [];
-  const a = await findTeamByLabel(catId, m[1]);
-  const b = await findTeamByLabel(catId, m[2]);
-  return a && b ? [a, b] : [];
+
+  const split = (str) => {
+    const m = str.match(/^(.+?)\s*(?:vs\.?|\/)\s*(.+)$/i);
+    return m ? [m[1], m[2]] : null;
+  };
+  const resolve = async (parts) => {
+    if (!parts) return [];
+    const a = await findTeamByLabel(catId, parts[0]);
+    const b = await findTeamByLabel(catId, parts[1]);
+    return a && b ? [a, b] : [];
+  };
+
+  // Try the label exactly as written first, so nothing that already resolved
+  // changes behaviour.
+  const direct = await resolve(split(s));
+  if (direct.length) return direct;
+
+  // Then retry without a leading descriptive prefix. Schedules routinely carry
+  // one -- "Post-cut: White vs Blue", "Final: A vs B" -- and the lazy split
+  // above hands "Post-cut: White" to an exact name match, which finds nothing.
+  // The whole game then silently keeps no roster, with no error anywhere.
+  // Only attempted after the direct match fails, so a team genuinely named with
+  // a colon still wins.
+  const colon = s.indexOf(":");
+  if (colon > -1 && colon < s.length - 1) {
+    return resolve(split(s.slice(colon + 1).trim()));
+  }
+  return [];
 }
 
 // Build a canonical matchup label from two team ids, using their current names
