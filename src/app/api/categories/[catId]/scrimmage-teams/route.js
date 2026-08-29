@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { getScrimmageTeams, createTeams, addTeam, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
+import { getScrimmageTeams, createTeams, setTeamCount, addTeam, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -53,8 +53,14 @@ export async function POST(request, { params }) {
       // Create the teams first if none exist, then seed. Also used to RESEED
       // an existing set (e.g. after a round of cuts shrinks the roster) --
       // seedTeams() clears and refills current membership either way.
+      // A requested count now actually takes effect on an EXISTING set too.
+      // Before, this only created teams when there were none, so seeding with
+      // count:2 against 3 teams silently reseeded into 3 -- there was no way to
+      // drop to 2 after cuts without deleting teams one at a time.
       const existing = await getScrimmageTeams(params.catId);
-      if (!existing.length) await createTeams(params.catId, body.count || 3);
+      const want = parseInt(body.count);
+      if (!existing.length) await createTeams(params.catId, Number.isFinite(want) ? want : 3);
+      else if (Number.isFinite(want) && want !== existing.length) await setTeamCount(params.catId, want);
       const teams = await seedTeams(params.catId, body.mode || "alphabetical");
       // Same as move_player/remove_team: keep any already-resolved-but-unplayed
       // game in sync with the new membership instead of leaving it stale until

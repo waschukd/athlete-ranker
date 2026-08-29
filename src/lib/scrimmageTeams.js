@@ -49,6 +49,39 @@ export async function addTeam(catId) {
   return getScrimmageTeams(catId);
 }
 
+// Change how many teams a category has, keeping the ones it already has.
+//
+// Dropping from 3 teams to 2 after a round of cuts is a normal, expected move,
+// but there was no way to do it: createTeams() wipes and rebuilds (losing every
+// custom team NAME), addTeam() only ever goes up, and removeTeam() had to be
+// clicked once per team. So a director either deleted teams one at a time or
+// blew the whole set away.
+//
+// Grows by appending (addTeam's naming), shrinks by dropping the HIGHEST
+// display_order teams -- so "Team A"/"Team B", or whatever the director renamed
+// them to, survive and the ones that disappear are the ones added last. Members
+// of a dropped team are released; a reseed straight after redistributes
+// everyone, which is why seed() calls this first.
+//
+// Floor of 2 (a scrimmage needs two sides) and ceiling of 6, same as elsewhere.
+export async function setTeamCount(catId, count) {
+  const want = Math.max(2, Math.min(6, parseInt(count) || 2));
+  let existing = await sql`SELECT id, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
+
+  if (!existing.length) return createTeams(catId, want);
+
+  while (existing.length < want) {
+    await addTeam(catId);
+    existing = await sql`SELECT id, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
+  }
+  while (existing.length > want) {
+    const drop = existing[existing.length - 1];
+    await removeTeam(catId, drop.id);
+    existing = await sql`SELECT id, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
+  }
+  return getScrimmageTeams(catId);
+}
+
 // Seed players into the teams. mode: 'alphabetical' | 'even'. Balances D roughly
 // evenly first (so no team is short on defense), then distributes the rest.
 export async function seedTeams(catId, mode = "alphabetical") {

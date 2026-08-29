@@ -17,6 +17,7 @@ export default function ScrimmageTeams({ catId }) {
   const [busy, setBusy] = useState(false);
   const [movingId, setMovingId] = useState(null);
   const [count, setCount] = useState(3);
+  const [rebuildCount, setRebuildCount] = useState(2);
   const [applied, setApplied] = useState(null);
   const [err, setErr] = useState("");
   const [renamingId, setRenamingId] = useState(null);
@@ -83,6 +84,22 @@ export default function ScrimmageTeams({ catId }) {
     await post({ action: "seed", mode, count: teams.length });
   };
 
+  // Same as reseed, but ALSO changes how many teams there are -- the 3-to-2 move
+  // after cuts. Shrinking drops the last-added teams and keeps the earlier ones
+  // (and their names); everyone still eligible is then redistributed across
+  // whatever remains, so no cut player comes back and nobody is left stranded on
+  // a team that no longer exists.
+  const rebuild = async (mode) => {
+    const n = rebuildCount;
+    if (n === teams.length) return reseed(mode);
+    const dropping = teams.length - n;
+    const warn = dropping > 0
+      ? `This removes ${dropping} team${dropping === 1 ? "" : "s"} (the most recently added) and `
+      : `This adds ${Math.abs(dropping)} team${Math.abs(dropping) === -1 ? "" : "s"} and `;
+    if (!confirm(`Rebuild into ${n} teams? ${warn}redistributes all ${roster.length} remaining player${roster.length === 1 ? "" : "s"} ${mode === "even" ? "by jersey #" : "alphabetically"}. Cut players are not included. This can't be undone.`)) return;
+    await post({ action: "seed", mode, count: n });
+  };
+
   const teams = data?.teams || [];
   const unassigned = data?.unassigned || [];
   const roster = useMemo(() => [
@@ -124,6 +141,19 @@ export default function ScrimmageTeams({ catId }) {
           <>
             <button onClick={() => post({ action: "add_team" })} disabled={busy || teams.length >= 6} title={teams.length >= 6 ? "Maximum of 6 teams" : "Add another team"} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
               <Plus size={13} /> Add team
+            </button>
+
+            {/* Rebuild into a different number of teams. Going 3 -> 2 after cuts
+                is routine, but the count picker only ever appeared on an EMPTY
+                set, so the only way down was deleting teams one at a time. */}
+            <span className="text-xs font-medium text-gray-500 ml-1">Rebuild into</span>
+            <select value={rebuildCount} onChange={(e) => setRebuildCount(Number(e.target.value))} disabled={busy}
+              className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white disabled:opacity-50">
+              {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} teams</option>)}
+            </select>
+            <button onClick={() => rebuild("alphabetical")} disabled={busy}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              <Shuffle size={13} /> Reseed
             </button>
             <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
               Apply to schedule
