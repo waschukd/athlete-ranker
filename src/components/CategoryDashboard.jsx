@@ -87,6 +87,8 @@ export default function CategoryDashboard({
   const [cutResult, setCutResult] = useState("");
   const [cutTpl, setCutTpl] = useState(null);        // {subject, body, isDefault} — move
   const [releaseTpl, setReleaseTpl] = useState(null);// {subject, body, isDefault} — release
+  // Association never places cut players elsewhere — every cut is a release.
+  const [releaseOnly, setReleaseOnly] = useState(false);
   const [cutMode, setCutMode] = useState("move");    // "move" (to a division) | "release" (thank & cut)
   const [cutEdited, setCutEdited] = useState(false); // admin typed — stop re-filling
   const [cutOrgId, setCutOrgId] = useState(null);
@@ -100,6 +102,8 @@ export default function CategoryDashboard({
       setCutCats(d.categories || []);
       setCutTpl(d.template || null);
       setReleaseTpl(d.releaseTemplate || null);
+      if (d.releaseOnly) { setReleaseOnly(true); setCutMode("release"); setCutDest(""); }
+      else setReleaseOnly(false);
       setCutOrgId(d.organizationId || null);
     } catch {}
   };
@@ -2374,28 +2378,45 @@ export default function CategoryDashboard({
               <div className="flex items-center gap-2 mb-1"><Scissors size={18} className="text-red-500" /><h3 className="font-display text-lg font-extrabold tracking-tight text-ink">Cut player</h3></div>
               <p className="text-sm text-gray-600 mb-4">Cut <b>{cutTarget.first_name} {cutTarget.last_name}</b> from {displayName}? Their scores here are kept and they&apos;re removed from remaining games.</p>
 
-              {/* What happens to the player: move them down a level, or release them. */}
+              {/* What happens to the player: move them down a level, or release them.
+                  An association that never places cut players (releaseOnly) does not
+                  make this decision at all -- the options are shown greyed out so it
+                  is clear what is happening, rather than hidden, and the release path
+                  is locked in. */}
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">What happens next</label>
-              <div className="grid grid-cols-1 gap-2 mb-4">
+              <div className={`grid grid-cols-1 gap-2 ${releaseOnly ? "mb-2" : "mb-4"}`}>
                 <button
                   type="button"
+                  disabled={releaseOnly}
                   onClick={() => { setCutMode("move"); setCutEdited(false); }}
-                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${cutMode === "move" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                    releaseOnly
+                      ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
+                      : cutMode === "move" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
                 >
                   <span className="font-semibold text-gray-800">Move to another division</span>
                   <span className="block text-xs text-gray-500 mt-0.5">Re-register them one level down (e.g. AA → house) with a clean slate.</span>
                 </button>
                 <button
                   type="button"
+                  disabled={releaseOnly}
                   onClick={() => { setCutMode("release"); setCutDest(""); setCutEdited(false); }}
-                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${cutMode === "release" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                    releaseOnly
+                      ? "border-red-300 bg-red-50 ring-1 ring-red-200 cursor-default"
+                      : cutMode === "release" ? "border-red-400 bg-red-50 ring-1 ring-red-200" : "border-gray-200 hover:border-gray-300"}`}
                 >
                   <span className="font-semibold text-gray-800">Release — thank &amp; cut</span>
                   <span className="block text-xs text-gray-500 mt-0.5">They&apos;re done here and go nowhere. We thank them for coming out.</span>
                 </button>
               </div>
+              {releaseOnly && (
+                <p className="text-xs text-gray-500 mb-4">
+                  {orgName || "This association"} sends the same release letter to every cut player, so there is no division to choose.
+                </p>
+              )}
 
-              {cutMode === "move" && (
+              {cutMode === "move" && !releaseOnly && (
                 <>
                   <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Move player to</label>
                   <select value={cutDest} onChange={e => setCutDest(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white mb-4">

@@ -34,6 +34,16 @@ export async function GET(request, { params }) {
 
     const [cat] = await sql`SELECT organization_id FROM age_categories WHERE id = ${params.catId}`;
     if (!cat) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // Some associations never place a cut player into another division -- every
+    // cut is a straight release with one standard letter. For them the
+    // move-vs-release choice is a decision they do not make, and offering it is
+    // just a chance to send the wrong email. Read via to_jsonb so this works
+    // before the column has been migrated.
+    const [orgFlags] = await sql`
+      SELECT (to_jsonb(o) ->> 'release_only') AS release_only
+      FROM organizations o WHERE o.id = ${cat.organization_id}`;
+    const releaseOnly = orgFlags?.release_only === true || orgFlags?.release_only === "true";
     const categories = await sql`
       SELECT id, name FROM age_categories
       WHERE organization_id = ${cat.organization_id} AND id <> ${params.catId} AND COALESCE(status,'active') <> 'archived'
@@ -41,7 +51,7 @@ export async function GET(request, { params }) {
 
     const template = await resolveTemplate(cat.organization_id, "player_cut");
     const releaseTemplate = await resolveTemplate(cat.organization_id, "player_released");
-    return NextResponse.json({ categories, template, releaseTemplate, organizationId: cat.organization_id });
+    return NextResponse.json({ categories, template, releaseTemplate, organizationId: cat.organization_id, releaseOnly });
   } catch (error) {
     console.error("cut GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
