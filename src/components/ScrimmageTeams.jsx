@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Loader2, Pencil, Trash2, Plus, Shuffle, Search, Users } from "lucide-react";
+import { Loader2, Pencil, Trash2, Plus, Shuffle, Search, Users, Download } from "lucide-react";
 
 // Team assignment for a Tournament category. Spreadsheet-style: a player
 // list on the left with a team dropdown per row, and each team's resulting
@@ -100,6 +100,49 @@ export default function ScrimmageTeams({ catId }) {
     await post({ action: "seed", mode, count: n });
   };
 
+  // Export the teams as posted to players: grouped by team, defense first in
+  // ranking order, then forwards in ranking order. That is the order a coach
+  // reads a lineup in, and the order the association pins on the wall -- a flat
+  // alphabetical dump would have to be re-sorted by hand every time.
+  //
+  // A Team column is kept on every row so the file is still filterable in a
+  // spreadsheet without losing the grouping.
+  const exportCsv = () => {
+    const rank = (m) => (typeof m.rank === "number" ? m.rank : Number.POSITIVE_INFINITY);
+    const byRank = (a, b) => rank(a) - rank(b) || (a.last_name || "").localeCompare(b.last_name || "");
+    const isD = (m) => posShort(m.position) === "D" || posShort(m.position) === "F/D";
+
+    const esc = (v) => {
+      const str = String(v ?? "");
+      return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    const lines = [["Team", "Rank", "First Name", "Last Name", "Position"].join(",")];
+    for (const t of teams) {
+      const members = t.members || [];
+      // Defense (incl. F/D) by rank, then forwards by rank.
+      const ordered = [...members.filter(isD).sort(byRank), ...members.filter(m => !isD(m)).sort(byRank)];
+      for (const m of ordered) {
+        lines.push([
+          esc(teamLabel(t.name)),
+          m.rank ?? "",
+          esc(m.first_name || ""),
+          esc(m.last_name || ""),
+          esc(posShort(m.position)),
+        ].join(","));
+      }
+    }
+
+    // CRLF so Excel on Windows opens it cleanly.
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = `teams-${new Date().toISOString().split("T")[0]}.csv`;
+    el.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Mean current ranking of a team. Two teams from a rank snake draft should
   // land within a point or two of each other; a wide gap means someone has been
   // moved by hand since, which is exactly what this is here to reveal.
@@ -174,6 +217,11 @@ export default function ScrimmageTeams({ catId }) {
             </button>
             <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
               Apply to schedule
+            </button>
+            <button onClick={exportCsv} disabled={busy || !teams.some(t => t.members.length)}
+              title="Download the teams as posted: grouped by team, defense by rank then forwards by rank"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              <Download size={13} /> Export
             </button>
             <span className="w-px h-4 bg-gray-200" />
             <button onClick={() => reseed("alphabetical")} disabled={busy} title="Clear all placements and redistribute alphabetically" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
