@@ -100,6 +100,14 @@ export default function ScrimmageTeams({ catId }) {
     await post({ action: "seed", mode, count: n });
   };
 
+  // Mean current ranking of a team. Two teams from a rank snake draft should
+  // land within a point or two of each other; a wide gap means someone has been
+  // moved by hand since, which is exactly what this is here to reveal.
+  const avgRank = (t) => {
+    const rs = (t.members || []).map(m => m.rank).filter(r => typeof r === "number");
+    return rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 10) / 10 : null;
+  };
+
   const teams = data?.teams || [];
   const unassigned = data?.unassigned || [];
   const roster = useMemo(() => [
@@ -129,6 +137,9 @@ export default function ScrimmageTeams({ catId }) {
             <button onClick={() => post({ action: "create", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold disabled:opacity-50">
               {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Create teams
             </button>
+            <button onClick={() => post({ action: "seed", mode: "ranked", count })} disabled={busy} title="Snake draft by current ranking — only meaningful once scores exist" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
+              <Shuffle size={13} /> Seed by rank
+            </button>
             <button onClick={() => post({ action: "seed", mode: "alphabetical", count })} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
               <Shuffle size={13} /> Seed alphabetically
             </button>
@@ -151,9 +162,15 @@ export default function ScrimmageTeams({ catId }) {
               className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white disabled:opacity-50">
               {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} teams</option>)}
             </select>
+            <button onClick={() => rebuild("ranked")} disabled={busy}
+              title="Snake draft by current ranking — best available alternates, so both sides come out even"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50">
+              <Shuffle size={13} /> Snake draft by rank
+            </button>
             <button onClick={() => rebuild("alphabetical")} disabled={busy}
+              title="Ignores ability — only use before any scores exist"
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50">
-              <Shuffle size={13} /> Reseed
+              A–Z
             </button>
             <button onClick={applyMatchups} disabled={busy} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 border border-accent text-accent rounded-lg font-semibold hover:bg-accent-soft disabled:opacity-50">
               Apply to schedule
@@ -193,6 +210,7 @@ export default function ScrimmageTeams({ catId }) {
               {filtered.map(a => (
                 <div key={a.id} className="flex items-center gap-2 px-3.5 py-2 text-sm">
                   <span className="font-mono text-[11px] text-gray-400 w-5 flex-shrink-0">{a.jersey_number ?? ""}</span>
+                  <span className="font-mono text-[11px] text-gray-500 w-7 flex-shrink-0 text-right" title={a.rank != null ? `Currently ranked #${a.rank}` : "No ranking yet"}>{a.rank != null ? `#${a.rank}` : "—"}</span>
                   <span className="truncate flex-1 text-gray-700">{nameOf(a)}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${posShort(a.position) === "D" ? "bg-accent-soft text-accent" : "bg-gray-100 text-gray-500"}`}>{posShort(a.position)}</span>
                   <div className="relative flex-shrink-0">
@@ -237,6 +255,11 @@ export default function ScrimmageTeams({ catId }) {
                       </button>
                     )}
                     <span className="text-[11px] text-accent bg-accent-soft rounded-full px-2 py-0.5 font-semibold flex-shrink-0">{t.members.length} · {f}F/{d}D</span>
+                    {avgRank(t) != null && (
+                      <span className="text-[11px] text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 font-semibold flex-shrink-0" title="Average current ranking of this team — the two should be close after a rank snake draft">
+                        avg #{avgRank(t)}
+                      </span>
+                    )}
                     {teams.length > 2 && (
                       <button onClick={() => removeTeam(t)} disabled={busy} className="text-gray-300 hover:text-red-500 flex-shrink-0 disabled:opacity-40" title={`Remove ${teamLabel(t.name)}`}>
                         <Trash2 size={13} />
@@ -247,6 +270,7 @@ export default function ScrimmageTeams({ catId }) {
                     {t.members.map(m => (
                       <div key={m.athlete_id} className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg bg-gray-50/70">
                         <span className="font-mono text-[10px] text-gray-400 w-5">{m.jersey_number ?? ""}</span>
+                        <span className="font-mono text-[10px] text-gray-500 w-7 flex-shrink-0 text-right" title={m.rank != null ? `Currently ranked #${m.rank}` : "No ranking yet"}>{m.rank != null ? `#${m.rank}` : "—"}</span>
                         <span className="truncate flex-1 text-gray-700">{nameOf(m)}</span>
                       </div>
                     ))}

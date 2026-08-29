@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
-import { getScrimmageTeams, createTeams, setTeamCount, addTeam, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
+import { getScrimmageTeams, createTeams, setTeamCount, rankMap, addTeam, seedTeams, moveAthlete, applyAllMatchups, renameTeam, removeTeam } from "@/lib/scrimmageTeams";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -21,7 +21,16 @@ export async function GET(request, { params }) {
       WHERE age_category_id = ${params.catId} AND is_active = true AND cut_at IS NULL AND COALESCE(position,'') <> 'goalie'
       ORDER BY last_name, first_name`;
     const unassigned = skaters.filter(a => !assigned.has(a.id));
-    return NextResponse.json({ teams, unassigned });
+
+    // Current standing per athlete, so the Teams tab can show WHO is on each
+    // side and how the talent actually splits -- a snake draft is only
+    // trustworthy if you can see the result.
+    const ranks = await rankMap(params.catId);
+    const withRank = (a) => ({ ...a, rank: ranks.get(a.athlete_id ?? a.id) ?? null });
+    return NextResponse.json({
+      teams: teams.map(t => ({ ...t, members: t.members.map(withRank) })),
+      unassigned: unassigned.map(withRank),
+    });
   } catch (error) {
     console.error("scrimmage-teams GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

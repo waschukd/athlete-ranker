@@ -3,8 +3,10 @@ import { DEFAULT_TEAM_COLORS, colorNames } from "@/lib/teamColors";
 
 // Persistent scrimmage teams (A/B/C…) for a round-robin category. Used ONLY when
 // age_categories.eval_format = 'round_robin'; standard categories never touch this.
-// Teams are assigned BEFORE session 1 (no scores to seed from), so seeds are
-// score-free: alphabetical or an even snake by jersey. A director then drags to
+// Before session 1 there are no scores to seed from, so seeds are score-free:
+// alphabetical, or an even snake by jersey. AFTER scores exist -- rebuilding into
+// two teams post-cuts, say -- 'ranked' snake-drafts by current standing, which is
+// the only mode that actually produces balanced sides. A director then drags to
 // adjust. All reads are resilient (return [] pre-migration).
 
 export const TEAM_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -82,8 +84,37 @@ export async function setTeamCount(catId, count) {
   return getScrimmageTeams(catId);
 }
 
-// Seed players into the teams. mode: 'alphabetical' | 'even'. Balances D roughly
-// evenly first (so no team is short on defense), then distributes the rest.
+// Current standing for every athlete in a category: { athleteId: rank }, rank 1
+// = best. Lifted from the same computeCategoryRankings the Rankings tab uses, so
+// a team built from this cannot disagree with what the director is looking at.
+// Best-effort -- a failure here just means an unranked seed, never a crash.
+export async function rankMap(catId) {
+  try {
+    const { computeCategoryRankings } = await import("@/lib/rankings");
+    const r = await computeCategoryRankings(catId, {});
+    const m = new Map();
+    for (const a of [...(r.athletes || []), ...(r.goalies || [])]) {
+      if (a?.id != null && a.rank != null) m.set(a.id, a.rank);
+    }
+    return m;
+  } catch (e) {
+    console.error("rankMap:", e?.message);
+    return new Map();
+  }
+}
+
+// Seed players into the teams.
+//
+// mode:
+//   'ranked'       — snake draft by current ranking (best available alternates),
+//                    which is what actually produces two even teams after cuts.
+//                    Alphabetical order says nothing about ability, so the old
+//                    default could stack one side.
+//   'alphabetical' — by name
+//   'even'         — by jersey number
+//
+// In every mode defense is distributed first so no team ends up short a
+// blueliner, then the rest follow.
 export async function seedTeams(catId, mode = "alphabetical") {
   const teams = await sql`SELECT id FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
   if (!teams.length) return getScrimmageTeams(catId);
@@ -99,9 +130,17 @@ export async function seedTeams(catId, mode = "alphabetical") {
   // "D-first" doesn't end up short a blueliner because a hybrid got sorted
   // into the forward pass instead.
   const isD = (a) => { const p = (a.position || "").toLowerCase(); return p.startsWith("d") || p === "forward_defense"; };
-  const order = mode === "even"
-    ? [...athletes].sort((a, b) => (Number(a.jersey_number) || 999) - (Number(b.jersey_number) || 999))
-    : athletes; // already alphabetical
+  let order;
+  if (mode === "ranked") {
+    // Best first. An unranked player (no scores yet) sorts to the back rather
+    // than to the front, which is what a missing rank actually means here.
+    const ranks = await rankMap(catId);
+    order = [...athletes].sort((a, b) => (ranks.get(a.id) ?? 9999) - (ranks.get(b.id) ?? 9999));
+  } else if (mode === "even") {
+    order = [...athletes].sort((a, b) => (Number(a.jersey_number) || 999) - (Number(b.jersey_number) || 999));
+  } else {
+    order = athletes; // already alphabetical
+  }
   // Defense first, then forwards — snake across teams so counts stay even.
   const ranked = [...order.filter(isD), ...order.filter(a => !isD(a))];
   const T = teams.length;
