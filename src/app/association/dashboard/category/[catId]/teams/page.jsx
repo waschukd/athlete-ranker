@@ -446,7 +446,7 @@ function TeamGeneratorInner() {
                       )}
                     </div>
                     {/* Coach — assign to email this team's development report */}
-                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60 space-y-1.5">
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 space-y-1.5">
                       <label className="block text-[11px] font-semibold text-gray-500">Coach <span className="font-normal text-gray-400">— assign to email them this team's report</span></label>
                       <input
                         key={`cn-${team.id}-${team.coach_name || ""}`}

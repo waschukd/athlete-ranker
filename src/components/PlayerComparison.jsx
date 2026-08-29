@@ -337,7 +337,7 @@ export default function PlayerComparison({ catId, initialPlayerIds = [], onClose
                               </th>
                             ))}
                           </tr>
-                          <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <tr className="bg-gray-50 border-b border-gray-100">
                             <th className="py-1 px-3"></th>
                             {players.map(p => allCategories.map(cat => (
                               <th key={`${p.athlete.id}-${cat.id}`} className="text-center py-1 px-1 text-[10px] text-gray-400 font-medium border-l border-gray-50 first:border-l-gray-100">{cat.name.split(" ")[0]}</th>

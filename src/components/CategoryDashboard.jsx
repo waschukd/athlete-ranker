@@ -2088,7 +2088,7 @@ export default function CategoryDashboard({
                       const shown = names.slice(0, 5).join(" · ");
                       const more = names.length > 5 ? ` · +${names.length - 5} more` : "";
                       return (
-                        <div key={ti} className="rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
+                        <div key={ti} className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
                           <div className="text-sm font-medium text-gray-800">Tier {ti + 1} — ranks #{t.startRank}–#{t.endRank} ({t.size} player{t.size === 1 ? "" : "s"})</div>
                           {names.length > 0 && <div className="text-xs text-gray-500 mt-1">{shown}{more}</div>}
                         </div>
@@ -2110,7 +2110,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setEvaluatorsOpen(v => !v)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50/60 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
                 >
                   <div>
                     <h3 className="font-display text-lg font-extrabold tracking-tight text-ink">{categoryEvaluatesGoalies ? "Coach & Goalie evaluators" : "Coach evaluators"}</h3>

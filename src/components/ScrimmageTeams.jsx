@@ -268,7 +268,7 @@ export default function ScrimmageTeams({ catId }) {
                   </div>
                   <div className="space-y-1">
                     {t.members.map(m => (
-                      <div key={m.athlete_id} className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg bg-gray-50/70">
+                      <div key={m.athlete_id} className="flex items-center gap-2 text-sm px-2 py-1 rounded-lg bg-gray-50">
                         <span className="font-mono text-[10px] text-gray-400 w-5">{m.jersey_number ?? ""}</span>
                         <span className="font-mono text-[10px] text-gray-500 w-7 flex-shrink-0 text-right" title={m.rank != null ? `Currently ranked #${m.rank}` : "No ranking yet"}>{m.rank != null ? `#${m.rank}` : "—"}</span>
                         <span className="truncate flex-1 text-gray-700">{nameOf(m)}</span>

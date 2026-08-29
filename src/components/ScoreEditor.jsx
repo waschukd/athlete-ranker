@@ -484,7 +484,7 @@ function ScoreGrid({ grid, scoringCats, canEdit, onSave }) {
         </thead>
         <tbody>
           {grid.map(rowData => (
-            <tr key={rowData.key} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+            <tr key={rowData.key} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
               <td className="sticky left-0 bg-white py-1.5 px-4 whitespace-nowrap">
                 <span className="font-medium text-gray-900">{rowData.athlete_name}</span>
                 {rowData.jersey && <span className="ml-1.5 text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">#{rowData.jersey}</span>}

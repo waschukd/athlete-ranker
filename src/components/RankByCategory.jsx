@@ -179,7 +179,7 @@ export default function RankByCategory({ catId }) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((a, i) => (
-                <tr key={a.athlete_id} className={`${a.cut ? "opacity-40" : ""} hover:bg-gray-50/60`}>
+                <tr key={a.athlete_id} className={`${a.cut ? "opacity-40" : ""} hover:bg-gray-50`}>
                   <td className="px-4 py-2.5 tabular-nums text-gray-400 font-medium">{a.scored ? i + 1 : "—"}</td>
                   <td className="px-4 py-2.5 font-medium text-ink whitespace-nowrap">
                     {a.last_name}, {a.first_name}
