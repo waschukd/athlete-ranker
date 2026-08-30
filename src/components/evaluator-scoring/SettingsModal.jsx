@@ -1,7 +1,8 @@
 "use client";
 
-import { Settings as SettingsIcon, X, ChevronRight, BookOpen } from "lucide-react";
+import { Settings as SettingsIcon, X, ChevronRight, BookOpen, LifeBuoy, Phone, MessageSquare } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { SUPPORT_NAME, SUPPORT_PHONE_DISPLAY, supportSmsHref, supportTelHref } from "@/lib/support";
 
 // Everything that isn't needed at a glance while scoring lives here: scoring
 // guide, calibration numbers, layout, consensus, backup/recovery, appearance.
@@ -19,6 +20,7 @@ export default function SettingsModal({
   viewMode, onSetViewMode,
   onDownloadBackup, onDownloadBackupJson, onRestoreFromFile,
   theme, onToggleTheme,
+  evaluatorName, orgName, categoryName, sessionNumber,
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
@@ -111,6 +113,30 @@ export default function SettingsModal({
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Appearance</h4>
             <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          </div>
+
+          {/* Last, deliberately: everything above is used far more often. But when
+              this IS needed it is urgent -- someone locked out four minutes before a
+              session does not want a form. The call is a real tel: link and the text
+              a real SMS, both prefilled with who and which session, so the first two
+              replies are not always the same two questions. */}
+          <div>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <LifeBuoy size={13} className="text-accent" /> Need help?
+            </h4>
+            <div className="space-y-1.5">
+              <a href={supportSmsHref({ evaluatorName, orgName, categoryName, sessionNumber })}
+                className="flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+                <span className="flex items-center gap-2"><MessageSquare size={15} className="text-gray-400" /> Message {SUPPORT_NAME} — not urgent</span>
+                <ChevronRight size={15} className="text-gray-400" />
+              </a>
+              <a href={supportTelHref()}
+                className="flex items-center justify-between px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-100">
+                <span className="flex items-center gap-2"><Phone size={15} /> Emergency — call {SUPPORT_NAME}</span>
+                <span className="text-xs font-bold tabular-nums">{SUPPORT_PHONE_DISPLAY}</span>
+              </a>
+              <p className="px-1 pt-1 text-xs text-gray-400 leading-snug">Locked out, wrong roster, or the session will not open — call. Anything that can wait, text.</p>
+            </div>
           </div>
         </div>
       </div>

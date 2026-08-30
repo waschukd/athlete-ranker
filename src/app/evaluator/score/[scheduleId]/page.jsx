@@ -1455,6 +1455,9 @@ function ScoringInterface() {
           onDownloadBackupJson={downloadBackupJson}
           onRestoreFromFile={restoreFromFile}
           theme={theme} onToggleTheme={toggleTheme}
+          orgName={scheduleData?.org_name}
+          categoryName={scheduleData?.category_name}
+          sessionNumber={scheduleData?.session_number}
         />
       )}
 
