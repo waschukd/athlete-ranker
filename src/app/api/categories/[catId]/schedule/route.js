@@ -277,13 +277,33 @@ export async function PATCH(request, { params }) {
       await applyMatchup(catId, row.session_number, row.group_number, matchup, row.id);
     }
 
+    // Reinstating has to put the roster back. Cancelling releases every sign-up
+    // (status -> 'released'), and un-cancelling only ever changed the wording of
+    // the email -- the sign-ups stayed released, so the session came back with
+    // nobody on it. The evaluators were not notified and could not get into it,
+    // and an admin had to remove and re-add each one by hand.
+    //
+    // Only 'released' comes back. A 'cancelled' sign-up is the EVALUATOR's own
+    // withdrawal and must never be undone on their behalf.
+    //
+    // Restored BEFORE notifySessionChange so the standard recipient query (which
+    // looks for status='signed_up') picks them up and they actually get told the
+    // session is back on.
+    let restored = 0;
+    if (reinstating) {
+      const back = await sql`
+        UPDATE evaluator_session_signups SET status = 'signed_up'
+        WHERE schedule_id = ${id} AND status = 'released' RETURNING user_id`;
+      restored = back.length;
+    }
+
     // Build a short human summary of what changed
     const changes = [];
     if (fmt(prev.scheduled_date) !== fmt(row.scheduled_date)) changes.push(`date → ${fmt(row.scheduled_date)}`);
     if ((prev.start_time || "") !== (row.start_time || "")) changes.push(`time → ${row.start_time || "TBD"}`);
     if ((prev.location || "") !== (row.location || "")) changes.push(`location → ${row.location || "TBD"}`);
     const summary = reinstating
-      ? "This session is back on."
+      ? (restored ? `This session is back on — your spot has been restored.` : "This session is back on.")
       : changes.length ? `Changed: ${changes.join(", ")}.` : undefined;
 
     const { notified } = await notifySessionChange({
@@ -302,7 +322,7 @@ export async function PATCH(request, { params }) {
       await notifyParentsIfImminent({ catId, scheduleRow: row, changeType: "edited" });
     }
 
-    return NextResponse.json({ success: true, session: row, notified, offered: offer.offered });
+    return NextResponse.json({ success: true, session: row, notified, offered: offer.offered, restored });
   } catch (error) {
     console.error("Schedule PATCH error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
