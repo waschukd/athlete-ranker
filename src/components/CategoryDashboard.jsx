@@ -492,6 +492,62 @@ export default function CategoryDashboard({
     return map;
   }, [coachRankingsData]);
   const hasPositions = rankedAthletes.some(a => a.position);
+  // Full player list for this category, every format. Teams and Groups each had
+  // their own export, but neither exists in the other format and both are scoped
+  // to one session -- so there was no way to simply pull the roster, which is
+  // what setting up testing actually needs.
+  //
+  // Ordered defense by ranking then forwards by ranking, matching both of those
+  // exports. Before any scores exist every rank is blank and it falls back to
+  // name order.
+  const exportAthletesCsv = () => {
+    const isD = (p) => { const v = String(p.position || "").toLowerCase(); return v.startsWith("d") || v === "forward_defense"; };
+    const isG = (p) => String(p.position || "").toLowerCase().startsWith("g");
+    const byRank = (a, b) =>
+      (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY) ||
+      String(a.last_name || "").localeCompare(String(b.last_name || ""));
+
+    // rankedAthletes carries the rank; fall back to the raw list pre-scoring so
+    // the export still works before anyone has been evaluated.
+    const source = (rankedAthletes && rankedAthletes.length ? rankedAthletes : athletes) || [];
+    const skaters = source.filter(a => !isG(a));
+    const ordered = [
+      ...skaters.filter(isD).sort(byRank),
+      ...skaters.filter(a => !isD(a)).sort(byRank),
+      ...source.filter(isG).sort(byRank),   // goalies last, they rank separately
+    ];
+
+    const esc = (v) => {
+      const str = String(v ?? "");
+      return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const header = ["Rank", "First Name", "Last Name", "Position", "Jersey #", "Helmet #", "ID", "Birth Year", "Status", "Parent Email", "Parent Email 2", "Parent Phone"];
+    const lines = [header.join(",")];
+    for (const a of ordered) {
+      lines.push([
+        a.rank ?? "",
+        esc(a.first_name || ""),
+        esc(a.last_name || ""),
+        esc(a.position || ""),
+        a.jersey_number ?? "",
+        esc(a.helmet_number ?? ""),
+        esc(a.external_id || ""),
+        a.birth_year ?? "",
+        a.cut_at ? "Cut" : (a.is_active === false ? "Inactive" : "Active"),
+        esc(a.parent_email || ""),
+        esc(a.parent_email_2 || ""),
+        esc(a.parent_phone || ""),
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = `${(displayName || "athletes").replace(/[^\w-]+/g, "-")}-players.csv`;
+    el.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
   // A goalie-only category holds only goalies — its rankings ARE the goalie view.
   const goalieOnly = !!category?.goalie_only;
@@ -1576,6 +1632,11 @@ export default function CategoryDashboard({
                 <a href={`/api/templates?type=athletes&format=${isTournament ? "tournament" : "standard"}`} download className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Template</a>
                 <button onClick={() => setShowImport(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
                   <Upload size={14} /> Import CSV
+                </button>
+                <button onClick={exportAthletesCsv} disabled={!athletes.length}
+                  title="Download the full player list — defense by rank, then forwards, then goalies"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-40">
+                  <Download size={14} /> Export CSV
                 </button>
                 <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold"><Plus size={14} /> Add Player</button>
               </div>
