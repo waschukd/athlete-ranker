@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { parseTeamColors, colorNames } from "@/lib/teamColors";
+import { rankMap as categoryRankMap } from "@/lib/scrimmageTeams";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { partitionByContact, splitIsActive } from "@/lib/contactGroups";
@@ -121,7 +122,20 @@ export async function GET(request, { params }) {
       for (const r of rows) team_colors_by_schedule[r.schedule_id] = parseTeamColors(r.team_colors);
     }
 
-    return NextResponse.json({ groups, assignments, goalies, unassigned_skaters, locked_at, team_colors_by_schedule });
+    // Current standing per athlete, so the standard-format group exports carry a
+    // rank the same way the tournament team export does. Empty before any scores
+    // exist (a session 1 testing slot), which is correct -- nothing to rank yet.
+    const ranks = await categoryRankMap(catId);
+    const withRank = (a) => ({ ...a, rank: ranks.get(a.athlete_id ?? a.id) ?? null });
+
+    return NextResponse.json({
+      groups,
+      assignments: assignments.map(withRank),
+      goalies: goalies.map(withRank),
+      unassigned_skaters: unassigned_skaters.map(withRank),
+      locked_at,
+      team_colors_by_schedule,
+    });
   } catch (error) {
     console.error("Groups GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

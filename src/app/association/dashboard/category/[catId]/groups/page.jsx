@@ -352,16 +352,29 @@ function GroupsManagerInner() {
   const lockedAt = groupsData?.locked_at || null;
   const locked = !!lockedAt;
   const currentSession = sessions.find(s => s.session_number === selectedSession);
+  // Order a group the way a lineup is read and posted: defense by ranking, then
+  // forwards by ranking -- matching the tournament team export, so standard and
+  // tournament formats produce the same shape of list. Before any scores exist
+  // (a session 1 testing slot) every rank is null and this falls back to name
+  // order, which is the only sensible ordering at that point.
+  const orderForExport = (players) => {
+    const isD = (p) => { const s = String(p.position || "").toLowerCase(); return s.startsWith("d") || s === "forward_defense"; };
+    const byRank = (a, b) =>
+      (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY) ||
+      String(a.last_name || "").localeCompare(String(b.last_name || ""));
+    return [...players.filter(isD).sort(byRank), ...players.filter(p => !isD(p)).sort(byRank)];
+  };
+
   const exportCSV = () => {
-    const rows = [['Group','Date','Time','Location','Last Name','First Name','ID','Position']];
+    const rows = [['Group','Rank','Date','Time','Location','Last Name','First Name','ID','Position']];
     for (const group of groups) {
-      const players = assignments.filter(a => a.session_group_id === group.id);
+      const players = orderForExport(assignments.filter(a => a.session_group_id === group.id));
       const sample = players[0];
       const date = sample?.scheduled_date ? new Date(String(sample.scheduled_date).slice(0, 10) + 'T00:00:00').toLocaleDateString() : '';
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : (sample?.start_time || '');
       const loc = sample?.location || '';
       for (const player of players) {
-        rows.push(['Group ' + group.group_number, date, time, loc, player.last_name, player.first_name, player.external_id || '', player.position || '']);
+        rows.push(['Group ' + group.group_number, player.rank ?? '', date, time, loc, player.last_name, player.first_name, player.external_id || '', player.position || '']);
       }
     }
     const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
@@ -377,14 +390,14 @@ function GroupsManagerInner() {
     let html = '<html><head><title>' + catName + ' - ' + sessionName + '</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h1{font-size:20px;margin-bottom:4px}.subtitle{font-size:13px;color:#555;margin-bottom:24px}.group{margin-bottom:28px;page-break-inside:avoid}.group-header{background:#0b5cd6;color:white;padding:8px 14px;border-radius:6px 6px 0 0;font-size:14px;font-weight:bold}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f3f4f6;padding:7px 10px;text-align:left;font-size:12px;border-bottom:1px solid #e5e7eb}td{padding:7px 10px;border-bottom:1px solid #f3f4f6}</style></head><body>';
     html += '<h1>' + catName + ' — ' + sessionName + '</h1><div class="subtitle">Generated ' + new Date().toLocaleDateString() + '</div>';
     for (const group of groups) {
-      const players = assignments.filter(a => a.session_group_id === group.id);
+      const players = orderForExport(assignments.filter(a => a.session_group_id === group.id));
       const sample = players[0];
       const date = sample?.scheduled_date ? new Date(String(sample.scheduled_date).slice(0, 10) + 'T00:00:00').toLocaleDateString() : '';
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : '';
       const loc = sample?.location || '';
       html += '<div class="group"><div class="group-header">Group ' + group.group_number + ([date,time,loc].filter(Boolean).length ? ' | ' + [date,time,loc].filter(Boolean).join(' · ') : '') + '</div>';
-      html += '<table><thead><tr><th>#</th><th>Last Name</th><th>First Name</th><th>ID</th><th>Position</th></tr></thead><tbody>';
-      players.forEach((pl,i) => { html += '<tr><td>'+(i+1)+'</td><td>'+pl.last_name+'</td><td>'+pl.first_name+'</td><td>'+(pl.external_id||'-')+'</td><td>'+(pl.position||'-')+'</td></tr>'; });
+      html += '<table><thead><tr><th>#</th><th>Rank</th><th>Last Name</th><th>First Name</th><th>ID</th><th>Position</th></tr></thead><tbody>';
+      players.forEach((pl,i) => { html += '<tr><td>'+(i+1)+'</td><td>'+(pl.rank != null ? '#'+pl.rank : '-')+'</td><td>'+pl.last_name+'</td><td>'+pl.first_name+'</td><td>'+(pl.external_id||'-')+'</td><td>'+(pl.position||'-')+'</td></tr>'; });
       html += '</tbody></table></div>';
     }
     html += '</body></html>';
