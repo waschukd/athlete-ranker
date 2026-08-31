@@ -61,6 +61,43 @@ function governingOrgId(s) {
   return s.organization_id || s.service_provider_id || null;
 }
 
+// loadSession's org_name comes from age_categories -> organizations, which is
+// NULL for an SP-owned testing event (no age_category_id at all) -- so a
+// notification email for a testing session previously read "for  " with the
+// association blank. Testing events still belong to an org, just the SP's
+// own instead of an association's.
+async function sessionOrgName(s) {
+  if (s.org_name) return s.org_name;
+  if (s.service_provider_id) {
+    const [sp] = await sql`SELECT name FROM organizations WHERE id = ${s.service_provider_id}`;
+    return sp?.name || null;
+  }
+  return null;
+}
+
+async function notifySessionRoster({ userId, kind, s, orgId, verb, extra }) {
+  try {
+    const [person] = await sql`SELECT email, name FROM users WHERE id = ${userId}`;
+    if (!person?.email) return;
+    const orgName = await sessionOrgName(s);
+    const what = s.category_name || (kind === "tester" ? "a testing session" : "a session");
+    const when = [fmtDate(s.scheduled_date), fmtTime(s.start_time), s.location].filter(Boolean).join(" · ");
+    const html = emailWrapper(`
+      <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">${verb.headline}</h2>
+      <p style="margin:0 0 16px;font-size:14px;color:#6b7280;line-height:1.6;">
+        Hi ${esc(person.name || "there")}, you've been ${verb.body} as a ${kind} for <strong style="color:#111827;">${esc(what)}${orgName ? ` at ${esc(orgName)}` : ""}</strong>${s.session_number ? ` — Session ${s.session_number}${s.group_number ? ` · Group ${s.group_number}` : ""}` : ""} (${esc(when)})${extra ? ` ${extra}` : ""}
+      </p>
+    `);
+    const res = await sendEmail(person.email, `${verb.subject} — ${s.category_name || orgName || "Sideline Star"}`, html);
+    await ensureEmailLogTable();
+    await logEmailSend({
+      catId: s.age_category_id || null, orgId, emailType: verb.emailType, recipientUserId: userId, athleteName: person.name, to: person.email,
+      resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+      error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+    });
+  } catch (e) { console.error("roster notify:", e?.message); }
+}
+
 async function rosterFor(scheduleId) {
   const evaluators = await sql`
     SELECT ess.user_id, u.name, u.email, ess.status, (ess.assigned_by IS NOT NULL) AS assigned,
@@ -207,6 +244,13 @@ export async function POST(request, { params }) {
       else await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status, assigned_by) VALUES (${scheduleId}, ${user_id}, 'signed_up', ${actorId})`;
     }
 
+    // Being placed here previously told no one -- they'd only find out by
+    // opening their dashboard, or worse, not notice and simply not show up.
+    await notifySessionRoster({
+      userId: user_id, kind, s: auth.s, orgId: auth.orgId,
+      verb: { headline: "You've been added to a session", body: "added", subject: "Added to a session", emailType: "assigned_to_session" },
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("roster POST error:", error);
@@ -237,26 +281,11 @@ export async function DELETE(request, { params }) {
 
     // Removing someone here previously told no one -- they'd just discover it
     // was gone (or worse, never notice and show up anyway).
-    try {
-      const [removed] = await sql`SELECT email, name FROM users WHERE id = ${user_id}`;
-      if (removed?.email) {
-        const s = auth.s;
-        const when = [fmtDate(s.scheduled_date), fmtTime(s.start_time), s.location].filter(Boolean).join(" · ");
-        const html = emailWrapper(`
-          <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">You've been removed from a session</h2>
-          <p style="margin:0 0 16px;font-size:14px;color:#6b7280;line-height:1.6;">
-            Hi ${esc(removed.name || "there")}, you were signed up as a ${kind} for <strong style="color:#111827;">${esc(s.category_name || "")}${s.org_name ? ` at ${esc(s.org_name)}` : ""}</strong> — Session ${s.session_number}${s.group_number ? ` · Group ${s.group_number}` : ""} (${esc(when)}) — but have been removed and no longer need to attend.
-          </p>
-        `);
-        const res = await sendEmail(removed.email, `Removed from a session — ${s.category_name || "Sideline Star"}`, html);
-        await ensureEmailLogTable();
-        await logEmailSend({
-          catId: s.age_category_id || null, orgId: auth.orgId, emailType: "removed_from_session", recipientUserId: user_id, athleteName: removed.name, to: removed.email,
-          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-        });
-      }
-    } catch (e) { console.error("roster DELETE notify:", e?.message); }
+    await notifySessionRoster({
+      userId: user_id, kind, s: auth.s, orgId: auth.orgId,
+      verb: { headline: "You've been removed from a session", body: "removed", subject: "Removed from a session", emailType: "removed_from_session" },
+      extra: "— you no longer need to attend.",
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
