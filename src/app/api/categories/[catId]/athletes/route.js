@@ -154,6 +154,7 @@ export async function POST(request, { params }) {
           // Standard format: seed session_groups + player_group_assignments from
           // any "Session N Group #" columns, so Manage Groups opens with the
           // roster already sorted instead of an empty slate to build by hand.
+          const explicitSessionNums = new Set(sessionGroups.map(sg => parseInt(sg.session_number)));
           if (!isTournament && athleteId && sessionGroups.length) {
             for (const sg of sessionGroups) {
               const sNum = parseInt(sg.session_number);
@@ -169,6 +170,40 @@ export async function POST(request, { params }) {
               await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${group.id}, 0) ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
             }
           }
+
+          // A "Scrimmage Team"/"Scrimmage Group" column is meant for TOURNAMENT
+          // format (handled above) -- but a standard-format template using the
+          // wrong/an old file (or a hand-edited one) can carry that header
+          // instead of "Session 1 Group #" and mean the exact same thing: which
+          // group this player is in. Silently discarding it (the previous
+          // behaviour) meant every such row imported with NO group info at all,
+          // and the auto-place fallback below then scattered the whole roster
+          // round-robin across the wrong groups instead -- real incident: an
+          // EFHA U13 Community upload of 100+ players, each cell reading
+          // "Group A"/"Group B"/"Group C"/"Group D", all landed evenly spread
+          // across the 4 existing groups regardless of which one their file
+          // actually named. Only acts when session 1 isn't ALREADY covered by an
+          // explicit "Session 1 Group #" column -- that stays authoritative if
+          // both are somehow present. A leading "Group "/"Team " label (as EFHA's
+          // did) is stripped before matching; only a bare letter (A-F, same
+          // convention as the tournament branch above) or a bare number is
+          // trusted after that -- anything else is genuinely ambiguous and is
+          // left to auto-place, same as before.
+          if (!isTournament && athleteId && scrimmageTeamLabel && !explicitSessionNums.has(1)) {
+            const cleaned = scrimmageTeamLabel.replace(/^(group|team|grp)\s+/i, "").trim();
+            const letterMatch = cleaned.match(/^[a-f]$/i);
+            const numMatch = cleaned.match(/^\d+$/);
+            const gNum = letterMatch ? letterMatch[0].toUpperCase().charCodeAt(0) - 64 : numMatch ? parseInt(numMatch[0], 10) : null;
+            if (gNum) {
+              await ensureSessionGroup(catId, 1, gNum);
+              const [group] = await sql`SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = 1 AND group_number = ${gNum}`;
+              if (group) {
+                await sql`DELETE FROM player_group_assignments WHERE athlete_id = ${athleteId} AND session_group_id IN (SELECT id FROM session_groups WHERE age_category_id = ${catId} AND session_number = 1)`;
+                await sql`INSERT INTO player_group_assignments (athlete_id, session_group_id, display_order) VALUES (${athleteId}, ${group.id}, 0) ON CONFLICT (athlete_id, session_group_id) DO NOTHING`;
+              }
+            }
+          }
+
           // Any OTHER session that already has groups built (this row's CSV had no
           // column for it, or didn't cover every session) gets the same fallback
           // as quick-add below -- drop into that session's smallest open group

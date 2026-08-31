@@ -90,6 +90,16 @@ describe("normalizePosition", () => {
     expect(normalizePosition("Forward/Defense")).toBe("forward_defense");
     expect(normalizePosition("Defence/Forward")).toBe("forward_defense");
   });
+  it("is idempotent on every value it can produce -- a caller must be able to re-normalize its own output safely", () => {
+    // Real incident: the bulk-import route re-runs an already-toAthlete()-
+    // normalized position through normalizePosition a second time. "forward",
+    // "defense", "goalie" survived that by accident (their raw form is also a
+    // map key); "forward_defense" didn't, and silently nulled out every
+    // two-way player on a real EFHA CSV import.
+    for (const v of ["forward", "defense", "goalie", "forward_defense"]) {
+      expect(normalizePosition(v)).toBe(v);
+    }
+  });
 });
 
 // Real RAMP export header set (subset, in original order)

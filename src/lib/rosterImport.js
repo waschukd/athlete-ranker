@@ -241,6 +241,15 @@ const POS = {
   "f/d": "forward_defense", "d/f": "forward_defense", "fd": "forward_defense", "df": "forward_defense",
   "forward/defense": "forward_defense", "defense/forward": "forward_defense",
   "forward/defence": "forward_defense", "defence/forward": "forward_defense",
+  // Self-mapped so the function is idempotent on every value it can produce --
+  // "forward"/"defense"/"goalie" already were (their raw form IS a key above),
+  // this was the one output with no matching input. A caller that re-normalizes
+  // an already-normalized value (e.g. the bulk-import route runs a roster-import
+  // row's already-`toAthlete()`-normalized position through normalizePosition a
+  // second time) must get the same value back, not silently drop it to null --
+  // which is exactly what happened to every EFHA U13 Community "Forward -
+  // Defense" player on a real CSV import before this was added.
+  forward_defense: "forward_defense",
 };
 // Registration exports often say "Player" or leave it blank — those are not skating
 // positions, so they normalize to null (unknown) rather than a bogus value.
