@@ -10,6 +10,7 @@ import InstallAppButton from "@/components/InstallAppButton";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import { localToday, sessionStaffing } from "@/lib/spDashboardUtils";
+import { isSessionPast } from "@/lib/sessionTiming";
 import OverviewTab from "@/components/service-provider/OverviewTab";
 import AssociationsTab from "@/components/service-provider/AssociationsTab";
 import ScheduleTab from "@/components/service-provider/ScheduleTab";
@@ -96,16 +97,20 @@ function SPDashboard() {
   }, {});
   const schedule = Object.values(byDate).flat();
   const today = localToday();
-  const needsEvaluators = schedule.filter(s => sessionStaffing(s).open > 0 && s.scheduled_date?.toString().split("T")[0] >= today).length;
+  // "Upcoming" is 4 hours after a session's own end_time (isSessionPast), not a
+  // midnight/date-only cutoff -- a date-only ">= today" check left a 9am session
+  // cluttering every count and card all day after it had already finished,
+  // same staleness bug the evaluator dashboard's Score Now card had.
+  const needsEvaluators = schedule.filter(s => sessionStaffing(s).open > 0 && !isSessionPast(s)).length;
   // Total OPEN SPOTS across upcoming sessions — remaining EVALUATOR slots on eval
   // sessions plus remaining TESTER slots on testing sessions (what "how many more
   // people do I need" really means).
   const openSpots = schedule
-    .filter(s => s.scheduled_date?.toString().split("T")[0] >= today)
+    .filter(s => !isSessionPast(s))
     .reduce((sum, s) => sum + sessionStaffing(s).open, 0);
-  const totalUpcoming = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today).length;
+  const totalUpcoming = schedule.filter(s => !isSessionPast(s)).length;
   // Split by pool — what the Evaluator Pool / Tester Pool tabs each show up top.
-  const upcomingSchedule = schedule.filter(s => s.scheduled_date?.toString().split("T")[0] >= today);
+  const upcomingSchedule = schedule.filter(s => !isSessionPast(s));
   const evaluatorOpenSpots = upcomingSchedule.filter(s => !sessionStaffing(s).isTesting).reduce((sum, s) => sum + sessionStaffing(s).open, 0);
   const evaluatorSessionsNeeding = upcomingSchedule.filter(s => !sessionStaffing(s).isTesting && sessionStaffing(s).open > 0).length;
   const testerOpenSpots = upcomingSchedule.filter(s => sessionStaffing(s).isTesting).reduce((sum, s) => sum + sessionStaffing(s).open, 0);
@@ -114,11 +119,13 @@ function SPDashboard() {
   // ── Overview (home) data ──
   const dateOf = (s) => s.scheduled_date?.toString().split("T")[0];
   const byDateTime = (a, b) => (dateOf(a) + (a.start_time || "")).localeCompare(dateOf(b) + (b.start_time || ""));
-  const liveSessions = schedule.filter(s => s.status !== "cancelled");
+  // Past sessions dropped up front — nothing below needs to special-case them,
+  // and a finished session never lingers under "Today" for the rest of the day.
+  const liveSessions = schedule.filter(s => s.status !== "cancelled" && !isSessionPast(s));
   const todaySessions = liveSessions.filter(s => dateOf(s) === today).sort(byDateTime);
   const upcomingSessions = liveSessions.filter(s => dateOf(s) > today).sort(byDateTime).slice(0, 8);
   const needsAttention = liveSessions
-    .filter(s => sessionStaffing(s).open > 0 && dateOf(s) >= today)
+    .filter(s => sessionStaffing(s).open > 0)
     .sort(byDateTime)
     .slice(0, 6);
   const topEvaluators = [...evaluators]
