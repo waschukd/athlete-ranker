@@ -213,6 +213,58 @@ export async function offerOpenSession({ catId, scheduleRow }) {
   }
 }
 
+// Testing is a one-shot CSV upload (not a live session evaluators trickle
+// scores into), so directors/admins have no other signal that results exist
+// until they happen to open the dashboard. Fires once per successful upload,
+// to the category's directors plus every association admin (org contact +
+// user_organization_roles) — same recipient set as notifySessionChange, minus
+// evaluators/SP (they don't need this one; the SP is who just uploaded it).
+export async function notifyTestingResultsUploaded({ catId, sessionNumber, matchedCount }) {
+  try {
+    if (!matchedCount) return { notified: 0, skipped: "no_matches" };
+    const catInfo = await sql`
+      SELECT ac.name AS category_name, ac.id AS org_scoped_id, o.id AS org_id, o.name AS org_name, o.contact_email AS org_email
+      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
+      WHERE ac.id = ${catId}
+    `;
+    if (!catInfo.length) return { notified: 0 };
+    const { category_name, org_id, org_name, org_email } = catInfo[0];
+
+    const recipients = new Map();
+    const add = (email, name) => { if (email) recipients.set(email.toLowerCase(), name || email); };
+
+    add(org_email, org_name);
+    const assocAdmins = await sql`
+      SELECT u.email, u.name FROM user_organization_roles uor
+      JOIN users u ON u.id = uor.user_id
+      WHERE uor.organization_id = ${org_id} AND uor.role = 'association_admin'
+    `;
+    assocAdmins.forEach(a => add(a.email, a.name));
+
+    const directors = await sql`
+      SELECT DISTINCT u.email, u.name FROM director_assignments da
+      JOIN users u ON u.id = da.user_id
+      WHERE da.age_category_id = ${catId} AND da.status = 'active'
+    `;
+    directors.forEach(d => add(d.email, d.name));
+
+    if (recipients.size === 0) return { notified: 0 };
+
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
+    const html = emailWrapper(`
+      <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">Testing results uploaded</h2>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">Your testing results for <strong style="color:#101113;">${esc(category_name)}</strong>${sessionNumber != null ? ` (Session ${esc(sessionNumber)})` : ""} have been uploaded and are viewable from the dashboard.</p>
+      <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/association/dashboard/category/${catId}" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">View results →</a></div>
+    `);
+    const subject = `Testing results uploaded — ${category_name}`;
+    for (const [email] of recipients) await sendEmail(email, subject, html);
+    return { notified: recipients.size };
+  } catch (err) {
+    console.error("notifyTestingResultsUploaded error:", err);
+    return { notified: 0, error: err?.message };
+  }
+}
+
 // Notify parents when a change is last-minute (session within ~48h) OR when
 // they were already told a now-wrong time: the per-session "ice time" email
 // (group-emails route, logged to group_email_log) quotes the OLD date/time

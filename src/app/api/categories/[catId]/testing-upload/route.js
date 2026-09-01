@@ -3,6 +3,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { notifyTestingResultsUploaded } from "@/lib/scheduleNotify";
 
 export async function POST(request, { params }) {
   try {
@@ -95,6 +96,10 @@ export async function POST(request, { params }) {
     } catch (e) {
       console.error("testing_results upsert skipped:", e.message);
     }
+
+    try {
+      await notifyTestingResultsUploaded({ catId, sessionNumber: session_number, matchedCount: matched.length });
+    } catch (e) { console.error("notifyTestingResultsUploaded failed:", e?.message); }
 
     return NextResponse.json({
       success: true,
