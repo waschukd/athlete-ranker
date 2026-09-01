@@ -55,8 +55,8 @@ export default function RosterImport({ catId, categoryName, isTournament, onImpo
     }
   }, [divisions, categoryName, mapping?.division]);
 
-  const { athletes, skipped } = useMemo(() => {
-    if (!mapping) return { athletes: [], skipped: 0 };
+  const { athletes, skipped, positionErrors } = useMemo(() => {
+    if (!mapping) return { athletes: [], skipped: 0, positionErrors: [] };
     const sel = selectedDivisions.length ? selectedDivisions : null;
     return buildAthletes(rows, mapping, sel);
   }, [rows, mapping, selectedDivisions]);
@@ -236,9 +236,20 @@ export default function RosterImport({ catId, categoryName, isTournament, onImpo
         {athletes.length > preview.length && <div className="px-4 py-2 text-xs text-gray-400">+ {athletes.length - preview.length} more</div>}
       </div>
 
+      {positionErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-red-700"><AlertCircle size={15} /> {positionErrors.length} player{positionErrors.length === 1 ? " has" : "s have"} an invalid Position value</div>
+          <p className="text-xs text-red-600 mt-1">Position must be <b>F</b>, <b>D</b>, or <b>F/D</b> (blank is fine if you don't track it). Fix these in your file and re-upload:</p>
+          <ul className="list-disc ml-5 mt-2 text-xs text-red-700 max-h-32 overflow-y-auto">
+            {positionErrors.slice(0, 15).map((e, i) => <li key={i}>{e.name} — "{e.value}"</li>)}
+          </ul>
+          {positionErrors.length > 15 && <p className="text-xs text-red-500 mt-1">+ {positionErrors.length - 15} more</p>}
+        </div>
+      )}
+
       {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="flex justify-end">
-        <button onClick={doImport} disabled={importing || athletes.length === 0}
+        <button onClick={doImport} disabled={importing || athletes.length === 0 || positionErrors.length > 0}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-40 transition-opacity">
           <Upload size={15} /> {importing ? "Importing…" : `Import ${athletes.length} athlete${athletes.length === 1 ? "" : "s"}`}
         </button>

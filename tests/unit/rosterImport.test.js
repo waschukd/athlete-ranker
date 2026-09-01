@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseCsv, detectMapping, splitName, parseBirthYear, normalizePosition,
   toAthlete, summarizeDivisions, buildAthletes, suggestDivisions, parseNonContact,
+  isInvalidStrictPosition, isOwnPositionHeader,
 } from "@/lib/rosterImport";
 
 describe("contact / non-contact column", () => {
@@ -99,6 +100,41 @@ describe("normalizePosition", () => {
     for (const v of ["forward", "defense", "goalie", "forward_defense"]) {
       expect(normalizePosition(v)).toBe(v);
     }
+  });
+});
+
+describe("strict Position validation (our own template's Position column only)", () => {
+  it("accepts F, D, F/D, and Goalie -- rejects free-text words", () => {
+    for (const ok of ["F", "d", "F/D", "d/f", "G", "", "  "]) expect(isInvalidStrictPosition(ok)).toBe(false);
+    for (const bad of ["Forward", "Defence", "fwd", "W", "C", "LW", "RW", "Forward - Defense"]) {
+      expect(isInvalidStrictPosition(bad)).toBe(true);
+    }
+  });
+
+  it("recognizes our own header (tolerating the template's clarifying suffix) but not third-party synonyms", () => {
+    expect(isOwnPositionHeader("Position")).toBe(true);
+    expect(isOwnPositionHeader("Pos")).toBe(true);
+    expect(isOwnPositionHeader("Position (F/D/F-D)")).toBe(true);
+    expect(isOwnPositionHeader("Hockey Canada Position")).toBe(false);
+    expect(isOwnPositionHeader("Players Position")).toBe(false);
+  });
+
+  it("buildAthletes flags bad values only when the Position column is our own header", () => {
+    const ownMapping = detectMapping(["First Name", "Last Name", "Position"]);
+    const rows = [
+      { "First Name": "Good", "Last Name": "One", "Position": "F" },
+      { "First Name": "Bad", "Last Name": "One", "Position": "Forward" },
+      { "First Name": "Blank", "Last Name": "One", "Position": "" },
+    ];
+    const { positionErrors } = buildAthletes(rows, ownMapping);
+    expect(positionErrors).toEqual([{ name: "Bad One", value: "Forward" }]);
+  });
+
+  it("does not flag a RAMP-style export using full words in its own position column", () => {
+    const rampMapping = detectMapping(["Participant", "Hockey Canada Position"]);
+    const rows = [{ Participant: "Chance Owerko", "Hockey Canada Position": "Forward" }];
+    const { positionErrors } = buildAthletes(rows, rampMapping);
+    expect(positionErrors).toEqual([]);
   });
 });
 

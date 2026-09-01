@@ -259,6 +259,28 @@ export function normalizePosition(val) {
   return POS[v] || null;
 }
 
+// Our OWN template's Position column only (not RAMP/TeamSnap/etc., which keep
+// the flexible word-matching above) — real incident: uploaders typed whatever
+// came to mind ("Forward", "Defence", "fwd") and one association's "Forward -
+// Defense" silently imported as a blank position. Blank is still fine (U9/U11
+// often don't track position at all); the only thing rejected is a non-blank
+// value that isn't one of the three short codes we ask for.
+const STRICT_POSITION_CODES = new Set(["f", "d", "f/d", "d/f", "g"]);
+export function isInvalidStrictPosition(val) {
+  const v = (val || "").toLowerCase().trim().replace(/\s*[/-]\s*/g, "/");
+  if (!v) return false;
+  return !STRICT_POSITION_CODES.has(v);
+}
+// True when a mapping's Position column IS our own template's header ("Position"
+// or "Pos", tolerating trailing clarifying text like "Position (F/D/F-D)" the
+// same way SESSION_GROUP_RE tolerates it above), as opposed to a third-party
+// synonym like "Hockey Canada Position" or "Player's Position" — those keep
+// the lenient word-matching.
+export function isOwnPositionHeader(header) {
+  const n = norm(header);
+  return n === "pos" || n.startsWith("position");
+}
+
 // Turn one parsed CSV row into a canonical athlete using the mapping.
 export function toAthlete(row, mapping) {
   let first = "", last = "";
@@ -332,10 +354,15 @@ export function suggestDivisions(categoryName, divisionValues) {
 }
 
 // Full pipeline: parsed rows + mapping (+ optional division filter) → valid athletes.
-// Returns { athletes, skipped } where skipped lacked a usable name.
+// Returns { athletes, skipped, positionErrors } where skipped lacked a usable
+// name, and positionErrors lists rows whose Position value needs fixing before
+// import (only checked against our own template's Position column — see
+// isOwnPositionHeader/isInvalidStrictPosition).
 export function buildAthletes(rows, mapping, selectedDivisions = null) {
   const out = [];
   let skipped = 0;
+  const positionErrors = [];
+  const checkPosition = mapping.position && isOwnPositionHeader(mapping.position);
   const sel = selectedDivisions ? selectedDivisions.map(d => (d || "").trim()) : null;
   for (const row of rows) {
     if (sel && mapping.division) {
@@ -344,7 +371,13 @@ export function buildAthletes(rows, mapping, selectedDivisions = null) {
     }
     const a = toAthlete(row, mapping);
     if (!a.first_name || !a.last_name) { skipped++; continue; }
+    if (checkPosition) {
+      const raw = (row[mapping.position] || "").trim();
+      if (isInvalidStrictPosition(raw)) {
+        positionErrors.push({ name: `${a.first_name} ${a.last_name}`, value: raw });
+      }
+    }
     out.push(a);
   }
-  return { athletes: out, skipped };
+  return { athletes: out, skipped, positionErrors };
 }
