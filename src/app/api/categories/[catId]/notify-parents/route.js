@@ -34,11 +34,18 @@ export async function POST(request, { params }) {
     if (!catInfo.length) return NextResponse.json({ error: "Category not found" }, { status: 404 });
     const { category_name, org_name, organization_id } = catInfo[0];
 
-    // Get all athletes with parent emails
+    // Get all athletes with parent emails. Cut players stay is_active=true
+    // (cut_at flags them "Cut" without removing their scores/visibility -- see
+    // the cut route) so they were still swept into this blast: a released or
+    // moved-on player has no reason to get "welcome to the next round of
+    // evaluations." Real incident: EFHA had to hard-delete cut players from
+    // the roster just to keep them off a welcome-email send, which also wiped
+    // their group assignments for no reason -- excluding cut_at here removes
+    // the need for that entirely.
     const athletes = await sql`
       SELECT id, first_name, last_name, parent_email, parent_email_2
       FROM athletes
-      WHERE age_category_id = ${catId} AND is_active = true
+      WHERE age_category_id = ${catId} AND is_active = true AND cut_at IS NULL
         AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
         ${athlete_id ? sql`AND id = ${athlete_id}` : sql``}
     `;
