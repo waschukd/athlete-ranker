@@ -159,9 +159,23 @@ export async function computeCategoryRankings(catId, opts = {}) {
     };
   }
 
+  // Testing percentile must be scored against how many people ACTUALLY
+  // competed in THAT testing session, not N (the whole category roster).
+  // N includes goalies -- who never take the skater testing session -- and
+  // any skater who simply didn't test, so it silently inflates the field
+  // size. The worst real tester then never reaches a true 0 unless N happens
+  // to equal the number of people who actually tested. Real incident: SPS
+  // Fuzion U11 Jr Kings (24 on roster: 21 skaters + 3 goalies, only 19
+  // skaters tested) gave its worst tester 21.7 instead of 0, while Millwoods
+  // U9 Tier 1 (28 skaters, 0 goalies, all 28 tested) correctly landed on 0 --
+  // same exact formula, just N happened to match there and not here.
+  const testersPerSession = {};
+  for (const t of testingRanks) testersPerSession[t.session_number] = (testersPerSession[t.session_number] || 0) + 1;
+
   for (const t of testingRanks) {
     if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-    const percentile = testingPercentile(parseInt(t.overall_rank), N);
+    const fieldSize = testersPerSession[t.session_number] || N;
+    const percentile = testingPercentile(parseInt(t.overall_rank), fieldSize);
     scoreMap[t.athlete_id][t.session_number] = {
       normalized_score: round1(percentile),
       overall_rank: parseInt(t.overall_rank),
