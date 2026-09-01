@@ -62,7 +62,7 @@ it("strips evaluator names before the AI call, then re-attaches them to the sele
   });
 
   const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
-  const res = await GET(new Request("http://test/api/athletes/1/report?cat=114"), { params: { athleteId: "1" } });
+  const res = await GET(new Request("http://test/api/athletes/1/report?cat=114&includeNarrative=1"), { params: { athleteId: "1" } });
   const data = await res.json();
 
   // The AI never saw evaluator names.
@@ -84,10 +84,36 @@ it("degrades to null narrative/curatedNotes when there are no notes at all", asy
   ]);
 
   const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
+  const res = await GET(new Request("http://test/api/athletes/1/report?cat=114&includeNarrative=1"), { params: { athleteId: "1" } });
+  const data = await res.json();
+
+  expect(generateParentNarrative).not.toHaveBeenCalled();
+  expect(data.curatedNotes).toBeNull();
+  expect(data.narrativeSummary).toBeNull();
+});
+
+// Real incident: the plain on-screen /player/report page hits this same
+// route (and never renders narrativeSummary/curatedNotes at all -- it shows
+// raw named notes), but paid for the AI call's latency anyway. On a slow
+// mobile connection that extra round trip tipped iOS Safari into an
+// unhandled "Load failed" fetch rejection. Only the PDF preview
+// (DevelopmentReport, which actually renders both fields) opts in.
+it("never calls the AI when includeNarrative is not set, even with real notes", async () => {
+  mockSqlByQuery([
+    ["FROM athletes WHERE id", [{ id: 1 }]],
+    ["FROM category_sessions", []],
+    ["FROM category_scores cs", []],
+    ["FROM testing_drill_results", []],
+    ["FROM player_notes pn", NAMED_NOTES],
+  ]);
+
+  const { GET } = await import("@/app/api/athletes/[athleteId]/report/route");
   const res = await GET(new Request("http://test/api/athletes/1/report?cat=114"), { params: { athleteId: "1" } });
   const data = await res.json();
 
   expect(generateParentNarrative).not.toHaveBeenCalled();
   expect(data.curatedNotes).toBeNull();
   expect(data.narrativeSummary).toBeNull();
+  // The plain page still gets the raw, named notes it actually renders.
+  expect(data.notes).toEqual(NAMED_NOTES);
 });

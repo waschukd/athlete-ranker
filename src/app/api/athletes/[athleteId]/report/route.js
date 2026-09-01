@@ -13,6 +13,14 @@ export async function GET(request, { params }) {
     const { athleteId } = params;
     const { searchParams } = new URL(request.url);
     const catId = searchParams.get("cat") || searchParams.get("catId");
+    // The AI narrative/note-curation call adds real latency (a live Anthropic
+    // round trip on top of the DB work) -- real incident: the plain on-screen
+    // /player/report page hits this same route and never renders either
+    // field, but paid that latency anyway, tipping a slow mobile connection
+    // (iOS Safari) into an unhandled "Load failed" fetch rejection. Only the
+    // PDF preview (which actually renders DevelopmentReport's narrative +
+    // curated notes) opts in.
+    const includeNarrative = searchParams.get("includeNarrative") === "1";
 
     // A category is required so every request is gated by authorizeCategoryAccess
     // plus the athlete-in-category check below (IDOR guard).
@@ -63,7 +71,7 @@ export async function GET(request, { params }) {
     // directors are authorized to see who wrote what.
     let narrativeSummary = null;
     let curatedNotes = null;
-    if (notes.length && process.env.ANTHROPIC_API_KEY) {
+    if (includeNarrative && notes.length && process.env.ANTHROPIC_API_KEY) {
       try {
         const isGoalie = (report.goalieSkillsProfile || []).length > 0;
         const anonNotes = notes.map(n => ({ session_number: n.session_number, note_text: n.note_text }));

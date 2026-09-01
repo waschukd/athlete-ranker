@@ -14,7 +14,7 @@ function PDFReportInner() {
 
   useEffect(() => {
     if (!athleteId || !catId) return;
-    fetch(`/api/athletes/${athleteId}/report?cat=${catId}`)
+    fetch(`/api/athletes/${athleteId}/report?cat=${catId}&includeNarrative=1`)
       .then(r => r.json())
       .then(d => {
         setData(d);
