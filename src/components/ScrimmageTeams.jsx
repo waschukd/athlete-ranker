@@ -106,7 +106,9 @@ export default function ScrimmageTeams({ catId }) {
   // alphabetical dump would have to be re-sorted by hand every time.
   //
   // A Team column is kept on every row so the file is still filterable in a
-  // spreadsheet without losing the grouping.
+  // spreadsheet without losing the grouping. Helmet # rides along too -- real
+  // request from BAHA: their roster export had team OR helmet number, never
+  // both, so coaches on the bench had no way to match a jersey/team to a name.
   const exportCsv = () => {
     const rank = (m) => (typeof m.rank === "number" ? m.rank : Number.POSITIVE_INFINITY);
     const byRank = (a, b) => rank(a) - rank(b) || (a.last_name || "").localeCompare(b.last_name || "");
@@ -117,7 +119,7 @@ export default function ScrimmageTeams({ catId }) {
       return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
     };
 
-    const lines = [["Team", "Rank", "First Name", "Last Name", "Position"].join(",")];
+    const lines = [["Team", "Rank", "First Name", "Last Name", "Position", "Helmet #"].join(",")];
     for (const t of teams) {
       const members = t.members || [];
       // Defense (incl. F/D) by rank, then forwards by rank.
@@ -129,6 +131,7 @@ export default function ScrimmageTeams({ catId }) {
           esc(m.first_name || ""),
           esc(m.last_name || ""),
           esc(posShort(m.position)),
+          esc(m.helmet_number ?? ""),
         ].join(","));
       }
     }

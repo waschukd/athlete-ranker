@@ -16,7 +16,7 @@ export async function getScrimmageTeams(catId) {
     const teams = await sql`SELECT id, name, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
     if (!teams.length) return [];
     const members = await sql`
-      SELECT stm.scrimmage_team_id, a.id AS athlete_id, a.first_name, a.last_name, a.jersey_number, a.position
+      SELECT stm.scrimmage_team_id, a.id AS athlete_id, a.first_name, a.last_name, a.jersey_number, a.helmet_number, a.position
       FROM scrimmage_team_members stm
       JOIN athletes a ON a.id = stm.athlete_id
       WHERE stm.scrimmage_team_id = ANY(${teams.map(t => t.id)})

@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
     // Unassigned skaters (so the UI can show a pool to drag from).
     const assigned = new Set(teams.flatMap(t => t.members.map(m => m.athlete_id)));
     const skaters = await sql`
-      SELECT id, first_name, last_name, jersey_number, position FROM athletes
+      SELECT id, first_name, last_name, jersey_number, helmet_number, position FROM athletes
       WHERE age_category_id = ${params.catId} AND is_active = true AND cut_at IS NULL AND COALESCE(position,'') <> 'goalie'
       ORDER BY last_name, first_name`;
     const unassigned = skaters.filter(a => !assigned.has(a.id));
