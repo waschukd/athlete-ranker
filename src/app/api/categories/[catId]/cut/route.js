@@ -18,6 +18,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { emailPlayerCut, emailPlayerIncoming, parentEmails } from "@/lib/email";
 import { resolveTemplate, renderTemplate } from "@/lib/emailTemplates";
+import { getCategoryDirectors, getOrgRoleUsers } from "@/lib/categoryRecipients";
 
 const MANAGE = new Set(["super_admin", "association_admin", "director", "service_provider_admin"]);
 
@@ -99,6 +100,13 @@ export async function POST(request, { params }) {
     try {
       await sql`DELETE FROM scrimmage_team_members WHERE athlete_id = ${athleteId} AND scrimmage_team_id IN (SELECT id FROM scrimmage_teams WHERE age_category_id = ${params.catId})`;
     } catch { /* no teams */ }
+    // Same for the separate practice-team roster (teams/route.js) -- a cut
+    // player left in team_rosters kept receiving "Team Placement" emails
+    // (notify_teams) after being cut, the same gap that made the welcome-email
+    // blast reach cut players before cut_at was excluded there.
+    try {
+      await sql`DELETE FROM team_rosters WHERE athlete_id = ${athleteId} AND team_id IN (SELECT id FROM teams WHERE age_category_id = ${params.catId})`;
+    } catch { /* no teams */ }
     // Remove them from UPCOMING game rosters (past/played games keep them for history).
     try {
       await sql`
@@ -127,18 +135,10 @@ export async function POST(request, { params }) {
       // owner if that predates the role-table link -- same duality used to
       // resolve "the admin of this org" elsewhere, e.g. notifySessionChange).
       try {
-        const directors = await sql`
-          SELECT DISTINCT u.email, u.name FROM director_assignments da
-          JOIN users u ON u.id = da.user_id
-          WHERE da.age_category_id = ${toCategoryId} AND da.status = 'active'
-        `;
+        const directors = await getCategoryDirectors(toCategoryId);
         let recipients = directors;
         if (!recipients.length) {
-          const admins = await sql`
-            SELECT DISTINCT u.name, u.email FROM user_organization_roles uor
-            JOIN users u ON u.id = uor.user_id
-            WHERE uor.organization_id = ${toCat.organization_id} AND uor.role = 'association_admin'
-          `;
+          const admins = await getOrgRoleUsers(toCat.organization_id, { onlyRole: "association_admin" });
           const [owner] = await sql`
             SELECT u.name, u.email FROM organizations o JOIN users u ON u.email = o.contact_email
             WHERE o.id = ${toCat.organization_id}

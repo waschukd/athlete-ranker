@@ -311,7 +311,7 @@ export async function POST(request, { params }) {
       const [{ n }] = await sql`
         SELECT COUNT(*)::int n FROM team_rosters tr
         JOIN athletes a ON a.id = tr.athlete_id
-        WHERE tr.age_category_id = ${catId}
+        WHERE tr.age_category_id = ${catId} AND a.cut_at IS NULL
           AND ((a.parent_email IS NOT NULL AND a.parent_email <> '') OR (a.parent_email_2 IS NOT NULL AND a.parent_email_2 <> ''))`;
       return NextResponse.json({ default_message: DEFAULT_TEAM_MESSAGE, recipients: n });
     }
@@ -320,12 +320,15 @@ export async function POST(request, { params }) {
     if (action === "notify_teams") {
       const [cat] = await sql`SELECT ac.name AS category_name, o.name AS org_name FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}`;
       if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      // cut_at IS NULL as defense-in-depth: the cut route now also removes a
+      // cut player from team_rosters outright, but this guards existing rows
+      // predating that fix and any other path that stamps cut_at.
       const rows = await sql`
         SELECT a.first_name, a.last_name, a.parent_email, a.parent_email_2, t.name AS team_name
         FROM team_rosters tr
         JOIN teams t ON t.id = tr.team_id
         JOIN athletes a ON a.id = tr.athlete_id
-        WHERE tr.age_category_id = ${catId}`;
+        WHERE tr.age_category_id = ${catId} AND a.cut_at IS NULL`;
       const bodyTpl = String(body.message || DEFAULT_TEAM_MESSAGE);
       const subjectTpl = String(body.subject || `Team placement — ${cat.category_name} (${cat.org_name})`);
       await ensureEmailLogTable();

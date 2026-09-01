@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
+import { getCategoryDirectors } from "@/lib/categoryRecipients";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -195,7 +196,7 @@ export async function GET(request) {
 
       // Get all sessions happening tomorrow
       const upcomingSessions = await sql`
-        SELECT es.id, es.session_number, es.group_number, es.scheduled_date,
+        SELECT es.id, es.age_category_id, es.session_number, es.group_number, es.scheduled_date,
           es.start_time, es.end_time, es.location,
           ac.name as category_name, o.name as org_name
         FROM evaluation_schedule es
@@ -237,13 +238,7 @@ export async function GET(request) {
         }
 
         // Notify directors assigned to this category
-        const directors = await sql`
-          SELECT DISTINCT u.email, u.name FROM director_assignments da
-          JOIN users u ON u.id = da.user_id
-          JOIN age_categories ac ON ac.id = da.age_category_id
-          WHERE ac.id = (SELECT age_category_id FROM evaluation_schedule WHERE id = ${session.id})
-            AND da.status = 'active'
-        `;
+        const directors = await getCategoryDirectors(session.age_category_id);
 
         for (const dir of directors) {
           try { await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }

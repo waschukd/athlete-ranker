@@ -1,5 +1,6 @@
 import sql from "@/lib/db";
 import { sendEmail, emailWrapper, parentEmails, esc } from "@/lib/email";
+import { getCategoryDirectors, getOrgRoleUsers } from "@/lib/categoryRecipients";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -79,19 +80,11 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
 
     // Association admins — org contact + everyone with a role on the org
     add(org_email, org_name);
-    const assocAdmins = await sql`
-      SELECT u.email, u.name FROM user_organization_roles uor
-      JOIN users u ON u.id = uor.user_id
-      WHERE uor.organization_id = ${org_id}
-    `;
+    const assocAdmins = await getOrgRoleUsers(org_id);
     assocAdmins.forEach(a => add(a.email, a.name));
 
     // Directors of this category
-    const directors = await sql`
-      SELECT DISTINCT u.email, u.name FROM director_assignments da
-      JOIN users u ON u.id = da.user_id
-      WHERE da.age_category_id = ${catId} AND da.status = 'active'
-    `;
+    const directors = await getCategoryDirectors(catId);
     directors.forEach(d => add(d.email, d.name));
 
     if (recipients.size === 0) return { notified: 0 };
@@ -234,18 +227,10 @@ export async function notifyTestingResultsUploaded({ catId, sessionNumber, match
     const add = (email, name) => { if (email) recipients.set(email.toLowerCase(), name || email); };
 
     add(org_email, org_name);
-    const assocAdmins = await sql`
-      SELECT u.email, u.name FROM user_organization_roles uor
-      JOIN users u ON u.id = uor.user_id
-      WHERE uor.organization_id = ${org_id} AND uor.role = 'association_admin'
-    `;
+    const assocAdmins = await getOrgRoleUsers(org_id, { onlyRole: "association_admin" });
     assocAdmins.forEach(a => add(a.email, a.name));
 
-    const directors = await sql`
-      SELECT DISTINCT u.email, u.name FROM director_assignments da
-      JOIN users u ON u.id = da.user_id
-      WHERE da.age_category_id = ${catId} AND da.status = 'active'
-    `;
+    const directors = await getCategoryDirectors(catId);
     directors.forEach(d => add(d.email, d.name));
 
     if (recipients.size === 0) return { notified: 0 };
