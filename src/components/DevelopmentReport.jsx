@@ -132,7 +132,11 @@ function Badge({ color, children }) {
 }
 
 export default function DevelopmentReport({ data }) {
-  const { athlete, category, notes = [], standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name, narrativeSummary = null } = data;
+  const { athlete, category, notes = [], curatedNotes = null, standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name, narrativeSummary = null } = data;
+  // curatedNotes (AI-selected, non-contradictory subset -- see parentNarrative.js)
+  // is preferred; falls back to the raw chronological list only when the AI
+  // selection isn't available (e.g. ANTHROPIC_API_KEY unset).
+  const displayNotes = curatedNotes !== null ? curatedNotes : notes.slice(0, 12);
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -464,11 +468,11 @@ export default function DevelopmentReport({ data }) {
         })()}
 
         {/* Evaluator notes */}
-        {notes.length > 0 && (
+        {displayNotes.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Selected observations" title="What the evaluators saw" />
             <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play.</div>
-            {notes.slice(0, 12).map((n, i) => (
+            {displayNotes.map((n, i) => (
               <div key={i} style={{ ...cardStyle, borderLeft: `2px solid ${GOLD}`, padding: "12px 16px", marginBottom: 9, breakInside: "avoid" }}>
                 <div style={{ fontFamily: SANS, color: "#e5e7ec", lineHeight: 1.55, fontSize: 12.5 }}>&ldquo;{n.note_text}&rdquo;</div>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, color: MUTED, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>

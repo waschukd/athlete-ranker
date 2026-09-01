@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { buildAthleteReport } from "@/lib/reportData";
+import { generateParentNarrative } from "@/lib/parentNarrative";
 
 export async function GET(request, { params }) {
   try {
@@ -54,9 +55,33 @@ export async function GET(request, { params }) {
       WHERE pn.athlete_id = ${athleteId} AND pn.age_category_id = ${catId}
       ORDER BY pn.session_number, pn.created_at
     `;
+    // Same non-contradictory note curation the parent report uses (see
+    // parentNarrative.js) -- no report_links row exists for this internal
+    // preview, so nothing is cached and this re-runs on every load. Fed
+    // name-stripped notes (same privacy bar as the parent-facing call), then
+    // the selected indices are re-attached to the NAMED notes below since
+    // directors are authorized to see who wrote what.
+    let narrativeSummary = null;
+    let curatedNotes = null;
+    if (notes.length && process.env.ANTHROPIC_API_KEY) {
+      try {
+        const isGoalie = (report.goalieSkillsProfile || []).length > 0;
+        const anonNotes = notes.map(n => ({ session_number: n.session_number, note_text: n.note_text }));
+        const gen = await generateParentNarrative({
+          token: null, athlete: report.athlete, category: report.category, isGoalie,
+          standing: report.standing, skillProfile: isGoalie ? report.goalieSkillsProfile : report.skillProfile,
+          testingProfile: report.testingProfile, progress: report.progress, notes: anonNotes,
+        });
+        if (gen.ok) {
+          narrativeSummary = gen.narrative;
+          curatedNotes = gen.selectedNotes.map(sel => notes.find(n => n.session_number === sel.session_number && n.note_text === sel.note_text) || sel);
+        }
+      } catch (e) { console.error("Player report narrative generation failed:", e?.message); }
+    }
+
     // ranking already computed inside buildAthleteReport — reuse it (don't run
     // computeCategoryRankings twice; that was the report-load stall).
-    return NextResponse.json({ ...report, sessions, scores, testing, notes });
+    return NextResponse.json({ ...report, sessions, scores, testing, notes, narrativeSummary, curatedNotes });
   } catch (error) {
     console.error("Player report error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

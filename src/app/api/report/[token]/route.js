@@ -83,12 +83,17 @@ export async function GET(request, { params }) {
     };
 
     if (purchased) {
-      // Opening narrative paragraph: generated once per (athlete, category) and
-      // cached on report_links, so every view after the first is free.
-      // Best-effort — a slow/misconfigured/erroring AI call never blocks the
-      // rest of the (already-paid-for) report from rendering.
+      // Opening narrative paragraph + curated note selection: generated once
+      // per (athlete, category) by the same AI call and cached on
+      // report_links, so every view after the first is free. Regenerated
+      // whenever EITHER piece is missing -- an older cached report predating
+      // selected_notes (or one whose prior generation only produced the
+      // narrative) gets both refreshed together next time it's viewed. Best-
+      // effort — a slow/misconfigured/erroring AI call never blocks the rest
+      // of the (already-paid-for) report from rendering.
       let narrativeSummary = link[0].narrative_summary || null;
-      if (!narrativeSummary && process.env.ANTHROPIC_API_KEY) {
+      let curatedNotes = Array.isArray(link[0].selected_notes) ? link[0].selected_notes : null;
+      if ((!narrativeSummary || !curatedNotes) && process.env.ANTHROPIC_API_KEY) {
         try {
           const isGoalie = (report.goalieSkillsProfile || []).length > 0;
           const gen = await generateParentNarrative({
@@ -96,13 +101,15 @@ export async function GET(request, { params }) {
             standing: report.standing, skillProfile: isGoalie ? report.goalieSkillsProfile : report.skillProfile,
             testingProfile: report.testingProfile, progress: report.progress, notes: report.notes,
           });
-          if (gen.ok) narrativeSummary = gen.narrative;
+          if (gen.ok) { narrativeSummary = gen.narrative; curatedNotes = gen.selectedNotes; }
         } catch (e) { console.error("Parent narrative generation failed:", e?.message); }
       }
 
       // Full report — what the dark DevelopmentReport component renders.
       // standing (percentile/tier/band) is only ever included here, behind the
       // purchase gate above -- it must never reach the free-preview branch below.
+      // notes stays the full raw list (curatedNotes is what the UI actually
+      // renders when present) as a fallback for when the AI is unavailable.
       return NextResponse.json({
         ...base,
         standing: report.standing,
@@ -112,6 +119,7 @@ export async function GET(request, { params }) {
         testingProfile: report.testingProfile,
         progress: report.progress,
         notes: report.notes,
+        curatedNotes,
         serviceProvider: report.serviceProvider,
         trainingProviders: report.trainingProviders,
       });

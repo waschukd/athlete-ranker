@@ -1,0 +1,11 @@
+-- Which evaluator notes actually get quoted in the parent report's "What the
+-- evaluators saw" section, chosen by the same AI call that writes the opening
+-- narrative (see src/lib/parentNarrative.js) so both are generated once and
+-- cached together. Before this, that section printed up to 12 raw notes in
+-- chronological order regardless of whether they contradicted each other --
+-- real incident: a session 1 "good skater" note sitting right above a session
+-- 2 "weaker skater" note, reading as two conflicting stories about the same
+-- player. Storing the resolved {session_number, note_text} objects (not just
+-- indices) so the cached selection is self-contained and never depends on the
+-- notes array's shape staying identical on a later view.
+ALTER TABLE report_links ADD COLUMN IF NOT EXISTS selected_notes JSONB;
