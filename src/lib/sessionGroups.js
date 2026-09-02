@@ -81,6 +81,40 @@ export async function applySnakeDraftColors(catId, sessionNumber, groups) {
     playersByGroup[p.session_group_id].push(p.athlete_id);
   }
 
+  // In a TOURNAMENT category the jersey colour is not a free choice -- it is
+  // whichever scrimmage team the player is on. Snaking colours by list position
+  // ignored that entirely, so a player on team Blue could be handed a grey chip
+  // and vice versa. Millwoods U9 Tier 1 had 13 of 28 mismatched, which is
+  // unusable for whoever is handing out jerseys at the door.
+  //
+  // Prefer the colour whose NAME matches the team; fall back to slot order for
+  // teams not named after a colour ("Team A", "Gold Rush").
+  const colourByAthlete = new Map();
+  try {
+    const teamRows = await sql`SELECT id, name, display_order FROM scrimmage_teams WHERE age_category_id = ${catId} ORDER BY display_order, id`;
+    if (teamRows.length) {
+      const anyCs = Object.values(csBySchedule)[0];
+      const palette = colorNames(csColors[anyCs]);
+      const taken = new Set();
+      const colourOfTeam = new Map();
+      for (const t of teamRows) {
+        const nm = String(t.name || "").trim().toLowerCase();
+        const hit = palette.find(c => c.toLowerCase() === nm && !taken.has(c.toLowerCase()));
+        if (hit) { colourOfTeam.set(t.id, hit); taken.add(hit.toLowerCase()); }
+      }
+      for (const t of teamRows) {
+        if (colourOfTeam.has(t.id)) continue;
+        const free = palette.find(c => !taken.has(c.toLowerCase()));
+        if (free) { colourOfTeam.set(t.id, free); taken.add(free.toLowerCase()); }
+      }
+      const members = await sql`SELECT athlete_id, scrimmage_team_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamRows.map(t => t.id)})`;
+      for (const m of members) {
+        const c = colourOfTeam.get(m.scrimmage_team_id);
+        if (c) colourByAthlete.set(m.athlete_id, c);
+      }
+    }
+  } catch (e) { console.error("applySnakeDraftColors: team colour map failed:", e?.message); }
+
   // Build bulk upsert data for player_checkins
   const upsertAthletes = [];
   const upsertSchedules = [];
@@ -98,7 +132,7 @@ export async function applySnakeDraftColors(catId, sessionNumber, groups) {
       upsertAthletes.push(players[i]);
       upsertSchedules.push(scheduleId);
       upsertCsIds.push(csId);
-      upsertColors.push(palette[i % palette.length]);
+      upsertColors.push(colourByAthlete.get(players[i]) || palette[i % palette.length]);
     }
   }
 

@@ -317,9 +317,32 @@ export async function assignMatchupRoster(catId, session_number, group_number, t
       // Map team slot -> jersey colour slot using THIS session's palette, so a
       // Red/Blue session seeds Red/Blue rather than a hardcoded White/Dark that
       // the check-in and scoring screens would then render as unknown.
+      // Match a team to the jersey colour of the SAME NAME first, and only fall
+      // back to slot order when the name is not a colour in the palette.
+      //
+      // Slot order alone was wrong whenever the palette and the teams disagreed
+      // on sequence: Millwoods U9 had teams Blue/Grey and a palette of
+      // [Grey, Blue], so team "Blue" was handed the colour Grey and vice versa.
+      // On the check-in screen that reads as a Blue player wearing a grey chip --
+      // whoever is handing out jerseys has no way to tell which is right.
       const palette = colorNames(cs.team_colors);
+      const teamRows = await sql`SELECT id, name FROM scrimmage_teams WHERE id = ANY(${teamIds})`;
+      const nameOfTeam = new Map(teamRows.map(t => [t.id, String(t.name || "").trim().toLowerCase()]));
+      const takenColours = new Set();
       const colorOf = {};
-      teamIds.forEach((id, i) => { if (palette[i]) colorOf[id] = palette[i]; });
+      // First pass: exact name matches, so "Blue" always wears blue.
+      for (const id of teamIds) {
+        const hit = palette.find(c => c.toLowerCase() === nameOfTeam.get(id) && !takenColours.has(c.toLowerCase()));
+        if (hit) { colorOf[id] = hit; takenColours.add(hit.toLowerCase()); }
+      }
+      // Second pass: anything still unmatched takes the next free colour, in
+      // slot order, which is the old behaviour for non-colour team names
+      // ("Team A", "Gold Rush").
+      for (const id of teamIds) {
+        if (colorOf[id]) continue;
+        const free = palette.find(c => !takenColours.has(c.toLowerCase()));
+        if (free) { colorOf[id] = free; takenColours.add(free.toLowerCase()); }
+      }
       const withTeam = await sql`SELECT athlete_id, scrimmage_team_id FROM scrimmage_team_members WHERE scrimmage_team_id = ANY(${teamIds})`;
       for (const m of withTeam) {
         const color = colorOf[m.scrimmage_team_id];
