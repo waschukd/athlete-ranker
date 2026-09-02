@@ -283,6 +283,33 @@ export async function GET(request, { params }) {
   }
 }
 
+// Two different players checked in with the same jersey color AND number at
+// once is a real, recurring mix-up (a volunteer hands out the same bib twice,
+// or two players both default to "White #4"). Scoped to CHECKED-IN players
+// only on this same session -- an unchecked player sitting on a number
+// nobody's wearing yet isn't a conflict, and a number reused across different
+// sessions is fine (different bibs each time).
+async function findJerseyConflict(scheduleId, teamColor, jerseyNumber, excludeAthleteId) {
+  if (jerseyNumber == null || !teamColor) return null;
+  const rows = await sql`
+    SELECT pc.athlete_id, a.first_name, a.last_name
+    FROM player_checkins pc
+    JOIN athletes a ON a.id = pc.athlete_id
+    WHERE pc.schedule_id = ${scheduleId} AND pc.checked_in = true
+      AND pc.jersey_number = ${jerseyNumber} AND LOWER(pc.team_color) = LOWER(${teamColor})
+      AND pc.athlete_id != ${excludeAthleteId}
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+function conflictResponse(conflict, teamColor, jerseyNumber) {
+  return NextResponse.json({
+    error: `Whoops — ${conflict.first_name} ${conflict.last_name} is already checked in as ${teamColor} #${jerseyNumber}.`,
+    code: "jersey_conflict",
+  }, { status: 409 });
+}
+
 export async function POST(request, { params }) {
   try {
     const { scheduleId } = params;
@@ -305,6 +332,16 @@ export async function POST(request, { params }) {
 
     if (action === "checkin") {
       const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      // team_color falls back to the existing row's color below (COALESCE) --
+      // resolve that same effective value here so the conflict check looks at
+      // what will actually be saved, not just what this call happened to send.
+      let effectiveColor = team_color || null;
+      if (!effectiveColor) {
+        const [existing] = await sql`SELECT team_color FROM player_checkins WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}`;
+        effectiveColor = existing?.team_color || null;
+      }
+      const conflict = await findJerseyConflict(scheduleId, effectiveColor, jersey_number, athlete_id);
+      if (conflict) return conflictResponse(conflict, effectiveColor, jersey_number);
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || null}, true, NOW())
@@ -334,6 +371,13 @@ export async function POST(request, { params }) {
     // (e.g. a fresh category with no group assignments yet).
     if (action === "update_jersey") {
       const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      // Only a conflict if this player is already checked in -- editing an
+      // unchecked player's number ahead of time can't clash with anyone yet.
+      const [existing] = await sql`SELECT team_color, checked_in FROM player_checkins WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}`;
+      if (existing?.checked_in) {
+        const conflict = await findJerseyConflict(scheduleId, existing.team_color, jersey_number, athlete_id);
+        if (conflict) return conflictResponse(conflict, existing.team_color, jersey_number);
+      }
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number})
@@ -377,6 +421,11 @@ export async function POST(request, { params }) {
 
     if (action === "move_team") {
       const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const [existing] = await sql`SELECT jersey_number, checked_in FROM player_checkins WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}`;
+      if (existing?.checked_in) {
+        const conflict = await findJerseyConflict(scheduleId, team_color, existing.jersey_number, athlete_id);
+        if (conflict) return conflictResponse(conflict, team_color, existing.jersey_number);
+      }
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, team_color)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${team_color})
@@ -450,9 +499,12 @@ export async function POST(request, { params }) {
 
       // Create checkin record and check them in
       const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const effectiveColor = team_color || colorNames(cs[0]?.team_colors)[0];
+      const conflict = await findJerseyConflict(scheduleId, effectiveColor, jersey_number, newAthlete.id);
+      if (conflict) return conflictResponse(conflict, effectiveColor, jersey_number);
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
-        VALUES (${newAthlete.id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || colorNames(cs[0]?.team_colors)[0]}, true, NOW())
+        VALUES (${newAthlete.id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${effectiveColor}, true, NOW())
         ON CONFLICT (athlete_id, schedule_id) DO UPDATE SET checked_in = true, checked_in_at = NOW()
       `;
 
@@ -527,6 +579,11 @@ export async function POST(request, { params }) {
 
       // Check them into THIS session, reusing the existing athlete_id.
       const cs = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
+      const [existingCheckin] = await sql`SELECT jersey_number, team_color FROM player_checkins WHERE athlete_id = ${athlete_id} AND schedule_id = ${scheduleId}`;
+      const effectiveColor = team_color || existingCheckin?.team_color || colorNames(cs[0]?.team_colors)[0];
+      const effectiveJersey = jersey_number ?? existingCheckin?.jersey_number ?? null;
+      const conflict = await findJerseyConflict(scheduleId, effectiveColor, effectiveJersey, athlete_id);
+      if (conflict) return conflictResponse(conflict, effectiveColor, effectiveJersey);
       await sql`
         INSERT INTO player_checkins (athlete_id, schedule_id, checkin_session_id, jersey_number, team_color, checked_in, checked_in_at)
         VALUES (${athlete_id}, ${scheduleId}, ${cs[0]?.id}, ${jersey_number || null}, ${team_color || colorNames(cs[0]?.team_colors)[0]}, true, NOW())

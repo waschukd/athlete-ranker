@@ -66,7 +66,11 @@ function CheckinPageInner() {
         body: JSON.stringify({ action, ...body }),
       });
       if (!res.ok) {
-        setActionError("That didn't save — check your connection and try again.");
+        // A jersey clash (same color + number already checked in) carries its
+        // own specific "Whoops" message from the server — surface it verbatim
+        // instead of the generic connection-failure banner.
+        const d = await res.json().catch(() => ({}));
+        setActionError(d.code === "jersey_conflict" ? d.error : "That didn't save — check your connection and try again.");
       } else {
         setActionError("");
       }
