@@ -5,6 +5,12 @@
 const SENDER_NAME = process.env.EMAIL_FROM_NAME || "Sideline Star";
 const RAW_FROM = process.env.EMAIL_FROM || "updates@sidelinestar.com";
 export const FROM = RAW_FROM.includes("<") ? RAW_FROM : `${SENDER_NAME} <${RAW_FROM}>`;
+// FROM has no real inbox behind it -- anyone who hits "reply" on a system
+// email (an invite, a cut notice, a testing-results alert...) got a bounce
+// instead of reaching a human. Real incident: a registrar replied to an
+// invite email and the reply bounced back to her. Routes replies to an
+// actually-monitored inbox instead.
+export const REPLY_TO = process.env.EMAIL_REPLY_TO || "dan@competitivethread.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
 // Escape user-controlled values before interpolating into email HTML. Names,
@@ -49,7 +55,7 @@ export async function sendEmail(to, subject, html, attachments) {
     return { ok: false, skipped: true, error: "Email is not configured" };
   }
   try {
-    const payload = { from: FROM, to, subject, html };
+    const payload = { from: FROM, to, subject, html, reply_to: REPLY_TO };
     if (attachments?.length) payload.attachments = attachments;
 
     let res = await postToResend(payload);

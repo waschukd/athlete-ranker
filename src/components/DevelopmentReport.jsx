@@ -24,6 +24,18 @@ const WHITE = "#ffffff";
 const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const MONO = "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace";
 
+// "Then, in order" trailing clauses, rotated by list position -- real
+// feedback: every item in this list used to end with the identical "gets
+// easier once the foundation above is in place," which read as a template
+// dump once there were 3+ items. Cycled rather than repeated so a longer
+// list still reads like it was written, not generated.
+const THEN_IN_ORDER_CLAUSE = [
+  "; gets easier once the foundation above is in place.",
+  "; builds naturally on that same foundation.",
+  "; the next domino once the priority above starts to move.",
+  "; rounds out the picture once the earlier work sticks.",
+];
+
 function testInfo(name) {
   const n = (name || "").toLowerCase();
   // Weave/transition/stop checked BEFORE the bare "puck" fallback -- a drill
@@ -527,15 +539,15 @@ export default function DevelopmentReport({ data }) {
                       </div>
                       <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: GRAY, fontWeight: 700, marginBottom: 9 }}>Then, in order</div>
                       <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                        {skillFocus.slice(1).map(s => (
+                        {skillFocus.slice(1).map((s, i) => (
                           <li key={s.scoring_category_id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: GOLD, marginTop: 6, flexShrink: 0 }} />
-                            <span style={{ color: TXT_DIM }}><b style={{ color: "#fff" }}>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group; gets easier once the foundation above is in place.</span>
+                            <span style={{ color: TXT_DIM }}><b style={{ color: "#fff" }}>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group{THEN_IN_ORDER_CLAUSE[i % THEN_IN_ORDER_CLAUSE.length]}</span>
                           </li>
                         ))}
                       </ul>
                       {testFocus.length > 0 ? (
-                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
                       ) : (
                         <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${HAIR}`, color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
                       )}
@@ -543,7 +555,7 @@ export default function DevelopmentReport({ data }) {
                   )}
                   {skillFocus.length <= 1 && (
                     testFocus.length > 0 ? (
-                      <p style={{ margin: "16px 0 0", color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                      <p style={{ margin: "16px 0 0", color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
                     ) : (
                       <p style={{ margin: "16px 0 0", color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
                     )
@@ -552,7 +564,7 @@ export default function DevelopmentReport({ data }) {
               )}
               {skillFocus.length === 0 && (
                 testFocus.length > 0 ? (
-                  <p style={{ margin: 0, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — tie straight back to the foundation above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                  <p style={{ margin: 0, color: TXT_DIM }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: "#fff" }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} are the clearest places to invest between now and the next evaluation. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
                 ) : (
                   <p style={{ margin: 0, color: TXT_DIM }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
                 )
