@@ -58,7 +58,13 @@ export async function POST(request) {
   let email;
   try {
     const body = await request.json();
-    email = body.email;
+    // Normalized once, used everywhere below -- email is case-insensitive in
+    // practice (Gmail and friends don't distinguish), so both the auth lookups
+    // and the per-email rate-limit bucket need to agree on one case or a typed
+    // "Foo@x.com" vs stored "foo@x.com" either locks out a real login (the bug
+    // that prompted this) or lets an attacker dodge the 5-failure cap by
+    // varying case on each attempt.
+    email = (body.email || "").trim().toLowerCase();
     const { password } = body;
 
     const gate = await checkRateLimit(ip, email);
@@ -73,7 +79,14 @@ export async function POST(request) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
 
-    const authUsers = await sql`SELECT * FROM auth_users WHERE email = ${email}`;
+    // Real incident: a tester's login attempts recorded as
+    // "Ryannjperrett@gmail.com" (phone keyboards auto-capitalize a field's
+    // first letter) against a stored "ryannjperrett@gmail.com" -- an exact
+    // match failed even though it was the right account and right password.
+    // Email is case-insensitive everywhere else (Gmail, RFC in practice), so
+    // compare that way here too rather than trusting every caller to have
+    // typed/stored it in matching case.
+    const authUsers = await sql`SELECT * FROM auth_users WHERE LOWER(email) = LOWER(${email})`;
     if (!authUsers.length) {
       await recordFailure(ip, email);
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
@@ -105,7 +118,7 @@ export async function POST(request) {
       const bcryptHash = await hashPassword(password);
       await sql`UPDATE auth_accounts SET password = ${bcryptHash} WHERE "userId" = ${authUser.id} AND provider = 'credentials'`;
     }
-    const appUsers = await sql`SELECT * FROM users WHERE email = ${email}`;
+    const appUsers = await sql`SELECT * FROM users WHERE LOWER(email) = LOWER(${email})`;
     const appUser = appUsers[0];
     const role = appUser?.role || "association_evaluator";
     const token = await signToken({
@@ -120,7 +133,7 @@ export async function POST(request) {
     // Mike invites Brian to KC North) is NOT the contact_email, so fall back to their
     // org role. Without this they'd land on /association/dashboard with no ?org and
     // see an empty page on every login after the first (the invite-accept redirect).
-    const orgRow = await sql`SELECT id FROM organizations WHERE contact_email = ${email} LIMIT 1`;
+    const orgRow = await sql`SELECT id FROM organizations WHERE LOWER(contact_email) = LOWER(${email}) LIMIT 1`;
     let orgId = orgRow[0]?.id;
     if (!orgId && appUser?.id && (role === "association_admin" || role === "service_provider_admin" || role === "goalie_service_provider_admin")) {
       const wantType = role === "association_admin" ? "association" : role === "goalie_service_provider_admin" ? "goalie_service_provider" : "service_provider";
@@ -144,7 +157,7 @@ export async function POST(request) {
 
     const response = NextResponse.json({
       success: true,
-      user: { id: appUser?.id, email, name: authUser.name, role },
+      user: { id: appUser?.id, email: authUser.email, name: authUser.name, role },
       redirectTo,
     });
     response.cookies.set("auth-token", token, {
