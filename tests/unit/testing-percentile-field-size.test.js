@@ -33,7 +33,6 @@ function mockScoredWithTesting() {
     .mockResolvedValueOnce([{ count: 0 }])                                                            // category_scores count
     .mockResolvedValueOnce([{ count: 2 }])                                                            // testing_drill_results count
     .mockResolvedValueOnce([])                                                                        // allEvalScores
-    .mockResolvedValueOnce([])                                                                        // sessionScores
     .mockResolvedValueOnce([                                                                          // testingRanks
       { athlete_id: 1, session_number: 1, overall_rank: 1 },
       { athlete_id: 2, session_number: 1, overall_rank: 2 },

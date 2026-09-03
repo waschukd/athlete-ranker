@@ -18,6 +18,41 @@ import { getCoachUserIds } from "@/lib/categoryEvaluators";
 // data" for literally everyone, correctly caught up or not.
 const LOW_DATA_RELATIVE_THRESHOLD = 0.5;
 
+// Round-robin categories rotate DIFFERENT evaluator panels across different
+// nights/groups -- a systematically generous or harsh grader then shifts
+// whichever athletes they happen to see, purely from panel luck, not real
+// ability. Real incident: BAHA U11/U13/U15 AA, one evaluator's raw average
+// ran ~1.0-1.5 points above every other evaluator's, every single night,
+// which read to the association as "wild score swings" between nights that
+// were really just "who was in the room." This re-centers each evaluator's
+// scores to the category's own overall mean before they blend into an
+// athlete's session average. It's a flat shift within one evaluator's own
+// scores -- their internal order of who they liked best never changes --
+// so it only corrects comparisons ACROSS evaluators/nights, which is
+// exactly the failure mode above. Skills/scrimmage categories keep the same
+// panel every night, so they don't have this problem and are left as raw
+// averages (byte-identical to before this change).
+const MIN_SCORES_FOR_EVALUATOR_CORRECTION = 8;
+function applyEvaluatorCorrection(rows, scale) {
+  const sums = {}, counts = {};
+  for (const r of rows) {
+    const ev = r.evaluator_id;
+    sums[ev] = (sums[ev] || 0) + parseFloat(r.score);
+    counts[ev] = (counts[ev] || 0) + 1;
+  }
+  const grandMean = rows.length ? rows.reduce((a, r) => a + parseFloat(r.score), 0) / rows.length : 0;
+  const delta = {};
+  for (const ev of Object.keys(sums)) {
+    // Too few scores to trust as a real "this evaluator runs hot/cold"
+    // signal rather than noise -- leave them uncorrected.
+    delta[ev] = counts[ev] >= MIN_SCORES_FOR_EVALUATOR_CORRECTION ? (sums[ev] / counts[ev]) - grandMean : 0;
+  }
+  return rows.map(r => ({
+    ...r,
+    score: Math.min(scale, Math.max(0, parseFloat(r.score) - (delta[r.evaluator_id] || 0))),
+  }));
+}
+
 function median(nums) {
   if (!nums.length) return 0;
   const s = [...nums].sort((a, b) => a - b);
@@ -87,26 +122,20 @@ export async function computeCategoryRankings(catId, opts = {}) {
   }
 
   // ── Calculate inter-rater agreement per athlete ────────────────────────
-  // allEvalScores, sessionScores, and testingRanks below are three independent
-  // reads (different aggregations of category_scores, plus a separate table) --
-  // batched together rather than run one after another.
-  const [allEvalScores, sessionScores, testingRanks] = await Promise.all([
+  // allEvalScores and testingRanks below are two independent reads (different
+  // aggregations of category_scores, plus a separate table) -- batched
+  // together rather than run one after another. allEvalScores carries every
+  // column needed for BOTH the agreement map and the per-session average
+  // below (previously a second, near-identical query did the session-average
+  // aggregation in SQL) -- pulling session_number/evaluator_id onto the same
+  // rows lets the evaluator-correction above apply consistently to both.
+  const [allEvalScores, testingRanks] = await Promise.all([
     sql`
-      SELECT athlete_id, scoring_category_id, score
+      SELECT athlete_id, scoring_category_id, session_number, evaluator_id, score
       FROM category_scores
       WHERE age_category_id = ${catId}
         AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
         AND evaluator_id <> ALL(${exclIds})
-    `,
-    sql`
-      SELECT athlete_id, session_number,
-        AVG(score) as avg_score,
-        COUNT(DISTINCT evaluator_id) as evaluator_count
-      FROM category_scores
-      WHERE age_category_id = ${catId}
-        AND (${onlyGuard} = 1 OR evaluator_id = ANY(${onlyArr}))
-        AND evaluator_id <> ALL(${exclIds})
-      GROUP BY athlete_id, session_number
     `,
     sql`
       SELECT DISTINCT ON (athlete_id, session_number) athlete_id, session_number, overall_rank
@@ -116,10 +145,14 @@ export async function computeCategoryRankings(catId, opts = {}) {
     `,
   ]);
 
+  const scoreRows = category?.eval_format === "round_robin"
+    ? applyEvaluatorCorrection(allEvalScores, scale)
+    : allEvalScores;
+
   // Build agreement map per athlete
   const agreementMap = {};
   const evalByAthleteCat = {};
-  for (const s of allEvalScores) {
+  for (const s of scoreRows) {
     const key = `${s.athlete_id}_${s.scoring_category_id}`;
     if (!evalByAthleteCat[key]) evalByAthleteCat[key] = [];
     evalByAthleteCat[key].push(parseFloat(s.score));
@@ -135,10 +168,25 @@ export async function computeCategoryRankings(catId, opts = {}) {
   }
 
   // Skills/scrimmage scores: AVG(score) = average per-category score across all
-  // evaluators for this athlete+session; normalized = (avg_score / scale) × 100
-  // (e.g. avg 7.5/10 = 75.0, avg 5/10 = 50.0). Testing ranks: percentile =
-  // (N - rank) / (N - 1) × 100 (rank 1 of 26 = 100.0, rank 26 = 0.0). Both
-  // fetched above alongside allEvalScores.
+  // evaluators for this athlete+session (evaluator-corrected first, for
+  // round_robin categories -- see applyEvaluatorCorrection); normalized =
+  // (avg_score / scale) × 100 (e.g. avg 7.5/10 = 75.0, avg 5/10 = 50.0).
+  // Testing ranks: percentile = (N - rank) / (N - 1) × 100 (rank 1 of 26 =
+  // 100.0, rank 26 = 0.0).
+  const sessionAgg = {};
+  for (const r of scoreRows) {
+    const key = `${r.athlete_id}_${r.session_number}`;
+    if (!sessionAgg[key]) sessionAgg[key] = { athlete_id: r.athlete_id, session_number: r.session_number, sum: 0, count: 0, evaluators: new Set() };
+    sessionAgg[key].sum += parseFloat(r.score);
+    sessionAgg[key].count++;
+    sessionAgg[key].evaluators.add(r.evaluator_id);
+  }
+  const sessionScores = Object.values(sessionAgg).map(s => ({
+    athlete_id: s.athlete_id,
+    session_number: s.session_number,
+    avg_score: s.sum / s.count,
+    evaluator_count: s.evaluators.size,
+  }));
 
   const completedSessions = [...new Set([
     ...sessionScores.map(s => parseInt(s.session_number)),
@@ -366,6 +414,6 @@ export async function computeCategoryRankings(catId, opts = {}) {
     in_progress_sessions: inProgressSessions,
     session_status: sessionStatus, category,
     has_coaches: coachIds.length > 0,
-    scoring_info: { scale, method: "percentile_and_normalized_0_100" },
+    scoring_info: { scale, method: "percentile_and_normalized_0_100", evaluator_corrected: category?.eval_format === "round_robin" },
   };
 }
