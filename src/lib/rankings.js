@@ -32,8 +32,8 @@ const LOW_DATA_RELATIVE_THRESHOLD = 0.5;
 // exactly the failure mode above. Skills/scrimmage categories keep the same
 // panel every night, so they don't have this problem and are left as raw
 // averages (byte-identical to before this change).
-const MIN_SCORES_FOR_EVALUATOR_CORRECTION = 8;
-function applyEvaluatorCorrection(rows, scale) {
+export const MIN_SCORES_FOR_EVALUATOR_CORRECTION = 8;
+export function applyEvaluatorCorrection(rows, scale) {
   const sums = {}, counts = {};
   for (const r of rows) {
     const ev = r.evaluator_id;

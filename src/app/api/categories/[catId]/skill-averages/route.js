@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
+import { applyEvaluatorCorrection } from "@/lib/rankings";
 
 // Per-criterion averages for every athlete in a category: their mean score in
 // Skating, Puck Skills, Effort/Compete, Hockey IQ (or whatever criteria the
@@ -38,7 +39,7 @@ export async function GET(request, { params }) {
     if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const [category] = await sql`
-      SELECT id, name, scoring_scale, evaluators_anonymous FROM age_categories WHERE id = ${catId}`;
+      SELECT id, name, scoring_scale, evaluators_anonymous, eval_format FROM age_categories WHERE id = ${catId}`;
     if (!category) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const scale = parseFloat(category.scoring_scale || 10);
 
@@ -51,26 +52,47 @@ export async function GET(request, { params }) {
     // official ranking cannot disagree about the same player.
     const coachIds = await getCoachUserIds(catId);
 
-    const rows = coachIds.length
+    // Raw per-row scores (not pre-aggregated in SQL) -- for round_robin
+    // categories these need the same evaluator-generosity correction the
+    // official ranking applies (see applyEvaluatorCorrection in rankings.js)
+    // before being averaged, or this table would silently disagree with the
+    // official ranking about the same player, which the comment above
+    // promises never happens.
+    const rawRows = coachIds.length
       ? await sql`
-          SELECT cs.athlete_id, cs.scoring_category_id,
-                 AVG(cs.score)::float       AS avg_score,
-                 COUNT(*)::int              AS n_scores,
-                 COUNT(DISTINCT cs.evaluator_id)::int  AS n_evaluators,
-                 COUNT(DISTINCT cs.session_number)::int AS n_sessions
+          SELECT cs.athlete_id, cs.scoring_category_id, cs.evaluator_id, cs.session_number, cs.score
           FROM category_scores cs
           WHERE cs.age_category_id = ${catId}
-            AND cs.evaluator_id <> ALL(${coachIds})
-          GROUP BY cs.athlete_id, cs.scoring_category_id`
+            AND cs.evaluator_id <> ALL(${coachIds})`
       : await sql`
-          SELECT cs.athlete_id, cs.scoring_category_id,
-                 AVG(cs.score)::float       AS avg_score,
-                 COUNT(*)::int              AS n_scores,
-                 COUNT(DISTINCT cs.evaluator_id)::int  AS n_evaluators,
-                 COUNT(DISTINCT cs.session_number)::int AS n_sessions
+          SELECT cs.athlete_id, cs.scoring_category_id, cs.evaluator_id, cs.session_number, cs.score
           FROM category_scores cs
-          WHERE cs.age_category_id = ${catId}
-          GROUP BY cs.athlete_id, cs.scoring_category_id`;
+          WHERE cs.age_category_id = ${catId}`;
+
+    const scoreRows = category.eval_format === "round_robin"
+      ? applyEvaluatorCorrection(rawRows, scale)
+      : rawRows;
+
+    const grouped = new Map();
+    for (const r of scoreRows) {
+      const key = `${r.athlete_id}_${r.scoring_category_id}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { athlete_id: r.athlete_id, scoring_category_id: r.scoring_category_id, sum: 0, n: 0, evaluators: new Set(), sessions: new Set() });
+      }
+      const g = grouped.get(key);
+      g.sum += parseFloat(r.score);
+      g.n++;
+      g.evaluators.add(r.evaluator_id);
+      g.sessions.add(r.session_number);
+    }
+    const rows = Array.from(grouped.values()).map(g => ({
+      athlete_id: g.athlete_id,
+      scoring_category_id: g.scoring_category_id,
+      avg_score: g.sum / g.n,
+      n_scores: g.n,
+      n_evaluators: g.evaluators.size,
+      n_sessions: g.sessions.size,
+    }));
 
     const athleteRows = await sql`
       SELECT id, first_name, last_name, position, helmet_number, is_active, cut_at

@@ -4,6 +4,7 @@ import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { checkAndRecord } from "@/lib/rateLimit";
 import { AI_MODEL } from "@/lib/aiModel";
+import { computeCategoryRankings } from "@/lib/rankings";
 
 export async function POST(request, { params }) {
   try {
@@ -50,18 +51,17 @@ export async function POST(request, { params }) {
       ORDER BY cs.session_number, sc.display_order
     `;
 
-    // Get ranking
-    const ranking = await sql`
-      SELECT COUNT(*) + 1 as rank FROM (
-        SELECT athlete_id, AVG(score) as avg
-        FROM category_scores WHERE age_category_id = ${catId}
-        GROUP BY athlete_id
-        HAVING AVG(score) > (
-          SELECT AVG(score) FROM category_scores WHERE athlete_id = ${athleteId} AND age_category_id = ${catId}
-        )
-      ) better
-    `;
-    const totalAthletes = await sql`SELECT COUNT(DISTINCT athlete_id) as count FROM category_scores WHERE age_category_id = ${catId}`;
+    // Get ranking from the single source of truth every other ranking display
+    // uses -- this used to run its own raw AVG(score) query, which for
+    // round_robin categories didn't correct for evaluator generosity/
+    // strictness, so this narrative's "Approximate Rank" could disagree with
+    // the Rankings tab about the very same player.
+    const rankData = await computeCategoryRankings(catId);
+    const isGoalie = (athlete[0].position || "").toLowerCase() === "goalie";
+    const rankPool = isGoalie ? (rankData.goalies || []) : (rankData.athletes || []);
+    const athleteRanking = rankPool.find(a => String(a.id) === String(athleteId));
+    const rank = athleteRanking?.rank ?? null;
+    const totalInPool = rankPool.length || null;
 
     // Build context
     const notesContext = notes.map(n =>
@@ -82,7 +82,7 @@ export async function POST(request, { params }) {
 Player: ${athlete[0].first_name} ${athlete[0].last_name}
 Position: ${athlete[0].position || "Not specified"}
 Category: ${category[0]?.name || "Unknown"}
-Approximate Rank: ${ranking[0]?.rank || "?"} of ${totalAthletes[0]?.count || "?"}
+Approximate Rank: ${rank || "?"} of ${totalInPool || "?"}
 
 Scores by Session:
 ${scoresContext || "No scores available"}
