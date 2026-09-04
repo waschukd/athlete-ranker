@@ -31,7 +31,6 @@ export async function GET(request) {
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.no_show = true) as no_shows,
         COUNT(DISTINCT ess.id) FILTER (WHERE ess.completed = true) as completed_sessions,
         COALESCE(SUM(eh.hours_worked) FILTER (WHERE ess.no_show IS NOT true), 0) as total_hours,
-        COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'pending' AND ess.no_show IS NOT true), 0) as pending_hours,
         COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'approved'), 0) as approved_hours,
         COALESCE(AVG(er.rating), 0) as avg_rating,
         COUNT(DISTINCT er.id) as rating_count,

@@ -211,14 +211,13 @@ export default function EvaluatorsTab({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sessions</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hours</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Pending</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Rating</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredEvaluators.length === 0 ? (
-              <tr><td colSpan={7} className="py-10 text-center text-gray-400 text-sm">{evaluators.length === 0 ? "No evaluators in pool yet" : "No evaluators match your search"}</td></tr>
+              <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">{evaluators.length === 0 ? "No evaluators in pool yet" : "No evaluators match your search"}</td></tr>
             ) : pagedEvaluators.map(ev => (
               <tr key={ev.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-center"><input type="checkbox" checked={selEvals.includes(ev.id)} onClick={e => e.stopPropagation()} onChange={e => setSelEvals(e.target.checked ? [...selEvals, ev.id] : selEvals.filter(id => id !== ev.id))} className="rounded border-gray-300" /></td>
@@ -232,7 +231,6 @@ export default function EvaluatorsTab({
                 </td>
                 <td className="px-4 py-3 text-center text-gray-700">{ev.total_sessions || 0}</td>
                 <td className="px-4 py-3 text-center font-semibold text-gray-900">{parseFloat(ev.total_hours || 0).toFixed(1)}h</td>
-                <td className="px-4 py-3 text-center">{parseFloat(ev.pending_hours || 0) > 0 ? <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">{parseFloat(ev.pending_hours).toFixed(1)}h</span> : "-"}</td>
                 <td className="px-4 py-3 text-center">{parseFloat(ev.avg_rating || 0) > 0 ? `${parseFloat(ev.avg_rating).toFixed(1)} *` : "-"}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-1">
