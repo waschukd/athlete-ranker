@@ -11,13 +11,12 @@ import { ComposeMessageModal, MessagesSection } from "@/components/service-provi
 const EVAL_PAGE_SIZE = 25;
 
 export default function EvaluatorsTab({
-  evaluators, flags, pendingHours, evaluatorOpenSpots, evaluatorSessionsNeeding,
+  evaluators, flags, evaluatorOpenSpots, evaluatorSessionsNeeding,
   spUrl, orgParam, sp, queryClient, joinCodeData, refetchCodes,
 }) {
   const [evalInviteEmail, setEvalInviteEmail] = useState("");
   const [evalInviteSending, setEvalInviteSending] = useState(false);
   const [evalInviteMsg, setEvalInviteMsg] = useState(null);
-  const [selHours, setSelHours] = useState([]);
   const [selFlags, setSelFlags] = useState([]);
   const [selEvals, setSelEvals] = useState([]);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
@@ -64,7 +63,6 @@ export default function EvaluatorsTab({
         <h2 className="text-lg font-semibold text-gray-900">Evaluator Pool</h2>
         <div className="flex items-center gap-3">
           {flags.length > 0 && <span className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-full">{flags.length} open flags</span>}
-          {pendingHours.length > 0 && <span className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full">{pendingHours.length} pending hours</span>}
           <a href="/service-provider/dashboard/scoring-guide" className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
             <BookOpen size={14} /> Scoring guide
           </a>
@@ -158,31 +156,6 @@ export default function EvaluatorsTab({
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {pendingHours.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-amber-800">Pending Hours Approval</h3>
-            {selHours.length > 0 && (
-              <button onClick={async () => { const data = await bulkAction({ action: "approve_hours", hours_ids: selHours }); if (!data) return; setSelHours([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve selected ({selHours.length})</button>
-            )}
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100"><tr><th className="px-4 py-2 text-center w-10"><input type="checkbox" checked={pendingHours.length > 0 && selHours.length === pendingHours.length} onChange={e => setSelHours(e.target.checked ? pendingHours.map(h => h.id) : [])} className="rounded border-gray-300" /></th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Evaluator</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Session</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Hours</th><th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">
-              {pendingHours.map(h => (
-                <tr key={h.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 text-center"><input type="checkbox" checked={selHours.includes(h.id)} onChange={e => setSelHours(e.target.checked ? [...selHours, h.id] : selHours.filter(id => id !== h.id))} className="rounded border-gray-300" /></td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{h.evaluator_name}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{h.org_name} - {h.category_name} S{h.session_number}</td>
-                  <td className="px-4 py-2.5 text-center font-bold text-gray-900">{parseFloat(h.hours_worked).toFixed(1)}h</td>
-                  <td className="px-4 py-2.5 text-center"><button onClick={async () => { await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve_hours", hours_id: h.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 font-medium">Approve</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
 

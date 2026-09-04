@@ -80,7 +80,6 @@ function SPDashboard() {
   const evaluatorStats = assocData?.evaluatorStats || {};
   const evaluators = evalData?.evaluators || [];
   const flags = evalData?.flags || [];
-  const pendingHours = evalData?.pendingHours || [];
 
   const rawSchedule = schedData?.schedule || [];
   const isGoalieSp = sp?.type === "goalie_service_provider";
@@ -219,7 +218,7 @@ function SPDashboard() {
 
         {activeTab === "evaluators" && (
           <EvaluatorsTab
-            evaluators={evaluators} flags={flags} pendingHours={pendingHours}
+            evaluators={evaluators} flags={flags}
             evaluatorOpenSpots={evaluatorOpenSpots} evaluatorSessionsNeeding={evaluatorSessionsNeeding}
             spUrl={spUrl} orgParam={orgParam} sp={sp} queryClient={queryClient}
             joinCodeData={joinCodeData} refetchCodes={refetchCodes}

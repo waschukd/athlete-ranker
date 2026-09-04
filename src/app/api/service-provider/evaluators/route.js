@@ -55,17 +55,7 @@ export async function GET(request) {
       WHERE ef.organization_id = ${spId} AND ef.reviewed = false
       ORDER BY ef.created_at DESC LIMIT 20
     `;
-    const pendingHours = await sql`
-      SELECT eh.*, u.name as evaluator_name, es.session_number, es.scheduled_date, es.start_time, es.end_time, ac.name as category_name, o.name as org_name
-      FROM evaluator_hours eh
-      JOIN users u ON u.id = eh.evaluator_id
-      JOIN evaluation_schedule es ON es.id = eh.schedule_id
-      JOIN age_categories ac ON ac.id = es.age_category_id
-      JOIN organizations o ON o.id = ac.organization_id
-      WHERE eh.organization_id = ${spId} AND eh.status = 'pending'
-      ORDER BY eh.session_date DESC
-    `;
-    return NextResponse.json({ evaluators, flags, pendingHours });
+    return NextResponse.json({ evaluators, flags });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
