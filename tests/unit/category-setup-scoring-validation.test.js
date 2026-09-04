@@ -84,11 +84,11 @@ describe("POST /api/categories/[catId]/setup — scoring step validation", () =>
     expect(sql.mock.calls.some(c => c[0].join("?").includes("UPDATE age_categories"))).toBe(false);
   });
 
-  it("saves normally with a valid payload", async () => {
+  it("saves normally with a valid payload (no scoring categories existed yet)", async () => {
     mockSqlByQuery([
       ["SELECT setup_complete", [{ setup_complete: true, organization_id: 37, created_at: "2026-07-14" }]],
+      ["SELECT id, display_order FROM scoring_categories", []],
       ["UPDATE age_categories", []],
-      ["DELETE FROM scoring_categories", []],
       ["INSERT INTO scoring_categories", []],
     ]);
 
@@ -105,5 +105,55 @@ describe("POST /api/categories/[catId]/setup — scoring step validation", () =>
     const updateCall = sql.mock.calls.find(c => c[0].join("?").includes("UPDATE age_categories"));
     expect(updateCall[1]).toBe(10);   // scoringScale bound as a real number, not ""
     expect(updateCall[2]).toBe(0.5);  // scoringIncrement bound as a real number
+    expect(sql.mock.calls.filter(c => c[0].join("?").includes("INSERT INTO scoring_categories")).length).toBe(2);
+  });
+
+  // Real incident: BAHA's U11/U13/U15 AA were all mid-tryout with real
+  // category_scores already recorded against their scoring_categories rows.
+  // The old blanket DELETE-then-recreate threw a foreign-key violation on
+  // every single re-save of this step from then on, with no way to ever
+  // save it again short of deleting live scores.
+  it("updates existing scoring categories in place instead of deleting them once scores exist", async () => {
+    mockSqlByQuery([
+      ["SELECT setup_complete", [{ setup_complete: true, organization_id: 37, created_at: "2026-07-14" }]],
+      ["SELECT id, display_order FROM scoring_categories", [{ id: 492, display_order: 0 }, { id: 493, display_order: 1 }]],
+      ["UPDATE age_categories", []],
+      ["UPDATE scoring_categories", []],
+    ]);
+
+    const { POST } = await import("@/app/api/categories/[catId]/setup/route");
+    const res = await POST(makeReq({
+      step: "scoring",
+      data: {
+        scoring_scale: "10", scoring_increment: "0.5",
+        categories: [{ name: "Skating (renamed)", applies_to: "all" }, { name: "Puck Skills", applies_to: "all" }],
+      },
+    }), { params: { catId: "66" } });
+
+    expect(res.status).toBe(200);
+    expect(sql.mock.calls.some(c => c[0].join("?").includes("DELETE FROM scoring_categories"))).toBe(false);
+    const updateCalls = sql.mock.calls.filter(c => c[0].join("?").includes("UPDATE scoring_categories"));
+    expect(updateCalls).toHaveLength(2);
+    expect(updateCalls[0][1]).toBe("Skating (renamed)");
+  });
+
+  it("rejects removing a scoring category that already has recorded scores", async () => {
+    mockSqlByQuery([
+      ["SELECT setup_complete", [{ setup_complete: true, organization_id: 37, created_at: "2026-07-14" }]],
+      ["SELECT id, display_order FROM scoring_categories", [{ id: 492, display_order: 0 }, { id: 493, display_order: 1 }]],
+      ["SELECT 1 FROM category_scores WHERE scoring_category_id", [{ "?column?": 1 }]],
+    ]);
+
+    const { POST } = await import("@/app/api/categories/[catId]/setup/route");
+    const res = await POST(makeReq({
+      step: "scoring",
+      data: { scoring_scale: "10", scoring_increment: "0.5", categories: [{ name: "Skating", applies_to: "all" }] },
+    }), { params: { catId: "66" } });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/already has recorded scores/i);
+    // Must reject before touching age_categories or scoring_categories at all.
+    expect(sql.mock.calls.some(c => c[0].join("?").includes("UPDATE age_categories"))).toBe(false);
   });
 });

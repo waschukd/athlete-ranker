@@ -192,6 +192,32 @@ export async function POST(request, { params }) {
         if (!Array.isArray(data.categories)) {
           return NextResponse.json({ error: "categories must be an array" }, { status: 400 });
         }
+        const incoming = data.categories.filter(c => c?.name);
+
+        // Real incident: BAHA hit a foreign-key violation on this step for
+        // U11/U13/U15 AA -- all three mid-tryout with real scores already
+        // recorded. scoring_categories rows get referenced by category_scores
+        // once evaluating starts; the old blanket DELETE-then-recreate below
+        // threw the moment that was true for ANY row, on every single save of
+        // this step from then on (even re-saving with no real change), which
+        // is a dead end with no way to ever save this step again. The wizard
+        // sends categories as {name, applies_to} with no id -- position in
+        // the list IS the identity here -- so match existing rows to the
+        // incoming list by display_order and UPDATE in place (keeps the same
+        // row/id, so category_scores stays validly pointed at it) instead of
+        // deleting and recreating. Only genuinely-removed trailing rows get
+        // deleted, and only if nothing has scored against them yet.
+        const existingSkaterCats = await sql`
+          SELECT id, display_order FROM scoring_categories
+          WHERE age_category_id = ${catId} AND applies_to NOT IN ('goalies','goalie_skills')
+          ORDER BY display_order`;
+        const minLen = Math.min(existingSkaterCats.length, incoming.length);
+        for (let i = minLen; i < existingSkaterCats.length; i++) {
+          const inUse = await sql`SELECT 1 FROM category_scores WHERE scoring_category_id = ${existingSkaterCats[i].id} LIMIT 1`;
+          if (inUse.length) {
+            return NextResponse.json({ error: "Can't remove a scoring category that already has recorded scores." }, { status: 400 });
+          }
+        }
 
         // SKATER scoring only. Goalie config/categories are handled in goalie_scoring.
         // sticky_jersey_numbers is COALESCEd (not defaulted) -- this step also runs
@@ -208,13 +234,19 @@ export async function POST(request, { params }) {
             sticky_jersey_numbers = COALESCE(${data.sticky_jersey_numbers ?? null}, sticky_jersey_numbers)
           WHERE id = ${catId}
         `;
-        // Recreate SKATER categories (all/skaters); leave goalie sets untouched.
-        await sql`DELETE FROM scoring_categories WHERE age_category_id = ${catId} AND applies_to NOT IN ('goalies','goalie_skills')`;
-        for (let i = 0; i < data.categories.length; i++) {
-          if (!data.categories[i]?.name) continue;
+        for (let i = 0; i < minLen; i++) {
+          await sql`
+            UPDATE scoring_categories SET name = ${incoming[i].name}, display_order = ${i}, applies_to = ${incoming[i].applies_to || 'all'}
+            WHERE id = ${existingSkaterCats[i].id}
+          `;
+        }
+        for (let i = minLen; i < existingSkaterCats.length; i++) {
+          await sql`DELETE FROM scoring_categories WHERE id = ${existingSkaterCats[i].id}`;
+        }
+        for (let i = minLen; i < incoming.length; i++) {
           await sql`
             INSERT INTO scoring_categories (age_category_id, name, display_order, applies_to)
-            VALUES (${catId}, ${data.categories[i].name}, ${i}, ${data.categories[i].applies_to || 'all'})
+            VALUES (${catId}, ${incoming[i].name}, ${i}, ${incoming[i].applies_to || 'all'})
           `;
         }
         return NextResponse.json({ success: true });
