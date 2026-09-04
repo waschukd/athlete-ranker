@@ -17,6 +17,7 @@ export default function SettingsModal({
   onOpenPings, unreadPings,
   hasGuideContent, onOpenGuide,
   onOpenRanges,
+  hasGuidance, onOpenGuidance,
   viewMode, onSetViewMode,
   onDownloadBackup, onDownloadBackupJson, onRestoreFromFile,
   theme, onToggleTheme,
@@ -80,6 +81,13 @@ export default function SettingsModal({
             <span>Ranges</span>
             <ChevronRight size={15} className="text-gray-400" />
           </button>
+
+          {hasGuidance && (
+            <button onClick={onOpenGuidance} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-ink hover:bg-gray-100">
+              <span>Scoring guidance for this group</span>
+              <ChevronRight size={15} className="text-gray-400" />
+            </button>
+          )}
 
           <div>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Layout</h4>

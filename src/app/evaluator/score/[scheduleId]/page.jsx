@@ -13,6 +13,7 @@ import SessionRosterModal from "@/components/SessionRosterModal";
 import { parseTeamColors, colorFor } from "@/lib/teamColors";
 import GuideModal from "@/components/evaluator-scoring/GuideModal";
 import RangesModal from "@/components/evaluator-scoring/RangesModal";
+import SessionGuidanceModal from "@/components/evaluator-scoring/SessionGuidanceModal";
 import TeamPingModal from "@/components/evaluator-scoring/TeamPingModal";
 import PingToast from "@/components/evaluator-scoring/PingToast";
 import AddPlayerModal from "@/components/evaluator-scoring/AddPlayerModal";
@@ -360,6 +361,37 @@ function ScoringInterface() {
     refetchIntervalInBackground: false,
     staleTime: 15_000,
   });
+
+  // Real incident (BAHA "Grant factor"): a systematically generous evaluator
+  // only ever got corrected for it AFTER the fact, in the rankings math --
+  // never surfaced to the person actually causing it, and nobody scoring a
+  // later group had any target range to aim for either. Fetched unconditional
+  // on session/group (not gated behind a manual toggle like Ranges above) so
+  // it's ready the moment the popup should open.
+  const [showGuidance, setShowGuidance] = useState(false);
+  const guidanceShownRef = useRef(false);
+  const { data: guidanceData } = useQuery({
+    queryKey: ["session-guidance", catId, scheduleData?.session_number, scheduleData?.group_number],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        category_id: String(catId),
+        session_number: String(scheduleData.session_number),
+        group_number: String(scheduleData.group_number),
+      });
+      const res = await fetch(`/api/evaluator/session-guidance?${params}`);
+      if (!res.ok) throw new Error("guidance fetch failed");
+      return res.json();
+    },
+    enabled: !!(catId && scheduleData?.session_number && scheduleData?.group_number && online && !readOnly),
+    staleTime: 15_000,
+  });
+  // Auto-opens once per page load, the moment guidance data actually says
+  // there's something to show -- never re-fires on its own after being
+  // dismissed (still reachable manually via Settings).
+  useEffect(() => {
+    if (guidanceShownRef.current) return;
+    if (guidanceData?.applicable) { setShowGuidance(true); guidanceShownRef.current = true; }
+  }, [guidanceData]);
 
   // Quick live pings between the evaluators actually on this session --
   // "running late", "anyone see a black #23?" -- polled regardless of
@@ -1449,6 +1481,8 @@ function ScoringInterface() {
           hasGuideContent={hasGuideContent}
           onOpenGuide={() => { setSettingsOpen(false); setGuideOpen(true); }}
           onOpenRanges={() => { setSettingsOpen(false); setShowRanges(true); }}
+          hasGuidance={!!guidanceData?.applicable}
+          onOpenGuidance={() => { setSettingsOpen(false); setShowGuidance(true); }}
           viewMode={viewMode}
           onSetViewMode={(m) => { if (viewMode !== m) logClientEvent("viewmode.toggled", { metadata: { from: viewMode, to: m, scheduleId } }); setViewMode(m); }}
           onDownloadBackup={downloadBackup}
@@ -1496,6 +1530,10 @@ function ScoringInterface() {
           scale={scale}
           onClose={() => setShowRanges(false)}
         />
+      )}
+
+      {showGuidance && (
+        <SessionGuidanceModal guidance={guidanceData} onClose={() => setShowGuidance(false)} />
       )}
 
       {/* ── Jersey grid ────────────────────────────────────── */}
