@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), getAppUserId: vi.fn() }));
 vi.mock("@/lib/authorize", () => ({ authorizeCategoryAccess: vi.fn() }));
+vi.mock("@/lib/categoryEvaluators", () => ({ getCoachUserIds: vi.fn(async () => []) }));
 
 import sql from "@/lib/db";
 import { getSession, getAppUserId } from "@/lib/auth";
@@ -124,5 +125,66 @@ describe("GET /api/evaluator/session-guidance", () => {
     const body = await res.json();
 
     expect(body.bias).toBeNull();
+  });
+});
+
+// Tournament (round_robin) categories rotate a different evaluator panel
+// every night and group_number means "which matchup," not a skill tier --
+// there's no fixed range to hold anyone to, unlike a standard category's
+// tiered groups. This branch was missing entirely at first (the popup
+// showed tier-language guidance for a format that has no tiers) until asked
+// "can the system differentiate between a tournament and standard session?"
+describe("GET /api/evaluator/session-guidance — tournament format", () => {
+  it("returns an open range plus last session's reference, not a tiered range", async () => {
+    mockSqlByQuery([
+      ["SELECT scoring_scale, eval_format", [{ scoring_scale: 10, eval_format: "round_robin" }]],
+      ["SELECT session_type", [{ session_type: "scrimmage" }]],
+      ["FROM category_scores WHERE age_category_id", [{ total_n: 0, grand_mean: null, my_n: 0, my_mean: null }]],
+      ["SELECT MAX(session_number)", [{ n: 2 }]],
+      ["WITH per_athlete AS", [{ low: 4.5, high: 8.5, avg: 6.2, athletes_counted: 30 }]],
+    ]);
+    const { GET } = await import("@/app/api/evaluator/session-guidance/route");
+    const res = await GET(makeUrl({ catId: "64", sessionNumber: "3", groupNumber: "1" }));
+    const body = await res.json();
+
+    expect(body).toEqual({
+      applicable: true,
+      format: "tournament",
+      scale: 10,
+      last_session: { session_number: 2, low: 4.5, high: 8.5, avg: 6.2, athletes_counted: 30 },
+      bias: null,
+    });
+    // Never the standard-format tiered fields.
+    expect(body.suggested_range).toBeUndefined();
+    expect(body.established_range).toBeUndefined();
+  });
+
+  it("has no reference yet when this is the first-ever scored session", async () => {
+    mockSqlByQuery([
+      ["SELECT scoring_scale, eval_format", [{ scoring_scale: 10, eval_format: "round_robin" }]],
+      ["SELECT session_type", [{ session_type: "scrimmage" }]],
+      ["FROM category_scores WHERE age_category_id", [{ total_n: 0, grand_mean: null, my_n: 0, my_mean: null }]],
+      ["SELECT MAX(session_number)", [{ n: null }]],
+    ]);
+    const { GET } = await import("@/app/api/evaluator/session-guidance/route");
+    const res = await GET(makeUrl({ catId: "64", sessionNumber: "1", groupNumber: "1" }));
+    const body = await res.json();
+
+    expect(body.format).toBe("tournament");
+    expect(body.last_session).toBeNull();
+  });
+
+  it("still surfaces the same personal bias signal as standard-format categories", async () => {
+    mockSqlByQuery([
+      ["SELECT scoring_scale, eval_format", [{ scoring_scale: 10, eval_format: "round_robin" }]],
+      ["SELECT session_type", [{ session_type: "scrimmage" }]],
+      ["FROM category_scores WHERE age_category_id", [{ total_n: 200, grand_mean: 5.7, my_n: 30, my_mean: 6.9 }]],
+      ["SELECT MAX(session_number)", [{ n: null }]],
+    ]);
+    const { GET } = await import("@/app/api/evaluator/session-guidance/route");
+    const res = await GET(makeUrl({ catId: "64", sessionNumber: "3", groupNumber: "1" }));
+    const body = await res.json();
+
+    expect(body.bias).toEqual({ delta: 1.2, direction: "higher", sample_size: 30 });
   });
 });
