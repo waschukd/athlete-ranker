@@ -44,6 +44,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ category, sessions, scoringCategories, goalie_only });
   } catch (error) {
+    console.error("Category setup GET error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -171,6 +172,27 @@ export async function POST(request, { params }) {
       }
 
       case "scoring": {
+        // Real incident: a live category's scoring_scale field reached this
+        // route as "" (an in-progress edit, or a form field cleared then
+        // submitted before retyping) -- scoring_scale/scoring_increment are
+        // real INTEGER/NUMERIC columns, so "" fails the cast with an
+        // uncaught Postgres exception, which the catch-all below turned into
+        // a silent, unlogged 500 with no clue what happened. Validate first
+        // and reject with a real message instead of crashing the request --
+        // this must run BEFORE the DELETE below, or a bad payload wipes the
+        // category's scoring criteria without ever getting to recreate them.
+        const scoringScale = parseInt(data.scoring_scale, 10);
+        const scoringIncrement = parseFloat(data.scoring_increment);
+        if (!Number.isFinite(scoringScale) || scoringScale <= 0) {
+          return NextResponse.json({ error: "Scoring scale must be a positive number (e.g. 10)." }, { status: 400 });
+        }
+        if (!Number.isFinite(scoringIncrement) || scoringIncrement <= 0) {
+          return NextResponse.json({ error: "Scoring increment must be a positive number (e.g. 0.5)." }, { status: 400 });
+        }
+        if (!Array.isArray(data.categories)) {
+          return NextResponse.json({ error: "categories must be an array" }, { status: 400 });
+        }
+
         // SKATER scoring only. Goalie config/categories are handled in goalie_scoring.
         // sticky_jersey_numbers is COALESCEd (not defaulted) -- this step also runs
         // from the plain setup wizard, which knows nothing about that field; a hard
@@ -178,9 +200,9 @@ export async function POST(request, { params }) {
         // unrelated scoring save.
         await sql`
           UPDATE age_categories SET
-            scoring_scale = ${data.scoring_scale},
-            scoring_increment = ${data.scoring_increment},
-            position_tagging = ${data.position_tagging},
+            scoring_scale = ${scoringScale},
+            scoring_increment = ${scoringIncrement},
+            position_tagging = ${!!data.position_tagging},
             director_can_edit_scores = ${data.director_can_edit_scores || false},
             evaluators_anonymous = ${data.evaluators_anonymous ?? true},
             sticky_jersey_numbers = COALESCE(${data.sticky_jersey_numbers ?? null}, sticky_jersey_numbers)
@@ -263,6 +285,11 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: "Unknown step" }, { status: 400 });
     }
   } catch (error) {
+    // This route previously swallowed every exception with zero logging --
+    // the real incident (a "" scoring_scale crashing an integer cast) left
+    // no trace anywhere, only a generic 500 the client saw with no way to
+    // diagnose what actually broke.
+    console.error("Category setup POST error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
