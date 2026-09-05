@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getSpCapabilities } from "@/lib/testers";
-import { sendEmail, esc } from "@/lib/email";
+import { sendEmail, esc, emailTesterLateCancelStrike } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Tester-facing testing sessions. Returns the caller's capabilities (so the
@@ -163,10 +163,13 @@ export async function POST(request) {
       // evaluator's self-cancel (src/app/api/evaluator/signup/route.js),
       // which has emailed the SP admin on every cancel from day one. A
       // vacated testing spot needs to be filled the same way an evaluator
-      // spot does.
+      // spot does. Testers also get the same late-cancel strike system as
+      // evaluators, but on a 48-hour window instead of 24 -- testing slots
+      // are harder to backfill than an evaluator seat.
+      let warning = null;
       try {
         const [sched] = await sql`
-          SELECT es.scheduled_date, es.session_number, es.group_number,
+          SELECT es.scheduled_date, es.start_time, es.session_number, es.group_number,
             COALESCE(ac.name, es.age_label, 'Testing') AS category_name,
             COALESCE(o.name, es.client_label, 'a testing event') AS org_name,
             ac.organization_id AS assoc_org_id, es.service_provider_id
@@ -191,21 +194,81 @@ export async function POST(request) {
         `;
 
         await ensureEmailLogTable();
-        for (const admin of spAdmins) {
-          const res = await sendEmail(admin.email, `Tester Cancelled: ${tester?.name || "A tester"}`,
-            `<p>${esc(tester?.name || "A tester")} has cancelled their signup for ${esc(sched?.org_name)} · ${esc(sched?.category_name)} S${esc(sched?.session_number)} G${esc(sched?.group_number)}.</p>
-            <p>Session date: ${sched?.scheduled_date?.toString().split("T")[0] || "unknown"}</p>`
-          );
-          await logEmailSend({
-            orgId: sched?.assoc_org_id || sched?.service_provider_id || null,
-            emailType: "tester_cancelled_admin_alert", athleteName: tester?.name, to: admin.email,
-            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-          });
-        }
-      } catch (e) { console.error("tester cancel: SP notify failed:", e?.message); }
 
-      return NextResponse.json({ success: true });
+        const sessionDateTime = new Date(`${sched?.scheduled_date?.toString().split("T")[0]}T${sched?.start_time || "00:00"}`);
+        const hoursUntil = (sessionDateTime - new Date()) / (1000 * 60 * 60);
+        const isLateCancel = hoursUntil > 0 && hoursUntil < 48;
+        const orgId = sched?.assoc_org_id || sched?.service_provider_id || null;
+        const sessionsLabel = `${sched?.org_name || "your"} ${sched?.category_name || "testing"} S${sched?.session_number || "?"} G${sched?.group_number || "?"}`;
+
+        if (isLateCancel) {
+          const strikes = await sql`SELECT COUNT(*) as count FROM tester_flags WHERE tester_id = ${cap.userId} AND flag_type = 'late_cancel'`;
+          const newStrikeCount = parseInt(strikes[0].count) + 1;
+
+          await sql`
+            INSERT INTO tester_flags (tester_id, organization_id, schedule_id, flag_type, severity, details)
+            VALUES (
+              ${cap.userId}, ${orgId}, ${scheduleId}, 'late_cancel',
+              ${newStrikeCount >= 2 ? "critical" : "warning"},
+              ${JSON.stringify({ hours_until: hoursUntil.toFixed(1), session: sessionsLabel, org: sched?.org_name, strike_number: newStrikeCount })}
+            )
+          `;
+
+          if (newStrikeCount >= 2) {
+            await sql`
+              UPDATE tester_session_signups SET status = 'suspended'
+              WHERE user_id = ${cap.userId} AND status = 'signed_up'
+                AND schedule_id IN (SELECT id FROM evaluation_schedule WHERE scheduled_date > CURRENT_DATE)
+            `;
+          }
+
+          const strikeRes = await emailTesterLateCancelStrike({
+            name: tester?.name, email: tester?.email, orgName: sched?.org_name || "your testing org",
+            strikeCount: newStrikeCount, sessionsLabel,
+          });
+          await logEmailSend({
+            orgId, emailType: newStrikeCount >= 2 ? "tester_suspended" : "tester_strike1", athleteName: tester?.name, to: tester?.email,
+            resendId: strikeRes?.id || null, status: strikeRes?.ok ? "sent" : "failed",
+            error: strikeRes?.ok ? null : (strikeRes?.error || "send failed").toString().slice(0, 500),
+          });
+
+          for (const admin of spAdmins) {
+            const res = await sendEmail(admin.email,
+              newStrikeCount >= 2 ? `🚨 Tester Suspended: ${tester?.name}` : `⚠ Late Cancellation: ${tester?.name} (Strike 1)`,
+              newStrikeCount >= 2
+                ? `<p>${esc(tester?.name || "A tester")} has received their second late cancellation strike (cancelled with ${hoursUntil.toFixed(1)} hours notice) and has been automatically suspended from all future testing sessions.</p><p>Session cancelled: ${esc(sessionsLabel)}</p>`
+                : `<p>${esc(tester?.name || "A tester")} cancelled with ${hoursUntil.toFixed(1)} hours notice for ${esc(sessionsLabel)}.</p><p>This is their first strike. One open spot now needs to be filled.</p>`
+            );
+            await logEmailSend({
+              orgId, emailType: newStrikeCount >= 2 ? "tester_suspended_admin_alert" : "tester_strike1_admin_alert", athleteName: tester?.name, to: admin.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+          }
+
+          warning = `Late cancellation recorded. ${newStrikeCount >= 2 ? "You have been suspended from future testing sessions." : "This is Strike 1."}`;
+        } else {
+          for (const admin of spAdmins) {
+            const res = await sendEmail(admin.email, `Tester Cancelled: ${tester?.name || "A tester"}`,
+              `<p>${esc(tester?.name || "A tester")} has cancelled their signup for ${esc(sessionsLabel)}.</p>
+              <p>Session date: ${sched?.scheduled_date?.toString().split("T")[0] || "unknown"}</p>`
+            );
+            await logEmailSend({
+              orgId, emailType: "tester_cancelled_admin_alert", athleteName: tester?.name, to: admin.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+          }
+        }
+
+        await sql`
+          INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value)
+          VALUES (${cap.userId}, ${isLateCancel ? "late_cancel" : "cancel"}, 'evaluation_schedule', ${scheduleId},
+            ${JSON.stringify({ hours_until: hoursUntil?.toFixed(1), late: isLateCancel })})
+        `;
+      } catch (e) { console.error("tester cancel: SP notify / strike failed:", e?.message); }
+
+      return NextResponse.json({ success: true, warning });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {

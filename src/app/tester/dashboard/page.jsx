@@ -45,6 +45,7 @@ export default function TesterDashboard() {
       const res = await fetch("/api/tester/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule_id, action }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.error) setActMsg({ type: "error", text: d.error || "Something went wrong." });
+      else if (action === "cancel" && d.warning) setActMsg({ type: "error", text: d.warning });
       else if (action === "signup") {
         const snap = (data?.available || []).find(s => s.schedule_id === schedule_id);
         if (snap) setJustSignedUp(m => new Map(m).set(schedule_id, snap));
