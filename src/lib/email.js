@@ -290,6 +290,25 @@ export async function emailStrike2Suspended({ name, email, orgName }) {
   return sendEmail(email, `Account Suspended — ${orgName}`, html);
 }
 
+// Tester equivalent of emailStrike1/emailStrike2Suspended -- testers don't
+// have the automatic strike-tracking evaluators do (evaluator_flags), so
+// strikeCount here is whatever the SP has decided to issue by hand for a
+// specific incident, not a running tally the system enforces.
+export async function emailTesterLateCancelStrike({ name, email, orgName, strikeCount, sessionsLabel }) {
+  const isSevere = strikeCount >= 2;
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${isSevere ? "#dc2626" : "#f59e0b"};">Late Cancellation ${strikeCount === 1 ? "Strike" : `— ${strikeCount} Strikes`}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, you've received <strong style="color:${isSevere ? "#dc2626" : "#f59e0b"};">${strikeCount} strike${strikeCount === 1 ? "" : "s"}</strong> for a last-minute cancellation of ${esc(sessionsLabel)} with <strong>${esc(orgName)}</strong>.</p>
+    <div style="background:${isSevere ? "#fef2f2" : "#fffbeb"};border:1px solid ${isSevere ? "#fecaca" : "#fde68a"};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <p style="margin:0;font-size:13px;color:${isSevere ? "#991b1b" : "#92400e"};">${isSevere
+        ? "This puts you at risk of suspension from future testing sessions. Please give as much notice as possible if you can't make a session going forward."
+        : "Please give as much notice as possible if you can't make a session going forward, so we have time to find a replacement."}</p>
+    </div>
+    ${btn(`${BASE_URL}/tester/dashboard`, "View My Sessions →")}
+  `);
+  return sendEmail(email, `${isSevere ? "⚠️" : "⚠"} Late Cancellation — ${strikeCount} Strike${strikeCount === 1 ? "" : "s"}`, html);
+}
+
 // ── Staffing / Session Reports ────────────────────────────────────────────────
 
 export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName, sessions }) {

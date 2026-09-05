@@ -240,7 +240,7 @@ export async function POST(request, { params }) {
     } else {
       const [ex] = await sql`SELECT id, status FROM tester_session_signups WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
       if (ex && ex.status !== "cancelled") return NextResponse.json({ ok: true, alreadyOn: true });
-      if (ex) await sql`UPDATE tester_session_signups SET status = 'signed_up', assigned_by = ${actorId} WHERE id = ${ex.id}`;
+      if (ex) await sql`UPDATE tester_session_signups SET status = 'signed_up', assigned_by = ${actorId}, cancelled_at = NULL WHERE id = ${ex.id}`;
       else await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status, assigned_by) VALUES (${scheduleId}, ${user_id}, 'signed_up', ${actorId})`;
     }
 
@@ -276,7 +276,7 @@ export async function DELETE(request, { params }) {
     if (kind === "evaluator") {
       await sql`UPDATE evaluator_session_signups SET status = 'cancelled', cancel_reason = 'removed_by_admin' WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
     } else {
-      await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
+      await sql`UPDATE tester_session_signups SET status = 'cancelled', cancelled_at = NOW() WHERE schedule_id = ${scheduleId} AND user_id = ${user_id}`;
     }
 
     // Removing someone here previously told no one -- they'd just discover it

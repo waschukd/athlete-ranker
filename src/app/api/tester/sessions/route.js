@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getSpCapabilities } from "@/lib/testers";
+import { sendEmail, esc } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // Tester-facing testing sessions. Returns the caller's capabilities (so the
 // dashboard can render tabs) plus, for testers, the testing sessions they can
@@ -150,11 +152,59 @@ export async function POST(request) {
         }, { status: 409 });
       }
       await sql`INSERT INTO tester_session_signups (schedule_id, user_id, status) VALUES (${scheduleId}, ${cap.userId}, 'signed_up')
-        ON CONFLICT (schedule_id, user_id) DO UPDATE SET status = 'signed_up'`;
+        ON CONFLICT (schedule_id, user_id) DO UPDATE SET status = 'signed_up', cancelled_at = NULL`;
       return NextResponse.json({ success: true });
     }
     if (body.action === "cancel") {
-      await sql`UPDATE tester_session_signups SET status = 'cancelled' WHERE schedule_id = ${scheduleId} AND user_id = ${cap.userId}`;
+      await sql`UPDATE tester_session_signups SET status = 'cancelled', cancelled_at = NOW() WHERE schedule_id = ${scheduleId} AND user_id = ${cap.userId}`;
+
+      // Real incident: an SP admin had no way to know a tester had dropped out
+      // of a session -- this action never notified anyone, unlike an
+      // evaluator's self-cancel (src/app/api/evaluator/signup/route.js),
+      // which has emailed the SP admin on every cancel from day one. A
+      // vacated testing spot needs to be filled the same way an evaluator
+      // spot does.
+      try {
+        const [sched] = await sql`
+          SELECT es.scheduled_date, es.session_number, es.group_number,
+            COALESCE(ac.name, es.age_label, 'Testing') AS category_name,
+            COALESCE(o.name, es.client_label, 'a testing event') AS org_name,
+            ac.organization_id AS assoc_org_id, es.service_provider_id
+          FROM evaluation_schedule es
+          LEFT JOIN age_categories ac ON ac.id = es.age_category_id
+          LEFT JOIN organizations o ON o.id = ac.organization_id
+          WHERE es.id = ${scheduleId}
+        `;
+        const [tester] = await sql`SELECT name, email FROM users WHERE id = ${cap.userId}`;
+
+        const spAdmins = await sql`
+          SELECT DISTINCT u.email, u.name
+          FROM evaluator_memberships em
+          JOIN users u ON u.id = em.user_id
+          WHERE em.status = 'active' AND u.role IN ('service_provider_admin', 'association_admin')
+            AND em.organization_id IN (
+              SELECT service_provider_id FROM sp_association_links
+              WHERE association_id = ${sched?.assoc_org_id ?? -1} AND status = 'active'
+              UNION SELECT ${sched?.service_provider_id ?? -1}
+              UNION SELECT organization_id FROM evaluator_memberships WHERE user_id = ${cap.userId}
+            )
+        `;
+
+        await ensureEmailLogTable();
+        for (const admin of spAdmins) {
+          const res = await sendEmail(admin.email, `Tester Cancelled: ${tester?.name || "A tester"}`,
+            `<p>${esc(tester?.name || "A tester")} has cancelled their signup for ${esc(sched?.org_name)} · ${esc(sched?.category_name)} S${esc(sched?.session_number)} G${esc(sched?.group_number)}.</p>
+            <p>Session date: ${sched?.scheduled_date?.toString().split("T")[0] || "unknown"}</p>`
+          );
+          await logEmailSend({
+            orgId: sched?.assoc_org_id || sched?.service_provider_id || null,
+            emailType: "tester_cancelled_admin_alert", athleteName: tester?.name, to: admin.email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+        }
+      } catch (e) { console.error("tester cancel: SP notify failed:", e?.message); }
+
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
