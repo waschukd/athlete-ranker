@@ -1,4 +1,7 @@
-// Personal ICS feed for an evaluator.
+// Personal ICS feed for an evaluator -- also includes their testing
+// signups, if any (a person can be both; see lib/testers.js). One
+// subscription covers whatever they're actually signed up for, matching
+// the combined "My Sessions" view they already see in the app.
 //
 // Calendar apps (Google Calendar, Apple Calendar, Outlook) subscribe to a
 // URL like:
@@ -104,7 +107,7 @@ export async function GET(request) {
     return new NextResponse("Invalid or missing token", { status: 401 });
   }
 
-  const sessions = await sql`
+  const evalSessions = await sql`
     SELECT
       sch.id              AS schedule_id,
       sch.scheduled_date,
@@ -129,8 +132,35 @@ export async function GET(request) {
       -- the evaluator's subscribed phone calendar. Check the SESSION too.
       AND es.status NOT IN ('cancelled', 'released')
       AND sch.status <> 'cancelled'
-    ORDER BY sch.scheduled_date, sch.start_time
-  `;
+  `.then(rows => rows.map(r => ({ ...r, __kind: "evaluation" })));
+
+  // Real incident: a dual-role person (evaluator AND tester -- testers/
+  // evaluators are two separate memberships, see lib/testers.js) subscribed
+  // to THIS feed, then reported testing sessions never showing up "in
+  // sessions and calendars" after signing up for one. The in-app dashboard
+  // already merges both into one "My Sessions" list for exactly this
+  // person -- this feed didn't, because it only ever selected from
+  // evaluator_session_signups. Testing sessions live in a separate
+  // tester_session_signups table (tester/calendar/route.js has its own,
+  // tester-only feed) -- folded in here too so ONE subscription URL, the one
+  // an evaluator already has, covers everything, matching the in-app view.
+  const testerSessions = await sql`
+    SELECT
+      sch.id AS schedule_id, sch.scheduled_date, sch.start_time, sch.end_time, sch.location,
+      sch.session_number, sch.group_number,
+      COALESCE(ac.name, sch.age_label, 'Testing') AS category_name,
+      COALESCE(o.name, sch.client_label, 'Testing') AS org_name,
+      (to_jsonb(sch) ->> 'updated_at') AS updated_at,
+      (to_jsonb(sch) ->> 'created_at') AS created_at
+    FROM tester_session_signups tss
+    JOIN evaluation_schedule sch ON sch.id = tss.schedule_id
+    LEFT JOIN age_categories ac ON ac.id = sch.age_category_id
+    LEFT JOIN organizations o ON o.id = ac.organization_id
+    WHERE tss.user_id = ${userId} AND tss.status = 'signed_up' AND sch.status <> 'cancelled'
+  `.then(rows => rows.map(r => ({ ...r, __kind: "testing" })));
+
+  const sessions = [...evalSessions, ...testerSessions].sort((a, b) =>
+    String(a.scheduled_date).localeCompare(String(b.scheduled_date)) || String(a.start_time || "").localeCompare(String(b.start_time || "")));
 
   const stamp = nowStampUTC();
   const lines = [
@@ -140,7 +170,7 @@ export async function GET(request) {
     "METHOD:PUBLISH",
     "CALSCALE:GREGORIAN",
     "X-WR-CALNAME:Sideline Star Sessions",
-    "X-WR-CALDESC:Your evaluator sessions on Sideline Star",
+    "X-WR-CALDESC:Your evaluator and testing sessions on Sideline Star",
     "X-WR-TIMEZONE:America/Edmonton",
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
     "X-PUBLISHED-TTL:PT1H",
@@ -168,13 +198,22 @@ export async function GET(request) {
   ];
 
   for (const s of sessions) {
+    const isTesting = s.__kind === "testing";
     const dtStart = localDateTime(s.scheduled_date, s.start_time);
     const dtEnd = localDateTime(s.scheduled_date, s.end_time || s.start_time);
-    const summary = `Eval: ${s.org_name} ${s.category_name} S${s.session_number}G${s.group_number}`;
-    const description = `${s.org_name} ${s.category_name}\nSession ${s.session_number}, Group ${s.group_number}\n\nView in app: https://sidelinestar.com/evaluator/score/${s.schedule_id}`;
+    const summary = isTesting
+      ? `Testing: ${s.org_name} ${s.category_name}`
+      : `Eval: ${s.org_name} ${s.category_name} S${s.session_number}G${s.group_number}`;
+    const description = isTesting
+      ? `${s.org_name} — ${s.category_name}\nTesting session`
+      : `${s.org_name} ${s.category_name}\nSession ${s.session_number}, Group ${s.group_number}\n\nView in app: https://sidelinestar.com/evaluator/score/${s.schedule_id}`;
 
     lines.push("BEGIN:VEVENT");
-    lines.push(fold(`UID:signup-${s.schedule_id}-${userId}@sidelinestar.com`));
+    // Same UID scheme tester/calendar/route.js uses for a testing row -- if a
+    // pure tester later ALSO becomes an evaluator (or ever subscribes to
+    // both feeds at once), the two feeds describe the same event under the
+    // same UID instead of duplicating it.
+    lines.push(fold(`UID:${isTesting ? "tester" : "signup"}-${s.schedule_id}-${userId}@sidelinestar.com`));
     lines.push(`DTSTAMP:${stamp}`);
     // RFC 5545: a client only treats an event as REVISED when SEQUENCE goes up.
     // DTSTAMP is "now" on every fetch, so it is not a revision signal -- without
