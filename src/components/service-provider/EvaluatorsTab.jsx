@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { X, MessageSquare, Upload, BookOpen } from "lucide-react";
+import { X, MessageSquare, Upload, BookOpen, GraduationCap } from "lucide-react";
 import { downloadContactsCsv } from "@/lib/spDashboardUtils";
 import { OpenSpotsTracker } from "@/components/service-provider/OverviewWidgets";
 import { JoinCodesPanel } from "@/components/service-provider/AssociationWidgets";
@@ -28,6 +28,7 @@ export default function EvaluatorsTab({
   const [composeRecipient, setComposeRecipient] = useState(null); // { to_all_pool } | { to_user_ids, label }
   const [showSetRates, setShowSetRates] = useState(false);
   const [ratesSavedMsg, setRatesSavedMsg] = useState(false);
+  const [sendingReportCards, setSendingReportCards] = useState(false);
 
   const bulkAction = async (payload) => {
     const res = await fetch(spUrl("/api/service-provider/evaluators"), {
@@ -74,6 +75,19 @@ export default function EvaluatorsTab({
             title="Download name, email, phone and status for the evaluators currently shown"
             className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">
             <Upload size={14} className="rotate-180" /> Export contacts
+          </button>
+          <button
+            disabled={sendingReportCards}
+            title="Emails every evaluator their own agreement/bias numbers — the same ones shown here — as coaching, not discipline."
+            onClick={async () => {
+              if (!confirm(`Send a report card email to all ${evaluators.length} evaluators in your pool?`)) return;
+              setSendingReportCards(true); setBulkDeleteMsg(null);
+              const data = await bulkAction({ action: "send_report_card", evaluator_ids: evaluators.map(ev => ev.id) });
+              setSendingReportCards(false);
+              if (data) setBulkDeleteMsg(`Sent ${data.sent} report card${data.sent === 1 ? "" : "s"}${data.skipped ? `, ${data.skipped} skipped (no scoring history yet)` : ""}.`);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-ink bg-white rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-50">
+            <GraduationCap size={14} /> {sendingReportCards ? "Sending..." : "Send report cards"}
           </button>
           <button onClick={() => setComposeRecipient({ to_all_pool: true, label: "To everyone in your evaluator pool" })} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90">
             <MessageSquare size={14} /> Message all pool
@@ -167,6 +181,15 @@ export default function EvaluatorsTab({
           <button onClick={async () => { const data = await bulkAction({ action: "approve", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 font-medium">Approve ({selEvals.length})</button>
           <button onClick={async () => { if (confirm('Suspend ' + selEvals.length + ' evaluators?')) { const data = await bulkAction({ action: "suspend", evaluator_ids: selEvals }); if (!data) return; setSelEvals([]); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); } }} className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-100 font-medium">Suspend ({selEvals.length})</button>
           <button onClick={() => setComposeRecipient({ to_user_ids: [...selEvals], label: `To ${selEvals.length} selected evaluator${selEvals.length === 1 ? "" : "s"}` })} className="text-xs px-3 py-1.5 bg-accent-soft text-accent border border-accent/20 rounded-lg hover:opacity-90 font-medium inline-flex items-center gap-1.5"><MessageSquare size={12} /> Message selected ({selEvals.length})</button>
+          <button
+            disabled={sendingReportCards}
+            onClick={async () => {
+              setSendingReportCards(true); setBulkDeleteMsg(null);
+              const data = await bulkAction({ action: "send_report_card", evaluator_ids: selEvals });
+              setSendingReportCards(false);
+              if (data) { setBulkDeleteMsg(`Sent ${data.sent} report card${data.sent === 1 ? "" : "s"}${data.skipped ? `, ${data.skipped} skipped` : ""}.`); setSelEvals([]); }
+            }}
+            className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 font-medium inline-flex items-center gap-1.5 disabled:opacity-50"><GraduationCap size={12} /> Send report card ({selEvals.length})</button>
           <button onClick={() => { setBulkDeleteMsg(null); setShowBulkDelete(true); }} className="text-xs px-3 py-1.5 bg-red-50 text-red-500 border border-red-200 rounded-lg hover:bg-red-100 font-medium">Delete ({selEvals.length})</button>
         </div>
       )}
@@ -212,12 +235,13 @@ export default function EvaluatorsTab({
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Sessions</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hours</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Rating</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="How often this evaluator's top/middle/bottom placement for a player matches the rest of the panel — the same split a consensus review flags.">Agreement</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredEvaluators.length === 0 ? (
-              <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">{evaluators.length === 0 ? "No evaluators in pool yet" : "No evaluators match your search"}</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-gray-400 text-sm">{evaluators.length === 0 ? "No evaluators in pool yet" : "No evaluators match your search"}</td></tr>
             ) : pagedEvaluators.map(ev => (
               <tr key={ev.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-center"><input type="checkbox" checked={selEvals.includes(ev.id)} onClick={e => e.stopPropagation()} onChange={e => setSelEvals(e.target.checked ? [...selEvals, ev.id] : selEvals.filter(id => id !== ev.id))} className="rounded border-gray-300" /></td>
@@ -232,6 +256,15 @@ export default function EvaluatorsTab({
                 <td className="px-4 py-3 text-center text-gray-700">{ev.total_sessions || 0}</td>
                 <td className="px-4 py-3 text-center font-semibold text-gray-900">{parseFloat(ev.total_hours || 0).toFixed(1)}h</td>
                 <td className="px-4 py-3 text-center">{parseFloat(ev.avg_rating || 0) > 0 ? `${parseFloat(ev.avg_rating).toFixed(1)} *` : "-"}</td>
+                <td className="px-4 py-3 text-center" title={ev.tier_judged ? `Based on ${ev.tier_judged} players judged alongside another evaluator` : "Not enough shared sessions yet"}>
+                  {ev.tier_agreement_pct == null ? (
+                    <span className="text-gray-300">-</span>
+                  ) : (
+                    <span className={`font-semibold ${ev.tier_agreement_pct >= 90 ? "text-green-600" : ev.tier_agreement_pct >= 75 ? "text-amber-600" : "text-red-600"}`}>
+                      {ev.tier_agreement_pct}%
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-1">
                     {ev.membership_status === "pending" && <button onClick={async (e) => { e.stopPropagation(); await fetch("/api/service-provider/evaluators", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "approve", evaluator_id: ev.id }) }); queryClient.invalidateQueries({ queryKey: ["sp-evaluators"] }); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200">Approve</button>}

@@ -309,6 +309,45 @@ export async function emailTesterLateCancelStrike({ name, email, orgName, strike
   return sendEmail(email, `${isSevere ? "⚠️" : "⚠"} Late Cancellation — ${strikeCount} Strike${strikeCount === 1 ? "" : "s"}`, html);
 }
 
+// Educational, not punitive -- the same numbers a director sees on an
+// evaluator's report card, sent directly to the evaluator so they can see
+// where they stand without waiting to be told in person. agreementPct is the
+// real tier-consensus rate (lib/scoring.js tierDisagreementStats): how often
+// this evaluator's top/middle/bottom call on a player matched the rest of the
+// panel -- not a raw point-closeness number. bias is signed points off the
+// group average (null if not enough shared scores to compute).
+export async function emailEvaluatorReportCard({ name, email, orgName, agreementPct, judged, bias }) {
+  const hasAgreement = agreementPct != null && judged > 0;
+  const agreementColor = !hasAgreement ? "#6b7280" : agreementPct >= 90 ? "#16a34a" : agreementPct >= 75 ? "#d97706" : "#dc2626";
+  const hasBias = bias != null && Math.abs(bias) >= 0.3;
+  const biasDirection = hasBias ? (bias > 0 ? "higher" : "lower") : null;
+
+  const agreementBlock = hasAgreement ? `
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin:0 0 20px;text-align:center;">
+      <div style="font-size:36px;font-weight:800;color:${agreementColor};">${agreementPct}%</div>
+      <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">Agreement with your fellow evaluators — how often your top/middle/bottom call on a player matched the rest of the panel, across ${esc(judged)} players scored alongside someone else.</p>
+    </div>` : "";
+
+  const biasBlock = hasBias ? `
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <p style="margin:0;font-size:13px;color:#92400e;">You're currently averaging <strong>${Math.abs(bias).toFixed(1)} pts ${biasDirection}</strong> than other evaluators. We're all trying to see the same players the same way — try to bring your scores more in line with the group.</p>
+    </div>` : "";
+
+  const lowAgreementNote = hasAgreement && agreementPct < 75 ? `
+    <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">In practice, that means when you and another evaluator score the same group, your ranking of a player often lands in a different third (top/middle/bottom) than the rest of the panel — the exact thing that trips a consensus review before results go out.</p>` : "";
+
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Your Evaluator Report Card</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, here's how your scoring for <strong>${esc(orgName)}</strong> compares to the rest of the panel.</p>
+    ${agreementBlock}
+    ${biasBlock}
+    ${lowAgreementNote}
+    ${!hasAgreement ? `<p style="margin:0 0 20px;font-size:13px;color:#9ca3af;">Not enough sessions scored alongside another evaluator yet to compare — check back after your next few sessions.</p>` : ""}
+    ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}
+  `);
+  return sendEmail(email, `Your Evaluator Report Card — ${orgName}`, html);
+}
+
 // ── Staffing / Session Reports ────────────────────────────────────────────────
 
 export async function emailWeeklyStaffingReport({ adminEmail, adminName, orgName, sessions }) {

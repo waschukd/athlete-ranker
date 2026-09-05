@@ -38,6 +38,37 @@ export async function getCoachUserIds(catId) {
   return [...ids];
 }
 
+// Bulk form of getCoachUserIds for cross-category analysis (evaluator scorecards,
+// report cards) that would otherwise need one round trip per category. Returns
+// a Set of "${age_category_id}-${user_id}" pairs, matching the shape
+// tierDisagreementStats (lib/scoring.js) expects for its coachSet argument.
+export async function getCoachPairSet(catIds) {
+  const pairs = new Set();
+  if (!catIds?.length) return pairs;
+  try {
+    const rows = await sql`
+      SELECT age_category_id, user_id FROM category_evaluators
+      WHERE age_category_id = ANY(${catIds}) AND kind = 'coach' AND user_id IS NOT NULL
+    `;
+    for (const r of rows) pairs.add(`${r.age_category_id}-${r.user_id}`);
+  } catch { /* table not migrated yet */ }
+  try {
+    const rows = await sql`
+      SELECT DISTINCT ac.id as age_category_id, em.user_id
+      FROM age_categories ac
+      JOIN sp_association_links sal ON sal.association_id = ac.organization_id AND sal.status = 'active'
+      JOIN evaluator_memberships em ON em.organization_id = ac.organization_id AND em.status = 'active'
+      WHERE ac.id = ANY(${catIds}) AND em.user_id IS NOT NULL
+        AND em.user_id NOT IN (
+          SELECT user_id FROM category_evaluators
+          WHERE age_category_id = ac.id AND kind <> 'coach' AND user_id IS NOT NULL
+        )
+    `;
+    for (const r of rows) pairs.add(`${r.age_category_id}-${r.user_id}`);
+  } catch { /* no link / pre-migration */ }
+  return pairs;
+}
+
 // Resolve a user's kind for a category. Binds a pending email-only invite to this
 // user the first time they appear, so a designation made before they signed up
 // takes effect on their first access.

@@ -71,3 +71,94 @@ export function testingPercentile(rank, total) {
 export function round1(value) {
   return Math.round(value * 10) / 10;
 }
+
+/**
+ * How often each evaluator lands on the losing side of a tier disagreement --
+ * the same top/middle/bottom split the live consensus screen
+ * (categories/[catId]/consensus) flags a director to go review.
+ *
+ * Real incident: an evaluator with excellent raw score agreement (tight to
+ * the group's point average) turned out to be the single most frequent
+ * source of real consensus splits once measured this way. Point-level
+ * closeness and tier-boundary agreement are different things -- a small
+ * point deviation right at a tier cutoff still flips top/middle/bottom,
+ * and that's what actually costs a director a manual review. This is the
+ * metric that should back any "agreement" number shown to a director or an
+ * evaluator, not raw score deviation.
+ *
+ * @param {Array<{age_category_id:number, session_number:number, group_number:number, athlete_id:number, evaluator_id:number, score:number}>} rows
+ *   Every score row for the population being analyzed, already resolved to a
+ *   group_number (via session_groups/player_group_assignments -- category_scores
+ *   itself doesn't reliably carry one).
+ * @param {Set<string>} coachSet  `${age_category_id}-${user_id}` pairs to exclude
+ *   (coaches are a parallel, comparison-only track and must never count as a
+ *   disagreeing official evaluator).
+ * @returns {Map<number, {totalJudged:number, splitsInvolved:number, timesDiffered:number}>}
+ *   Keyed by evaluator_id. totalJudged = athletes they scored alongside >=1
+ *   other evaluator in the same group. timesDiffered = of those, how many
+ *   times their tier didn't match the majority tier.
+ */
+export function tierDisagreementStats(rows, coachSet = new Set()) {
+  // group -> evaluator -> athlete -> {sum, n}
+  const groups = new Map();
+  for (const r of rows) {
+    if (coachSet.has(`${r.age_category_id}-${r.evaluator_id}`)) continue;
+    const gkey = `${r.age_category_id}-${r.session_number}-${r.group_number}`;
+    if (!groups.has(gkey)) groups.set(gkey, new Map());
+    const evalMap = groups.get(gkey);
+    if (!evalMap.has(r.evaluator_id)) evalMap.set(r.evaluator_id, new Map());
+    const athleteMap = evalMap.get(r.evaluator_id);
+    const score = parseFloat(r.score);
+    const prev = athleteMap.get(r.athlete_id) || { sum: 0, n: 0 };
+    athleteMap.set(r.athlete_id, { sum: prev.sum + score, n: prev.n + 1 });
+  }
+
+  const stats = new Map();
+  const bump = (eid) => {
+    if (!stats.has(eid)) stats.set(eid, { totalJudged: 0, splitsInvolved: 0, timesDiffered: 0 });
+    return stats.get(eid);
+  };
+
+  for (const evalMap of groups.values()) {
+    const evalIds = [...evalMap.keys()];
+    if (evalIds.length < 2) continue;
+
+    // This evaluator's own rank-order (and thus tier) of the athletes THEY scored.
+    const tierByEvalAthlete = new Map();
+    for (const eid of evalIds) {
+      const athleteAvgs = [...evalMap.get(eid).entries()].map(([aid, v]) => ({ aid, avg: v.sum / v.n }));
+      athleteAvgs.sort((a, b) => b.avg - a.avg);
+      const total = athleteAvgs.length;
+      const tierMap = new Map();
+      athleteAvgs.forEach((a, i) => tierMap.set(a.aid, getTier(i + 1, total)));
+      tierByEvalAthlete.set(eid, tierMap);
+    }
+
+    // Union across evaluators, per athlete.
+    const athleteEvalTiers = new Map();
+    for (const eid of evalIds) {
+      for (const [aid, tier] of tierByEvalAthlete.get(eid)) {
+        if (!athleteEvalTiers.has(aid)) athleteEvalTiers.set(aid, []);
+        athleteEvalTiers.get(aid).push({ eid, tier });
+      }
+    }
+
+    for (const entries of athleteEvalTiers.values()) {
+      if (entries.length < 2) continue;
+      for (const e of entries) bump(e.eid).totalJudged++;
+
+      const tierCounts = {};
+      for (const e of entries) tierCounts[e.tier] = (tierCounts[e.tier] || 0) + 1;
+      if (Object.keys(tierCounts).length === 1) continue; // unanimous
+
+      const majorityTier = Object.entries(tierCounts).sort((a, b) => b[1] - a[1])[0][0];
+      for (const e of entries) {
+        const s = bump(e.eid);
+        s.splitsInvolved++;
+        if (e.tier !== majorityTier) s.timesDiffered++;
+      }
+    }
+  }
+
+  return stats;
+}

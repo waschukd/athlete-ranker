@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { recomputeTesterHours } from "@/lib/testerHours";
+import { getCoachPairSet } from "@/lib/categoryEvaluators";
+import { tierDisagreementStats } from "@/lib/scoring";
+import { computeEvaluatorReportCard } from "@/lib/evaluatorScorecard";
+import { emailEvaluatorReportCard } from "@/lib/email";
+import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 // resolveSpContext resolves for ANY member of the SP's evaluator pool, not just
 // admins (it exists to answer "does this person belong to this SP", used by
@@ -45,6 +50,34 @@ export async function GET(request) {
       WHERE em.organization_id = ${spId} AND em.status != 'deleted' AND em.is_evaluator = true
       GROUP BY u.id, em.created_at, em.status, em.hourly_rate ORDER BY u.name
     `;
+
+    // Real "report card" agreement rate -- see evaluator/[evalId]/route.js for why
+    // this replaced a naive point-closeness measure: it replicates the exact
+    // top/middle/bottom tier-split check a director's consensus screen flags,
+    // across every SP-served association at once, instead of one evaluator or
+    // one session at a time.
+    let tierAgreementByEvaluator = new Map();
+    try {
+      const groupedRows = await sql`
+        SELECT cs.age_category_id, cs.session_number, sg.group_number, cs.athlete_id, cs.evaluator_id, cs.score::float as score
+        FROM category_scores cs
+        JOIN age_categories ac ON ac.id = cs.age_category_id
+        JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
+        JOIN session_groups sg ON sg.id = pga.session_group_id
+          AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
+        WHERE ac.organization_id IN (SELECT association_id FROM sp_association_links WHERE service_provider_id = ${spId} AND status = 'active')
+      `;
+      const touchedCatIds = [...new Set(groupedRows.map(r => r.age_category_id))];
+      const coachSet = await getCoachPairSet(touchedCatIds);
+      tierAgreementByEvaluator = tierDisagreementStats(groupedRows, coachSet);
+    } catch (e) { console.error("SP evaluators: tier agreement calc failed:", e?.message); }
+
+    for (const ev of evaluators) {
+      const s = tierAgreementByEvaluator.get(ev.id);
+      ev.tier_judged = s?.totalJudged || 0;
+      ev.tier_agreement_pct = s && s.totalJudged > 0 ? Math.round((1 - s.timesDiffered / s.totalJudged) * 100) : null;
+    }
+
     const flags = await sql`
       SELECT ef.*, u.name as evaluator_name, es.session_number, es.scheduled_date, o.name as org_name
       FROM evaluator_flags ef
@@ -170,6 +203,34 @@ export async function POST(request) {
       await sql`UPDATE evaluator_session_signups SET status = 'cancelled' WHERE user_id = ${evaluator_id} AND status = 'suspended'`;
       await sql`INSERT INTO audit_log (user_id, action, entity_type, entity_id, new_value) VALUES (${admin_id}, 'evaluator_reinstated', 'user', ${evaluator_id}, 'reinstated by SP admin')`;
       return NextResponse.json({ success: true });
+    }
+    if (action === "send_report_card") {
+      // Educational, not punitive: emails an evaluator the same tier-consensus
+      // agreement rate + bias shown on their report card, so they see where
+      // they stand without waiting to be told in person.
+      const ids = asArray(body.evaluator_ids, evaluator_id);
+      if (!ids.length) return NextResponse.json({ error: "No evaluator ids" }, { status: 400 });
+      const [spInfo] = await sql`SELECT name FROM organizations WHERE id = ${sp_id}`;
+      await ensureEmailLogTable();
+      let sent = 0; const skipped = [];
+      for (const id of ids) {
+        const mem = await sql`SELECT id FROM evaluator_memberships WHERE user_id = ${id} AND organization_id = ${sp_id} AND is_evaluator = true`;
+        if (!mem.length) { skipped.push(id); continue; }
+        const [ev] = await sql`SELECT name, email FROM users WHERE id = ${id}`;
+        if (!ev?.email) { skipped.push(id); continue; }
+        const card = await computeEvaluatorReportCard(id);
+        const res = await emailEvaluatorReportCard({
+          name: ev.name, email: ev.email, orgName: spInfo?.name || "your evaluator pool",
+          agreementPct: card.agreementPct, judged: card.judged, bias: card.bias,
+        });
+        await logEmailSend({
+          orgId: sp_id, emailType: "evaluator_report_card", athleteName: ev.name, to: ev.email,
+          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+        });
+        if (res?.ok) sent++; else skipped.push(id);
+      }
+      return NextResponse.json({ success: true, sent, skipped: skipped.length });
     }
     if (action === "dismiss_flag") {
       const ids = asArray(body.flag_ids, flag_id);

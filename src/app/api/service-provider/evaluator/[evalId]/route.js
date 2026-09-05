@@ -3,6 +3,8 @@ import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { canViewEvaluator } from "@/lib/authorize";
 import { bonusForEvaluator } from "@/lib/reportBonus";
+import { getCoachPairSet } from "@/lib/categoryEvaluators";
+import { tierDisagreementStats } from "@/lib/scoring";
 
 export async function GET(request, { params }) {
   try {
@@ -96,6 +98,38 @@ export async function GET(request, { params }) {
         )
     ` : [];
 
+    // ── Real consensus-agreement (tier-based) ──────────────────────────
+    // The naive "average how far my score sits from the peer mean" measure
+    // below rewards an evaluator whose points are tightly clustered near the
+    // group average even when they're the one repeatedly tipping an athlete
+    // across a top/middle/bottom cutoff -- which is the actual thing a
+    // director has to go stop and review on the consensus screen. This
+    // replicates that exact tier-split check (categories/[catId]/consensus)
+    // across this evaluator's full history instead of one session at a time.
+    const touchedCatIds = [...new Set(allScores.map(s => s.age_category_id))];
+    let tierAgreement = null;
+    if (touchedCatIds.length) {
+      const groupedRows = await sql`
+        SELECT cs.age_category_id, cs.session_number, sg.group_number, cs.athlete_id, cs.evaluator_id, cs.score::float as score
+        FROM category_scores cs
+        JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
+        JOIN session_groups sg ON sg.id = pga.session_group_id
+          AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
+        WHERE cs.age_category_id = ANY(${touchedCatIds})
+      `;
+      const coachSet = await getCoachPairSet(touchedCatIds);
+      const stats = tierDisagreementStats(groupedRows, coachSet);
+      const mine = stats.get(parseInt(evalId));
+      if (mine && mine.totalJudged > 0) {
+        tierAgreement = {
+          judged: mine.totalJudged,
+          splits_involved: mine.splitsInvolved,
+          times_differed: mine.timesDiffered,
+          agreement_pct: Math.round((1 - mine.timesDiffered / mine.totalJudged) * 100),
+        };
+      }
+    }
+
     // Notes count
     const notesData = await sql`
       SELECT pn.session_number, pn.age_category_id, COUNT(*) as count
@@ -139,7 +173,13 @@ export async function GET(request, { params }) {
         }
       }
       const avgDiff = diffs.length > 0 ? diffs.reduce((a, b) => a + b, 0) / diffs.length : 0;
-      const agreement = diffs.length > 0 ? Math.round(Math.max(0, Math.min(100, (1 - avgDiff / 10) * 100))) : null;
+      // Prefer the real tier-consensus agreement rate (see tierAgreement above) --
+      // it's what a director's manual review actually sees. Raw point-closeness
+      // only fills in when there's no resolvable group assignment to check tiers
+      // against (e.g. scores predate group-based rostering).
+      const agreement = tierAgreement
+        ? tierAgreement.agreement_pct
+        : diffs.length > 0 ? Math.round(Math.max(0, Math.min(100, (1 - avgDiff / 10) * 100))) : null;
 
       // Score distribution (histogram)
       const distribution = {};
@@ -164,6 +204,9 @@ export async function GET(request, { params }) {
 
       return {
         agreement_pct: agreement,
+        agreement_source: tierAgreement ? "consensus_tier" : "point_closeness",
+        tier_judged: tierAgreement?.judged ?? null,
+        tier_splits_involved: tierAgreement?.splits_involved ?? null,
         score_avg: comparisonCount > 0 ? Math.round((totalEvalScore / comparisonCount) * 10) / 10 : null,
         group_avg: comparisonCount > 0 ? Math.round((totalGroupScore / comparisonCount) * 10) / 10 : null,
         bias,
