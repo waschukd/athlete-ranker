@@ -122,7 +122,11 @@ export async function GET(request, { params }) {
     }
 
     if (useGroup) {
-      // Only show athletes assigned to this group
+      // Only show athletes assigned to this group. Rank-ordered (not
+      // alphabetical) here on purpose -- this pass only feeds the snake
+      // draft color-seeding loop below, which needs display_order (rank) for
+      // fair color balance. It is never returned to the client; the re-fetch
+      // further down is what the check-in screen actually receives.
       athletes = await sql`
         SELECT
           a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
@@ -151,7 +155,14 @@ export async function GET(request, { params }) {
         }
       }
 
-      // Re-fetch with updated records
+      // Re-fetch with updated records -- alphabetical, NOT pga.display_order.
+      // display_order is the athlete's overall RANK within the group (set
+      // when groups are built, see categories/[catId]/groups/route.js) --
+      // ordering the check-in list by it silently told every volunteer at
+      // the door who was ranked where in each group, just from list
+      // position. The rank-ordered fetch above is still used for the snake
+      // draft color seeding loop (which needs it for fair color balance);
+      // only what's actually returned to the check-in screen changes here.
       athletes = await sql`
         SELECT
           a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
@@ -162,7 +173,7 @@ export async function GET(request, { params }) {
         JOIN athletes a ON a.id = pga.athlete_id
         LEFT JOIN player_checkins pc ON pc.athlete_id = a.id AND pc.schedule_id = ${scheduleId}
         WHERE pga.session_group_id = ${sessionGroup[0].id}
-        ORDER BY pga.display_order, a.last_name, a.first_name
+        ORDER BY a.last_name, a.first_name
       `;
     } else {
       // Fallback — no groups set up yet
