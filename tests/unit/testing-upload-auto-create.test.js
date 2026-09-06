@@ -119,3 +119,58 @@ describe("POST /api/categories/[catId]/testing-upload — auto-creates unmatched
     expect(sql.mock.calls.filter(c => c[0].join("?").includes("INSERT INTO athletes")).length).toBe(1);
   });
 });
+
+describe("POST /api/categories/[catId]/testing-upload — spelling errors match the existing roster", () => {
+  it("matches a last-name typo to the one existing athlete it's clearly a typo of, instead of creating a duplicate", async () => {
+    // A last-name typo (not first-initial) so it can't be caught by the
+    // existing "partial" tier, which requires an EXACT last-name match --
+    // this exercises the new fuzzy tier specifically.
+    mockSqlByQuery([
+      ["FROM athletes\n      WHERE age_category_id", [{ id: 1, first_name: "John", last_name: "Smith" }]],
+    ]);
+    const { POST } = await import("@/app/api/categories/[catId]/testing-upload/route");
+    const res = await POST(makeReq({
+      session_number: 1,
+      results: [{ first_name: "John", last_name: "Smyth", overall_rank: 1, tests: [] }],
+    }), { params: { catId: "95" } });
+    const body = await res.json();
+    expect(body).toMatchObject({ matched: 1, created: 0, fuzzy_matched: 1 });
+    expect(body.fuzzy_matched_names[0]).toContain("John Smith");
+    expect(sql.mock.calls.some(c => c[0].join("?").includes("INSERT INTO athletes"))).toBe(false);
+  });
+
+  it("does not guess when a name is ambiguous between two different existing athletes", async () => {
+    mockSqlByQuery([
+      ["FROM athletes\n      WHERE age_category_id", [
+        { id: 1, first_name: "John", last_name: "Smith" },
+        { id: 2, first_name: "John", last_name: "Smyth" },
+      ]],
+      ["SELECT organization_id FROM age_categories", [{ organization_id: 49 }]],
+      ["INSERT INTO athletes", [{ id: 999, first_name: "John", last_name: "Smth" }]],
+    ]);
+    const { POST } = await import("@/app/api/categories/[catId]/testing-upload/route");
+    const res = await POST(makeReq({
+      session_number: 1,
+      results: [{ first_name: "John", last_name: "Smth", overall_rank: 1, tests: [] }],
+    }), { params: { catId: "95" } });
+    const body = await res.json();
+    // Both "Smith" and "Smyth" are equally plausible typo targets -- safer to
+    // create a new entry than silently attach this result to the wrong kid.
+    expect(body).toMatchObject({ fuzzy_matched: 0, created: 1 });
+  });
+
+  it("never fuzzy-matches across different last names", async () => {
+    mockSqlByQuery([
+      ["FROM athletes\n      WHERE age_category_id", [{ id: 1, first_name: "John", last_name: "Baker" }]],
+      ["SELECT organization_id FROM age_categories", [{ organization_id: 49 }]],
+      ["INSERT INTO athletes", [{ id: 999, first_name: "John", last_name: "Smith" }]],
+    ]);
+    const { POST } = await import("@/app/api/categories/[catId]/testing-upload/route");
+    const res = await POST(makeReq({
+      session_number: 1,
+      results: [{ first_name: "John", last_name: "Smith", overall_rank: 1, tests: [] }],
+    }), { params: { catId: "95" } });
+    const body = await res.json();
+    expect(body).toMatchObject({ fuzzy_matched: 0, created: 1 });
+  });
+});

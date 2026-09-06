@@ -4,6 +4,22 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { notifyTestingResultsUploaded } from "@/lib/scheduleNotify";
+import { levenshtein } from "@/lib/voiceMatch";
+
+// A spelling error in the uploaded sheet should still land on the existing
+// roster entry, not create a duplicate. Last name must be a near-exact typo
+// (distance <=1 -- different last names are different people, not spelling
+// errors); first name gets more slack (distance <=2) to catch things like
+// "Micheal"/"Michael" or "Jonh"/"John". Only matches if exactly ONE athlete
+// clears both bars -- an ambiguous tie is safer left to fall through to
+// auto-create than guessing wrong and merging two different kids.
+function findFuzzyMatch(firstName, lastName, athletes) {
+  const candidates = athletes.filter(a =>
+    levenshtein(a.last_name.toLowerCase(), lastName) <= 1 &&
+    levenshtein(a.first_name.toLowerCase(), firstName) <= 2
+  );
+  return candidates.length === 1 ? candidates[0] : null;
+}
 
 export async function POST(request, { params }) {
   try {
@@ -30,6 +46,7 @@ export async function POST(request, { params }) {
     const matched = [];
     const skipped = [];
     const created = [];
+    const fuzzyMatched = [];
 
     for (const row of results) {
       const firstName = row.first_name?.trim().toLowerCase();
@@ -53,6 +70,15 @@ export async function POST(request, { params }) {
         );
         if (partial) {
           matched.push({ athlete_id: partial.id, name: `${partial.first_name} ${partial.last_name}`, rank, tests });
+          continue;
+        }
+
+        // A spelling error in the sheet ("Jonh Smith") should land on the
+        // existing "John Smith", not create a duplicate.
+        const fuzzy = findFuzzyMatch(firstName, lastName, athletes);
+        if (fuzzy) {
+          matched.push({ athlete_id: fuzzy.id, name: `${fuzzy.first_name} ${fuzzy.last_name}`, rank, tests });
+          fuzzyMatched.push({ uploaded: `${row.first_name.trim()} ${row.last_name.trim()}`, matched: `${fuzzy.first_name} ${fuzzy.last_name}` });
           continue;
         }
 
@@ -129,9 +155,11 @@ export async function POST(request, { params }) {
       success: true,
       matched: matched.length,
       created: created.length,
+      fuzzy_matched: fuzzyMatched.length,
       skipped: skipped.length,
       tests_stored: testsStored,
       created_names: created.map(c => c.name),
+      fuzzy_matched_names: fuzzyMatched.map(f => `"${f.uploaded}" → ${f.matched}`),
       skipped_names: skipped.map(s => `${s.first_name} ${s.last_name}${s.reason ? ` (${s.reason})` : ""}`),
     });
   } catch (error) {

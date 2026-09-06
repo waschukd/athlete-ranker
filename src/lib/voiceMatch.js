@@ -3,7 +3,7 @@
 // speech-to-text misrecognitions (e.g. "afford compete" → "effort/compete").
 
 // ── Levenshtein distance ────────────────────────────────────────────────────
-function levenshtein(a, b) {
+export function levenshtein(a, b) {
   const m = a.length, n = b.length;
   const dp = Array.from({ length: m + 1 }, (_, i) => {
     const row = new Array(n + 1);

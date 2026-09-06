@@ -217,18 +217,32 @@ export async function computeCategoryRankings(catId, opts = {}) {
   // skaters tested) gave its worst tester 21.7 instead of 0, while Millwoods
   // U9 Tier 1 (28 skaters, 0 goalies, all 28 tested) correctly landed on 0 --
   // same exact formula, just N happened to match there and not here.
-  const testersPerSession = {};
-  for (const t of testingRanks) testersPerSession[t.session_number] = (testersPerSession[t.session_number] || 0) + 1;
-
+  // Re-rank densely within each session (1..fieldSize) instead of trusting the
+  // uploaded overall_rank number as an absolute position. Real incident: a
+  // 124-row upload had 1 row fail to match an athlete, so only 123 rows made
+  // it into testing_drill_results -- fieldSize (a count of MATCHED rows) came
+  // out to 123, but the bottom two testers still carried their original
+  // sheet's overall_rank of 123 and 124. testingPercentile((123-124)/122)
+  // went negative because rank > fieldSize. Dense-ranking by relative order
+  // keeps the actual finish order intact (who beat whom) while guaranteeing
+  // rank never exceeds fieldSize, regardless of skipped rows, ties, or gaps
+  // in however the source sheet numbered people.
+  const bySession = {};
   for (const t of testingRanks) {
-    if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-    const fieldSize = testersPerSession[t.session_number] || N;
-    const percentile = testingPercentile(parseInt(t.overall_rank), fieldSize);
-    scoreMap[t.athlete_id][t.session_number] = {
-      normalized_score: round1(percentile),
-      overall_rank: parseInt(t.overall_rank),
-      source: "testing",
-    };
+    (bySession[t.session_number] ||= []).push(t);
+  }
+  for (const sessionNum in bySession) {
+    const rows = bySession[sessionNum].sort((a, b) => parseInt(a.overall_rank) - parseInt(b.overall_rank));
+    const fieldSize = rows.length;
+    rows.forEach((t, i) => {
+      if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
+      const percentile = testingPercentile(i + 1, fieldSize);
+      scoreMap[t.athlete_id][t.session_number] = {
+        normalized_score: round1(percentile),
+        overall_rank: parseInt(t.overall_rank),
+        source: "testing",
+      };
+    });
   }
 
   // Weighted total: prorate from attended sessions only

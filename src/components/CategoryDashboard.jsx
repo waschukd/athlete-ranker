@@ -1320,6 +1320,7 @@ export default function CategoryDashboard({
                               const data = await res.json();
                               if (data.success) {
                                 const lines = [`${data.matched} matched${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}`];
+                                if (data.fuzzy_matched > 0) lines.push(`${data.fuzzy_matched} matched despite a likely spelling difference: ${data.fuzzy_matched_names.join(', ')} -- double-check these are actually the same player.`);
                                 if (data.created > 0) lines.push(`${data.created} new player${data.created === 1 ? '' : 's'} added to the roster (not previously in the app): ${data.created_names.join(', ')} -- double-check these for typos of an existing player.`);
                                 if (data.skipped > 0) lines.push(`${data.skipped} skipped (missing name/rank): ${data.skipped_names.join(', ')}`);
                                 alert(lines.join('\n\n'));
