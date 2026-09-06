@@ -52,7 +52,13 @@ async function authorizeCheckin(scheduleId) {
       // but every follow-up request still came back 403, which the frontend
       // shows as "Session not found." String() both sides to compare values,
       // not types.
-      if (payload.scope === "checkin" && String(payload.schedule_id) === String(scheduleId)) {
+      // A volunteer can hold several sessions at once (early arrivals, kids at
+      // the wrong group), so the token carries a LIST. schedule_id is still
+      // accepted for a cookie minted before that change.
+      const allowed = Array.isArray(payload.schedule_ids) && payload.schedule_ids.length
+        ? payload.schedule_ids.map(String)
+        : [String(payload.schedule_id)];
+      if (payload.scope === "checkin" && allowed.includes(String(scheduleId))) {
         return { ok: true, ageCategoryId };
       }
     } catch {

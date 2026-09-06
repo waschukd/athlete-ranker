@@ -10,7 +10,8 @@
 // anyone could previously read/mutate any schedule by guessing its id.
 
 import { NextResponse } from "next/server";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
+import { cookies } from "next/headers";
 import sql from "@/lib/db";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
 
@@ -70,9 +71,38 @@ export async function POST(request) {
       VALUES (${entry.schedule_id}, ${volunteer_name}, ${volunteer_email}, ${ip})
     `;
 
+    // A door running several groups at once (kids arriving early, or at the
+    // wrong session) opens a check-in window per group. The cookie is per
+    // BROWSER, not per tab, so a single schedule_id meant each new window
+    // silently invalidated all the others -- every older tab then 403d, and the
+    // page reported it as "No connection", so volunteers logged out and back in
+    // between every scan.
+    //
+    // Carry a LIST instead, so previously opened windows keep working. Capped,
+    // and the newest wins if the cap is reached.
+    const MAX_SCHEDULES = 12;
+    let held = [];
+    try {
+      const existing = cookies().get("checkin-token")?.value;
+      if (existing) {
+        const { payload } = await jwtVerify(existing, SECRET);
+        if (payload?.scope === "checkin") {
+          held = Array.isArray(payload.schedule_ids)
+            ? payload.schedule_ids.map(Number)
+            : (payload.schedule_id != null ? [Number(payload.schedule_id)] : []);
+        }
+      }
+    } catch { /* expired or tampered -- start fresh */ }
+
+    const schedule_ids = [Number(entry.schedule_id), ...held.filter(id => id !== Number(entry.schedule_id))]
+      .filter(Number.isFinite)
+      .slice(0, MAX_SCHEDULES);
+
     const token = await new SignJWT({
       scope: "checkin",
+      // schedule_id kept for tokens read by an older deploy mid-rollout.
       schedule_id: entry.schedule_id,
+      schedule_ids,
       volunteer_email,
     })
       .setProtectedHeader({ alg: "HS256" })

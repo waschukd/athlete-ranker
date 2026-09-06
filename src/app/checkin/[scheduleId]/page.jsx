@@ -70,7 +70,17 @@ function CheckinPageInner() {
         // own specific "Whoops" message from the server — surface it verbatim
         // instead of the generic connection-failure banner.
         const d = await res.json().catch(() => ({}));
-        setActionError(d.code === "jersey_conflict" ? d.error : "That didn't save — check your connection and try again.");
+        if (d.code === "jersey_conflict") {
+          // A jersey clash carries its own specific message from the server.
+          setActionError(d.error);
+        } else if (res.status === 401 || res.status === 403) {
+          // NOT a network problem, and saying so sent volunteers off to log out
+          // and back in mid-scan. This is the check-in code no longer being
+          // valid for THIS window -- say that, and say what fixes it.
+          setActionError("This window's check-in code is no longer active. Re-enter the session code to continue — nothing you have already checked in is lost.");
+        } else {
+          setActionError("That didn't save — check your connection and try again.");
+        }
       } else {
         setActionError("");
       }
