@@ -122,7 +122,14 @@ export async function applySnakeDraftColors(catId, sessionNumber, groups) {
   const upsertColors = [];
 
   for (const group of validGroups) {
-    const scheduleId = scheduleByGroup[group.group_number] || scheduleByGroup[1];
+    // No "|| scheduleByGroup[1]" fallback. When a group's own schedule row could
+    // not be resolved, that fallback filed EVERY player in the group against
+    // group 1's schedule instead -- silently, with no error. It produced 919
+    // check-in rows across 12 divisions for groups those players were never in,
+    // and it is why a U9 House player could hold a check-in row for a group they
+    // do not skate in. Skipping is correct: a group with no schedule has no
+    // check-in to seed, and the loop below simply moves on.
+    const scheduleId = scheduleByGroup[group.group_number];
     if (!scheduleId) continue;
     const csId = csBySchedule[scheduleId];
     if (!csId) continue;
