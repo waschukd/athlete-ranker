@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import SessionRosterModal from "@/components/SessionRosterModal";
 import { parseTeamColors, colorFor } from "@/lib/teamColors";
+import { isPos } from "@/lib/positions";
 import GuideModal from "@/components/evaluator-scoring/GuideModal";
 import RangesModal from "@/components/evaluator-scoring/RangesModal";
 import SessionGuidanceModal from "@/components/evaluator-scoring/SessionGuidanceModal";
@@ -107,6 +108,7 @@ function ScoringInterface() {
   const [voiceMode, setVoiceMode] = useState('checking'); // checking | live | degraded | unavailable
   const [notesMode, setNotesMode] = useState(false);
   const [teamFilter, setTeamFilter] = useState("all");
+  const [posFilter, setPosFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
   const [jerseySearch, setJerseySearch] = useState("");
   const [showRoster, setShowRoster] = useState(false);
@@ -658,6 +660,7 @@ function ScoringInterface() {
   // instant that partial score completes them, the evaluator loses the row
   // (grid) or jersey button (pool) they were about to correct mid-sentence.
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
+    .filter(a => isPos(a.position, posFilter))
     .filter(a => !hideCompleted || a.id === selected?.id || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
     .sort((a,b) => sortKey(a) - sortKey(b));
@@ -1448,6 +1451,7 @@ function ScoringInterface() {
         onOpenSettings={() => setSettingsOpen(true)}
         calibration={calibration} calibrationDismissed={calibrationDismissed} onDismissCalibration={() => setCalibrationDismissed(true)}
         teamColors={teamColors} teamFilter={teamFilter} setTeamFilter={setTeamFilter} athletes={athletes}
+        posFilter={posFilter} setPosFilter={setPosFilter}
         hideCompleted={hideCompleted} setHideCompleted={setHideCompleted}
         viewMode={viewMode} collapseList={collapseList} setCollapseList={setCollapseList} setListExpanded={setListExpanded}
         readOnly={readOnly}

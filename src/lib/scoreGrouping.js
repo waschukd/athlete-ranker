@@ -13,6 +13,11 @@ export function groupDetailedScores(rows) {
         id: row.athlete_id,
         name: `${row.first_name} ${row.last_name}`,
         jersey: row.jersey_number,
+        // What they were LAST issued at check-in, plus the persistent helmet
+        // sticker -- the roster jersey column is usually blank.
+        last_jersey: row.last_jersey ?? null,
+        helmet: row.helmet_number ?? null,
+        last_team_color: row.last_team_color ?? null,
         sessions: {},
       };
     }
@@ -48,6 +53,8 @@ export function toScoreGrid(rows) {
         key,
         athlete_id: row.athlete_id,
         athlete_name: `${row.first_name} ${row.last_name}`,
+        last_jersey: row.last_jersey ?? null,
+        helmet: row.helmet_number ?? null,
         jersey: row.jersey_number,
         session_number: row.session_number,
         evaluator_id: row.evaluator_id,

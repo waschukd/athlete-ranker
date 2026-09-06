@@ -234,7 +234,19 @@ export async function GET(request, { params }) {
 
       const detailedScores = await sql`
         SELECT cs.athlete_id, cs.session_number, cs.evaluator_id, cs.scoring_category_id, cs.score,
-          a.first_name, a.last_name, a.jersey_number,
+          a.first_name, a.last_name, a.jersey_number, a.helmet_number,
+          -- The number the player was LAST actually issued, not the roster
+          -- field: jersey is assigned per session at check-in, and the roster
+          -- column is usually blank. Reviewing a score is much easier when you
+          -- can tie it to the number the evaluator was looking at.
+          (SELECT pc.jersey_number FROM player_checkins pc
+             JOIN evaluation_schedule es2 ON es2.id = pc.schedule_id
+            WHERE pc.athlete_id = a.id AND pc.jersey_number IS NOT NULL
+            ORDER BY es2.scheduled_date DESC, es2.start_time DESC LIMIT 1) AS last_jersey,
+          (SELECT pc.team_color FROM player_checkins pc
+             JOIN evaluation_schedule es2 ON es2.id = pc.schedule_id
+            WHERE pc.athlete_id = a.id AND pc.team_color IS NOT NULL
+            ORDER BY es2.scheduled_date DESC, es2.start_time DESC LIMIT 1) AS last_team_color,
           u.name as evaluator_name,
           sc.name as category_name, sc.display_order
         FROM category_scores cs
@@ -244,7 +256,8 @@ export async function GET(request, { params }) {
         WHERE cs.age_category_id = ${catId}
           AND (${searchPattern}::text IS NULL
                OR LOWER(a.first_name || ' ' || a.last_name) LIKE LOWER(${searchPattern})
-               OR CAST(a.jersey_number AS TEXT) = ${search})
+               OR CAST(a.jersey_number AS TEXT) = ${search}
+               OR CAST(a.helmet_number AS TEXT) = ${search})
           AND (${evalFilter}::int IS NULL OR cs.evaluator_id = ${evalFilter})
           AND (${sessFilter}::int IS NULL OR cs.session_number = ${sessFilter})
         ORDER BY a.last_name, a.first_name, cs.session_number, u.name, sc.display_order

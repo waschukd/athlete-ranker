@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { colorFor } from "@/lib/teamColors";
+import { isPos } from "@/lib/positions";
 
 const sameTeam = (a, b) => String(a ?? "").toLowerCase() === String(b ?? "").toLowerCase();
 
@@ -13,6 +14,7 @@ export default function TopBar({
   onOpenSettings,
   calibration, calibrationDismissed, onDismissCalibration,
   teamColors, teamFilter, setTeamFilter, athletes,
+  posFilter, setPosFilter,
   hideCompleted, setHideCompleted,
   viewMode, collapseList, setCollapseList, setListExpanded,
   readOnly, onOpenConsensus,
@@ -140,6 +142,32 @@ export default function TopBar({
             </button>
           ))}
         </div>
+
+        {/* Position filter. An evaluator watching only the D pairs does not want
+            to scroll past every forward to find them, and the reverse for a
+            forwards-focused evaluator. Hidden when the roster has no positions
+            recorded, since it would filter everything to nothing. */}
+        {athletes.some(a => a.position) && (
+          <div className="flex border-t border-gray-200">
+            {[
+              { id: "all", label: "All" },
+              { id: "forward", label: "F" },
+              { id: "defense", label: "D" },
+            ].map(f => {
+              const n = f.id === "all" ? athletes.length : athletes.filter(a => isPos(a.position, f.id)).length;
+              return (
+                <button key={f.id} onClick={() => setPosFilter(f.id)} disabled={n === 0 && f.id !== "all"}
+                  className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                    posFilter === f.id
+                      ? "text-accent border-b-2 border-accent"
+                      : "text-gray-400 border-b-2 border-transparent"
+                  } ${n === 0 && f.id !== "all" ? "opacity-30" : ""}`}>
+                  {f.label} ({n})
+                </button>
+              );
+            })}
+          </div>
+        )}
           <div className="flex items-center justify-center gap-2 mt-1 mx-3 mb-1 flex-wrap">
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}

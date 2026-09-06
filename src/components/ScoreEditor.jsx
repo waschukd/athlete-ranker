@@ -276,7 +276,12 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
                     <button onClick={() => toggleExpand(athlete.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                       {expanded.has(athlete.id) ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />}
                       <span className="text-sm font-semibold text-gray-900 truncate">{athlete.name}</span>
-                      {athlete.jersey && <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded flex-shrink-0">#{athlete.jersey}</span>}
+                      {/* Roster jersey is usually blank; what reviewers need is
+                          the number actually issued at the last check-in and the
+                          persistent helmet sticker, so a score can be tied back
+                          to the player the evaluator was looking at. */}
+                      {athlete.helmet && <span className="text-xs font-mono bg-accent-soft text-accent px-2 py-0.5 rounded flex-shrink-0" title="Helmet sticker (persists across sessions)">H{athlete.helmet}</span>}
+                      {(athlete.last_jersey ?? athlete.jersey) != null && <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded flex-shrink-0" title={athlete.last_jersey != null ? "Jersey at the most recent check-in" : "Roster jersey"}>#{athlete.last_jersey ?? athlete.jersey}</span>}
                       <span className="text-xs text-gray-400 hidden sm:inline">{Object.keys(athlete.sessions).length} session(s)</span>
                     </button>
                     {canEdit && (
@@ -487,7 +492,8 @@ function ScoreGrid({ grid, scoringCats, canEdit, onSave }) {
             <tr key={rowData.key} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
               <td className="sticky left-0 bg-white py-1.5 px-4 whitespace-nowrap">
                 <span className="font-medium text-gray-900">{rowData.athlete_name}</span>
-                {rowData.jersey && <span className="ml-1.5 text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">#{rowData.jersey}</span>}
+                {rowData.helmet && <span className="ml-1.5 text-xs font-mono bg-accent-soft text-accent px-1.5 py-0.5 rounded" title="Helmet sticker">H{rowData.helmet}</span>}
+                {(rowData.last_jersey ?? rowData.jersey) != null && <span className="ml-1.5 text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded" title={rowData.last_jersey != null ? "Jersey at the most recent check-in" : "Roster jersey"}>#{rowData.last_jersey ?? rowData.jersey}</span>}
               </td>
               <td className="py-1.5 px-3 text-center text-gray-500">S{rowData.session_number}</td>
               <td className="py-1.5 px-3 text-gray-600 whitespace-nowrap">{rowData.evaluator_name}</td>

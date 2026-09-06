@@ -274,7 +274,11 @@ export default function CategoryDashboard({
   const renderTrend = (a) => {
     const prev = a.prev_rank;
     if (prev == null) return <span className="text-gray-200 text-xs">—</span>;
-    const delta = prev - a.rank; // positive = moved up (better) that many spots
+    // prev_rank is an OVERALL rank, so compare against the overall one.
+    // Under an F/D filter `rank` is renumbered within that group, and
+    // subtracting it from an overall previous rank invents movement that never
+    // happened.
+    const delta = prev - (a.overall_rank ?? a.rank); // positive = moved up that many spots
     const up = delta > 0, dn = delta < 0;
     const spots = Math.abs(delta);
     return (
@@ -548,7 +552,17 @@ export default function CategoryDashboard({
     URL.revokeObjectURL(url);
   };
 
-  const filteredAthletes = positionFilter === "all" ? rankedAthletes : rankedAthletes.filter(a => a.position === positionFilter);
+  // Filtering to F or D renumbers 1..N WITHIN that group. Showing the overall
+  // rank while filtered reads as a broken list -- the top defenceman appearing
+  // as #7 with nothing between them and #12. position_rank is what the table
+  // displays; the overall rank stays on the row for anything that needs it.
+  const filteredAthletes = positionFilter === "all"
+    ? rankedAthletes
+    : rankedAthletes
+        .filter(a => a.position === positionFilter)
+        .slice()
+        .sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY))
+        .map((a, i) => ({ ...a, position_rank: i + 1, overall_rank: a.rank, rank: i + 1 }));
   // A goalie-only category holds only goalies — its rankings ARE the goalie view.
   const goalieOnly = !!category?.goalie_only;
   // Rankings position tabs: Overall (skaters) · F · D · G. Goalies rank separately.
