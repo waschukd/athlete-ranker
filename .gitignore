@@ -24,3 +24,6 @@ test-data/
 # `vercel env pull` holds real production secrets. Templates stay tracked.
 .env*
 !.env*.example
+
+# Recovery dump from scripts/repair-phantom-rank-drills.mjs — real athlete data
+phantom-rank-backup.json
