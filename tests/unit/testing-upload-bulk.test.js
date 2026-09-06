@@ -81,3 +81,47 @@ describe("repeated Rank columns are not mistaken for drills", () => {
     expect(DASH).toMatch(/rankIdx: isRankCol\(lower\[i \+ 1\]\)/);
   });
 });
+
+describe("spreadsheet artefacts never become drills", () => {
+  // A stored drill name is rendered on the parent Development Report as a real
+  // test. Repeated "Rank" headers reached four EFHA divisions and showed up
+  // there as drills called "Rank.4" with a value of 94. The dashboard parser
+  // filters them, but this route stores whatever it is handed -- and a
+  // parent-facing surface is the wrong place to discover that.
+  const NAMES = SRC.slice(SRC.indexOf("const NOT_A_DRILL"), SRC.indexOf("export async function POST"));
+
+  const patterns = [...NAMES.matchAll(/\/(\^.*?\$)\/i?,/g)].map(m => new RegExp(m[1], "i"));
+  const rejected = (name) => patterns.some(re => re.test(name.trim()));
+
+  it("rejects the Rank columns that actually reached production", () => {
+    for (const n of ["Rank", "rank", "Rank.1", "Rank.4", "Rank.12", "Overall Rank"]) {
+      expect(rejected(n), n).toBe(true);
+    }
+  });
+
+  it("rejects other spreadsheet leftovers", () => {
+    for (const n of ["Position", "First Name", "Last Name", "Unnamed: 12", "Column 3", "#", "94", "12.5"]) {
+      expect(rejected(n), n).toBe(true);
+    }
+  });
+
+  it("keeps every real drill name in the database today", () => {
+    // Taken verbatim from the live testing_results table.
+    const real = [
+      "30M Forward", "30M Forward with Puck", "30M Backward", "Weave",
+      "Weave Agility", "Weave Agility with Puck", "Weave Agility w/ Puck",
+      "Left Transition", "Right Transition", "Transition Left", "Transition Right",
+      "Transition Agility Left", "Transition Agility Right", "Stop and Start",
+      "Start and Stop", "Forward Sprint", "Forward Sprint w/ Puck", "Backward Sprint",
+    ];
+    for (const n of real) expect(rejected(n), n).toBe(false);
+  });
+
+  it("is wired into the value collection, not just declared", () => {
+    expect(SRC).toMatch(/if \(!isDrillName\(name\)\) \{ ignoredColumns\.add\(name\); return; \}/);
+  });
+
+  it("reports what it refused instead of dropping it quietly", () => {
+    expect(SRC).toMatch(/ignored_columns: \[\.\.\.ignoredColumns\]/);
+  });
+});

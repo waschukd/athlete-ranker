@@ -21,6 +21,31 @@ function findFuzzyMatch(firstName, lastName, athletes) {
   return candidates.length === 1 ? candidates[0] : null;
 }
 
+// A stored drill name goes on to the parent Development Report as a real test,
+// so a spreadsheet artefact that lands here is visible to families. Repeated
+// "Rank" headers already reached four EFHA divisions that way and rendered as
+// drills called "Rank.4" with a value of 94.
+//
+// The CSV parser in the dashboard filters these, but this route accepts whatever
+// a caller sends it, and the report is the wrong place to find out. Anything
+// that is plainly a spreadsheet column rather than a drill is refused here too,
+// and reported back so the upload is never silently thinner than the file.
+const NOT_A_DRILL = [
+  /^rank(\.\d+)?$/i,          // repeated "Rank" columns, renamed by Excel
+  /^overall\s*rank$/i,
+  /^position$/i,
+  /^(first|last)\s*name$/i,
+  /^unnamed:?\s*\d*$/i,       // pandas/Sheets placeholder for a blank header
+  /^(column|col)\s*\d+$/i,
+  /^#$/,
+  /^\d+(\.\d+)?$/,            // a bare number is a stray value, not a name
+];
+function isDrillName(name) {
+  const n = String(name || "").trim();
+  if (!n) return false;
+  return !NOT_A_DRILL.some(re => re.test(n));
+}
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();
@@ -164,6 +189,7 @@ export async function POST(request, { params }) {
     // partial write: anything that goes wrong is reported to the caller.
     let testsStored = 0;
     let testError = null;
+    const ignoredColumns = new Set();
     const byKey = new Map();
     for (const m of matched) {
       // Index in the array = column position in the uploaded CSV, left to right
@@ -173,6 +199,7 @@ export async function POST(request, { params }) {
         const name = (t.name || "").trim();
         const value = parseFloat(t.value);
         if (!name || isNaN(value)) return;
+        if (!isDrillName(name)) { ignoredColumns.add(name); return; }
         const trank = parseInt(t.rank);
         byKey.set(`${m.athlete_id}|${name.toLowerCase()}`,
           { athlete_id: m.athlete_id, name, value, rank: isNaN(trank) ? null : trank, order });
@@ -214,6 +241,8 @@ export async function POST(request, { params }) {
       skipped: skipped.length,
       tests_stored: testsStored,
       tests_expected: vals.length,
+      // Column headings refused as non-drills -- never dropped silently.
+      ignored_columns: [...ignoredColumns],
       // Non-null when some or all test values failed to save. The upload can
       // still have stored ranks, which is exactly the state that looks fine.
       tests_error: testError,
