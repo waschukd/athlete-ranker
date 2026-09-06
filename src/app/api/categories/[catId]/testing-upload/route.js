@@ -63,11 +63,25 @@ export async function POST(request, { params }) {
       );
 
       if (!athlete) {
-        // Try last name only if first name partial match
-        const partial = athletes.find(a =>
-          a.last_name.toLowerCase() === lastName &&
-          a.first_name.toLowerCase().startsWith(firstName[0])
-        );
+        // Same last name, and one first name is a prefix of the other -- "Meg"
+        // for "Meghan", "Alex" for "Alexander".
+        //
+        // This used to accept a shared first INITIAL, which is not a nickname,
+        // it is a coincidence. EFHA U11 has a Michelle Xu on the roster and a
+        // Meghan Xu who tested but was never added: Meghan matched Michelle on
+        // "same last name, both start with M" and overwrote her times. Two
+        // sisters would do the same thing. Requiring a prefix means Meghan
+        // falls through to auto-create, which is what should happen to someone
+        // who is genuinely not on the roster.
+        //
+        // Ambiguity is left unmatched on purpose -- two roster entries that
+        // both look right is not a match, it is a guess.
+        const sameLast = athletes.filter(a => a.last_name.toLowerCase() === lastName);
+        const nicknames = sameLast.filter(a => {
+          const rosterFirst = a.first_name.toLowerCase();
+          return rosterFirst.startsWith(firstName) || firstName.startsWith(rosterFirst);
+        });
+        const partial = nicknames.length === 1 ? nicknames[0] : null;
         if (partial) {
           matched.push({ athlete_id: partial.id, name: `${partial.first_name} ${partial.last_name}`, rank, tests });
           continue;
