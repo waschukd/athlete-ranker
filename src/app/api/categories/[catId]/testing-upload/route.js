@@ -23,8 +23,13 @@ export async function POST(request, { params }) {
       WHERE age_category_id = ${catId} AND is_active = true
     `;
 
+    // Only needed if a row's name matches nobody on the roster -- most uploads
+    // never touch this.
+    let orgId = null;
+
     const matched = [];
     const skipped = [];
+    const created = [];
 
     for (const row of results) {
       const firstName = row.first_name?.trim().toLowerCase();
@@ -48,9 +53,28 @@ export async function POST(request, { params }) {
         );
         if (partial) {
           matched.push({ athlete_id: partial.id, name: `${partial.first_name} ${partial.last_name}`, rank, tests });
-        } else {
-          skipped.push({ ...row, reason: "No name match" });
+          continue;
         }
+
+        // Real incident: a tester's results file included a kid who'd genuinely
+        // tested but was never in the roster -- getting silently skipped meant
+        // their results just vanished with no record they'd shown up at all.
+        // Rather than lose that, register them fresh (organization admins can
+        // fix up position/birth year/etc. afterward same as any other athlete).
+        if (!orgId) {
+          const [cat] = await sql`SELECT organization_id FROM age_categories WHERE id = ${catId}`;
+          orgId = cat?.organization_id;
+        }
+        const rawFirst = row.first_name.trim();
+        const rawLast = row.last_name.trim();
+        const [newAthlete] = await sql`
+          INSERT INTO athletes (organization_id, age_category_id, first_name, last_name, is_active, notes)
+          VALUES (${orgId}, ${catId}, ${rawFirst}, ${rawLast}, true, 'Added automatically from a testing results upload -- verify roster details (birth year, parent email, position).')
+          RETURNING id, first_name, last_name
+        `;
+        athletes.push(newAthlete); // so a later duplicate row in the same file matches instead of creating twice
+        created.push({ athlete_id: newAthlete.id, name: `${newAthlete.first_name} ${newAthlete.last_name}` });
+        matched.push({ athlete_id: newAthlete.id, name: `${newAthlete.first_name} ${newAthlete.last_name}`, rank, tests });
         continue;
       }
 
@@ -104,8 +128,10 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       success: true,
       matched: matched.length,
+      created: created.length,
       skipped: skipped.length,
       tests_stored: testsStored,
+      created_names: created.map(c => c.name),
       skipped_names: skipped.map(s => `${s.first_name} ${s.last_name}${s.reason ? ` (${s.reason})` : ""}`),
     });
   } catch (error) {

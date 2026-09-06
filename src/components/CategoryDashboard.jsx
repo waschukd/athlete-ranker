@@ -1318,7 +1318,14 @@ export default function CategoryDashboard({
                                 body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
                               });
                               const data = await res.json();
-                              alert(data.success ? `${data.matched} matched${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}` : 'Error: ' + data.error);
+                              if (data.success) {
+                                const lines = [`${data.matched} matched${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}`];
+                                if (data.created > 0) lines.push(`${data.created} new player${data.created === 1 ? '' : 's'} added to the roster (not previously in the app): ${data.created_names.join(', ')} -- double-check these for typos of an existing player.`);
+                                if (data.skipped > 0) lines.push(`${data.skipped} skipped (missing name/rank): ${data.skipped_names.join(', ')}`);
+                                alert(lines.join('\n\n'));
+                              } else {
+                                alert('Error: ' + data.error);
+                              }
                               refetchRankings(); e.target.value = "";
                             }} />
                           </label>
