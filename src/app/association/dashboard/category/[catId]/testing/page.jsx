@@ -2,9 +2,20 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, ClipboardList, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ClipboardList, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import { sortTestingAthletes, nextSort } from "@/lib/testingSort";
+
+// A drill header sorts by time on click, and by that drill's RANK on a second
+// control, because "who was fastest" and "where did she place" are different
+// questions and the table is read for both.
+function SortArrow({ active, dir }) {
+  if (!active) return <span className="inline-block w-3" />;
+  return dir === "asc"
+    ? <ChevronUp size={11} className="inline-block text-accent" />
+    : <ChevronDown size={11} className="inline-block text-accent" />;
+}
 
 function medalColor(rank) {
   if (rank === 1) return "text-amber-500";
@@ -22,6 +33,7 @@ function TestingContent() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSession, setActiveSession] = useState(null);
+  const [sort, setSort] = useState({ key: "rank", dir: "asc", field: "value" });
   const [theme, toggleTheme] = useTheme();
 
   const load = useCallback(async () => {
@@ -38,6 +50,17 @@ function TestingContent() {
   const sessions = data?.sessions || [];
   const current = sessions.find(s => s.session_number === activeSession) || sessions[0];
   const testNames = current?.test_names || [];
+  const rows = sortTestingAthletes(current?.athletes, sort);
+  const sortBy = (key, field = "value") => setSort(s => nextSort(s, key, field));
+  const isSorted = (key, field = "value") => sort.key === key && (sort.field || "value") === field;
+
+  // Switching sessions keeps the sort, unless it was on a drill that session
+  // does not have -- then fall back to overall rank rather than showing a
+  // column sorted by nothing.
+  useEffect(() => {
+    if (sort.key === "rank" || sort.key === "name") return;
+    if (!testNames.includes(sort.key)) setSort({ key: "rank", dir: "asc", field: "value" });
+  }, [activeSession, testNames, sort.key]);
 
   return (
     <div data-theme={theme} className="h-screen bg-gray-50 flex flex-col overflow-hidden">
@@ -106,21 +129,44 @@ function TestingContent() {
                 <span className="text-sm font-semibold text-gray-900">
                   {current.athletes.length} Athlete{current.athletes.length !== 1 ? "s" : ""} Tested
                 </span>
-                <span className="text-xs text-gray-400 font-normal">· drills shown left to right in the order they were run</span>
+                <span className="text-xs text-gray-400 font-normal">· drills left to right in the order they were run · click a heading to sort, <span className="font-semibold">#</span> for placing</span>
               </div>
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                     <tr>
-                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase w-10">Rank</th>
-                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase">Athlete</th>
+                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase w-10">
+                        <button onClick={() => sortBy("rank")} title="Sort by overall testing rank"
+                          className={`inline-flex items-center gap-0.5 uppercase hover:text-accent transition-colors ${isSorted("rank") ? "text-accent" : ""}`}>
+                          Rank <SortArrow active={isSorted("rank")} dir={sort.dir} />
+                        </button>
+                      </th>
+                      <th className="px-3 py-1.5 text-left text-[10px] font-medium text-gray-500 uppercase">
+                        <button onClick={() => sortBy("name")} title="Sort by last name"
+                          className={`inline-flex items-center gap-0.5 uppercase hover:text-accent transition-colors ${isSorted("name") ? "text-accent" : ""}`}>
+                          Athlete <SortArrow active={isSorted("name")} dir={sort.dir} />
+                        </button>
+                      </th>
                       {testNames.map(name => (
-                        <th key={name} className="px-2.5 py-1.5 text-center text-[10px] font-medium text-gray-500 uppercase whitespace-nowrap">{name}</th>
+                        <th key={name} className="px-2.5 py-1.5 text-center text-[10px] font-medium text-gray-500 uppercase whitespace-nowrap">
+                          <button onClick={() => sortBy(name)} title={`Sort by ${name} time`}
+                            className={`inline-flex items-center gap-0.5 uppercase hover:text-accent transition-colors ${isSorted(name) ? "text-accent" : ""}`}>
+                            {name} <SortArrow active={isSorted(name)} dir={sort.dir} />
+                          </button>
+                          {/* Placing in a drill is a separate question from the raw
+                              time, and the ranks are already on screen -- so they
+                              get their own control rather than a second click that
+                              means something different. */}
+                          <button onClick={() => sortBy(name, "rank")} title={`Sort by ${name} placing`}
+                            className={`ml-1 font-normal normal-case hover:text-accent transition-colors ${isSorted(name, "rank") ? "text-accent" : "text-gray-300"}`}>
+                            #<SortArrow active={isSorted(name, "rank")} dir={sort.dir} />
+                          </button>
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {[...current.athletes].sort((a, b) => a.overall_rank - b.overall_rank).map(a => (
+                    {rows.map(a => (
                       <tr key={a.athlete_id} className="hover:bg-gray-50">
                         <td className={`px-3 py-1 font-display text-sm font-extrabold tabular-nums ${medalColor(a.overall_rank)}`}>{a.overall_rank}</td>
                         <td className="px-3 py-1 text-gray-900 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>

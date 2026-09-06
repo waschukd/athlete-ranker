@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit3, History, ChevronDown, ChevronRight, Check, X, Loader2, AlertCircle, LayoutGrid, Table2 } from "lucide-react";
 import { groupDetailedScores, toScoreGrid } from "@/lib/scoreGrouping";
+import { indexTestingByAthlete } from "@/lib/testingSort";
 
 export default function ScoreEditor({ catId, canEdit, requireReason = false, showAudit = true }) {
   const [subTab, setSubTab] = useState("edit");
@@ -41,6 +42,22 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
       return res.json();
     },
   });
+
+  // Testing results for the whole category, indexed by athlete. Fetched once
+  // and reused for every expanded card: on-ice scores and testing times are the
+  // two halves of the same evaluation, and reviewers were having to open a
+  // separate page to see the other half.
+  const { data: testingData } = useQuery({
+    queryKey: ["testing-scores", catId],
+    queryFn: async () => {
+      const res = await fetch(`/api/categories/${catId}/testing-scores`);
+      if (!res.ok) throw new Error("Failed to load testing results");
+      return res.json();
+    },
+    // A category with no testing uploaded just renders nothing extra.
+    retry: false,
+  });
+  const testingByAthlete = indexTestingByAthlete(testingData?.sessions);
 
   // Group flat score rows into athlete → session → evaluator (cards view) and
   // into a flat spreadsheet grid (grid view).
@@ -376,6 +393,7 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
                           </div>
                         </div>
                       ))}
+                      <TestingBreakdown data={testingByAthlete.get(athlete.id)} />
                     </div>
                   )}
                 </div>
@@ -473,6 +491,62 @@ export default function ScoreEditor({ catId, canEdit, requireReason = false, sho
 // One row per athlete/session/evaluator; one column per scoring category.
 // Every existing score is an always-editable cell so a whole session can be
 // adjusted without expanding cards or scrolling name-to-name.
+// The on-ice score and the testing time are two halves of one evaluation, and
+// reviewers were opening the raw testing page in another tab to see the other
+// half while auditing a player. Shown on the player's own card instead.
+//
+// Renders nothing at all when the category has no testing uploaded, rather than
+// an empty heading -- most categories do not test.
+function TestingBreakdown({ data }) {
+  if (!data?.sessions?.length) return null;
+  return (
+    <div className="mt-5 pt-4 border-t border-gray-100">
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Testing</div>
+      {data.sessions.map(s => (
+        <div key={s.session_number} className="mb-4 last:mb-0">
+          <div className="flex items-baseline gap-2 mb-2 flex-wrap">
+            {data.sessions.length > 1 && (
+              <span className="text-xs text-gray-400">Session {s.session_number}</span>
+            )}
+            <span className="text-sm font-semibold text-gray-900">
+              Overall testing rank{" "}
+              <span className="font-display font-extrabold text-accent tabular-nums">{s.overall_rank}</span>
+              {/* "31" alone means nothing without the field size. */}
+              <span className="text-gray-400 font-normal"> of {s.tested}</span>
+            </span>
+          </div>
+          {s.tests.length === 0 ? (
+            <div className="text-xs text-gray-400">Ranked, but no individual drill times recorded.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-2 pr-4 text-xs text-gray-400 font-medium">Drill</th>
+                    <th className="text-right py-2 px-2 text-xs text-gray-400 font-medium">Result</th>
+                    <th className="text-right py-2 pl-2 text-xs text-gray-400 font-medium">Placing</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.tests.map(t => (
+                    <tr key={t.test_name} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 pr-4 text-xs text-gray-700 font-medium whitespace-nowrap">{t.test_name}</td>
+                      <td className="py-2 px-2 text-right tabular-nums text-gray-900">{t.value}</td>
+                      <td className="py-2 pl-2 text-right tabular-nums text-gray-500">
+                        {t.rank != null ? `#${t.rank}` : <span className="text-gray-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ScoreGrid({ grid, scoringCats, canEdit, onSave }) {
   return (
     <div className="overflow-x-auto border border-gray-200 rounded-xl">
