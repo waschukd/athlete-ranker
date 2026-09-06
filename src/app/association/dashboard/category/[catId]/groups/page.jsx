@@ -366,7 +366,9 @@ function GroupsManagerInner() {
   };
 
   const exportCSV = () => {
-    const rows = [['Group','Rank','Date','Time','Location','Last Name','First Name','ID','Position']];
+    // Helmet sticker sits with the names: it is how BAHA identifies a kid at
+    // the door, and it persists across sessions where a jersey number does not.
+    const rows = [['Group','Rank','Date','Time','Location','Last Name','First Name','Helmet','ID','Position']];
     for (const group of groups) {
       const players = orderForExport(assignments.filter(a => a.session_group_id === group.id));
       const sample = players[0];
@@ -374,7 +376,7 @@ function GroupsManagerInner() {
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : (sample?.start_time || '');
       const loc = sample?.location || '';
       for (const player of players) {
-        rows.push(['Group ' + group.group_number, player.rank ?? '', date, time, loc, player.last_name, player.first_name, player.external_id || '', player.position || '']);
+        rows.push(['Group ' + group.group_number, player.rank ?? '', date, time, loc, player.last_name, player.first_name, player.helmet_number || '', player.external_id || '', player.position || '']);
       }
     }
     const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
@@ -396,8 +398,8 @@ function GroupsManagerInner() {
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : '';
       const loc = sample?.location || '';
       html += '<div class="group"><div class="group-header">Group ' + group.group_number + ([date,time,loc].filter(Boolean).length ? ' | ' + [date,time,loc].filter(Boolean).join(' · ') : '') + '</div>';
-      html += '<table><thead><tr><th>#</th><th>Rank</th><th>Last Name</th><th>First Name</th><th>ID</th><th>Position</th></tr></thead><tbody>';
-      players.forEach((pl,i) => { html += '<tr><td>'+(i+1)+'</td><td>'+(pl.rank != null ? '#'+pl.rank : '-')+'</td><td>'+pl.last_name+'</td><td>'+pl.first_name+'</td><td>'+(pl.external_id||'-')+'</td><td>'+(pl.position||'-')+'</td></tr>'; });
+      html += '<table><thead><tr><th>#</th><th>Rank</th><th>Last Name</th><th>First Name</th><th>Helmet</th><th>ID</th><th>Position</th></tr></thead><tbody>';
+      players.forEach((pl,i) => { html += '<tr><td>'+(i+1)+'</td><td>'+(pl.rank != null ? '#'+pl.rank : '-')+'</td><td>'+pl.last_name+'</td><td>'+pl.first_name+'</td><td>'+(pl.helmet_number||'-')+'</td><td>'+(pl.external_id||'-')+'</td><td>'+(pl.position||'-')+'</td></tr>'; });
       html += '</tbody></table></div>';
     }
     html += '</body></html>';

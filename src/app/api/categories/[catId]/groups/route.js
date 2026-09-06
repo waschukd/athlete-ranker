@@ -48,7 +48,7 @@ export async function GET(request, { params }) {
     const assignments = sessionNum
       ? await sql`
           SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order, pga.auto_group_number,
-            a.first_name, a.last_name, a.external_id, a.position,
+            a.first_name, a.last_name, a.external_id, a.position, a.helmet_number,
             sg.session_number, sg.group_number,
             pc.jersey_number, pc.team_color, pc.checked_in,
             es.checkin_code, es.id as schedule_id,
@@ -63,7 +63,7 @@ export async function GET(request, { params }) {
           ORDER BY sg.group_number, pga.display_order, a.last_name`
       : await sql`
           SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order, pga.auto_group_number,
-            a.first_name, a.last_name, a.external_id, a.position,
+            a.first_name, a.last_name, a.external_id, a.position, a.helmet_number,
             sg.session_number, sg.group_number,
             pc.jersey_number, pc.team_color, pc.checked_in,
             es.checkin_code, es.id as schedule_id
@@ -78,7 +78,7 @@ export async function GET(request, { params }) {
 
     // Get unassigned goalies for this session
     const goalies = sessionNum ? await sql`
-      SELECT a.id, a.first_name, a.last_name, a.external_id
+      SELECT a.id, a.first_name, a.last_name, a.external_id, a.helmet_number
       FROM athletes a
       WHERE a.age_category_id = ${catId} AND a.position = 'goalie' AND a.is_active = true
         AND a.id NOT IN (
@@ -95,7 +95,7 @@ export async function GET(request, { params }) {
     // from player_group_assignments, so a never-assigned player appears nowhere,
     // not even in an "unassigned" bucket, unlike goalies above.
     const unassigned_skaters = sessionNum ? await sql`
-      SELECT a.id, a.first_name, a.last_name, a.external_id, a.position
+      SELECT a.id, a.first_name, a.last_name, a.external_id, a.position, a.helmet_number
       FROM athletes a
       WHERE a.age_category_id = ${catId} AND a.is_active = true AND COALESCE(a.position, '') <> 'goalie'
         AND a.id NOT IN (
