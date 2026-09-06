@@ -103,18 +103,30 @@ for (const g of groups) {
   for (const loser of losers) {
     // Move child rows the keeper does not already have; drop the rest, since a
     // duplicate's copy carries nothing the keeper's does not.
+    // Move only when the keeper has no group for that SESSION. Matching on the
+    // group id alone double-booked a player who was in G2 on the keeper and G3
+    // on the duplicate -- they then appeared on two check-in lists for the same
+    // session, which is the very problem this script is meant to remove.
     await sql`
       UPDATE player_group_assignments pga SET athlete_id = ${keeper.id}
-      WHERE pga.athlete_id = ${loser.id}
-        AND NOT EXISTS (SELECT 1 FROM player_group_assignments x
-                        WHERE x.athlete_id = ${keeper.id} AND x.session_group_id = pga.session_group_id)`;
+      FROM session_groups sg
+      WHERE pga.athlete_id = ${loser.id} AND sg.id = pga.session_group_id
+        AND NOT EXISTS (
+          SELECT 1 FROM player_group_assignments x
+          JOIN session_groups xs ON xs.id = x.session_group_id
+          WHERE x.athlete_id = ${keeper.id} AND xs.session_number = sg.session_number)`;
     await sql`DELETE FROM player_group_assignments WHERE athlete_id = ${loser.id}`;
 
+    // Same rule for check-in rows: one per session, or the player shows up on
+    // two doors at once.
     await sql`
       UPDATE player_checkins pc SET athlete_id = ${keeper.id}
-      WHERE pc.athlete_id = ${loser.id}
-        AND NOT EXISTS (SELECT 1 FROM player_checkins x
-                        WHERE x.athlete_id = ${keeper.id} AND x.schedule_id = pc.schedule_id)`;
+      FROM evaluation_schedule es
+      WHERE pc.athlete_id = ${loser.id} AND es.id = pc.schedule_id
+        AND NOT EXISTS (
+          SELECT 1 FROM player_checkins x
+          JOIN evaluation_schedule xe ON xe.id = x.schedule_id
+          WHERE x.athlete_id = ${keeper.id} AND xe.session_number = es.session_number)`;
     await sql`DELETE FROM player_checkins WHERE athlete_id = ${loser.id}`;
 
     await sql`
