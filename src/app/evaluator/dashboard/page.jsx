@@ -13,6 +13,7 @@ import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import ReportCardCard from "@/components/evaluator-scoring/ReportCardCard";
 
 const qc = new QueryClient();
 
@@ -955,6 +956,16 @@ function EvaluatorDashboard() {
     },
   });
 
+  const { data: reportCardData } = useQuery({
+    queryKey: ["evaluator-report-card"],
+    enabled: isEvaluator,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await fetch("/api/evaluator/report-card");
+      return res.json();
+    },
+  });
+
   // Association(s) this person is the designated lead of -- their only way to
   // discover the association dashboard is even reachable for them, since
   // nothing about their role changes when they're made a lead.
@@ -1405,6 +1416,8 @@ function EvaluatorDashboard() {
             </div>
           </div>
         )}
+
+        <ReportCardCard data={reportCardData} />
 
         {activeTab === "mine" && (
           <div className="space-y-4">
