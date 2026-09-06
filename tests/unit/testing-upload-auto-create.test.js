@@ -60,8 +60,11 @@ describe("POST /api/categories/[catId]/testing-upload — auto-creates unmatched
     expect(insertCall[4]).toBe("Kid");
 
     // The new athlete_id (999) should also get a testing_drill_results row.
+    // Bound as an ARRAY: the ranks go in as one unnest()'d statement rather
+    // than one INSERT per athlete, because the per-row version silently
+    // half-finished on big files.
     const drillInsert = sql.mock.calls.find(c => c[0].join("?").includes("INSERT INTO testing_drill_results"));
-    expect(drillInsert[1]).toBe(999);
+    expect(drillInsert[1]).toEqual([999]);
   });
 
   it("still matches an existing athlete by exact name instead of creating a duplicate", async () => {

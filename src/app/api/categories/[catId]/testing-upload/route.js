@@ -107,46 +107,87 @@ export async function POST(request, { params }) {
       matched.push({ athlete_id: athlete.id, name: `${athlete.first_name} ${athlete.last_name}`, rank, tests });
     }
 
-    // Insert/upsert overall rank (used by rankings). Each row's conflict key
-    // (athlete_id, age_category_id, session_number) is unique per matched
-    // athlete, so these can't race each other -- fire concurrently.
-    await Promise.all(matched.map(m => sql`
-      INSERT INTO testing_drill_results (athlete_id, age_category_id, session_number, overall_rank)
-      VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${m.rank})
-      ON CONFLICT (athlete_id, age_category_id, session_number)
-      DO UPDATE SET overall_rank = ${m.rank}, updated_at = NOW()
-    `));
+    // ONE statement per table, not one per row.
+    //
+    // This previously fired a separate INSERT for every value -- a 125-athlete
+    // file is 1,250 of them -- through Promise.all, and wrapped the whole thing
+    // in a catch that only console.log'd. When the batch died partway the route
+    // still returned success, so ranks were complete, most values were there,
+    // and the last stretch of the alphabet silently had none. EFHA U11 and U13
+    // each stopped at exactly 1,001 values that way, which nobody could see
+    // until a parent report came back full of dashes.
+    //
+    // Sending arrays and expanding them with unnest() makes each table a single
+    // round trip that either lands completely or throws. There is no partial
+    // state to be silent about.
 
-    // Insert/upsert the individual test values (used by the parent report).
-    // Best-effort: degrades silently if the testing_results table isn't there.
-    let testsStored = 0;
-    try {
-      const testUpserts = [];
-      for (const m of matched) {
-        // Index in the array = column position in the uploaded CSV, left to
-        // right -- stored so the viewer can show drills in the order they
-        // actually happened instead of an arbitrary/alphabetical order.
-        (m.tests || []).forEach((t, order) => {
-          const name = (t.name || "").trim();
-          const value = parseFloat(t.value);
-          if (!name || isNaN(value)) return;
-          const trank = parseInt(t.rank);
-          testUpserts.push(sql`
-            INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank, test_order)
-            VALUES (${m.athlete_id}, ${catId}, ${session_number}, ${name}, ${value}, ${isNaN(trank) ? null : trank}, ${order})
-            ON CONFLICT (athlete_id, age_category_id, session_number, test_name)
-            DO UPDATE SET value = ${value}, test_rank = ${isNaN(trank) ? null : trank}, test_order = ${order}, updated_at = NOW()
-          `);
-        });
-      }
-      // Each (athlete, session, test_name) conflict key is unique within this
-      // batch, same reasoning as above.
-      await Promise.all(testUpserts);
-      testsStored = testUpserts.length;
-    } catch (e) {
-      console.error("testing_results upsert skipped:", e.message);
+    // De-duplicate on the conflict key first: Postgres rejects an ON CONFLICT
+    // statement that touches the same row twice ("cannot affect row a second
+    // time"), and a roster with a repeated name or a sheet with two identically
+    // titled columns would otherwise take the whole upload down. Last wins.
+    // catId arrives as a route-param string and session_number straight off the
+    // JSON body; unnest() casts the whole array at once, so one non-numeric
+    // element would fail the entire statement rather than a single row.
+    const CAT = Number(catId);
+    const SESS = Number(session_number);
+    const rankByAthlete = new Map();
+    for (const m of matched) rankByAthlete.set(m.athlete_id, m.rank);
+    const rIds = [...rankByAthlete.keys()];
+    if (rIds.length) {
+      await sql`
+        INSERT INTO testing_drill_results (athlete_id, age_category_id, session_number, overall_rank)
+        SELECT * FROM unnest(
+          ${rIds}::int[],
+          ${rIds.map(() => CAT)}::int[],
+          ${rIds.map(() => SESS)}::int[],
+          ${rIds.map(id => rankByAthlete.get(id))}::int[])
+        ON CONFLICT (athlete_id, age_category_id, session_number)
+        DO UPDATE SET overall_rank = EXCLUDED.overall_rank, updated_at = NOW()`;
     }
 
+    // Individual test values (used by the parent report). Still tolerant of the
+    // table being absent on an older database, but no longer tolerant of a
+    // partial write: anything that goes wrong is reported to the caller.
+    let testsStored = 0;
+    let testError = null;
+    const byKey = new Map();
+    for (const m of matched) {
+      // Index in the array = column position in the uploaded CSV, left to right
+      // -- stored so the viewer shows drills in the order they were actually
+      // run rather than alphabetically.
+      (m.tests || []).forEach((t, order) => {
+        const name = (t.name || "").trim();
+        const value = parseFloat(t.value);
+        if (!name || isNaN(value)) return;
+        const trank = parseInt(t.rank);
+        byKey.set(`${m.athlete_id}|${name.toLowerCase()}`,
+          { athlete_id: m.athlete_id, name, value, rank: isNaN(trank) ? null : trank, order });
+      });
+    }
+    const vals = [...byKey.values()];
+    if (vals.length) {
+      try {
+        await sql`
+          INSERT INTO testing_results (athlete_id, age_category_id, session_number, test_name, value, test_rank, test_order)
+          SELECT * FROM unnest(
+            ${vals.map(v => v.athlete_id)}::int[],
+            ${vals.map(() => CAT)}::int[],
+            ${vals.map(() => SESS)}::int[],
+            ${vals.map(v => v.name)}::text[],
+            ${vals.map(v => v.value)}::numeric[],
+            ${vals.map(v => v.rank)}::int[],
+            ${vals.map(v => v.order)}::int[])
+          ON CONFLICT (athlete_id, age_category_id, session_number, test_name)
+          DO UPDATE SET value = EXCLUDED.value, test_rank = EXCLUDED.test_rank,
+                        test_order = EXCLUDED.test_order, updated_at = NOW()`;
+        testsStored = vals.length;
+      } catch (e) {
+        // Never silent again. A partial or failed write that reports success is
+        // worse than an error, because the table looks populated.
+        testError = e?.message || "test values failed to save";
+        console.error("testing_results upsert failed:", e?.message);
+      }
+    }
     try {
       await notifyTestingResultsUploaded({ catId, sessionNumber: session_number, matchedCount: matched.length });
     } catch (e) { console.error("notifyTestingResultsUploaded failed:", e?.message); }
@@ -158,6 +199,10 @@ export async function POST(request, { params }) {
       fuzzy_matched: fuzzyMatched.length,
       skipped: skipped.length,
       tests_stored: testsStored,
+      tests_expected: vals.length,
+      // Non-null when some or all test values failed to save. The upload can
+      // still have stored ranks, which is exactly the state that looks fine.
+      tests_error: testError,
       created_names: created.map(c => c.name),
       fuzzy_matched_names: fuzzyMatched.map(f => `"${f.uploaded}" → ${f.matched}`),
       skipped_names: skipped.map(s => `${s.first_name} ${s.last_name}${s.reason ? ` (${s.reason})` : ""}`),

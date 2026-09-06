@@ -1306,11 +1306,16 @@ export default function CategoryDashboard({
                                 const firstIdx = lower.findIndex(h => h.includes('first'));
                                 const lastIdx = lower.findIndex(h => h.includes('last'));
                                 const overallIdx = lower.lastIndexOf('overall rank');
+                                const isRankCol = (h) => /^rank(\.\d+)?$/.test(h || "");
                                 const testCols = [];
                                 for (let i = 0; i < header.length; i++) {
                                   const h = lower[i];
-                                  if (!h || h.includes('first') || h.includes('last') || h === 'position' || h === 'rank' || h === 'overall rank') continue;
-                                  testCols.push({ name: header[i], valueIdx: i, rankIdx: lower[i + 1] === 'rank' ? i + 1 : -1 });
+                                  // Excel/Sheets de-duplicate a repeated "Rank" header into Rank.1, Rank.2 ...
+                                  // so an exact === 'rank' test stops matching after the third one, and those
+                                  // columns get uploaded as though they were DRILLS. A real EFHA U11 file
+                                  // produced phantom tests named Rank.4, Rank.5 and Rank.6 that way.
+                                  if (!h || h.includes('first') || h.includes('last') || h === 'position' || isRankCol(h) || h === 'overall rank') continue;
+                                  testCols.push({ name: header[i], valueIdx: i, rankIdx: isRankCol(lower[i + 1]) ? i + 1 : -1 });
                                 }
                                 results = allRows.slice(1).map(cols => ({
                                   first_name: firstIdx >= 0 ? cols[firstIdx] : cols[0],
