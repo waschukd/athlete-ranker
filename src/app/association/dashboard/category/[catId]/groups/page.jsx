@@ -368,7 +368,7 @@ function GroupsManagerInner() {
   const exportCSV = () => {
     // Helmet sticker sits with the names: it is how BAHA identifies a kid at
     // the door, and it persists across sessions where a jersey number does not.
-    const rows = [['Group','Rank','Date','Time','Location','Last Name','First Name','Helmet','ID','Position']];
+    const rows = [['Group','Rank','Date','Time','Location','Last Name','First Name','Helmet','ID','Position','Team']];
     for (const group of groups) {
       const players = orderForExport(assignments.filter(a => a.session_group_id === group.id));
       const sample = players[0];
@@ -376,7 +376,7 @@ function GroupsManagerInner() {
       const time = sample?.start_time && sample?.end_time ? sample.start_time + ' - ' + sample.end_time : (sample?.start_time || '');
       const loc = sample?.location || '';
       for (const player of players) {
-        rows.push(['Group ' + group.group_number, player.rank ?? '', date, time, loc, player.last_name, player.first_name, player.helmet_number || '', player.external_id || '', player.position || '']);
+        rows.push(['Group ' + group.group_number, player.rank ?? '', date, time, loc, player.last_name, player.first_name, player.helmet_number || '', player.external_id || '', player.position || '', player.team_color || '']);
       }
     }
     const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
