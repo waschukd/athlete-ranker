@@ -16,6 +16,7 @@
 import { neon } from "@neondatabase/serverless";
 import { readFileSync } from "node:fs";
 import { sendEmail, emailWrapper, esc } from "../src/lib/email.js";
+import { fmtDay, fmtTime } from "./_db.mjs";
 
 const env = readFileSync(new URL("../.env.production.local", import.meta.url), "utf8");
 for (const line of env.split("\n")) {
@@ -49,13 +50,10 @@ const upcoming = await sql`
     AND es.scheduled_date >= CURRENT_DATE
   ORDER BY es.scheduled_date, es.start_time`;
 
-// The driver hands back a Date for a date column, and String(date) is
-// "Mon Sep 07 2026 ..." -- slicing 10 chars off that gives "Mon Sep 07", which
-// parses to Invalid Date. Take the ISO day directly when it is already a Date.
-const isoDay = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10));
-const fmtDate = (d) => new Date(isoDay(d) + "T00:00:00")
-  .toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-const fmtTime = (t) => (t ? String(t).slice(0, 5) : "");
+// Via the shared helper, which is correct for a Date or a string in any
+// timezone. The first cut of this used String(d).slice(0,10) and rendered every
+// line of the email as "Invalid Date" -- caught by the dry run, not by testing.
+const fmtDate = (d) => fmtDay(d);
 
 console.log(`upcoming sessions to release (${upcoming.length}):`);
 for (const s of upcoming) {

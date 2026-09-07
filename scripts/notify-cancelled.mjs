@@ -9,6 +9,7 @@
 // Reads production credentials from .env.production.local.
 
 import { neon } from "@neondatabase/serverless";
+import { fmtDay } from "./_db.mjs";
 import { readFileSync } from "node:fs";
 
 const env = readFileSync(new URL("../.env.production.local", import.meta.url), "utf8");
@@ -26,9 +27,11 @@ const FROM = process.env.EMAIL_FROM || "updates@sidelinestar.com";
 const KEY = process.env.RESEND_API_KEY;
 if (COMMIT && !KEY) { console.error("RESEND_API_KEY missing — cannot send."); process.exit(1); }
 
-const fmtDate = (d) => new Date(d).toLocaleDateString("en-CA", {
-  weekday: "long", month: "long", day: "numeric", timeZone: "UTC",
-});
+// Dates come through the shared helper: this script builds the date line in an
+// email that goes to evaluators, and formatting a local-midnight Date with
+// timeZone:"UTC" only reads back correctly WEST of UTC. Run from a UTC or
+// UTC+ machine and every date in the email was a day early.
+const fmtDate = (d) => fmtDay(d, { weekday: "long", month: "long", day: "numeric" });
 const fmtTime = (t) => {
   if (!t) return null;
   const [h, m] = String(t).split(":");

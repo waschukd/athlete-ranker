@@ -11,6 +11,7 @@
 // never be undone for them.
 
 import { neon } from "@neondatabase/serverless";
+import { fmtDay } from "./_db.mjs";
 import { readFileSync } from "node:fs";
 
 const env = readFileSync(new URL("../.env.production.local", import.meta.url), "utf8");
@@ -35,6 +36,16 @@ const stranded = await sql`
   WHERE s.status = 'released'
     AND es.status <> 'cancelled'
     AND es.scheduled_date >= CURRENT_DATE
+    -- 'released' means two different things: a session was cancelled and later
+    -- reinstated (restore them), or the evaluator was REMOVED from the pool
+    -- (absolutely do not). Without this, removing someone leaves rows that look
+    -- identical to a stranded sign-up, and the next run of this script puts
+    -- them back on the schedule and emails them "Back on".
+    AND COALESCE(u.is_suspended, false) = false
+    AND EXISTS (
+      SELECT 1 FROM evaluator_memberships em
+      WHERE em.user_id = s.user_id AND em.status = 'active' AND em.is_evaluator
+    )
   ORDER BY es.scheduled_date, es.start_time, u.name`;
 
 if (!stranded.length) { console.log("Nothing stranded — no future session has released sign-ups."); process.exit(0); }
@@ -45,7 +56,11 @@ for (const r of stranded) {
   bySchedule.get(r.schedule_id).push(r);
 }
 
-const fmtDate = (d) => new Date(d).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+// Dates come through the shared helper: this script builds the date line in an
+// email that goes to evaluators, and formatting a local-midnight Date with
+// timeZone:"UTC" only reads back correctly WEST of UTC. Run from a UTC or
+// UTC+ machine and every date in the email was a day early.
+const fmtDate = (d) => fmtDay(d, { weekday: "long", month: "long", day: "numeric" });
 const fmtTime = (t) => { if (!t) return null; const [h, m] = String(t).split(":"); const hr = parseInt(h, 10); return `${((hr + 11) % 12) + 1}:${m} ${hr < 12 ? "AM" : "PM"}`; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
