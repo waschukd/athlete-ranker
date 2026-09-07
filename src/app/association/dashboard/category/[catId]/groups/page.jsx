@@ -11,7 +11,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import GroupEmailDialog from "@/components/GroupEmailDialog";
 import MatchupPicker from "@/components/MatchupPicker";
-import { parseTeamColors, colorFor, swatchStyle, nextColor, DEFAULT_TEAM_COLORS } from "@/lib/teamColors";
+import { parseTeamColors, colorFor, swatchStyle, nextColor, DEFAULT_TEAM_COLORS, PRESET_TEAM_COLORS, colorInitial } from "@/lib/teamColors";
 
 const qc = new QueryClient();
 
@@ -259,6 +259,8 @@ function GroupsManagerInner() {
   const [showReview, setShowReview] = useState(false);
   const [finalizeBusy, setFinalizeBusy] = useState(false);
   const [jerseyMode, setJerseyMode] = useState(false); // show per-player colour switches
+  const [paletteOpenFor, setPaletteOpenFor] = useState(null); // groupId currently showing the team-colour picker
+  const [savingPalette, setSavingPalette] = useState(false);
   const [movingAthleteId, setMovingAthleteId] = useState(null);
   const moveTeamPlayer = async (athleteId, toTeamId) => {
     if (!Number.isFinite(athleteId) || !Number.isFinite(toTeamId)) return;
@@ -637,6 +639,23 @@ function GroupsManagerInner() {
     } catch { showMsg("Couldn't save jersey number.", "error"); }
   };
 
+  // Same "jersey colours" palette the check-in door screen offers, surfaced here
+  // too -- a director shouldn't have to open check-in just to decide Red/Blue
+  // for a group ahead of time. Reuses the check-in endpoint itself (same
+  // checkin_sessions row, same authorizeCategoryAccess gate this page already
+  // passed), so changing it here or at the door is the same setting either way.
+  const setGroupPalette = async (scheduleId, next) => {
+    if (!scheduleId) { showMsg("This group has no scheduled ice time yet — add the schedule first.", "error"); return; }
+    setSavingPalette(true);
+    try {
+      const res = await fetch(`/api/checkin/${scheduleId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set_team_colors", team_colors: next }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || "Couldn't update team colours.", "error"); return; }
+      await refetch();
+    } catch { showMsg("Couldn't update team colours.", "error"); }
+    finally { setSavingPalette(false); }
+  };
+
   const setLock = async (lock) => {
     setFinalizeBusy(true);
     try {
@@ -920,6 +939,16 @@ function GroupsManagerInner() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPaletteOpenFor(v => v === group.id ? null : group.id)}
+                        title="Jersey colours for this group's check-in"
+                        className="flex items-center gap-1 px-1.5 py-1 rounded-lg hover:bg-gray-100"
+                      >
+                        {groupPalette.map(c => (
+                          <span key={c.name} className="inline-block w-3 h-3 rounded-full" style={{ background: c.hex, border: `1px solid ${c.border}` }} />
+                        ))}
+                        <span className="text-gray-400 text-[10px]">{paletteOpenFor === group.id ? "▲" : "▼"}</span>
+                      </button>
                       {checkinCode && (
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
@@ -943,6 +972,44 @@ function GroupsManagerInner() {
                       )}
                     </div>
                   </div>
+
+                  {/* Jersey colour palette for this group's check-in -- the same
+                      picker the door screen offers, so it can be decided ahead of
+                      time here instead of only at check-in. Changing it at the
+                      door afterward still works fine; this is just a head start. */}
+                  {paletteOpenFor === group.id && (
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                      {!scheduleId ? (
+                        <p className="text-xs text-gray-400">This group has no scheduled ice time yet — add the schedule first.</p>
+                      ) : (
+                        <>
+                          {groupPalette.map((slot, i) => (
+                            <div key={i} className="mb-2 last:mb-0">
+                              <div className="text-[11px] font-semibold text-gray-500 mb-1">Team {i + 1} — {slot.name}</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {PRESET_TEAM_COLORS.map(preset => {
+                                  const active = preset.name.toLowerCase() === slot.name.toLowerCase();
+                                  const takenElsewhere = groupPalette.some((c, j) => j !== i && c.name.toLowerCase() === preset.name.toLowerCase());
+                                  return (
+                                    <button key={preset.name} disabled={savingPalette || takenElsewhere}
+                                      title={takenElsewhere ? `${preset.name} is already Team ${groupPalette.findIndex(c => c.name.toLowerCase() === preset.name.toLowerCase()) + 1}` : preset.name}
+                                      onClick={() => setGroupPalette(scheduleId, groupPalette.map((c, j) => (j === i ? preset : c)))}
+                                      className={`w-6 h-6 rounded-full text-[9px] font-bold flex items-center justify-center transition-transform ${
+                                        active ? "ring-2 ring-accent ring-offset-1 scale-110" : ""
+                                      } ${takenElsewhere ? "opacity-25 cursor-not-allowed" : "hover:scale-105"}`}
+                                      style={{ background: preset.hex, color: preset.text, border: `2px solid ${preset.border}` }}>
+                                      {colorInitial(preset.name)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-[11px] text-gray-400 mt-2">Same setting as the check-in screen — changing it at the door still works too.</p>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {/* Colour balance — F/D per team, so directors can even the split */}
                   {hasColors && (() => {

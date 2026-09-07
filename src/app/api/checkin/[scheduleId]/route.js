@@ -412,11 +412,21 @@ export async function POST(request, { params }) {
       if (incoming.length < 2) return NextResponse.json({ error: "At least two colours required" }, { status: 400 });
       if (incoming.length > 6) return NextResponse.json({ error: "At most six colours" }, { status: 400 });
 
+      // Manage Groups can set this before the door has ever opened check-in for
+      // this schedule (deciding colours ahead of time is the whole point), so
+      // there may be no row yet -- create one instead of 404ing. Both callers
+      // land on the exact same row either way, so a change from either place
+      // shows up in the other next time it loads.
       const [cs] = await sql`SELECT id, team_colors FROM checkin_sessions WHERE schedule_id = ${scheduleId}`;
-      if (!cs) return NextResponse.json({ error: "No check-in session" }, { status: 404 });
-
-      const previous = parseTeamColors(cs.team_colors);
-      await sql`UPDATE checkin_sessions SET team_colors = ${JSON.stringify(incoming)} WHERE schedule_id = ${scheduleId}`;
+      const previous = cs ? parseTeamColors(cs.team_colors) : [];
+      if (cs) {
+        await sql`UPDATE checkin_sessions SET team_colors = ${JSON.stringify(incoming)} WHERE schedule_id = ${scheduleId}`;
+      } else {
+        await sql`
+          INSERT INTO checkin_sessions (schedule_id, age_category_id, team_colors, is_open)
+          VALUES (${scheduleId}, ${auth.ageCategoryId}, ${JSON.stringify(incoming)}, false)
+        `;
+      }
 
       // Positional remap: slot 0 stays slot 0. Only rename rows whose colour is
       // no longer in the palette, so swapping "White"->"Red" carries that team
