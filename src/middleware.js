@@ -67,8 +67,29 @@ const ROLE_ROUTES = {
 };
 
 // Directors are not association admins, but an assigned director may use the
-// group-building and flags sub-pages (the APIs already authorize them per-category).
-const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags)(\/|$)/;
+// group-building, flags and raw-testing sub-pages (the APIs already authorize
+// them per-category -- authorizeCategoryAccess checks director_assignments).
+//
+// "testing" was missing here, so an EFHA director opening Raw Testing Scores
+// was redirected to the sign-in page with a perfectly valid token. It reads as
+// being logged out at random, and that is exactly how it was reported.
+const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags|testing)(\/|$)/;
+
+// Where a signed-in user belongs when they land somewhere their role cannot go.
+// Mirrors roleRedirect() in lib/auth.js, inlined because middleware runs on the
+// edge and lib/auth.js pulls in the database client.
+function homeForRole(role) {
+  switch (role) {
+    case "super_admin": return "/admin/god-mode";
+    case "service_provider_admin": return "/service-provider/dashboard";
+    case "goalie_service_provider_admin": return "/goalie-provider/dashboard";
+    case "association_admin": return "/association/dashboard";
+    case "director": return "/director/dashboard";
+    case "service_provider_tester": return "/tester/dashboard";
+    case "volunteer": return "/checkin";
+    default: return "/evaluator/dashboard";
+  }
+}
 
 // An evaluator designated as an association's LEAD (evaluator_memberships.
 // is_lead) gets admin-equivalent access to that one association -- but
@@ -123,6 +144,15 @@ export async function middleware(request) {
           if (pathname.startsWith("/api/")) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
           }
+          // This user IS signed in -- their role just cannot open this page.
+          // Sending them to the sign-in screen made that look like the session
+          // had expired, so they signed in again and hit the same wall. Send
+          // them somewhere they can actually be instead.
+          const home = homeForRole(payload.role);
+          if (!pathname.startsWith(home)) {
+            return NextResponse.redirect(new URL(home, request.url));
+          }
+          // Their own home is what was refused -- bouncing there would loop.
           return NextResponse.redirect(new URL("/account/signin", request.url));
         }
         break;
