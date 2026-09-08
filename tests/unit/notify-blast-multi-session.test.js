@@ -6,11 +6,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), resolveSpContext: vi.fn() }));
-vi.mock("@/lib/email", () => ({
-  sendEmail: vi.fn().mockResolvedValue({ ok: true, id: "resend-1" }),
-  esc: (v) => (v == null ? "" : String(v)),
-  sleep: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual, // real fmtBlastDate/fmtBlastTime -- verifies the actual formatting, not a stand-in
+    sendEmail: vi.fn().mockResolvedValue({ ok: true, id: "resend-1" }),
+    esc: (v) => (v == null ? "" : String(v)),
+    sleep: vi.fn().mockResolvedValue(undefined),
+  };
+});
 vi.mock("@/lib/emailLog", () => ({
   ensureEmailLogTable: vi.fn().mockResolvedValue(undefined),
   logEmailSend: vi.fn().mockResolvedValue(undefined),
@@ -70,8 +74,11 @@ describe("POST /api/service-provider/notify — multi-session blast", () => {
     expect(sendEmail).toHaveBeenCalledTimes(2);
     const [, subject, html] = sendEmail.mock.calls[0];
     expect(subject).toContain("2 Evaluator Spots");
-    expect(html).toContain("17:45");
-    expect(html).toContain("19:00");
+    // Human-readable date/time, not raw "2026-09-11"/"17:45:00" -- easy to
+    // misread scanning an inbox on a phone.
+    expect(html).toContain("September 11");
+    expect(html).toContain("5:45 PM");
+    expect(html).toContain("7:00 PM");
   });
 
   it("excludes an evaluator already signed up to every session in the block", async () => {

@@ -1,5 +1,5 @@
 import sql from "@/lib/db";
-import { sendEmail, emailWrapper, parentEmails, esc } from "@/lib/email";
+import { sendEmail, emailWrapper, parentEmails, esc, fmtBlastDate, fmtBlastTime } from "@/lib/email";
 import { getCategoryDirectors, getOrgRoleUsers } from "@/lib/categoryRecipients";
 import { contiguousBlock } from "@/lib/sessionBlocks";
 
@@ -191,14 +191,14 @@ export async function offerOpenSession({ catId, scheduleRow }) {
       <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${esc(org_name)}</strong> has <strong style="color:#101113;">${open}</strong> open evaluator spot${open > 1 ? "s" : ""} for ${esc(category_name)}. First come, first served.</p>
       <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${r.start_time}${r.end_time ? `–${r.end_time}` : ""}` : "TBD"}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastDate(r.scheduled_date)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${fmtBlastTime(r.start_time)}${r.end_time ? `–${fmtBlastTime(r.end_time)}` : ""}` : "TBD"}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>
         </table>
       </div>
       <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Sign up →</a></div>
     `);
-    const subject = `Open evaluator spot — ${category_name} (${fmtDate(r.scheduled_date)})`;
+    const subject = `Open evaluator spot — ${category_name} (${fmtBlastDate(r.scheduled_date)})`;
     for (const p of pool) await sendEmail(p.email, subject, html);
     return { offered: pool.length, open };
   } catch (err) {
@@ -261,18 +261,18 @@ export async function notifyConnectingEvaluators({ catId, scheduleRow }) {
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
     const html = emailWrapper(`
       <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">A session was added next to one of yours</h2>
-      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">You're already signed up at <strong style="color:#101113;">${esc(r.location)}</strong> on ${fmtDate(r.scheduled_date)} -- <strong style="color:#101113;">${esc(org_name)}</strong> just added a ${esc(category_name)} session that connects right to it.</p>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">You're already signed up at <strong style="color:#101113;">${esc(r.location)}</strong> on ${fmtBlastDate(r.scheduled_date)} -- <strong style="color:#101113;">${esc(org_name)}</strong> just added a ${esc(category_name)} session that connects right to it.</p>
       <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time}${r.end_time ? `–${r.end_time}` : ""}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastDate(r.scheduled_date)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastTime(r.start_time)}${r.end_time ? `–${fmtBlastTime(r.end_time)}` : ""}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${esc(r.location)}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Spots open</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${open}</td></tr>
         </table>
       </div>
       <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Add it to your day →</a></div>
     `);
-    const subject = `A connecting session was just added — ${category_name} (${fmtDate(r.scheduled_date)})`;
+    const subject = `A connecting session was just added — ${category_name} (${fmtBlastDate(r.scheduled_date)})`;
     for (const e of evaluators) await sendEmail(e.email, subject, html);
     return { notified: evaluators.length };
   } catch (err) {

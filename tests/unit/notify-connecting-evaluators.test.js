@@ -7,12 +7,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/lib/email", () => ({
-  sendEmail: vi.fn().mockResolvedValue({ ok: true }),
-  emailWrapper: (html) => html,
-  parentEmails: (a) => [a.parent_email, a.parent_email_2].filter(Boolean),
-  esc: (v) => String(v ?? ""),
-}));
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual, // real fmtBlastDate/fmtBlastTime -- verifies the actual formatting, not a stand-in
+    sendEmail: vi.fn().mockResolvedValue({ ok: true }),
+    emailWrapper: (html) => html,
+    parentEmails: (a) => [a.parent_email, a.parent_email_2].filter(Boolean),
+    esc: (v) => String(v ?? ""),
+  };
+});
 
 import sql from "@/lib/db";
 import { sendEmail } from "@/lib/email";

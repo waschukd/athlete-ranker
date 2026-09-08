@@ -22,6 +22,28 @@ export function esc(v) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Full weekday + month for staffing/blast emails ("Thursday, September 10")
+// -- an evaluator scanning an inbox shouldn't have to decode a bare ISO date.
+export function fmtBlastDate(d) {
+  if (!d) return "TBD";
+  const str = d.toString().split("T")[0];
+  const [year, month, day] = str.split("-").map(Number);
+  if (!year || !month || !day) return str;
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+// 12-hour clock with AM/PM ("7:00 PM") for the same emails -- accepts a
+// "HH:MM" or "HH:MM:SS" string. Handles midnight/noon correctly (hr % 12
+// alone maps both 0 and 12 to 0, which reads as "0:00" without this).
+export function fmtBlastTime(t) {
+  if (!t) return "";
+  const [h, m] = t.toString().split(":");
+  const hr = parseInt(h);
+  if (isNaN(hr)) return t.toString();
+  const hr12 = hr % 12 === 0 ? 12 : hr % 12;
+  return `${hr12}:${(m || "00").padStart(2, "0")} ${hr >= 12 ? "PM" : "AM"}`;
+}
+
 // Exported so callers that fire many sends in a loop (group-assignment blasts,
 // evaluator/tester notifications) can pace themselves under Resend's 10 req/sec
 // cap instead of relying purely on sendEmail's reactive 429 retry.
@@ -427,7 +449,7 @@ export async function emailOpenSessionsBlast({ evaluators, orgName, openSessions
   // evaluators = [{ id, email }]
   const rows = openSessions.map(s => `
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-      <div style="font-size:14px;font-weight:700;color:#111827;">${esc(s.date)} at ${esc(s.time)}</div>
+      <div style="font-size:14px;font-weight:700;color:#111827;">${esc(fmtBlastDate(s.date))} at ${esc(fmtBlastTime(s.time))}</div>
       <div style="font-size:13px;color:#6b7280;margin-top:3px;">${esc(s.group)} · ${s.required - s.signed_up} spot${s.required - s.signed_up !== 1 ? "s" : ""} available</div>
     </div>
   `).join("");

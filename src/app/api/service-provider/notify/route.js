@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
-import { sendEmail, esc, sleep } from "@/lib/email";
+import { sendEmail, esc, sleep, fmtBlastDate, fmtBlastTime } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
@@ -148,7 +148,7 @@ export async function POST(request) {
         WHERE em.organization_id = ${sp_id} AND em.status = 'active' AND em.is_tester = true
           AND u.id NOT IN (SELECT user_id FROM tester_session_signups WHERE schedule_id = ${schedule_id} AND status != 'cancelled')
       `;
-      const sessionDate = sched.scheduled_date?.toString().split("T")[0];
+      const sessionDate = fmtBlastDate(sched.scheduled_date);
       const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
       let sent = 0;
       if (process.env.RESEND_API_KEY) {
@@ -227,7 +227,7 @@ export async function POST(request) {
     const isMulti = schedInfo.length > 1;
     const subject = isMulti
       ? `🚨 Urgent: ${schedInfo.length} Evaluator Spots Open — ${sched.org_name}`
-      : `🚨 Urgent: Evaluator needed — ${sched.org_name} ${sched.scheduled_date?.toString().split("T")[0]}`;
+      : `🚨 Urgent: Evaluator needed — ${sched.org_name} ${fmtBlastDate(sched.scheduled_date)}`;
     // Sorted by start time so a back-to-back block reads top-to-bottom the way
     // it runs on the ice, not in whatever order the ids happened to come in.
     const sortedRows = [...schedInfo].sort((a, b) =>
@@ -236,7 +236,7 @@ export async function POST(request) {
       const open = Math.max(0, parseInt(s.evaluators_required || 0) - (signedUpCountByRow[s.id] || 0));
       return `
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-          <div style="font-size:14px;font-weight:700;color:#111;">${esc(s.scheduled_date?.toString().split("T")[0])} · ${esc((s.start_time || "").slice(0, 5))}</div>
+          <div style="font-size:14px;font-weight:700;color:#111;">${esc(fmtBlastDate(s.scheduled_date))} · ${esc(fmtBlastTime(s.start_time))}</div>
           <div style="font-size:13px;color:#555;margin-top:3px;">${esc(s.org_name)} · ${esc(s.category_name)} · Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""}</div>
           <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
           <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still needed</div>
