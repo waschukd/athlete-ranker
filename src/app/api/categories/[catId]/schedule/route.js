@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { notifySessionChange, offerOpenSession, notifyConnectingEvaluators, notifyParentsIfImminent } from "@/lib/scheduleNotify";
+import { notifySessionChange, offerOpenSession, notifyConnectingEvaluators, notifyParentsIfImminent, warnScheduleConflicts } from "@/lib/scheduleNotify";
 import { resolveMatchupTeams, assignMatchupRoster, matchupLabel } from "@/lib/scrimmageTeams";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
 
@@ -138,6 +138,10 @@ export async function POST(request, { params }) {
     }
 
     let count = 0, inserted = 0, updated = 0;
+    // Rows whose date/start/end actually changed by this upload -- checked for
+    // newly-introduced evaluator double-bookings once the whole sheet is in,
+    // same reasoning as the single-session edit path (see warnScheduleConflicts).
+    const timeChangedRows = [];
     for (const entry of body.schedule) {
       const session_number = parseInt(entry.session_number);
       const group_number = parseInt(entry.group_number) || 1;
@@ -160,11 +164,12 @@ export async function POST(request, { params }) {
       const matchup = entry.matchup || entry.Matchup || entry["Matchup"] || null;
 
       const existingEntry = await sql`
-        SELECT id FROM evaluation_schedule
+        SELECT id, scheduled_date, start_time, end_time FROM evaluation_schedule
         WHERE age_category_id = ${catId} AND session_number = ${session_number} AND group_number = ${group_number}
       `;
       const testers_required = isTesting ? DEFAULT_TESTING_TESTERS : 0;
       if (existingEntry.length) {
+        const prevRow = existingEntry[0];
         // Preserve any tester count the SP already set; only auto-open a testing
         // row that's still unstaffed (0) so re-uploads never clobber a choice.
         await sql`
@@ -178,6 +183,11 @@ export async function POST(request, { params }) {
           WHERE id = ${existingEntry[0].id}
         `;
         updated++;
+        if (fmt(prevRow.scheduled_date) !== fmt(scheduled_date)
+          || (prevRow.start_time || "") !== (start_time || "")
+          || (prevRow.end_time || "") !== (end_time || "")) {
+          timeChangedRows.push({ id: prevRow.id, scheduled_date, start_time, end_time, location, session_number, group_number });
+        }
       } else {
         const code = await uniqueCheckinCode(session_number, group_number);
         const [newRow] = await sql`
@@ -202,6 +212,10 @@ export async function POST(request, { params }) {
       summary: "The full schedule was updated — please review your session times and locations.",
       initiator: initiatorOf(session),
     });
+
+    for (const changedRow of timeChangedRows) {
+      try { await warnScheduleConflicts({ catId, scheduleRow: changedRow }); } catch (e) { console.error("bulk upload: warnScheduleConflicts", e?.message); }
+    }
 
     return NextResponse.json({ success: true, count, inserted, updated });
   } catch (error) {
@@ -315,6 +329,16 @@ export async function PATCH(request, { params }) {
     // If the session needs more evaluators (e.g. moved date freed people up), recruit.
     const offer = await offerOpenSession({ catId, scheduleRow: row });
     try { await notifyConnectingEvaluators({ catId, scheduleRow: row }); } catch (e) { console.error("edit: notifyConnectingEvaluators", e?.message); }
+
+    // A moved date/time can turn a signed-up evaluator's existing schedule into
+    // an overlap that nobody asked for -- the signup route only checks for
+    // conflicts at signup time, never re-checked when the SESSION moves later.
+    const timeAffectingChange = fmt(prev.scheduled_date) !== fmt(row.scheduled_date)
+      || (prev.start_time || "") !== (row.start_time || "")
+      || (prev.end_time || "") !== (row.end_time || "");
+    if (timeAffectingChange) {
+      try { await warnScheduleConflicts({ catId, scheduleRow: row }); } catch (e) { console.error("edit: warnScheduleConflicts", e?.message); }
+    }
 
     // Tell affected parents if it's last-minute, or if they were already
     // emailed this session's now-wrong time (see notifyParentsIfImminent).
