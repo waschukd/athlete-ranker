@@ -196,7 +196,7 @@ export async function POST(request) {
       FROM evaluation_schedule sch
       JOIN age_categories ac ON ac.id = sch.age_category_id
       LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
-      LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
+      LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status = 'signed_up'
       LEFT JOIN category_evaluators ce_coach ON ce_coach.age_category_id = sch.age_category_id
         AND ce_coach.user_id = ess.user_id AND ce_coach.kind = 'coach'
       WHERE sch.id = ${schedule_id}

@@ -40,7 +40,7 @@ export async function GET(request) {
       JOIN age_categories ac ON ac.organization_id = o.id
       JOIN evaluation_schedule es ON es.age_category_id = ac.id
       LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = es.session_number
-      LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id AND ess.status != 'cancelled'
+      LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id AND ess.status = 'signed_up'
       LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id AND tss.status = 'signed_up'
       LEFT JOIN player_checkins pc ON pc.schedule_id = es.id
       WHERE sal.service_provider_id = ${spId}

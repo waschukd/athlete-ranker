@@ -146,7 +146,7 @@ export async function POST(request) {
         FROM evaluator_memberships em
         JOIN users u ON u.id = em.user_id
         WHERE em.organization_id = ${sp_id} AND em.status = 'active' AND em.is_tester = true
-          AND u.id NOT IN (SELECT user_id FROM tester_session_signups WHERE schedule_id = ${schedule_id} AND status != 'cancelled')
+          AND u.id NOT IN (SELECT user_id FROM tester_session_signups WHERE schedule_id = ${schedule_id} AND status = 'signed_up')
       `;
       const sessionDate = fmtBlastDate(sched.scheduled_date);
       const signupUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com"}/evaluator/dashboard`;
@@ -190,7 +190,7 @@ export async function POST(request) {
     // one who's only picked up some of them still hears about the rest.
     const signups = await sql`
       SELECT schedule_id, user_id FROM evaluator_session_signups
-      WHERE schedule_id = ANY(${ids}) AND status != 'cancelled'
+      WHERE schedule_id = ANY(${ids}) AND status = 'signed_up'
     `;
     const signedUpCountByRow = {};
     const signupCountByUser = {};

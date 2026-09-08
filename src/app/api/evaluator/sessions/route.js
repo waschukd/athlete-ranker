@@ -61,7 +61,7 @@ export async function GET(request) {
         JOIN age_categories ac ON ac.id = sch.age_category_id
         JOIN organizations o ON o.id = ac.organization_id
         LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
-        LEFT JOIN evaluator_session_signups ess2 ON ess2.schedule_id = sch.id AND ess2.status != 'cancelled'
+        LEFT JOIN evaluator_session_signups ess2 ON ess2.schedule_id = sch.id AND ess2.status = 'signed_up'
         WHERE es.user_id = ${appUserId}
           -- es.status is the SIGN-UP's status. Cancelling a session sets the
           -- sign-up to 'released', which is not 'cancelled', so the row sailed
@@ -153,7 +153,7 @@ export async function GET(request) {
         JOIN age_categories ac ON ac.id = sch.age_category_id
         JOIN organizations o ON o.id = ac.organization_id
         LEFT JOIN category_sessions cs ON cs.age_category_id = ac.id AND cs.session_number = sch.session_number
-        LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status != 'cancelled'
+        LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = sch.id AND ess.status = 'signed_up'
         LEFT JOIN category_evaluators ce_coach ON ce_coach.age_category_id = sch.age_category_id
           AND ce_coach.user_id = ess.user_id AND ce_coach.kind = 'coach'
         WHERE (o.id = ANY(${openOrgIds}) OR ac.id = ANY(${allowedCategoryIds}))

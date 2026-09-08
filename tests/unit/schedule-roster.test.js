@@ -80,3 +80,28 @@ describe("GET /api/schedule/[scheduleId]/roster — SP-owned testing events", ()
     expect(res.status).toBe(200);
   });
 });
+
+describe("GET /api/schedule/[scheduleId]/roster — only an active signup counts as 'on this session'", () => {
+  // Real incident: Justin Richards was fully removed from the evaluator pool
+  // via scripts/remove-evaluator.mjs, which sets his signup to 'released'
+  // (reserved for an admin-initiated removal -- 'cancelled' means the
+  // evaluator withdrew themselves). The roster query filtered on
+  // status != 'cancelled', which let 'released' -- and 'suspended', the
+  // 2-strike late-cancel auto-suspension -- straight through, so a removed
+  // evaluator kept showing up as "on this session" with a Remove button.
+  it("queries evaluators and testers by status = 'signed_up', not != 'cancelled'", async () => {
+    queueSession({ id: 5, age_category_id: 7, organization_id: 11, service_provider_id: null, org_name: "Acme" });
+    canManageSessionAssignments.mockResolvedValue({ authorized: true, reason: "lead" });
+
+    const { GET } = await import("@/app/api/schedule/[scheduleId]/roster/route");
+    await GET(makeReq(), { params: { scheduleId: "5" } });
+
+    const queries = sql.mock.calls.map(c => c[0].join("?"));
+    const evalQuery = queries.find(q => q.includes("FROM evaluator_session_signups"));
+    const testerQuery = queries.find(q => q.includes("FROM tester_session_signups"));
+    expect(evalQuery).toMatch(/status = 'signed_up'/);
+    expect(evalQuery).not.toMatch(/status != 'cancelled'/);
+    expect(testerQuery).toMatch(/status = 'signed_up'/);
+    expect(testerQuery).not.toMatch(/status != 'cancelled'/);
+  });
+});

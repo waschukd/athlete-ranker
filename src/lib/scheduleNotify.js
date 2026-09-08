@@ -168,7 +168,7 @@ export async function offerOpenSession({ catId, scheduleRow }) {
       WHERE em.organization_id = ANY(${orgIds}) AND em.status = 'active'
         AND u.role IN ('association_evaluator', 'service_provider_evaluator')
         AND u.id NOT IN (
-          SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status != 'cancelled'
+          SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'
         )
     `;
     // Skip evaluators who marked themselves unavailable on this date (best-effort:

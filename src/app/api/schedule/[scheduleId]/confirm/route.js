@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
     const toTentative = body.tentative === true;
 
     if (toTentative) {
-      const [{ n }] = await sql`SELECT COUNT(*)::int n FROM evaluator_session_signups WHERE schedule_id = ${scheduleId} AND status != 'cancelled'`;
+      const [{ n }] = await sql`SELECT COUNT(*)::int n FROM evaluator_session_signups WHERE schedule_id = ${scheduleId} AND status = 'signed_up'`;
       if (n > 0) return NextResponse.json({ error: "Can't set back to tentative — evaluators are already signed up." }, { status: 409 });
       await sql`UPDATE evaluation_schedule SET status = 'tentative' WHERE id = ${scheduleId} AND status = 'scheduled'`;
       return NextResponse.json({ ok: true, status: "tentative" });

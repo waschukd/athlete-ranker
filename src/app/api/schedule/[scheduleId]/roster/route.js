@@ -99,18 +99,27 @@ async function notifySessionRoster({ userId, kind, s, orgId, verb, extra }) {
 }
 
 async function rosterFor(scheduleId) {
+  // Real incident: "who's on this session" kept showing an evaluator
+  // (Justin Richards) after he was fully removed from the pool via
+  // scripts/remove-evaluator.mjs, which sets his signups to 'released' (not
+  // 'cancelled' -- that status is reserved for the evaluator withdrawing
+  // themselves). status != 'cancelled' let every OTHER inactive status
+  // through too, including 'released' and 'suspended' (the 2-strike
+  // late-cancel auto-suspension). Only 'signed_up' actually means "on this
+  // session" -- allow-list it instead of trying to keep a deny-list of every
+  // inactive status in sync as new ones get added.
   const evaluators = await sql`
     SELECT ess.user_id, u.name, u.email, ess.status, (ess.assigned_by IS NOT NULL) AS assigned,
       (ess.closed_at IS NOT NULL) AS closed
     FROM evaluator_session_signups ess
     JOIN users u ON u.id = ess.user_id
-    WHERE ess.schedule_id = ${scheduleId} AND ess.status != 'cancelled'
+    WHERE ess.schedule_id = ${scheduleId} AND ess.status = 'signed_up'
     ORDER BY u.name`;
   const testers = await sql`
     SELECT tss.user_id, u.name, u.email, tss.status, (tss.assigned_by IS NOT NULL) AS assigned
     FROM tester_session_signups tss
     JOIN users u ON u.id = tss.user_id
-    WHERE tss.schedule_id = ${scheduleId} AND tss.status != 'cancelled'
+    WHERE tss.schedule_id = ${scheduleId} AND tss.status = 'signed_up'
     ORDER BY u.name`;
   return { evaluators, testers };
 }
