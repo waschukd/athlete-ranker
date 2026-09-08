@@ -119,6 +119,18 @@ describe("POST /api/service-provider/notify — multi-session blast", () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  it("refuses to blast a tentative session -- it isn't visible on anyone's dashboard yet", async () => {
+    mockSqlByQuery([
+      ["FROM evaluation_schedule es", [{ ...SCHED_ROWS[0], status: "tentative" }]],
+      ["FROM sp_association_links", [{ association_id: 42 }]],
+    ]);
+
+    const { POST } = await import("@/app/api/service-provider/notify/route");
+    const res = await POST(makeReq({ schedule_id: 1 }));
+    expect(res.status).toBe(409);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it("still works with a single schedule_id (back-compat)", async () => {
     mockSqlByQuery([
       ["FROM evaluation_schedule es", [SCHED_ROWS[0]]],

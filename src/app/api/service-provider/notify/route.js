@@ -138,6 +138,14 @@ export async function POST(request) {
       if (orgIdsNeedingLink.some(id => !linkedIds.has(id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // A "tentative"/if-necessary session never shows on anyone's dashboard as
+    // available to sign up for (both the evaluator and tester "available"
+    // lists filter on status = 'scheduled') -- blasting one out would invite
+    // people to a session that, from their side, doesn't exist yet.
+    if (schedInfo.some(s => s.status === "tentative")) {
+      return NextResponse.json({ error: "This session is still tentative — confirm it first, then blast." }, { status: 409 });
+    }
+
     // Tester spot-fill: notify ONLY this SP's testers (never evaluators or the
     // association) who aren't already signed up for this testing session.
     if (action === "notify_testers") {

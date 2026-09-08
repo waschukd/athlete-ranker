@@ -30,6 +30,21 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all"); // "all" | "testing" | "eval"
   const [scheduleAssocFilter, setScheduleAssocFilter] = useState("all"); // "all" | <org_id>
   const [rosterScheduleId, setRosterScheduleId] = useState(null);
+  // Real incident: a "tentative"/if-necessary session never showed as such
+  // here (only the association side had the badge + Confirm button) -- an SP
+  // admin saw a normal-looking row with a live Blast button and no way to
+  // tell evaluators genuinely can't sign up for it yet (the evaluator
+  // "available" list only shows status='scheduled'), or any way to fix it
+  // from this screen.
+  const [confirmingId, setConfirmingId] = useState(null);
+  const confirmSession = async (scheduleId) => {
+    setConfirmingId(scheduleId);
+    try {
+      await fetch(`/api/schedule/${scheduleId}/confirm`, { method: "POST" });
+      refetchSchedule();
+    } catch {}
+    setConfirmingId(null);
+  };
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [calLinks, setCalLinks] = useState(null);
   const [showPastSessions, setShowPastSessions] = useState(false);
@@ -298,6 +313,11 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
                             <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
                             {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
                             {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
+                            {entry.status === "tentative" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700" title="Evaluators can't sign up for this yet — it won't show on their dashboard until confirmed.">
+                                If necessary
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                             <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
@@ -342,10 +362,23 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
                                   <Star size={12} /> Evaluate
                                 </a>
                               )}
-                              {entry.spots_open > 0 && (
+                              {/* A tentative session isn't visible to evaluators at all yet
+                                  (the "available" list only shows status='scheduled') --
+                                  blasting one would invite people to sign up for something
+                                  that doesn't exist on their end. Confirm it first. */}
+                              {entry.status === "tentative" ? (
+                                <button
+                                  onClick={() => confirmSession(entry.schedule_id)}
+                                  disabled={confirmingId === entry.schedule_id}
+                                  title="Opens this session to evaluator sign-ups"
+                                  className="text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  {confirmingId === entry.schedule_id ? "Confirming..." : "Confirm"}
+                                </button>
+                              ) : entry.spots_open > 0 && (
                                 <BlastButton sessions={contiguousBlock(
                                   entry,
-                                  schedule.filter(s => s.spots_open > 0 && s.session_type !== "testing" && s.status !== "cancelled")
+                                  schedule.filter(s => s.spots_open > 0 && s.session_type !== "testing" && s.status !== "cancelled" && s.status !== "tentative")
                                 )} />
                               )}
                             </>
