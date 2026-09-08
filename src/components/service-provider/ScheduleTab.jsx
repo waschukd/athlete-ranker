@@ -11,6 +11,7 @@ import TestingSessionsControls from "@/components/service-provider/TestingSessio
 import { ScheduleRowControls, AddSessionButton } from "@/components/service-provider/ScheduleControls";
 import { TesterStaffingControl } from "@/components/service-provider/TestersTab";
 import BlastButton from "@/components/service-provider/BlastButton";
+import { contiguousBlock } from "@/lib/sessionBlocks";
 
 const SESSION_TYPE_COLORS = {
   testing: "bg-blue-100 text-blue-700",
@@ -341,7 +342,12 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
                                   <Star size={12} /> Evaluate
                                 </a>
                               )}
-                              {entry.spots_open > 0 && <BlastButton scheduleId={entry.schedule_id} spotsOpen={entry.spots_open} />}
+                              {entry.spots_open > 0 && (
+                                <BlastButton sessions={contiguousBlock(
+                                  entry,
+                                  schedule.filter(s => s.spots_open > 0 && s.session_type !== "testing" && s.status !== "cancelled")
+                                )} />
+                              )}
                             </>
                           )}
                           <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} orgParam={orgParam} />
