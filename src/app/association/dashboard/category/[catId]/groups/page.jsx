@@ -116,7 +116,7 @@ function resolveTeamsForMatchup(matchup, teams) {
   return a && b ? [a, b] : [];
 }
 
-function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId }) {
+function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, teamColorsFor, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId }) {
   // athlete_id -> team, so every player row can show (and change) which team
   // they're actually on right here -- this was the whole point of asking
   // "where is team info live" while looking at a game's roster, not the
@@ -838,6 +838,7 @@ function GroupsManagerInner() {
             groups={groups}
             groupPlayers={groupPlayers}
             rankMap={rankMap}
+            teamColorsFor={teamColorsFor}
             jerseyMode={jerseyMode}
             setColor={setColor}
             setJerseyNumber={setJerseyNumber}
