@@ -186,7 +186,7 @@ export async function POST(request, { params }) {
         if (fmt(prevRow.scheduled_date) !== fmt(scheduled_date)
           || (prevRow.start_time || "") !== (start_time || "")
           || (prevRow.end_time || "") !== (end_time || "")) {
-          timeChangedRows.push({ id: prevRow.id, scheduled_date, start_time, end_time, location, session_number, group_number });
+          timeChangedRows.push({ id: prevRow.id, age_category_id: catId, scheduled_date, start_time, end_time, location, session_number, group_number });
         }
       } else {
         const code = await uniqueCheckinCode(session_number, group_number);
@@ -214,7 +214,7 @@ export async function POST(request, { params }) {
     });
 
     for (const changedRow of timeChangedRows) {
-      try { await warnScheduleConflicts({ catId, scheduleRow: changedRow }); } catch (e) { console.error("bulk upload: warnScheduleConflicts", e?.message); }
+      try { await warnScheduleConflicts({ scheduleRow: changedRow }); } catch (e) { console.error("bulk upload: warnScheduleConflicts", e?.message); }
     }
 
     return NextResponse.json({ success: true, count, inserted, updated });
@@ -337,7 +337,7 @@ export async function PATCH(request, { params }) {
       || (prev.start_time || "") !== (row.start_time || "")
       || (prev.end_time || "") !== (row.end_time || "");
     if (timeAffectingChange) {
-      try { await warnScheduleConflicts({ catId, scheduleRow: row }); } catch (e) { console.error("edit: warnScheduleConflicts", e?.message); }
+      try { await warnScheduleConflicts({ scheduleRow: row }); } catch (e) { console.error("edit: warnScheduleConflicts", e?.message); }
     }
 
     // Tell affected parents if it's last-minute, or if they were already

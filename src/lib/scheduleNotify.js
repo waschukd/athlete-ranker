@@ -281,42 +281,71 @@ export async function notifyConnectingEvaluators({ catId, scheduleRow }) {
   }
 }
 
-// Real incident: an evaluator can sign up for two sessions that DON'T overlap
-// at signup time (the signup route's own conflict guard is honest about that),
-// but a session gets edited afterward -- date/time moved -- and nothing ever
-// re-checks it against what everyone already signed up for is now double-
-// booked into. Sara Diamond ended up rostered on two sessions at different
-// rinks with a 30-minute overlap this way. Call this after ANY edit that
-// changes date/start_time/end_time, for the row as it now stands, and it
-// finds every evaluator on THIS session who now conflicts with another
-// signed-up session of theirs that same day, and tells both the evaluator
-// (so they know to drop one) and the org's admins (so staffing gets fixed).
-export async function warnScheduleConflicts({ catId, scheduleRow }) {
+// Real incident: someone can sign up for two sessions that DON'T overlap at
+// signup time (both the evaluator and tester signup routes have their own
+// conflict guard, honest about that), but a session gets edited afterward --
+// date/time moved -- and nothing ever re-checks it against what everyone
+// already signed up for is now double-booked into. Sara Diamond ended up
+// rostered on two evaluation sessions at different rinks this way; the same
+// gap exists across the evaluator/tester line -- a tester's testing slot can
+// just as easily get moved onto an evaluation they already signed up for.
+// Call this after ANY edit that changes date/start_time/end_time, for the row
+// as it now stands, and it finds everyone on THIS session (evaluator OR
+// tester) who now conflicts with another signed-up commitment of theirs
+// (evaluator OR tester) that same day, and tells both them (so they know to
+// drop one) and the org's admins (so staffing gets fixed). Works for both an
+// association-owned row (age_category_id set) and an SP-owned testing event
+// (service_provider_id set, no category) -- context is read off the row
+// itself, not passed in, since a testing event has no catId to give it.
+export async function warnScheduleConflicts({ scheduleRow }) {
   try {
     const r = scheduleRow;
     if (!r?.scheduled_date || !r.start_time || !r.end_time) return { warned: 0, skipped: "missing_time" };
 
-    const catInfo = await sql`
-      SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name
-      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
-    `;
-    if (!catInfo.length) return { warned: 0 };
-    const { category_name, org_id, org_name } = catInfo[0];
+    let category_name, org_id, org_name, isSpEvent = false;
+    if (r.age_category_id) {
+      const catInfo = await sql`
+        SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name
+        FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${r.age_category_id}
+      `;
+      if (!catInfo.length) return { warned: 0 };
+      ({ category_name, org_id, org_name } = catInfo[0]);
+    } else if (r.service_provider_id) {
+      const spInfo = await sql`SELECT id AS org_id, name AS org_name FROM organizations WHERE id = ${r.service_provider_id}`;
+      if (!spInfo.length) return { warned: 0 };
+      ({ org_id, org_name } = spInfo[0]);
+      category_name = r.client_label || r.age_label || "Testing";
+      isSpEvent = true;
+    } else {
+      return { warned: 0, skipped: "no_org_context" };
+    }
 
+    // Two UNIONs: who's currently on THIS row (either signup table), cross
+    // joined against every OTHER active commitment of theirs (either signup
+    // table) that overlaps it in time. Catches all three combinations --
+    // evaluator/evaluator, tester/tester, and the cross case -- in one pass.
     const conflicts = await sql`
-      SELECT DISTINCT u.id AS user_id, u.email, u.name,
+      SELECT DISTINCT u.id AS user_id, u.email, u.name, other.other_role,
         sb.id AS other_schedule_id, sb.start_time AS other_start, sb.end_time AS other_end,
         sb.location AS other_location, sb.session_number AS other_session, sb.group_number AS other_group,
-        acb.name AS other_category, ob.name AS other_org
-      FROM evaluator_session_signups ess
-      JOIN users u ON u.id = ess.user_id
-      JOIN evaluator_session_signups ess2 ON ess2.user_id = ess.user_id
-        AND ess2.schedule_id != ess.schedule_id AND ess2.status = 'signed_up'
-      JOIN evaluation_schedule sb ON sb.id = ess2.schedule_id
-      JOIN age_categories acb ON acb.id = sb.age_category_id
-      JOIN organizations ob ON ob.id = acb.organization_id
-      WHERE ess.schedule_id = ${r.id} AND ess.status = 'signed_up'
-        AND sb.scheduled_date = ${r.scheduled_date}
+        COALESCE(acb.name, sb.client_label, sb.age_label, 'Testing') AS other_category,
+        COALESCE(obassoc.name, obsp.name) AS other_org
+      FROM (
+        SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'
+        UNION
+        SELECT user_id FROM tester_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'
+      ) AS on_this
+      JOIN users u ON u.id = on_this.user_id
+      JOIN (
+        SELECT user_id, schedule_id, 'evaluator' AS other_role FROM evaluator_session_signups WHERE status = 'signed_up' AND schedule_id != ${r.id}
+        UNION ALL
+        SELECT user_id, schedule_id, 'tester' AS other_role FROM tester_session_signups WHERE status = 'signed_up' AND schedule_id != ${r.id}
+      ) AS other ON other.user_id = on_this.user_id
+      JOIN evaluation_schedule sb ON sb.id = other.schedule_id
+      LEFT JOIN age_categories acb ON acb.id = sb.age_category_id
+      LEFT JOIN organizations obassoc ON obassoc.id = acb.organization_id
+      LEFT JOIN organizations obsp ON obsp.id = sb.service_provider_id
+      WHERE sb.scheduled_date = ${r.scheduled_date}
         AND sb.status != 'cancelled'
         AND sb.start_time IS NOT NULL AND sb.end_time IS NOT NULL
         AND sb.start_time < ${r.end_time} AND sb.end_time > ${r.start_time}
@@ -325,14 +354,18 @@ export async function warnScheduleConflicts({ catId, scheduleRow }) {
 
     const admins = new Map();
     const addAdmin = (email, name) => { if (email) admins.set(email.toLowerCase(), name || email); };
-    const sps = await sql`
-      SELECT sp.contact_email AS sp_email, sp.name AS sp_name
-      FROM sp_association_links sal JOIN organizations sp ON sp.id = sal.service_provider_id
-      WHERE sal.association_id = ${org_id} AND sal.status = 'active'
-    `;
-    sps.forEach(sp => addAdmin(sp.sp_email, sp.sp_name));
-    const assocAdmins = await getOrgRoleUsers(org_id);
-    assocAdmins.forEach(a => addAdmin(a.email, a.name));
+    // An SP-owned testing event has no association to link from -- it's
+    // already the SP's own event, so just alert the SP's own admins below.
+    if (!isSpEvent) {
+      const sps = await sql`
+        SELECT sp.contact_email AS sp_email, sp.name AS sp_name
+        FROM sp_association_links sal JOIN organizations sp ON sp.id = sal.service_provider_id
+        WHERE sal.association_id = ${org_id} AND sal.status = 'active'
+      `;
+      sps.forEach(sp => addAdmin(sp.sp_email, sp.sp_name));
+    }
+    const orgAdmins = await getOrgRoleUsers(org_id);
+    orgAdmins.forEach(a => addAdmin(a.email, a.name));
 
     for (const c of conflicts) {
       const html = emailWrapper(`
@@ -351,7 +384,7 @@ export async function warnScheduleConflicts({ catId, scheduleRow }) {
 
       for (const [email] of admins) {
         await sendEmail(email, `⚠ ${c.name} is double-booked — ${fmtBlastDate(r.scheduled_date)}`, emailWrapper(`
-          <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#d23b3b;">Evaluator double-booked</h2>
+          <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#d23b3b;">Double-booked</h2>
           <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${esc(c.name)}</strong> (${esc(c.email)}) is now signed up for two overlapping sessions on ${fmtBlastDate(r.scheduled_date)}, caused by a schedule edit. They've been emailed to drop one.</p>
           <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 12px;">
             <p style="margin:0;font-size:13px;color:#101113;">${esc(org_name)} ${esc(category_name)} S${esc(r.session_number)}G${esc(r.group_number)} · ${fmtBlastTime(r.start_time)}–${fmtBlastTime(r.end_time)} @ ${esc(r.location || "TBD")}</p>

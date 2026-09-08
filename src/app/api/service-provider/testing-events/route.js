@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
+import { warnScheduleConflicts } from "@/lib/scheduleNotify";
 
 const ADMIN_ROLES = new Set(["service_provider_admin", "goalie_service_provider_admin", "super_admin"]);
 
@@ -75,6 +76,8 @@ export async function PATCH(request) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     const status = b.status === "cancelled" || b.status === "scheduled" ? b.status : null;
     const testers = b.testers_required != null && b.testers_required !== "" ? Math.max(0, parseInt(b.testers_required) || 0) : null;
+    const [before] = await sql`SELECT scheduled_date, start_time, end_time FROM evaluation_schedule WHERE id = ${id} AND service_provider_id = ${g.spId}`;
+    if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const [row] = await sql`
       UPDATE evaluation_schedule SET
         scheduled_date = COALESCE(${b.scheduled_date || null}, scheduled_date),
@@ -85,14 +88,28 @@ export async function PATCH(request) {
         testers_required = COALESCE(${testers}, testers_required),
         status = COALESCE(${status}, status)
       WHERE id = ${id} AND service_provider_id = ${g.spId}
-      RETURNING id`;
+      RETURNING *`;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // A moved date/time here is exactly the same hazard as a category schedule
+    // edit -- a tester (or an evaluator who also tests) already signed up
+    // elsewhere can get silently double-booked when this slot moves onto them.
+    // This route had no notification wiring at all before -- unlike the
+    // category schedule PATCH, nobody was ever told about ANY edit here.
+    const timeChanged = fmt(before.scheduled_date) !== fmt(row.scheduled_date)
+      || (before.start_time || "") !== (row.start_time || "")
+      || (before.end_time || "") !== (row.end_time || "");
+    if (timeChanged) {
+      try { await warnScheduleConflicts({ scheduleRow: row }); } catch (e) { console.error("SP testing-events edit: warnScheduleConflicts", e?.message); }
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("SP testing-events PATCH error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+function fmt(d) { return d ? d.toString().split("T")[0] : ""; }
 
 export async function DELETE(request) {
   try {
