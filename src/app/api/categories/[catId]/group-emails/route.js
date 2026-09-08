@@ -99,10 +99,18 @@ export async function GET(request, { params }) {
     // Latest send statuses (best-effort; table may not exist yet)
     let statuses = [];
     try {
+      // email_type = 'session' is NOT optional here. group_email_log started as
+      // this route's private table and is now the shared log for every outbound
+      // flow (lib/emailLog.js) -- evaluator spot-fills, staff messages, invites.
+      // Without the filter this panel listed all of them under "Group assignment
+      // emails": an evaluator blast to 47 people showed up as though the parents'
+      // email had gone to the entire evaluator pool, which is exactly how it was
+      // reported. The athlete_name column even held the evaluator's own name.
       statuses = await sql`
         SELECT group_number, athlete_id, athlete_name, recipient_email, status, error, updated_at
         FROM group_email_log
         WHERE age_category_id = ${catId} AND session_number = ${sessionNumber}
+          AND email_type = 'session'
         ORDER BY group_number, athlete_name
       `;
     } catch {}
@@ -140,10 +148,14 @@ export async function POST(request, { params }) {
     // Fresh batch for this session — clear prior log so the panel reflects this
     // send. A single-family resend only clears that family's own rows, so it
     // doesn't wipe out everyone else's already-tracked delivery status.
+    // Scoped to this flow's own rows for the same reason as the read above --
+    // an unfiltered delete here wiped the delivery history of every other email
+    // flow for the session (evaluator blasts, staff messages) every time a
+    // parent batch was sent.
     if (athlete_id) {
-      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number} AND athlete_id = ${athlete_id}`;
+      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number} AND athlete_id = ${athlete_id} AND email_type = 'session'`;
     } else {
-      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
+      await sql`DELETE FROM group_email_log WHERE age_category_id = ${catId} AND session_number = ${session_number} AND email_type = 'session'`;
     }
 
     const sessionLabel = `${plan.session.name || `Session ${session_number}`}${plan.session.session_type ? ` (${plan.session.session_type})` : ""}`;
