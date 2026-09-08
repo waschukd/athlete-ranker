@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { notifySessionChange, offerOpenSession, notifyParentsIfImminent } from "@/lib/scheduleNotify";
+import { notifySessionChange, offerOpenSession, notifyConnectingEvaluators, notifyParentsIfImminent } from "@/lib/scheduleNotify";
 import { resolveMatchupTeams, assignMatchupRoster, matchupLabel } from "@/lib/scrimmageTeams";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
 
@@ -128,6 +128,7 @@ export async function POST(request, { params }) {
       let notified = 0, offered = 0;
       try { ({ notified } = await notifySessionChange({ catId, scheduleRow: row, scheduleId: row.id, changeType: "added", summary: "A new session was added to the schedule.", initiator: initiatorOf(session) })); } catch (e) { console.error("add: notifySessionChange", e?.message); }
       try { const offer = await offerOpenSession({ catId, scheduleRow: row }); offered = offer?.offered || 0; } catch (e) { console.error("add: offerOpenSession", e?.message); }
+      try { await notifyConnectingEvaluators({ catId, scheduleRow: row }); } catch (e) { console.error("add: notifyConnectingEvaluators", e?.message); }
       return NextResponse.json({ success: true, session: row, notified, offered });
     }
 
@@ -313,6 +314,7 @@ export async function PATCH(request, { params }) {
 
     // If the session needs more evaluators (e.g. moved date freed people up), recruit.
     const offer = await offerOpenSession({ catId, scheduleRow: row });
+    try { await notifyConnectingEvaluators({ catId, scheduleRow: row }); } catch (e) { console.error("edit: notifyConnectingEvaluators", e?.message); }
 
     // Tell affected parents if it's last-minute, or if they were already
     // emailed this session's now-wrong time (see notifyParentsIfImminent).

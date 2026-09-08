@@ -1,6 +1,7 @@
 import sql from "@/lib/db";
 import { sendEmail, emailWrapper, parentEmails, esc } from "@/lib/email";
 import { getCategoryDirectors, getOrgRoleUsers } from "@/lib/categoryRecipients";
+import { contiguousBlock } from "@/lib/sessionBlocks";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -203,6 +204,80 @@ export async function offerOpenSession({ catId, scheduleRow }) {
   } catch (err) {
     console.error("offerOpenSession error:", err);
     return { offered: 0, error: err?.message };
+  }
+}
+
+// Real complaint: a session added (or moved) earlier in the day at the same
+// rink than one an evaluator already signed up for is invisible to them
+// unless they happen to reopen their dashboard -- offerOpenSession blasts the
+// WHOLE eligible pool generically, which is easy to miss/ignore among
+// everything else Sideline Star already emails. This targets specifically
+// the evaluators already committed to a session THAT DAY at THAT RINK which
+// now connects to the new/moved one (same detection as
+// lib/sessionBlocks.contiguousBlock, used for the evaluator-signup prompt and
+// the admin blast button), and tells them directly: you're already going to
+// be there, here's one more that lines up.
+export async function notifyConnectingEvaluators({ catId, scheduleRow }) {
+  try {
+    const r = scheduleRow;
+    if (!r || r.status !== "scheduled") return { notified: 0 };
+    if (!r.evaluators_required || r.evaluators_required <= 0) return { notified: 0, skipped: "no_evaluators_needed" };
+    if (!r.scheduled_date || !r.location || !r.start_time) return { notified: 0, skipped: "missing_time_or_location" };
+
+    const catInfo = await sql`
+      SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name
+      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
+    `;
+    if (!catInfo.length) return { notified: 0 };
+    const { category_name, org_id, org_name } = catInfo[0];
+
+    const dayRows = await sql`
+      SELECT es.id AS schedule_id, es.scheduled_date, es.start_time, es.end_time, es.location
+      FROM evaluation_schedule es
+      JOIN age_categories ac ON ac.id = es.age_category_id
+      WHERE ac.organization_id = ${org_id} AND es.scheduled_date = ${r.scheduled_date} AND es.status = 'scheduled'
+    `;
+    // dayRows is already scoped to this one org by the query above, but
+    // contiguousBlock's grouping key checks org_id on each row -- attach it
+    // explicitly rather than relying on a value that was never selected.
+    const clicked = { schedule_id: r.id, org_id, scheduled_date: r.scheduled_date, start_time: r.start_time, end_time: r.end_time, location: r.location };
+    const block = contiguousBlock(clicked, [...dayRows.map(d => ({ ...d, org_id })), clicked]);
+    const connectingIds = block.map(s => s.schedule_id).filter(id => id !== r.id);
+    if (!connectingIds.length) return { notified: 0, skipped: "no_connections" };
+
+    const cnt = await sql`SELECT COUNT(*)::int AS n FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'`;
+    const open = r.evaluators_required - (cnt[0]?.n || 0);
+    if (open <= 0) return { notified: 0, skipped: "already_full" };
+
+    const evaluators = await sql`
+      SELECT DISTINCT u.id, u.email, u.name
+      FROM evaluator_session_signups ess
+      JOIN users u ON u.id = ess.user_id
+      WHERE ess.schedule_id = ANY(${connectingIds}) AND ess.status = 'signed_up'
+        AND u.id NOT IN (SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up')
+    `;
+    if (!evaluators.length) return { notified: 0 };
+
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
+    const html = emailWrapper(`
+      <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">A session was added next to one of yours</h2>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">You're already signed up at <strong style="color:#101113;">${esc(r.location)}</strong> on ${fmtDate(r.scheduled_date)} -- <strong style="color:#101113;">${esc(org_name)}</strong> just added a ${esc(category_name)} session that connects right to it.</p>
+      <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time}${r.end_time ? `–${r.end_time}` : ""}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${esc(r.location)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Spots open</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${open}</td></tr>
+        </table>
+      </div>
+      <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Add it to your day →</a></div>
+    `);
+    const subject = `A connecting session was just added — ${category_name} (${fmtDate(r.scheduled_date)})`;
+    for (const e of evaluators) await sendEmail(e.email, subject, html);
+    return { notified: evaluators.length };
+  } catch (err) {
+    console.error("notifyConnectingEvaluators error:", err);
+    return { notified: 0, error: err?.message };
   }
 }
 
