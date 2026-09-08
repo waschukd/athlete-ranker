@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, UserPlus, Clock, MapPin, Shield, MessageSquare } from "lucide-react";
+import { X, UserPlus, Clock, MapPin, Shield, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 
 // Who's on a session, and (for those authorized) place or take a spot.
 // Self-contained: give it a scheduleId, it fetches /api/schedule/[id]/roster.
@@ -16,6 +16,23 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
   const [messageBody, setMessageBody] = useState("");
   const [messageSending, setMessageSending] = useState(false);
   const [messageResult, setMessageResult] = useState(null); // { sent } | { error }
+  const [dayFor, setDayFor] = useState(null); // user_id whose day is expanded
+  const [dayData, setDayData] = useState({}); // user_id -> 'loading' | { user, date, sessions } | { error }
+
+  // Real complaint: too many evaluators take the convenient slot and skip a
+  // harder one later the same day, with no quick way to check. Click a name
+  // here and see their whole day right away, not just this session's org.
+  const toggleDay = async (user_id) => {
+    if (dayFor === user_id) { setDayFor(null); return; }
+    setDayFor(user_id);
+    if (dayData[user_id] && dayData[user_id] !== "error") return;
+    setDayData(d => ({ ...d, [user_id]: "loading" }));
+    try {
+      const res = await fetch(`/api/schedule/${scheduleId}/roster/day?user_id=${user_id}`);
+      const d = await res.json();
+      setDayData(dd => ({ ...dd, [user_id]: res.ok ? d : { error: d.error || "Couldn't load their day." } }));
+    } catch { setDayData(dd => ({ ...dd, [user_id]: { error: "Couldn't load their day." } })); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -135,6 +152,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                   messageSubject={messageSubject} setMessageSubject={setMessageSubject}
                   messageBody={messageBody} setMessageBody={setMessageBody}
                   onSendMessage={sendMessage} messageSending={messageSending} messageResult={messageResult}
+                  dayFor={dayFor} dayData={dayData} onToggleDay={toggleDay}
                 />
               )}
 
@@ -151,6 +169,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                     messageBody={messageBody} setMessageBody={setMessageBody}
                     onSendMessage={sendMessage} messageSending={messageSending} messageResult={messageResult}
                     busy={busy}
+                    dayFor={dayFor} dayData={dayData} onToggleDay={toggleDay}
                   />
                 </div>
               )}
@@ -166,10 +185,38 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
   );
 }
 
+function fmtDayTime(t) { if (!t) return ""; const [h, m] = String(t).split(":"); const hr = parseInt(h); return `${hr % 12 === 0 ? 12 : hr % 12}:${m} ${hr >= 12 ? "PM" : "AM"}`; }
+
+// Inline "their whole day" panel, shown under a name once clicked. Sorted by
+// time so it reads as a timeline -- the convenient slot next to whatever else
+// they're on (or skipping) that same day, across every org, not just this one.
+function DayPanel({ userId, dayData }) {
+  const d = dayData[userId];
+  if (d === "loading" || d === undefined) return <div className="px-3 pb-2.5 text-xs text-gray-400">Loading their day…</div>;
+  if (d?.error) return <div className="px-3 pb-2.5 text-xs text-red-600">{d.error}</div>;
+  if (!d.sessions?.length) return <div className="px-3 pb-2.5 text-xs text-gray-400">No other active sessions found for {d.date}.</div>;
+  return (
+    <div className="px-3 pb-2.5">
+      <div className="border-l-2 border-gray-200 ml-1 pl-3 flex flex-col gap-1.5">
+        {d.sessions.map(s => (
+          <div key={`${s.role}-${s.id}`} className={`text-xs flex items-center gap-2 flex-wrap ${s.id === d.this_schedule_id ? "font-semibold text-accent" : "text-gray-600"}`}>
+            <span className="font-mono tabular-nums">{fmtDayTime(s.start_time)}{s.end_time ? `–${fmtDayTime(s.end_time)}` : ""}</span>
+            <span>{s.org_name} · {s.label}</span>
+            {s.session_number != null && <span className="text-gray-400">S{s.session_number}{s.group_number ? `G${s.group_number}` : ""}</span>}
+            {s.location && <span className="text-gray-400">@ {s.location}</span>}
+            <span className="text-[10px] uppercase tracking-wide text-gray-400">{s.role}</span>
+            {s.id === d.this_schedule_id && <span className="text-[10px] uppercase tracking-wide">this session</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RosterGroup({
   title, people, required, canManage, addable, addOpen, onOpenAdd, onAdd, onRemove, onReopen, busy,
   messageOpen, onOpenMessage, onCloseMessage, messageSubject, setMessageSubject, messageBody, setMessageBody,
-  onSendMessage, messageSending, messageResult,
+  onSendMessage, messageSending, messageResult, dayFor, dayData, onToggleDay,
 }) {
   return (
     <div>
@@ -225,22 +272,28 @@ function RosterGroup({
       ) : (
         <div className="flex flex-col gap-1.5">
           {people.map(p => (
-            <div key={p.user_id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50">
-              <div className="min-w-0">
-                <span className="text-sm text-gray-800">{p.name || p.email}</span>
-                {p.assigned && <span className="ml-2 text-[10px] uppercase tracking-wide text-accent bg-accent-soft rounded px-1.5 py-0.5">assigned</span>}
-                {p.closed && <span className="ml-2 text-[10px] uppercase tracking-wide text-green-700 bg-green-100 rounded px-1.5 py-0.5">closed</span>}
+            <div key={p.user_id} className="rounded-lg bg-gray-50 overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <button onClick={() => onToggleDay?.(p.user_id)} disabled={!onToggleDay}
+                  title="See their full schedule that day"
+                  className="min-w-0 flex items-center gap-1 text-left hover:text-accent disabled:cursor-default disabled:hover:text-inherit">
+                  {onToggleDay && (dayFor === p.user_id ? <ChevronUp size={12} className="flex-shrink-0 text-gray-400" /> : <ChevronDown size={12} className="flex-shrink-0 text-gray-400" />)}
+                  <span className="text-sm text-gray-800 truncate">{p.name || p.email}</span>
+                  {p.assigned && <span className="ml-1 text-[10px] uppercase tracking-wide text-accent bg-accent-soft rounded px-1.5 py-0.5 flex-shrink-0">assigned</span>}
+                  {p.closed && <span className="ml-1 text-[10px] uppercase tracking-wide text-green-700 bg-green-100 rounded px-1.5 py-0.5 flex-shrink-0">closed</span>}
+                </button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {canManage && onReopen && p.closed && (
+                    <button onClick={() => onReopen(p.user_id)} disabled={busy}
+                      className="text-xs font-semibold text-accent hover:opacity-70 disabled:opacity-40">Reopen</button>
+                  )}
+                  {canManage && (
+                    <button onClick={() => onRemove(p.user_id)} disabled={busy}
+                      className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40">Remove</button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {canManage && onReopen && p.closed && (
-                  <button onClick={() => onReopen(p.user_id)} disabled={busy}
-                    className="text-xs font-semibold text-accent hover:opacity-70 disabled:opacity-40">Reopen</button>
-                )}
-                {canManage && (
-                  <button onClick={() => onRemove(p.user_id)} disabled={busy}
-                    className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40">Remove</button>
-                )}
-              </div>
+              {dayFor === p.user_id && <DayPanel userId={p.user_id} dayData={dayData} />}
             </div>
           ))}
         </div>
