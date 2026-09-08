@@ -37,16 +37,25 @@ async function getSessionStaffing(orgId, daysAhead = 7) {
     ORDER BY es.scheduled_date, es.start_time
   `;
 
-  return sessions.map(s => ({
-    id: s.id,
-    date: s.scheduled_date?.toString().split("T")[0],
-    time: s.start_time || "",
-    group: `${s.category_name} - Group ${s.group_number}`,
-    required: parseInt(s.evaluators_required) || 4,
-    signed_up: parseInt(s.signed_up) || 0,
-    evaluators: s.evaluators?.filter(Boolean) || [],
-    org_name: s.org_name,
-  }));
+  return sessions
+    // A testing session needs TESTERS, not evaluators -- evaluators_required is a
+    // real 0 there, not "not set" (the SQL COALESCE already handles "not set" by
+    // falling back to 4). Real incident: `parseInt(0) || 4` below treated that
+    // legitimate 0 as falsy and reported every fully-staffed SEERA U15 testing
+    // slot as "0/4 unstaffed" in the weekly email, even though the dashboard
+    // itself already excludes testing sessions from evaluator staffing. Filtering
+    // them out here keeps an evaluator-staffing report about evaluator staffing.
+    .filter(s => parseInt(s.evaluators_required) > 0)
+    .map(s => ({
+      id: s.id,
+      date: s.scheduled_date?.toString().split("T")[0],
+      time: s.start_time || "",
+      group: `${s.category_name} - Group ${s.group_number}`,
+      required: parseInt(s.evaluators_required),
+      signed_up: parseInt(s.signed_up) || 0,
+      evaluators: s.evaluators?.filter(Boolean) || [],
+      org_name: s.org_name,
+    }));
 }
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
