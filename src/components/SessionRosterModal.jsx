@@ -18,6 +18,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
   const [messageResult, setMessageResult] = useState(null); // { sent } | { error }
   const [dayFor, setDayFor] = useState(null); // user_id whose day is expanded
   const [dayData, setDayData] = useState({}); // user_id -> 'loading' | { user, date, sessions } | { error }
+  const [pending, setPending] = useState(null); // { kind, user_id, name, subsequent: [], selected: Set } while confirming which later sessions to add them to
 
   // Real complaint: too many evaluators take the convenient slot and skip a
   // harder one later the same day, with no quick way to check. Click a name
@@ -59,6 +60,58 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
       else { setAddKind(null); await load(); }
     } catch { setErr("That didn't work."); }
     setBusy(false);
+  };
+
+  // Picking a name from the Add list doesn't add them right away -- first
+  // check whether this category has later groups at the same rink that day
+  // they aren't already on (the classic BAHA/EFHA/SEERA multi-group block).
+  // If so, offer to add them to those too instead of making the director
+  // repeat "Add" once per group. No later groups -> add immediately, same as
+  // before.
+  const pickToAdd = async (kind, m) => {
+    try {
+      const res = await fetch(`/api/schedule/${scheduleId}/roster/subsequent?user_id=${m.user_id}&kind=${kind}`);
+      const d = await res.json();
+      const subsequent = res.ok ? (d.sessions || []) : [];
+      if (subsequent.length) {
+        setPending({ kind, user_id: m.user_id, name: m.name || m.email, subsequent, selected: new Set(subsequent.map(s => s.schedule_id)) });
+      } else {
+        await act("POST", m.user_id, kind);
+      }
+    } catch {
+      await act("POST", m.user_id, kind);
+    }
+  };
+  const toggleSubsequent = (sid) => {
+    setPending(p => {
+      if (!p) return p;
+      const selected = new Set(p.selected);
+      if (selected.has(sid)) selected.delete(sid); else selected.add(sid);
+      return { ...p, selected };
+    });
+  };
+  const confirmAdd = async () => {
+    if (!pending) return;
+    setBusy(true); setErr("");
+    try {
+      const targets = [scheduleId, ...pending.selected];
+      for (const sid of targets) {
+        const res = await fetch(`/api/schedule/${sid}/roster`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: pending.user_id, kind: pending.kind }),
+        });
+        if (!res.ok) { const d = await res.json(); setErr(d.error || "That didn't work for one of the sessions."); }
+      }
+    } catch { setErr("That didn't work."); }
+    setPending(null); setAddKind(null);
+    await load();
+    setBusy(false);
+  };
+  const addJustThisOne = async () => {
+    if (!pending) return;
+    const { user_id, kind } = pending;
+    setPending(null);
+    await act("POST", user_id, kind);
   };
 
   const reopen = async (user_id) => {
@@ -145,7 +198,7 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                   people={data.evaluators} required={s.evaluators_required}
                   canManage={data.canManage} addable={data.addable?.evaluators || []}
                   addOpen={addKind === "evaluator"} onOpenAdd={() => setAddKind(addKind === "evaluator" ? null : "evaluator")}
-                  onAdd={(uid) => act("POST", uid, "evaluator")} onRemove={(uid) => act("DELETE", uid, "evaluator")}
+                  onPick={(m) => pickToAdd("evaluator", m)} onRemove={(uid) => act("DELETE", uid, "evaluator")}
                   onReopen={reopen}
                   busy={busy}
                   messageOpen={messageKind === "evaluator"} onOpenMessage={() => openMessage("evaluator")} onCloseMessage={closeMessage}
@@ -153,6 +206,8 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                   messageBody={messageBody} setMessageBody={setMessageBody}
                   onSendMessage={sendMessage} messageSending={messageSending} messageResult={messageResult}
                   dayFor={dayFor} dayData={dayData} onToggleDay={toggleDay}
+                  pending={pending?.kind === "evaluator" ? pending : null}
+                  onToggleSubsequent={toggleSubsequent} onConfirmAdd={confirmAdd} onAddJustThisOne={addJustThisOne} onCancelPending={() => setPending(null)}
                 />
               )}
 
@@ -163,13 +218,15 @@ export default function SessionRosterModal({ scheduleId, onClose }) {
                     people={data.testers} required={s.testers_required}
                     canManage={data.canManage} addable={data.addable?.testers || []}
                     addOpen={addKind === "tester"} onOpenAdd={() => setAddKind(addKind === "tester" ? null : "tester")}
-                    onAdd={(uid) => act("POST", uid, "tester")} onRemove={(uid) => act("DELETE", uid, "tester")}
+                    onPick={(m) => pickToAdd("tester", m)} onRemove={(uid) => act("DELETE", uid, "tester")}
                     messageOpen={messageKind === "tester"} onOpenMessage={() => openMessage("tester")} onCloseMessage={closeMessage}
                     messageSubject={messageSubject} setMessageSubject={setMessageSubject}
                     messageBody={messageBody} setMessageBody={setMessageBody}
                     onSendMessage={sendMessage} messageSending={messageSending} messageResult={messageResult}
                     busy={busy}
                     dayFor={dayFor} dayData={dayData} onToggleDay={toggleDay}
+                    pending={pending?.kind === "tester" ? pending : null}
+                    onToggleSubsequent={toggleSubsequent} onConfirmAdd={confirmAdd} onAddJustThisOne={addJustThisOne} onCancelPending={() => setPending(null)}
                   />
                 </div>
               )}
@@ -214,10 +271,15 @@ function DayPanel({ userId, dayData }) {
 }
 
 function RosterGroup({
-  title, people, required, canManage, addable, addOpen, onOpenAdd, onAdd, onRemove, onReopen, busy,
+  title, people, required, canManage, addable, addOpen, onOpenAdd, onPick, onRemove, onReopen, busy,
   messageOpen, onOpenMessage, onCloseMessage, messageSubject, setMessageSubject, messageBody, setMessageBody,
   onSendMessage, messageSending, messageResult, dayFor, dayData, onToggleDay,
+  pending, onToggleSubsequent, onConfirmAdd, onAddJustThisOne, onCancelPending,
 }) {
+  const [filter, setFilter] = useState("");
+  const filteredAddable = filter.trim()
+    ? addable.filter(m => (m.name || m.email || "").toLowerCase().includes(filter.trim().toLowerCase()))
+    : addable;
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -299,17 +361,50 @@ function RosterGroup({
         </div>
       )}
 
-      {canManage && addOpen && (
-        <div className="mt-2 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
-          {addable.length === 0 ? (
-            <div className="text-sm text-gray-400 px-3 py-2">Everyone eligible is already on.</div>
-          ) : addable.map(m => (
-            <button key={m.user_id} onClick={() => onAdd(m.user_id)} disabled={busy}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-accent-soft disabled:opacity-40 flex items-center justify-between">
-              <span>{m.name || m.email}{m.is_lead ? <span className="ml-2 text-[10px] uppercase text-accent">lead</span> : ""}</span>
-              <UserPlus size={13} className="text-accent" />
+      {canManage && addOpen && pending && (
+        <div className="mt-2 border border-accent/30 bg-accent-soft/30 rounded-lg p-3">
+          <div className="text-sm text-gray-800 mb-2">
+            Add <strong>{pending.name}</strong> to this session — also add them to these later sessions the same day?
+          </div>
+          <div className="flex flex-col gap-1 mb-3 max-h-40 overflow-y-auto">
+            {pending.subsequent.map(s => (
+              <label key={s.schedule_id} className="flex items-center gap-2 text-xs text-gray-700 px-1 py-1 rounded hover:bg-white/60">
+                <input type="checkbox" checked={pending.selected.has(s.schedule_id)} onChange={() => onToggleSubsequent(s.schedule_id)} />
+                <span className="font-mono tabular-nums">{fmtDayTime(s.start_time)}{s.end_time ? `–${fmtDayTime(s.end_time)}` : ""}</span>
+                <span>S{s.session_number}G{s.group_number}</span>
+                {s.spots_open <= 0 && <span className="text-amber-600">(full — will still add)</span>}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={onCancelPending} disabled={busy} className="text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700 disabled:opacity-40">Cancel</button>
+            <button onClick={onAddJustThisOne} disabled={busy} className="text-xs px-3 py-1.5 border border-gray-300 text-gray-700 rounded-md font-medium disabled:opacity-40">Just this one</button>
+            <button onClick={onConfirmAdd} disabled={busy} className="text-xs px-3 py-1.5 bg-accent text-white rounded-md font-semibold hover:opacity-90 disabled:opacity-40">
+              Add to {1 + pending.selected.size} session{1 + pending.selected.size === 1 ? "" : "s"}
             </button>
-          ))}
+          </div>
+        </div>
+      )}
+
+      {canManage && addOpen && !pending && (
+        <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+          {addable.length > 5 && (
+            <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search name…" autoFocus
+              className="w-full px-3 py-2 text-sm border-b border-gray-100 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:ring-inset" />
+          )}
+          <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+            {addable.length === 0 ? (
+              <div className="text-sm text-gray-400 px-3 py-2">Everyone eligible is already on.</div>
+            ) : filteredAddable.length === 0 ? (
+              <div className="text-sm text-gray-400 px-3 py-2">No match for "{filter}".</div>
+            ) : filteredAddable.map(m => (
+              <button key={m.user_id} onClick={() => onPick(m)} disabled={busy}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-accent-soft disabled:opacity-40 flex items-center justify-between">
+                <span>{m.name || m.email}{m.is_lead ? <span className="ml-2 text-[10px] uppercase text-accent">lead</span> : ""}</span>
+                <UserPlus size={13} className="text-accent" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
