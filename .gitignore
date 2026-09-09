@@ -27,3 +27,6 @@ test-data/
 
 # Recovery dump from scripts/repair-phantom-rank-drills.mjs — real athlete data
 phantom-rank-backup.json
+
+# Roster dumps from scripts/clear-category-athletes.mjs -- real athlete data
+roster-backup-cat*.json
