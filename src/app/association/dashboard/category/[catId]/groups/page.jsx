@@ -116,7 +116,7 @@ function resolveTeamsForMatchup(matchup, teams) {
   return a && b ? [a, b] : [];
 }
 
-function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, teamColorsFor, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId }) {
+function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, teamColorsFor, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId, nextSession, watchIds, toggleWatch }) {
   // athlete_id -> team, so every player row can show (and change) which team
   // they're actually on right here -- this was the whole point of asking
   // "where is team info live" while looking at a game's roster, not the
@@ -211,6 +211,13 @@ function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, team
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${POSITION_COLORS[player.position] || "bg-gray-100 text-gray-600"}`}>
                         {POSITION_SHORT[player.position] || player.position}
                       </span>
+                    )}
+                    {nextSession && (
+                      <button onClick={() => toggleWatch(player.athlete_id)}
+                        title={watchIds.has(player.athlete_id) ? `Flagged for evaluators to watch closely in Session ${nextSession}` : `Flag: watch this player closely in Session ${nextSession}`}
+                        className={`flex-shrink-0 ${watchIds.has(player.athlete_id) ? "text-amber-500" : "text-gray-300 hover:text-amber-400"}`}>
+                        {watchIds.has(player.athlete_id) ? "★" : "☆"}
+                      </button>
                     )}
                     {onMovePlayer && (
                       <select
@@ -328,6 +335,25 @@ function GroupsManagerInner() {
   const anchors = anchorData?.anchors || [];
   const calibrationEnabled = anchorData?.calibration_enabled || false;
   const anchorIds = new Set(anchors.filter(a => a.session_number === selectedSession).map(a => a.athlete_id));
+
+  // "Watch this player" -- flagged here (while reviewing THIS session's
+  // results) for the athlete's UPCOMING session (selectedSession + 1), so
+  // whichever evaluator ends up scoring them next sees a star.
+  const nextSession = selectedSession != null ? selectedSession + 1 : null;
+  const { data: watchData, refetch: refetchWatch } = useQuery({
+    queryKey: ["watch-players", catId, nextSession],
+    queryFn: async () => { const res = await fetch(`/api/categories/${catId}/watch-players?session_number=${nextSession}`); return res.json(); },
+    enabled: !!catId && !!nextSession,
+  });
+  const watchIds = new Set((watchData?.watched || []).map(w => w.athlete_id));
+  const toggleWatch = async (athleteId) => {
+    const isWatched = watchIds.has(athleteId);
+    await fetch(`/api/categories/${catId}/watch-players`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: isWatched ? "unflag" : "flag", athlete_id: athleteId, session_number: nextSession }),
+    });
+    refetchWatch();
+  };
 
   const sessions = setupData?.sessions || [];
   const groups = groupsData?.groups || [];
@@ -839,6 +865,7 @@ function GroupsManagerInner() {
             groupPlayers={groupPlayers}
             rankMap={rankMap}
             teamColorsFor={teamColorsFor}
+            nextSession={nextSession} watchIds={watchIds} toggleWatch={toggleWatch}
             jerseyMode={jerseyMode}
             setColor={setColor}
             setJerseyNumber={setJerseyNumber}
@@ -1125,6 +1152,13 @@ function GroupsManagerInner() {
                                 refetchAnchors();
                               }} className={`text-xs px-1.5 py-0.5 rounded font-medium ${anchorIds.has(player.athlete_id) ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700"}`}>
                                 {anchorIds.has(player.athlete_id) ? "⚓" : "anchor"}
+                              </button>
+                            )}
+                            {nextSession && (
+                              <button onClick={(e) => { e.stopPropagation(); toggleWatch(player.athlete_id); }}
+                                title={watchIds.has(player.athlete_id) ? `Flagged for evaluators to watch closely in Session ${nextSession}` : `Flag: watch this player closely in Session ${nextSession}`}
+                                className={watchIds.has(player.athlete_id) ? "text-amber-500" : "text-gray-300 hover:text-amber-400"}>
+                                {watchIds.has(player.athlete_id) ? "★" : "☆"}
                               </button>
                             )}
                             {player.team_color && (

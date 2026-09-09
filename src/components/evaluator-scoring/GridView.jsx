@@ -44,6 +44,7 @@ export default function GridView({
                       (#1f2937) at 8px. Bracket classes aren't in that override. */}
                   <span className="inline-block w-3 h-3 rounded-full mr-1.5 align-middle"
                     style={{ ...swatchStyle(colorFor(athlete.team_color, teamColors)), borderWidth: "1px" }} />
+                  {athlete.watched && <span title="A director flagged this player — watch them closely" className="text-amber-500 mr-1">★</span>}
                   {isAnon
                     ? anonLabel(athlete)
                     : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}

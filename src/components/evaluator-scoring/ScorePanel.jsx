@@ -32,6 +32,9 @@ export default function ScorePanel({
           <div className="flex items-center justify-center gap-2">
             <div className="w-5 h-5 rounded-full" style={swatchStyle(colorFor(selected.team_color, teamColors))} />
             <span className="font-bold font-display text-ink">#{idOf(selected)}</span>
+            {selected.watched && (
+              <span title="A director flagged this player — watch them closely" className="text-amber-500 text-lg leading-none">★</span>
+            )}
           </div>
           {selected.position && (
             <div className="text-xs text-gray-600 mt-0.5 font-medium">{selected.position}</div>

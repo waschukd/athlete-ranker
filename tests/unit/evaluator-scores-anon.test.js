@@ -16,14 +16,15 @@ function makeReq() {
 
 // The GET legacy path issues sql calls in this order:
 //   1. getAppUserId → SELECT id FROM users (local helper)
-//   2. schedule ownership check → SELECT id FROM evaluation_schedule WHERE id=schedule_id AND age_category_id=catId
+//   2. schedule ownership check → SELECT id, session_number FROM evaluation_schedule WHERE id=schedule_id AND age_category_id=catId
 //   3. SELECT evaluators_anonymous FROM age_categories
 //   4. resolveHelmetMode → COALESCE(cat/org identify_by_helmet)
 //   5. athletes query
-//   6. scoring_categories query
+//   6. watch_players lookup ("watch this player" director flag)
+//   7. scoring_categories query
 function mockGetSql({ anonymous }) {
   sql.mockResolvedValueOnce([{ id: "u1" }]); // getAppUserId users lookup
-  sql.mockResolvedValueOnce([{ id: "sched1" }]); // schedule belongs to this category
+  sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]); // schedule belongs to this category
   sql.mockResolvedValueOnce([{ evaluators_anonymous: anonymous }]); // flag
   sql.mockResolvedValueOnce([{ helmet: false }]); // resolveHelmetMode
   sql.mockResolvedValueOnce([
@@ -39,6 +40,7 @@ function mockGetSql({ anonymous }) {
       scores: [],
     },
   ]); // athletes
+  sql.mockResolvedValueOnce([]); // watch_players lookup -- none flagged
   sql.mockResolvedValueOnce([{ id: "sc1", name: "Skating" }]); // scoring cats
 }
 
@@ -80,12 +82,13 @@ describe("GET /api/evaluator/scores — anonymous evaluation privacy", () => {
 
   it("defaults to anonymous (NULL names) when the flag lookup is missing/null", async () => {
     sql.mockResolvedValueOnce([{ id: "u1" }]); // getAppUserId
-    sql.mockResolvedValueOnce([{ id: "sched1" }]); // schedule belongs to this category
+    sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]); // schedule belongs to this category
     sql.mockResolvedValueOnce([]); // flag lookup returns no row
     sql.mockResolvedValueOnce([{ helmet: false }]); // resolveHelmetMode
     sql.mockResolvedValueOnce([
       { id: "a1", first_name: "Jane", last_name: "Doe", external_id: "EXT", scores: [] },
     ]);
+    sql.mockResolvedValueOnce([]); // watch_players lookup
     sql.mockResolvedValueOnce([]);
     const { GET } = await import("@/app/api/evaluator/scores/route");
     const res = await GET(makeReq());
@@ -93,5 +96,46 @@ describe("GET /api/evaluator/scores — anonymous evaluation privacy", () => {
     expect(body.athletes[0].first_name).toBeNull();
     expect(body.athletes[0].last_name).toBeNull();
     expect(body.athletes[0].external_id).toBeNull();
+  });
+});
+
+describe("GET /api/evaluator/scores — director 'watch this player' flag", () => {
+  it("marks an athlete watched when they're flagged for this exact session, even in anon mode", async () => {
+    sql.mockResolvedValueOnce([{ id: "u1" }]);
+    sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]);
+    sql.mockResolvedValueOnce([{ evaluators_anonymous: true }]);
+    sql.mockResolvedValueOnce([{ helmet: false }]);
+    sql.mockResolvedValueOnce([
+      { id: "a1", first_name: "Jane", last_name: "Doe", scores: [] },
+      { id: "a2", first_name: "Sam", last_name: "Lee", scores: [] },
+    ]);
+    sql.mockResolvedValueOnce([{ athlete_id: "a1" }]); // only a1 flagged
+    sql.mockResolvedValueOnce([]);
+
+    const { GET } = await import("@/app/api/evaluator/scores/route");
+    const res = await GET(makeReq());
+    const body = await res.json();
+    const a1 = body.athletes.find(a => a.id === "a1");
+    const a2 = body.athletes.find(a => a.id === "a2");
+    expect(a1.watched).toBe(true);
+    expect(a2.watched).toBe(false);
+    // Still anonymous -- the star doesn't leak identity
+    expect(a1.first_name).toBeNull();
+  });
+
+  it("doesn't crash if the watch_players table doesn't exist yet", async () => {
+    sql.mockResolvedValueOnce([{ id: "u1" }]);
+    sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]);
+    sql.mockResolvedValueOnce([{ evaluators_anonymous: false }]);
+    sql.mockResolvedValueOnce([{ helmet: false }]);
+    sql.mockResolvedValueOnce([{ id: "a1", first_name: "Jane", last_name: "Doe", scores: [] }]);
+    sql.mockImplementationOnce(() => { throw new Error("relation \"watch_players\" does not exist"); });
+    sql.mockResolvedValueOnce([]);
+
+    const { GET } = await import("@/app/api/evaluator/scores/route");
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.athletes[0].watched).toBe(false);
   });
 });

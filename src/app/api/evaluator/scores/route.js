@@ -83,7 +83,7 @@ export async function GET(request) {
     // letting any evaluator pull another org's checked-in roster by
     // guessing/passing a foreign schedule_id.
     if (!scheduleId) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
-    const schedRow = await sql`SELECT id FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
+    const schedRow = await sql`SELECT id, session_number FROM evaluation_schedule WHERE id = ${scheduleId} AND age_category_id = ${catId}`;
     if (!schedRow.length) return NextResponse.json({ error: "Session does not belong to this category" }, { status: 400 });
 
     // Privacy: when the category is configured for anonymous evaluation,
@@ -123,17 +123,31 @@ export async function GET(request) {
       ORDER BY pc.jersey_number, a.last_name
     `;
 
+    // A director can flag a player to "watch closely" for this exact session
+    // (age_category_id + session_number) -- surfaced regardless of anon mode,
+    // since the star flags the jersey/card on screen, not the athlete's
+    // identity. Best-effort: the table may not exist yet on an old deployment.
+    let watchedIds = new Set();
+    try {
+      const watched = await sql`
+        SELECT athlete_id FROM watch_players
+        WHERE age_category_id = ${catId} AND session_number = ${schedRow[0].session_number}
+      `;
+      watchedIds = new Set(watched.map(w => w.athlete_id));
+    } catch { /* table not migrated yet */ }
+
     // In anonymous mode, NULL out identifying fields (names + external_id)
     // while keeping position / jersey / team so the UI can still render the
     // jersey-based labels. Response shape is unchanged — only values differ.
-    const safeAthletes = isAnon
+    const safeAthletes = (isAnon
       ? athletes.map((a) => ({
           ...a,
           first_name: null,
           last_name: null,
           external_id: null,
         }))
-      : athletes;
+      : athletes
+    ).map(a => ({ ...a, watched: watchedIds.has(a.id) }));
 
     const scoringCats = await sql`
       SELECT * FROM scoring_categories WHERE age_category_id = ${catId} ORDER BY display_order

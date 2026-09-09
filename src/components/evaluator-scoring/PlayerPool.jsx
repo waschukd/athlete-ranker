@@ -68,6 +68,10 @@ export default function PlayerPool({
                 {status === "partial" && (
                   <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white" />
                 )}
+                {/* A director flagged this player to watch closely this session */}
+                {athlete.watched && (
+                  <span title="Watch this player closely" className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-white border-2 border-white text-amber-500 text-[10px] flex items-center justify-center leading-none">★</span>
+                )}
               </div>
             </button>
           );
