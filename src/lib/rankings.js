@@ -234,12 +234,22 @@ export async function computeCategoryRankings(catId, opts = {}) {
   for (const sessionNum in bySession) {
     const rows = bySession[sessionNum].sort((a, b) => parseInt(a.overall_rank) - parseInt(b.overall_rank));
     const fieldSize = rows.length;
-    rows.forEach((t, i) => {
+    // Two athletes who tied on the sheet (identical overall_rank) must land on
+    // the exact same dense rank, not consecutive ones. Array.sort is stable,
+    // so a tie's relative order here is just whatever order SQL happened to
+    // return them in -- assigning i+1 positionally gave literal ties
+    // different scores (real incident: EFHA U13, Alyssa Dombroski and
+    // Matilda Janzen both tied at overall_rank 100, scored 0.1 and 0). Dense
+    // rank only advances when the raw rank actually changes; ties share it.
+    let denseRank = 0, lastRawRank = null;
+    rows.forEach((t) => {
+      const rawRank = parseInt(t.overall_rank);
+      if (lastRawRank === null || rawRank !== lastRawRank) { denseRank += 1; lastRawRank = rawRank; }
       if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-      const percentile = testingPercentile(i + 1, fieldSize);
+      const percentile = testingPercentile(denseRank, fieldSize);
       scoreMap[t.athlete_id][t.session_number] = {
         normalized_score: round1(percentile),
-        overall_rank: parseInt(t.overall_rank),
+        overall_rank: rawRank,
         source: "testing",
       };
     });

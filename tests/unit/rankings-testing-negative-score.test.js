@@ -56,6 +56,35 @@ describe("testing percentile never goes negative when a row was skipped", () => 
     expect(last.session_scores?.[1]?.overall_rank).toBe(5);
   });
 
+  it("gives two athletes who tied on the sheet the SAME score, not consecutive ranks", async () => {
+    // Real incident: EFHA U13, Alyssa Dombroski and Matilda Janzen both tied
+    // at overall_rank 100 (out of 101) on the uploaded sheet. Array.sort is
+    // stable, so the tie's relative order here is arbitrary (whatever SQL
+    // happened to return) -- assigning dense rank by array position instead
+    // of by the actual tied value gave them different scores (0.1 and 0)
+    // despite being a genuine tie.
+    const testingRanks = [
+      { athlete_id: 1, session_number: 1, overall_rank: 1 },
+      { athlete_id: 2, session_number: 1, overall_rank: 2 },
+      { athlete_id: 3, session_number: 1, overall_rank: 2 }, // tied with athlete 2
+      { athlete_id: 5, session_number: 1, overall_rank: 4 },
+    ];
+    mockRankings(testingRanks);
+    const r = await computeCategoryRankings(95, {});
+
+    const tiedA = r.athletes.find(a => a.id === 2);
+    const tiedB = r.athletes.find(a => a.id === 3);
+    expect(tiedA.weighted_total).toBe(tiedB.weighted_total);
+    // Both still show their real uploaded rank for display, just scored equally.
+    expect(tiedA.session_scores?.[1]?.overall_rank).toBe(2);
+    expect(tiedB.session_scores?.[1]?.overall_rank).toBe(2);
+
+    // Dense rank still advances correctly for whoever comes after the tie --
+    // testingPercentile(3, 4), not testingPercentile(4, 4).
+    const last = r.athletes.find(a => a.id === 5);
+    expect(last.weighted_total).toBeCloseTo(((4 - 3) / (4 - 1)) * 100, 1);
+  });
+
   it("still ranks 1st place at 100 and keeps relative order intact", async () => {
     const testingRanks = [
       { athlete_id: 1, session_number: 1, overall_rank: 1 },
