@@ -349,7 +349,11 @@ export default function CategoryDashboard({
       return res.json();
     },
     enabled: !!catId,
-    refetchInterval: 15000,
+    // Every association dashboard tab open polls this -- fine individually,
+    // but the aggregate concurrent load across many open dashboards during a
+    // live tryout day adds up. 30s keeps check-in counts reasonably fresh
+    // while roughly halving the request volume.
+    refetchInterval: 30000,
   });
 
   const sessions = setupData?.sessions || [];

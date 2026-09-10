@@ -301,7 +301,14 @@ function GroupsManagerInner() {
       return res.json();
     },
     enabled: !!selectedSession,
-    refetchInterval: 15000,
+    // Recomputes the WHOLE category's ranking from scratch server-side
+    // (categoryRankMap -> computeCategoryRankings) every tick -- 300ms-1.1s
+    // per call on a busy category (measured against production: EFHA U13 AA,
+    // 3,600 scores). With several directors' Groups tabs open at once during
+    // a live tryout day, 15s was sustained heavy concurrent DB load across
+    // the whole site, not just this page. 45s keeps it reasonably live for a
+    // screen someone is just glancing at.
+    refetchInterval: 45000,
   });
 
   const { data: rankingsData } = useQuery({
