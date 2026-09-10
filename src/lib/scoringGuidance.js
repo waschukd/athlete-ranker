@@ -14,7 +14,7 @@
 // category's tier spread (e.g. a finer-grained structure like SEERA's) --
 // treat that fallback as a starting point to hand-adjust, not gospel.
 const FOUR_TIER_BANDS = [
-  { low: 7, high: 10 },
+  { low: 6, high: 8 },
   { low: 5, high: 7 },
   { low: 3, high: 5 },
   { low: 0.5, high: 3 },
@@ -42,4 +42,17 @@ export function suggestedRange(groupNumber, totalGroups, scale = 10) {
   const high = scale - (groupNumber - 1) * bandWidth;
   const low = scale - groupNumber * bandWidth;
   return { low: round1(Math.max(floor, low)), high: round1(high) };
+}
+
+/**
+ * Does this evaluator's average for one player, in one session, fall outside
+ * the group's range? Feeds the live "should this player move?" nudge shown
+ * while scoring -- one line, self-updating, nothing to dismiss. Returns
+ * "up"/"down"/null rather than a full message so the UI owns the wording.
+ */
+export function rangeNudgeDirection(avg, range) {
+  if (!range || avg == null) return null;
+  if (avg > range.high) return "up";
+  if (avg < range.low) return "down";
+  return null;
 }

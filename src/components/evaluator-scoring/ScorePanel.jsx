@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, X, RotateCcw, WifiOff, AlertTriangle } from "lucide-react";
 import { colorFor, swatchStyle, colorInitial } from "@/lib/teamColors";
 import { checkNoteTone } from "@/lib/noteToneCheck";
+import { rangeNudgeDirection } from "@/lib/scoringGuidance";
 
 // Card/Numpad view's per-player scoring panel: header (nav + compare toggle),
 // the category inputs (numpad or button grid depending on viewMode), notes,
@@ -16,9 +17,25 @@ export default function ScorePanel({
   pending, online,
   athletes, isAnon, helmetMode, teamLabel,
   currentUserId, catId,
+  guidanceRange,
 }) {
   const [showCompare, setShowCompare] = useState(false);
   const [compareCount, setCompareCount] = useState(0);
+
+  // Soft, self-updating nudge -- not a modal, nothing to dismiss. Once every
+  // category is filled for this player, compare THIS evaluator's own average
+  // for them against the group's range (real established range once enough
+  // scores exist this session, else the starting suggested band) and say so
+  // in one line. Disappears the moment the average moves back in range, or
+  // the evaluator moves on.
+  const myScoresForSelected = scores[selected.id]?.cats || {};
+  const filledValues = scoringCats.map(c => myScoresForSelected[c.id]).filter(v => v !== null && v !== undefined);
+  const rangeNudge = (() => {
+    if (!guidanceRange || !scoringCats.length || filledValues.length < scoringCats.length) return null;
+    const avg = Math.round((filledValues.reduce((a, b) => a + b, 0) / filledValues.length) * 10) / 10;
+    const direction = rangeNudgeDirection(avg, guidanceRange);
+    return direction ? { direction, avg } : null;
+  })();
 
   return (
     <div className="mx-3 mb-3 bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -140,6 +157,17 @@ export default function ScorePanel({
               </div>
             );
         })
+        )}
+
+        {/* Out-of-range nudge -- soft and self-updating, nothing to dismiss */}
+        {rangeNudge && (
+          <div className="flex items-start gap-2 text-xs bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-blue-800">
+            <span className="flex-shrink-0">{rangeNudge.direction === "up" ? "↑" : "↓"}</span>
+            <span>
+              This is {rangeNudge.direction === "up" ? "higher" : "lower"} than the expected range for this group ({guidanceRange.low}-{guidanceRange.high}) — your average is {rangeNudge.avg}.
+              {" "}Do you think this player should be moved {rangeNudge.direction}?
+            </span>
+          </div>
         )}
 
         {/* Notes */}

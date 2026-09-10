@@ -58,7 +58,7 @@ describe("GET /api/evaluator/session-guidance", () => {
     const body = await res.json();
 
     expect(body.applicable).toBe(true);
-    expect(body.suggested_range).toEqual({ low: 7, high: 10 });
+    expect(body.suggested_range).toEqual({ low: 6, high: 8 });
     expect(body.established_range).toBeNull();
     expect(body.prior_floor).toBeNull();
     expect(body.bias).toBeNull();

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { suggestedRange } from "@/lib/scoringGuidance";
+import { suggestedRange, rangeNudgeDirection } from "@/lib/scoringGuidance";
 
 describe("suggestedRange", () => {
   it("uses the hand-picked 4-tier bands on a 10-point scale", () => {
-    expect(suggestedRange(1, 4, 10)).toEqual({ low: 7, high: 10 });
+    expect(suggestedRange(1, 4, 10)).toEqual({ low: 6, high: 8 });
     expect(suggestedRange(2, 4, 10)).toEqual({ low: 5, high: 7 });
     expect(suggestedRange(3, 4, 10)).toEqual({ low: 3, high: 5 });
     expect(suggestedRange(4, 4, 10)).toEqual({ low: 0.5, high: 3 });
@@ -11,7 +11,7 @@ describe("suggestedRange", () => {
 
   it("rescales the 4-tier bands proportionally for a different scale", () => {
     // 5-point scale -- everything halves.
-    expect(suggestedRange(1, 4, 5)).toEqual({ low: 3.5, high: 5 });
+    expect(suggestedRange(1, 4, 5)).toEqual({ low: 3, high: 4 });
     expect(suggestedRange(4, 4, 5)).toEqual({ low: 0.3, high: 1.5 }); // 0.25 rounds to one decimal
   });
 
@@ -28,5 +28,31 @@ describe("suggestedRange", () => {
   it("never suggests below the scale's small floor", () => {
     const bottom = suggestedRange(10, 10, 10);
     expect(bottom.low).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe("rangeNudgeDirection", () => {
+  // Real request: an evaluator whose average for a player falls outside the
+  // group's range gets a soft, self-updating nudge -- "should this player
+  // move?" -- instead of only finding out after the fact on the Groups page.
+  const range = { low: 6, high: 8 };
+
+  it("nudges up when the average is above the range", () => {
+    expect(rangeNudgeDirection(8.5, range)).toBe("up");
+  });
+
+  it("nudges down when the average is below the range", () => {
+    expect(rangeNudgeDirection(5.5, range)).toBe("down");
+  });
+
+  it("says nothing when the average is inside the range, including the edges", () => {
+    expect(rangeNudgeDirection(7, range)).toBeNull();
+    expect(rangeNudgeDirection(6, range)).toBeNull();
+    expect(rangeNudgeDirection(8, range)).toBeNull();
+  });
+
+  it("says nothing without a range or an average yet", () => {
+    expect(rangeNudgeDirection(9, null)).toBeNull();
+    expect(rangeNudgeDirection(null, range)).toBeNull();
   });
 });
