@@ -217,36 +217,46 @@ export async function computeCategoryRankings(catId, opts = {}) {
   // skaters tested) gave its worst tester 21.7 instead of 0, while Millwoods
   // U9 Tier 1 (28 skaters, 0 goalies, all 28 tested) correctly landed on 0 --
   // same exact formula, just N happened to match there and not here.
-  // Re-rank densely within each session (1..fieldSize) instead of trusting the
-  // uploaded overall_rank number as an absolute position. Real incident: a
+  // Trust the uploaded overall_rank AS THE RANK -- it already encodes proper
+  // competition ("1224") ranking, ties included: real EFHA U13 data runs
+  // ...23, 24, 24, 26, 27... -- two testers tied at 24, and the sheet already
+  // skips to 26, not 25. An earlier version of this code re-derived a "dense"
+  // rank from relative sort order instead of trusting that number, which
+  // fixed one bug (see below) by introducing a worse one: it silently closed
+  // every one of those intentional skip-gaps, which compounds down the whole
+  // list and inflates everyone below any tie. Two testers tied at 24 was
+  // "only" off by one slot; by the time a real category reached its 100th
+  // tester, five scattered ties earlier in the field had already eaten five
+  // slots, and testingPercentile came out at 6 for someone who actually
+  // tied for 100th of 101 -- nowhere near what "tied for 100th" should mean.
+  // (It also failed the original point of the fix: two testers tied on the
+  // sheet, Alyssa Dombroski and Matilda Janzen, both EFHA U13 overall_rank
+  // 100, still ended up with different scores under dense-by-position, and
+  // then a different-but-still-wrong shared score under dense-by-value.)
+  //
+  // The only real problem was ever field size, not rank. Real incident: a
   // 124-row upload had 1 row fail to match an athlete, so only 123 rows made
   // it into testing_drill_results -- fieldSize (a count of MATCHED rows) came
-  // out to 123, but the bottom two testers still carried their original
-  // sheet's overall_rank of 123 and 124. testingPercentile((123-124)/122)
-  // went negative because rank > fieldSize. Dense-ranking by relative order
-  // keeps the actual finish order intact (who beat whom) while guaranteeing
-  // rank never exceeds fieldSize, regardless of skipped rows, ties, or gaps
-  // in however the source sheet numbered people.
+  // out to 123, but the bottom testers still carried their original sheet's
+  // overall_rank of 123 and 124. testingPercentile(124, 123) went negative
+  // because rank > fieldSize. Fixed at the root instead: field size is the
+  // larger of the matched-row count and the highest overall_rank actually
+  // observed, so a dropped row can never make the remaining ranks exceed it.
+  // (The reverse case matters too -- a tie can land on the sheet's own last
+  // rank number without a rank one lower existing at all, e.g. two testers
+  // tied for 100th out of a 101-person field with nobody separately holding
+  // 101st; count, not max-rank, is what's larger there.)
   const bySession = {};
   for (const t of testingRanks) {
     (bySession[t.session_number] ||= []).push(t);
   }
   for (const sessionNum in bySession) {
-    const rows = bySession[sessionNum].sort((a, b) => parseInt(a.overall_rank) - parseInt(b.overall_rank));
-    const fieldSize = rows.length;
-    // Two athletes who tied on the sheet (identical overall_rank) must land on
-    // the exact same dense rank, not consecutive ones. Array.sort is stable,
-    // so a tie's relative order here is just whatever order SQL happened to
-    // return them in -- assigning i+1 positionally gave literal ties
-    // different scores (real incident: EFHA U13, Alyssa Dombroski and
-    // Matilda Janzen both tied at overall_rank 100, scored 0.1 and 0). Dense
-    // rank only advances when the raw rank actually changes; ties share it.
-    let denseRank = 0, lastRawRank = null;
+    const rows = bySession[sessionNum];
+    const fieldSize = Math.max(rows.length, ...rows.map(t => parseInt(t.overall_rank)));
     rows.forEach((t) => {
-      const rawRank = parseInt(t.overall_rank);
-      if (lastRawRank === null || rawRank !== lastRawRank) { denseRank += 1; lastRawRank = rawRank; }
       if (!scoreMap[t.athlete_id]) scoreMap[t.athlete_id] = {};
-      const percentile = testingPercentile(denseRank, fieldSize);
+      const rawRank = parseInt(t.overall_rank);
+      const percentile = testingPercentile(rawRank, fieldSize);
       scoreMap[t.athlete_id][t.session_number] = {
         normalized_score: round1(percentile),
         overall_rank: rawRank,
