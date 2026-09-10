@@ -1598,6 +1598,7 @@ function ScoringInterface() {
           athletes={athletes} isAnon={isAnon} helmetMode={helmetMode} teamLabel={teamLabel}
           currentUserId={currentUserId} catId={catId}
           guidanceRange={guidanceRange}
+          guidanceGroupNumber={guidanceData?.group_number} guidanceTotalGroups={guidanceData?.total_groups}
         />
       )}
 

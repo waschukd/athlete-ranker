@@ -17,7 +17,7 @@ export default function ScorePanel({
   pending, online,
   athletes, isAnon, helmetMode, teamLabel,
   currentUserId, catId,
-  guidanceRange,
+  guidanceRange, guidanceGroupNumber, guidanceTotalGroups,
 }) {
   const [showCompare, setShowCompare] = useState(false);
   const [compareCount, setCompareCount] = useState(0);
@@ -33,7 +33,7 @@ export default function ScorePanel({
   const rangeNudge = (() => {
     if (!guidanceRange || !scoringCats.length || filledValues.length < scoringCats.length) return null;
     const avg = Math.round((filledValues.reduce((a, b) => a + b, 0) / filledValues.length) * 10) / 10;
-    const direction = rangeNudgeDirection(avg, guidanceRange);
+    const direction = rangeNudgeDirection(avg, guidanceRange, guidanceGroupNumber, guidanceTotalGroups);
     return direction ? { direction, avg } : null;
   })();
 

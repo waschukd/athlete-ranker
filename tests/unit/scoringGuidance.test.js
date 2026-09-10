@@ -55,4 +55,21 @@ describe("rangeNudgeDirection", () => {
     expect(rangeNudgeDirection(9, null)).toBeNull();
     expect(rangeNudgeDirection(null, range)).toBeNull();
   });
+
+  it("never nudges UP from group 1 -- there's no group above the top tier", () => {
+    expect(rangeNudgeDirection(9, range, 1, 4)).toBeNull();
+    // Still nudges down from group 1 if the score is low -- that direction exists.
+    expect(rangeNudgeDirection(4, range, 1, 4)).toBe("down");
+  });
+
+  it("never nudges DOWN from the last group -- there's no tier below the bottom", () => {
+    expect(rangeNudgeDirection(4, range, 4, 4)).toBeNull();
+    // Still nudges up from the last group if the score is high -- that direction exists.
+    expect(rangeNudgeDirection(9, range, 4, 4)).toBe("up");
+  });
+
+  it("nudges both directions normally for a group in the middle", () => {
+    expect(rangeNudgeDirection(9, range, 2, 4)).toBe("up");
+    expect(rangeNudgeDirection(4, range, 2, 4)).toBe("down");
+  });
 });

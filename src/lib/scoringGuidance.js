@@ -49,10 +49,16 @@ export function suggestedRange(groupNumber, totalGroups, scale = 10) {
  * the group's range? Feeds the live "should this player move?" nudge shown
  * while scoring -- one line, self-updating, nothing to dismiss. Returns
  * "up"/"down"/null rather than a full message so the UI owns the wording.
+ *
+ * Group 1 is the top tier (see suggestedRange above), so there's nowhere to
+ * move UP from group 1, and nowhere to move DOWN from the last group -- pass
+ * groupNumber/totalGroups so a top-group player scoring high, or a
+ * bottom-group player scoring low, doesn't get a nudge toward a group that
+ * doesn't exist.
  */
-export function rangeNudgeDirection(avg, range) {
+export function rangeNudgeDirection(avg, range, groupNumber = null, totalGroups = null) {
   if (!range || avg == null) return null;
-  if (avg > range.high) return "up";
-  if (avg < range.low) return "down";
+  if (avg > range.high) return groupNumber === 1 ? null : "up";
+  if (avg < range.low) return groupNumber != null && totalGroups != null && groupNumber >= totalGroups ? null : "down";
   return null;
 }
