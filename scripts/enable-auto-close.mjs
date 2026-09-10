@@ -16,7 +16,7 @@
 // under an evaluator who is still working.
 import { connect } from "./_db.mjs";
 
-const sql = connect(import.meta.url);
+const sql = connect(import.meta.url, "../.env.local");
 const arg = (f) => { const i = process.argv.indexOf(f); return i > -1 ? process.argv[i + 1] : null; };
 const COMMIT = process.argv.includes("--commit");
 const OFF = process.argv.includes("--off");
