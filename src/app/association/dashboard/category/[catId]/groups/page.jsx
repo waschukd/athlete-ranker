@@ -624,6 +624,14 @@ function GroupsManagerInner() {
   const movement = useMemo(() => {
     const up = new Set(), down = new Set(), why = {}, pri = {};
     if (groups.length < 2) return { up, down, why, pri };
+    // Session 2's groups were built FROM session 1's results -- comparing a
+    // player against the overall ranking at that point is comparing them
+    // against the exact same data that already placed them, which is
+    // circular, not a new signal. Real complaint: this read as a live
+    // suggestion when it was actually just restating why they're already in
+    // this group. Only session 3+ has a genuinely later session's worth of
+    // results to justify flagging further movement.
+    if (!selectedSession || selectedSession < 3) return { up, down, why, pri };
     const sorted = [...groups].sort((a, b) => a.group_number - b.group_number);
     const score = {}, delta = {};
     rankedAthletes.forEach(a => {
@@ -680,7 +688,7 @@ function GroupsManagerInner() {
       });
     }
     return { up, down, why, pri };
-  }, [groups, groupPlayers, rankedAthletes, sdThreshold]);
+  }, [groups, groupPlayers, rankedAthletes, sdThreshold, selectedSession]);
 
   // "Changes you made" — players whose current group differs from the system's
   // auto-assigned group (captured at auto-assign time).
@@ -937,25 +945,30 @@ function GroupsManagerInner() {
           {/* Movement flags meter + lock banner — sit right above the groups */}
           {groups.length > 1 && (
             <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-              <div className="flex items-center gap-4 flex-wrap text-sm">
-                <div className="flex items-center gap-2" title="Players near a group boundary who the data says could move">
-                  <span className="text-gray-600 font-medium">Movement flags:</span>
-                  <span className="inline-flex items-center gap-1 font-semibold"><span className="text-green-600">↑ {movement.up.size} up</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size} down</span></span>
+              {/* Session 2's groups were built FROM session 1 -- flagging movement
+                  against that same data is circular, not a new signal, so
+                  suggestions only start at session 3+. */}
+              {selectedSession >= 3 ? (
+                <div className="flex items-center gap-4 flex-wrap text-sm">
+                  <div className="flex items-center gap-2" title="Players near a group boundary who the data says could move">
+                    <span className="text-gray-600 font-medium">Movement flags:</span>
+                    <span className="inline-flex items-center gap-1 font-semibold"><span className="text-green-600">↑ {movement.up.size} up</span><span className="text-gray-300">·</span><span className="text-red-500">↓ {movement.down.size} down</span></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">Sensitivity</span>
+                    <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} disabled={locked} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50">
+                      <option value="0.75">Sensitive</option>
+                      <option value="1.0">Balanced</option>
+                      <option value="1.5">Strict</option>
+                    </select>
+                    <span className="text-xs text-gray-400 italic max-w-[18rem] hidden sm:block">
+                      {sdThreshold <= 0.75 ? "Sensitive — flags anyone even a little above/below their group (more suggestions)"
+                        : sdThreshold >= 1.5 ? "Strict — flags only the clearest cases (fewest suggestions)"
+                        : "Balanced — flags players who clearly stand out from their group"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Sensitivity</span>
-                  <select value={sdThreshold} onChange={e => setSdThreshold(parseFloat(e.target.value))} disabled={locked} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50">
-                    <option value="0.75">Sensitive</option>
-                    <option value="1.0">Balanced</option>
-                    <option value="1.5">Strict</option>
-                  </select>
-                  <span className="text-xs text-gray-400 italic max-w-[18rem] hidden sm:block">
-                    {sdThreshold <= 0.75 ? "Sensitive — flags anyone even a little above/below their group (more suggestions)"
-                      : sdThreshold >= 1.5 ? "Strict — flags only the clearest cases (fewest suggestions)"
-                      : "Balanced — flags players who clearly stand out from their group"}
-                  </span>
-                </div>
-              </div>
+              ) : <div />}
               <label className="inline-flex items-center gap-2 cursor-pointer" title="Optional — assign each player's jersey NUMBER here; it carries through to check-in. (Colours you can switch any time by clicking a jersey.)">
                 <button type="button" onClick={() => setJerseyMode(v => !v)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${jerseyMode ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${jerseyMode ? "translate-x-5" : "translate-x-0.5"}`} />
