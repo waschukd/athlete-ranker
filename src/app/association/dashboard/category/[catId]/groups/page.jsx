@@ -378,6 +378,14 @@ function GroupsManagerInner() {
   const unassigned = assignments.filter(a => !groups.find(g => g.id === a.session_group_id));
   const goalies = groupsData?.goalies || [];
   const unassignedSkaters = groupsData?.unassigned_skaters || [];
+  // U15+ categories that split contact / non-contact (SEERA U15 and similar)
+  // -- directors building groups by hand couldn't see which players were BC
+  // vs Non-BC. age_categories.contact_groups/non_contact_groups only
+  // configure auto-assign's group COUNTS and are frequently null even when a
+  // category genuinely tracks the split (SEERA U15 has 45 non-contact
+  // athletes with both fields null) -- so gate on the real signal instead:
+  // does anyone in this category actually carry the flag.
+  const hasContactSplit = assignments.some(a => a.non_contact) || unassignedSkaters.some(a => a.non_contact);
   const lockedAt = groupsData?.locked_at || null;
   const locked = !!lockedAt;
   const currentSession = sessions.find(s => s.session_number === selectedSession);
@@ -1172,6 +1180,12 @@ function GroupsManagerInner() {
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {hasContactSplit && (
+                              <span title={player.non_contact ? "Non-contact" : "Contact"}
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${player.non_contact ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                                {player.non_contact ? "NC" : "BC"}
+                              </span>
+                            )}
                             {player.position && (
                               <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${POSITION_COLORS[player.position] || "bg-gray-100 text-gray-600"}`}>
                                 {POSITION_SHORT[player.position] || player.position}
@@ -1232,7 +1246,15 @@ function GroupsManagerInner() {
             <div className="flex flex-wrap gap-3">
               {unassignedSkaters.map(p => (
                 <div key={p.id} className="bg-white border border-blue-200 rounded-xl px-3 py-2">
-                  <div className="text-sm font-medium text-gray-900">{p.last_name}, {p.first_name}</div>
+                  <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                    {p.last_name}, {p.first_name}
+                    {hasContactSplit && (
+                      <span title={p.non_contact ? "Non-contact" : "Contact"}
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${p.non_contact ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                        {p.non_contact ? "NC" : "BC"}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1 mt-1.5 flex-wrap">
                     {groups.map(group => (
                       <button
