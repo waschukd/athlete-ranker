@@ -8,7 +8,7 @@
 // show the sign-up flow live, then scoring -- including the new "watch this
 // player" star, seeded on one athlete.
 //   node scripts/seed-ct-evaluator-demo.mjs
-import { connect, isoDay } from "./_db.mjs";
+import { connect } from "./_db.mjs";
 const sql = connect(import.meta.url, "../.env.local");
 
 const CT_ID = 16; // Competitive Thread
@@ -102,11 +102,16 @@ for (let i = 0; i < athleteRows.length; i++) {
 }
 
 // ── Schedule: today, later this evening, left OPEN so Dan can sign up on camera ──
-const today = isoDay(new Date());
+// "Today" per the DATABASE's own clock, not this machine's -- the evaluator
+// browse query filters on `scheduled_date >= CURRENT_DATE` server-side, and a
+// local-clock/DB-clock mismatch here is exactly what made an earlier run of
+// this script invisible on the sign-up page (seeded "today" was already
+// yesterday by the DB's own clock).
+const [{ today, dow }] = await sql`SELECT CURRENT_DATE::text as today, to_char(CURRENT_DATE, 'FMDay') as dow`;
 const checkinCode = genCode();
 const [sched] = await sql`
   INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, checkin_code, checkin_code_active, evaluators_required, status)
-  VALUES (${CAT}, 1, 1, ${today}, ${new Date().toLocaleDateString("en-US", { weekday: "long" })}, '19:00', '20:00', 'Demo Rink', ${checkinCode}, true, 1, 'scheduled')
+  VALUES (${CAT}, 1, 1, ${today}, ${dow}, '19:00', '20:00', 'Demo Rink', ${checkinCode}, true, 1, 'scheduled')
   RETURNING id`;
 
 // ── Check everyone in, jerseys + team colours, so scoring can start immediately after sign-up ──
