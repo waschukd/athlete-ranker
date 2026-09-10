@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import GroupEmailDialog from "@/components/GroupEmailDialog";
 import MatchupPicker from "@/components/MatchupPicker";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { parseTeamColors, colorFor, swatchStyle, nextColor, DEFAULT_TEAM_COLORS, PRESET_TEAM_COLORS, colorInitial } from "@/lib/teamColors";
 
 const qc = new QueryClient();
@@ -440,13 +441,52 @@ function GroupsManagerInner() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const autoAssign = async (method, position_balanced = false) => {
-    const res = await fetch(`/api/categories/${catId}/groups`, {
+  // Every write to the groups API goes through here so the locked-groups check
+  // cannot be forgotten at a new call site. The server answers 409 GROUPS_LOCKED
+  // when a confirmed session is about to change; we surface that as a modal and
+  // only retry with confirm_change once the director has deliberately said yes.
+  //
+  // A modal with its own button, rather than a window.confirm or a second click
+  // on the same control -- the whole complaint was people changing locked groups
+  // by accident, and a stray double-click must not be able to do it.
+  const [lockPrompt, setLockPrompt] = useState(null);
+  const [lockBusy, setLockBusy] = useState(false);
+
+  const groupsPost = (payload) => new Promise((resolve) => {
+    const send = (extra = {}) => fetch(`/api/categories/${catId}/groups`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "auto_assign", session_number: selectedSession, method, position_balanced }),
+      body: JSON.stringify({ ...payload, ...extra }),
     });
-    const data = await res.json();
+    (async () => {
+      const res = await send();
+      if (res.status === 409) {
+        const info = await res.json().catch(() => ({}));
+        if (info.error === "GROUPS_LOCKED") {
+          setLockPrompt({
+            lockedAt: info.locked_at,
+            onConfirm: async () => {
+              setLockBusy(true);
+              const retry = await send({ confirm_change: true });
+              const data = await retry.json().catch(() => ({}));
+              setLockBusy(false);
+              setLockPrompt(null);
+              resolve(data);
+            },
+            // Cancelling is the common case -- it means the click was a mistake,
+            // which is exactly what this exists to catch.
+            onCancel: () => { setLockPrompt(null); resolve({ cancelled: true }); },
+          });
+          return;
+        }
+      }
+      resolve(await res.json().catch(() => ({})));
+    })();
+  });
+
+  const autoAssign = async (method, position_balanced = false) => {
+    const data = await groupsPost({ action: "auto_assign", session_number: selectedSession, method, position_balanced });
+    if (data.cancelled) return;
     if (data.success) {
       showMsg(`Assigned ${data.assigned} athletes across ${data.groups} groups`);
       refetch();
@@ -457,22 +497,20 @@ function GroupsManagerInner() {
 
   const movePlayer = async (athleteId, fromGroupId, toGroupId) => {
     if (fromGroupId === toGroupId) return;
-    if (locked) { showMsg("Groups are locked — unlock to make changes.", "error"); return; }
+    // No longer refuses outright when locked -- the server asks for confirmation
+    // and groupsPost surfaces it, so a deliberate change is still possible
+    // without an unlock/relock round trip.
     const toGroup = groups.find(g => g.id === toGroupId);
     const currentPlayers = groupPlayers[toGroupId] || [];
 
-    const res = await fetch(`/api/categories/${catId}/groups`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "move_player",
-        athlete_id: athleteId,
-        from_group_id: fromGroupId,
-        to_group_id: toGroupId,
-        display_order: currentPlayers.length,
-      }),
+    const data = await groupsPost({
+      action: "move_player",
+      athlete_id: athleteId,
+      from_group_id: fromGroupId,
+      to_group_id: toGroupId,
+      display_order: currentPlayers.length,
     });
-    const data = await res.json();
+    if (data.cancelled) return;
     if (data.success) {
       refetch();
     } else {
@@ -1200,11 +1238,7 @@ function GroupsManagerInner() {
                       <button
                         key={group.id}
                         onClick={async () => {
-                          await fetch(`/api/categories/${catId}/groups`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "assign_player", athlete_id: p.id, group_id: group.id }),
-                          });
+                          await groupsPost({ action: "assign_player", athlete_id: p.id, group_id: group.id });
                           refetch();
                         }}
                         className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"
@@ -1238,11 +1272,7 @@ function GroupsManagerInner() {
                       <button
                         key={group.id}
                         onClick={async () => {
-                          await fetch(`/api/categories/${catId}/groups`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "assign_goalie", athlete_id: g.id, group_id: group.id }),
-                          });
+                          await groupsPost({ action: "assign_goalie", athlete_id: g.id, group_id: group.id });
                           refetch();
                         }}
                         className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 font-medium"
@@ -1310,6 +1340,23 @@ function GroupsManagerInner() {
             </div>
           </div>
         )}
+
+        {/* Raised when the server refuses a change to a locked session. */}
+        <ConfirmDialog
+          open={!!lockPrompt}
+          danger={false}
+          title="These groups are locked"
+          message={
+            lockPrompt?.lockedAt
+              ? `You confirmed and locked these groups on ${new Date(lockPrompt.lockedAt).toLocaleString()}. Changing them now will move players out of the groups you already finalized — and if you have emailed parents, their child's ice time may no longer match. Are you sure you want to change them?`
+              : "You confirmed and locked these groups. Are you sure you want to change them?"
+          }
+          confirmLabel="Yes, change groups"
+          cancelLabel="Keep them as they are"
+          busy={lockBusy}
+          onConfirm={() => lockPrompt?.onConfirm?.()}
+          onCancel={() => lockPrompt?.onCancel?.()}
+        />
       </div>
     </div>
   );

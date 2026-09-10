@@ -11,6 +11,10 @@
     {
       "path": "/api/cron?job=session_reminder",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron?job=auto_close",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

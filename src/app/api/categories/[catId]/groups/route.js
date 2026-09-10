@@ -156,6 +156,64 @@ export async function POST(request, { params }) {
     const body = await request.json();
     const { action } = body;
 
+    // ── Locked-groups gate ────────────────────────────────────────────────
+    //
+    // Confirming groups used to set groups_locked_at and nothing else -- no
+    // write path checked it, so the lock was decorative. Associations locked a
+    // session, came back, and found the groups different. auto_assign made it
+    // worse by silently clearing the lock while it rewrote every placement, so
+    // one stray click both changed the roster AND removed the evidence.
+    //
+    // These are the actions that move players between groups or recolour the
+    // whole session. set_color / set_jersey_number stay ungated on purpose:
+    // they are single-player tweaks a director makes at the door and gating
+    // them would train people to click through the warning without reading it.
+    // unlock_groups is the deliberate way out and is never gated.
+    const GUARDED = new Set(["auto_assign", "move_player", "assign_player", "assign_goalie", "apply_colors"]);
+
+    if (GUARDED.has(action)) {
+      // Each action names its session differently; resolve to one number.
+      let sn = body.session_number != null ? parseInt(body.session_number) : null;
+      if (sn == null && body.from_group_id) {
+        const [g] = await sql`SELECT session_number FROM session_groups WHERE id = ${parseInt(body.from_group_id)} AND age_category_id = ${catId}`;
+        sn = g?.session_number ?? null;
+      }
+      if (sn == null && body.group_id) {
+        const [g] = await sql`SELECT session_number FROM session_groups WHERE id = ${parseInt(body.group_id)} AND age_category_id = ${catId}`;
+        sn = g?.session_number ?? null;
+      }
+
+      if (sn != null) {
+        let lockedAt = null;
+        try {
+          const [row] = await sql`SELECT groups_locked_at FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${sn}`;
+          lockedAt = row?.groups_locked_at || null;
+        } catch { /* column not migrated on an older database */ }
+
+        if (lockedAt && !body.confirm_change) {
+          // 409, not 403: this is a conflict with a state the caller can resolve
+          // by confirming, not a permission failure.
+          return NextResponse.json({
+            error: "GROUPS_LOCKED",
+            locked_at: lockedAt,
+            session_number: sn,
+            message: "These groups were confirmed and locked. Re-send with confirm_change to change them anyway.",
+          }, { status: 409 });
+        }
+
+        if (lockedAt && body.confirm_change) {
+          // Every override is recorded, so "the groups changed on their own" can
+          // be answered with who changed them and when.
+          try {
+            await sql`
+              INSERT INTO audit_log (age_category_id, user_id, action, entity_type, entity_id, old_value, new_value)
+              VALUES (${catId}, ${userId}, 'override_locked_groups', 'session', ${sn},
+                ${'locked ' + new Date(lockedAt).toISOString()}, ${action})`;
+          } catch (e) { console.error("audit override_locked_groups failed:", e?.message); }
+        }
+      }
+    }
+
     if (action === "auto_assign") {
       const { session_number, method, position_balanced } = body;
 
@@ -326,8 +384,10 @@ export async function POST(request, { params }) {
           VALUES (${va.athlete_id}, ${va.session_group_id}, ${ord}, ${va.auto_group_number})
           ON CONFLICT (athlete_id, session_group_id) DO UPDATE SET display_order = ${ord}, auto_group_number = ${va.auto_group_number}`;
       }
-      // A fresh auto-assignment un-locks the session (new baseline to review).
-      try { await sql`UPDATE category_sessions SET groups_locked_at = NULL WHERE age_category_id = ${catId} AND session_number = ${session_number}`; } catch { /* column not migrated */ }
+      // Deliberately does NOT clear groups_locked_at any more. It used to, which
+      // meant a stray auto-assign rewrote every placement and removed the lock
+      // that would have shown something had changed. A locked session now stays
+      // locked through an override; "Unlock" is the only way to clear it.
 
       // Goalies are NEVER auto-assigned. On a scrimmage/skills session the delete
       // above cleared them out of the groups; they stay in the unassigned pool for

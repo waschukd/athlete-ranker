@@ -62,7 +62,46 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const job = searchParams.get("job"); // weekly_report | daily_alert
+  const job = searchParams.get("job"); // weekly_report | daily_alert | session_reminder | auto_close
+
+  // ── auto_close ────────────────────────────────────────────────────────────
+  //
+  // Confederation uses Sideline Star for scheduling only: CT staffs the skates
+  // but no scores are ever entered. Their evaluators could not close a session
+  // at all, because "Save & Close" requires every checked-in athlete to be
+  // scored or excused and there is nothing to satisfy that with no data. The
+  // sessions sat open forever, dragging the evaluator's dashboard and the
+  // staffing reports with them.
+  //
+  // Strictly opt-in per organization. An association that actually scores must
+  // never have a session closed out from under an evaluator still working, so
+  // the flag is off everywhere else.
+  //
+  // Runs before the admin lookup below -- it needs none of it.
+  if (job === "auto_close") {
+    // The session's own local wall-clock end, converted to a real instant.
+    // AT TIME ZONE reads scheduled_date + end_time as Mountain local and yields
+    // a timestamptz, so this is correct through the MST/MDT switch -- comparing
+    // a naive timestamp to NOW() would be an hour out for half the season.
+    const closed = await sql`
+      UPDATE evaluator_session_signups ess
+      SET closed_at = NOW()
+      FROM evaluation_schedule es
+      JOIN age_categories ac ON ac.id = es.age_category_id
+      JOIN organizations o ON o.id = ac.organization_id
+      WHERE ess.schedule_id = es.id
+        AND ess.closed_at IS NULL
+        AND ess.status = 'signed_up'
+        AND es.status = 'scheduled'
+        AND COALESCE(o.auto_close_sessions, false) = true
+        AND (es.scheduled_date + COALESCE(es.end_time, es.start_time))
+              AT TIME ZONE 'America/Edmonton' <= NOW()
+      RETURNING ess.id, ess.schedule_id`;
+
+    // closed_by stays NULL on purpose: nobody closed these, the clock did, and
+    // a real user id here would misattribute it in the audit trail.
+    return NextResponse.json({ job, closed: closed.length });
+  }
 
   try {
     // Get all SP and association admins
