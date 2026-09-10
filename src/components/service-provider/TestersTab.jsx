@@ -130,7 +130,7 @@ export default function TestersTab({ spUrl, spName, openSpots, sessionsNeeding }
               <tbody className="divide-y divide-gray-100">
                 {testers.map(t => (
                   <tr key={t.id}>
-                    <td className="px-5 py-3 font-medium text-ink">{t.name}{t.status === "pending" && <span className="ml-2 text-[11px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-semibold">Pending</span>}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
+                    <td className="px-5 py-3 font-medium text-ink cursor-pointer hover:text-accent" title="See this tester's session history" onClick={() => window.location.href = `/service-provider/tester/${t.id}`}>{t.name}{t.status === "pending" && <span className="ml-2 text-[11px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-semibold">Pending</span>}{t.is_evaluator && <span className="ml-2 text-[11px] px-2 py-0.5 bg-accent-soft text-accent rounded-full font-semibold">Also evaluator</span>}</td>
                     <td className="px-4 py-3 text-gray-500">{t.email}</td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">{t.tester_hourly_rate != null ? `$${t.tester_hourly_rate}/hr` : <span className="text-gray-300">—</span>}{t.is_evaluator && t.eval_hourly_rate != null && <span className="ml-1 text-[10px] text-gray-400">(eval ${t.eval_hourly_rate})</span>}</td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">{t.upcoming_signups || 0}</td>
