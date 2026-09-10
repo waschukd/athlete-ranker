@@ -165,7 +165,7 @@ export default function ScorePanel({
             <span className="flex-shrink-0">{rangeNudge.direction === "up" ? "↑" : "↓"}</span>
             <span>
               This is {rangeNudge.direction === "up" ? "higher" : "lower"} than the expected range for this group ({guidanceRange.low}-{guidanceRange.high}) — your average is {rangeNudge.avg}.
-              {" "}Do you think this player should be moved {rangeNudge.direction}?
+              {" "}Do you believe this player should {rangeNudge.direction === "up" ? "move up a group" : "move down a group"}?
             </span>
           </div>
         )}
