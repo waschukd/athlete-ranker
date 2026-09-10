@@ -105,6 +105,15 @@ const ATHLETES = [
   { first: "Rowan", last: "Bishop", position: "defense" },
   { first: "Sawyer", last: "Kwan", position: "forward" },
   { first: "Tatum", last: "Delgado", position: "goalie" },
+  { first: "Wyatt", last: "Fontaine", position: "forward" },
+  { first: "Piper", last: "Novak", position: "defense" },
+  { first: "Beckett", last: "Ashworth", position: "forward" },
+  { first: "Sienna", last: "Larocque", position: "forward" },
+  { first: "Callum", last: "Petrenko", position: "defense" },
+  { first: "Marlowe", last: "Duchesne", position: "forward" },
+  { first: "Asher", last: "Blackwood", position: "defense" },
+  { first: "Ivy", last: "Sabourin", position: "forward" },
+  { first: "Declan", last: "Whitmore", position: "forward" },
 ];
 const athleteRows = [];
 for (let i = 0; i < ATHLETES.length; i++) {
@@ -163,13 +172,19 @@ for (const name of FAKE_EVALUATORS) {
 // together) and one more, so there's something worth discussing when
 // showing how to work consensus. Everyone else clusters tight, 6-8.
 const DISAGREEMENT_IDS = new Set([athleteRows[2].id, athleteRows[9].id]); // Carter Nielsen, Maddox Trent
+// Dan has already scored the first 15 athletes -- past the "score it live"
+// step, so the demo can go straight to reviewing/consensus. Left unscored so
+// the rest can still be scored live if wanted.
+const DAN_SCORED = new Set(athleteRows.slice(0, 15).map(a => a.id));
 
 const scoreRows = [];
+const trueLevelById = new Map();
 for (const a of athleteRows) {
   const disagreement = DISAGREEMENT_IDS.has(a.id);
   // "True" skill level per athlete, tight band so the field average lands
-  // solidly in 6-8 once both evaluators' small per-category jitter is applied.
+  // solidly in 6-8 once every evaluator's small per-category jitter is applied.
   const trueLevel = clamp(6.5 + (rng() - 0.5) * 1.6, 6.0, 8.0);
+  trueLevelById.set(a.id, trueLevel);
   for (const evId of fakeEvalUsers) {
     // Evaluator A always fakeEvalUsers[0], B always [1] -- gives the planted
     // disagreement a consistent direction (A generous, B tough) instead of
@@ -182,6 +197,17 @@ for (const a of athleteRows) {
     for (const catId of scoringCatIds) {
       const val = toIncrement(clamp(evalCenter + (rng() - 0.5) * 0.6, 0.5, SCALE));
       scoreRows.push({ athlete_id: a.id, age_category_id: CAT, session_number: 1, evaluator_id: evId, scoring_category_id: catId, score: val, scored_via: "manual" });
+    }
+  }
+  // Dan's own scores -- on the two planted-disagreement players, he sides
+  // with Evaluator A (both high), so the consensus screen shows a real,
+  // explainable 2-vs-1 split: "two of us are close, one of us is way off --
+  // that's exactly the conversation to go have."
+  if (DAN_SCORED.has(a.id)) {
+    const danCenter = disagreement ? clamp(trueLevel + 2.0, 0.5, SCALE) : clamp(trueLevel + (rng() - 0.5) * 0.6, 6.0, 8.0);
+    for (const catId of scoringCatIds) {
+      const val = toIncrement(clamp(danCenter + (rng() - 0.5) * 0.5, 0.5, SCALE));
+      scoreRows.push({ athlete_id: a.id, age_category_id: CAT, session_number: 1, evaluator_id: DAN_USER_ID, scoring_category_id: catId, score: val, scored_via: "manual" });
     }
   }
 }
@@ -215,8 +241,9 @@ console.log(`Org: ${ORG_NAME} (id ${org.id}), linked to Competitive Thread -- in
 console.log(`Category: Evaluator Training Demo (id ${CAT}), ${athleteRows.length} athletes, all checked in.`);
 console.log(`Schedule id ${sched.id}: today ${today}, 7:00-8:00 PM, Demo Rink. Dan + 2 fake evaluators already signed up.`);
 console.log(`Fake evaluators: ${FAKE_EVALUATORS.join(", ")} -- already scored every athlete in Group 1.`);
+console.log(`Dan has already scored ${DAN_SCORED.size} of ${athleteRows.length} athletes -- the rest are open to score live.`);
 console.log(`Established range this session: ${range.floor.toFixed(1)}-${range.ceiling.toFixed(1)} (field avg ${range.avg.toFixed(1)}).`);
-console.log(`Planted disagreement (for the consensus demo): Carter Nielsen and Maddox Trent -- Demo Evaluator A scores them ~2 points higher than Demo Evaluator B.`);
+console.log(`Planted disagreement (for the consensus demo): Carter Nielsen and Maddox Trent -- Dan and Demo Evaluator A score them ~2 points higher than Demo Evaluator B (a real 2-vs-1 split).`);
 console.log(`Watch star: ${watchTarget.first_name} ${watchTarget.last_name} (jersey #${watchTarget.jersey_number}) -- also one of the disagreement players.`);
 console.log(`\nLog in as dan@competitivethread.com -> Evaluator Dashboard -> "Evaluator Training Demo" is already there, ready to score.`);
 console.log(`\nTo remove after the video: node scripts/seed-ct-evaluator-demo.mjs --teardown`);
