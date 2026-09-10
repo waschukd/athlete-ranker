@@ -11,7 +11,7 @@ import TestingSessionsControls from "@/components/service-provider/TestingSessio
 import { ScheduleRowControls, AddSessionButton } from "@/components/service-provider/ScheduleControls";
 import { TesterStaffingControl } from "@/components/service-provider/TestersTab";
 import BlastButton from "@/components/service-provider/BlastButton";
-import { contiguousBlock } from "@/lib/sessionBlocks";
+import { contiguousBlock, groupIntoRinkBlocks } from "@/lib/sessionBlocks";
 
 const SESSION_TYPE_COLORS = {
   testing: "bg-blue-100 text-blue-700",
@@ -29,6 +29,7 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
 
   const [scheduleTypeFilter, setScheduleTypeFilter] = useState("all"); // "all" | "testing" | "eval"
   const [scheduleAssocFilter, setScheduleAssocFilter] = useState("all"); // "all" | <org_id>
+  const [needsEvalOnly, setNeedsEvalOnly] = useState(false);
   const [rosterScheduleId, setRosterScheduleId] = useState(null);
   // Real incident: a "tentative"/if-necessary session never showed as such
   // here (only the association side had the badge + Confirm button) -- an SP
@@ -117,8 +118,106 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
       ? s.session_type === "testing"
       : s.session_type !== "testing";
   const matchesAssoc = (s) => scheduleAssocFilter === "all" || String(s.org_id) === String(scheduleAssocFilter);
-  const matchesFilters = (s) => matchesType(s) && matchesAssoc(s);
+  // "Needs evaluators" — real complaint: to find who to recruit, Dan had to
+  // scan every session by eye. Testing rows are excluded -- that's a tester
+  // staffing question, not an evaluator one -- as are cancelled/tentative
+  // rows (tentative isn't even open to sign-ups yet).
+  const needsEvaluators = (s) => s.status !== "cancelled" && s.status !== "tentative"
+    && s.session_type !== "testing" && s.spots_open > 0;
+  const matchesFilters = (s) => matchesType(s) && matchesAssoc(s) && (!needsEvalOnly || needsEvaluators(s));
   const visibleDates = visibleDatesRaw.filter(d => (byDate[d] || []).some(matchesFilters));
+
+  // One session's row -- shared by the flat list and the "Needs Evaluators"
+  // rink-block grouping below, so the two views never drift apart.
+  function renderEntry(entry) {
+    const palette = scheduleOrgPalette(entry.org_name);
+    return (
+      <div
+        key={entry.schedule_id}
+        className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.status === "cancelled" ? "border-gray-200 opacity-60" : entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
+        style={{ borderLeft: `4px solid ${palette.hex}` }}
+      >
+        <div className="flex-1 min-w-[9rem]">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <OrgChip name={entry.org_name} palette={palette} />
+            <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
+            {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
+            {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
+            {entry.status === "tentative" && (
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700" title="Evaluators can't sign up for this yet — it won't show on their dashboard until confirmed.">
+                If necessary
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+            <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
+            {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
+            <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          {entry.status !== "cancelled" && (
+            <>
+              {entry.is_goalie_sp ? (
+                <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
+                  <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.goalie_evaluators_required}</div>
+                  <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">goalie eval</div>
+                </button>
+              ) : entry.session_type === 'testing' ? (
+                entry.is_goalie_sp
+                  ? <div className="text-center"><div className="text-sm font-bold text-gray-400">—</div><div className="text-xs text-gray-400">no evaluators needed</div></div>
+                  : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} onOpenRoster={() => setRosterScheduleId(entry.schedule_id)} />
+              ) : (
+                <>
+                  <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
+                    <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
+                    <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">player eval</div>
+                  </button>
+                  {parseInt(entry.goalie_evaluators_required) > 0 && (
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
+                      <div className="text-xs text-gray-400">goalie eval</div>
+                    </div>
+                  )}
+                </>
+              )}
+              {entry.session_type === 'testing' && !entry.is_goalie_sp
+                ? (entry.tester_spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.tester_spots_open} tester{entry.tester_spots_open === 1 ? "" : "s"} needed</span> : parseInt(entry.testers_required || 0) > 0 ? <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Testers set</span> : null)
+                : entry.session_type === 'testing' ? null
+                : entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
+              {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
+              {/* Goalie SP evaluates its own goalies — jump straight into scoring. */}
+              {entry.is_goalie_sp && entry.status !== "cancelled" && (
+                <a href={`/evaluator/score/${entry.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md inline-flex items-center gap-1.5">
+                  <Star size={12} /> Evaluate
+                </a>
+              )}
+              {/* A tentative session isn't visible to evaluators at all yet
+                  (the "available" list only shows status='scheduled') --
+                  blasting one would invite people to sign up for something
+                  that doesn't exist on their end. Confirm it first. */}
+              {entry.status === "tentative" ? (
+                <button
+                  onClick={() => confirmSession(entry.schedule_id)}
+                  disabled={confirmingId === entry.schedule_id}
+                  title="Opens this session to evaluator sign-ups"
+                  className="text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {confirmingId === entry.schedule_id ? "Confirming..." : "Confirm"}
+                </button>
+              ) : entry.spots_open > 0 && (
+                <BlastButton sessions={contiguousBlock(
+                  entry,
+                  schedule.filter(s => s.spots_open > 0 && s.session_type !== "testing" && s.status !== "cancelled" && s.status !== "tentative")
+                )} />
+              )}
+            </>
+          )}
+          <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} orgParam={orgParam} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -155,6 +254,14 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
               </button>
             ))}
           </div>
+          {/* Needs evaluators — narrow to open, contactable sessions and
+              group them by rink so a block of back-to-back openings reads as
+              one contact window instead of N separate rows. */}
+          <button onClick={() => setNeedsEvalOnly(v => !v)}
+            title="Show only sessions still needing evaluators, grouped by rink into contact-ready time blocks"
+            className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${needsEvalOnly ? "bg-amber-500 border-amber-500 text-white" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+            Needs Evaluators
+          </button>
           {/* Association filter — narrow the schedule to one client association */}
           {associations.length > 1 && (
             <select
@@ -298,97 +405,34 @@ export default function ScheduleTab({ schedule, byDate, schedLoading, today, ass
                   <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{formatDate(date)}</span>
                   <div className="h-px flex-1 bg-gray-200" />
                 </div>
-                <div className="space-y-2">
-                  {byDate[date].filter(matchesFilters).map(entry => {
-                    const palette = scheduleOrgPalette(entry.org_name);
-                    return (
-                      <div
-                        key={entry.schedule_id}
-                        className={`bg-white border rounded-xl p-4 flex items-center gap-4 flex-wrap ${entry.status === "cancelled" ? "border-gray-200 opacity-60" : entry.spots_open > 0 ? "border-amber-200" : "border-gray-200"}`}
-                        style={{ borderLeft: `4px solid ${palette.hex}` }}
-                      >
-                        <div className="flex-1 min-w-[9rem]">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <OrgChip name={entry.org_name} palette={palette} />
-                            <span className="text-gray-700 text-sm font-medium">{entry.category_name}</span>
-                            {entry.session_type && <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${SESSION_TYPE_COLORS[entry.session_type] || "bg-gray-100 text-gray-600"}`}>{entry.session_type}</span>}
-                            {entry.status === "cancelled" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Cancelled</span>}
-                            {entry.status === "tentative" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700" title="Evaluators can't sign up for this yet — it won't show on their dashboard until confirmed.">
-                                If necessary
-                              </span>
-                            )}
+                {needsEvalOnly ? (
+                  <div className="space-y-4">
+                    {groupIntoRinkBlocks(byDate[date].filter(matchesFilters)).map((block, bi) => {
+                      const first = block.entries[0], last = block.entries[block.entries.length - 1];
+                      const totalOpen = block.entries.reduce((n, e) => n + (e.spots_open || 0), 0);
+                      return (
+                        <div key={bi}>
+                          <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
+                            <MapPin size={13} className="text-gray-400" />
+                            <span className="text-sm font-bold text-gray-800">
+                              {formatTime(first.start_time)} – {formatTime(last.end_time || last.start_time)} @ {first.location || "TBD"}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {block.entries.length} session{block.entries.length === 1 ? "" : "s"} · {totalOpen} spot{totalOpen === 1 ? "" : "s"} open — ask an evaluator if they're free this whole window
+                            </span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                            <span className="flex items-center gap-1"><Clock size={11} />{formatTime(entry.start_time)}{entry.end_time ? ` - ${formatTime(entry.end_time)}` : ""}</span>
-                            {entry.location && <span className="flex items-center gap-1"><MapPin size={11} />{entry.location}</span>}
-                            <span className="font-mono">S{entry.session_number}{entry.group_number ? ` G${entry.group_number}` : ""}</span>
+                          <div className="space-y-2 pl-3 border-l-2 border-amber-100">
+                            {block.entries.map(renderEntry)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                          {entry.status !== "cancelled" && (
-                            <>
-                              {entry.is_goalie_sp ? (
-                                <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
-                                  <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.goalie_evaluators_required}</div>
-                                  <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">goalie eval</div>
-                                </button>
-                              ) : entry.session_type === 'testing' ? (
-                                entry.is_goalie_sp
-                                  ? <div className="text-center"><div className="text-sm font-bold text-gray-400">—</div><div className="text-xs text-gray-400">no evaluators needed</div></div>
-                                  : <TesterStaffingControl entry={entry} spUrl={spUrl} onSaved={refetchSchedule} onOpenRoster={() => setRosterScheduleId(entry.schedule_id)} />
-                              ) : (
-                                <>
-                                  <button onClick={() => setRosterScheduleId(entry.schedule_id)} title="See who's evaluating this session" className="text-center hover:opacity-70">
-                                    <div className={`text-sm font-bold ${entry.spots_open > 0 ? "text-amber-600" : "text-green-600"}`}>{entry.evaluators_signed_up}/{entry.evaluators_required}</div>
-                                    <div className="text-xs text-gray-400 underline decoration-dotted underline-offset-2">player eval</div>
-                                  </button>
-                                  {parseInt(entry.goalie_evaluators_required) > 0 && (
-                                    <div className="text-center">
-                                      <div className="text-sm font-bold text-gray-600">{entry.goalie_evaluators_required}</div>
-                                      <div className="text-xs text-gray-400">goalie eval</div>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                              {entry.session_type === 'testing' && !entry.is_goalie_sp
-                                ? (entry.tester_spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.tester_spots_open} tester{entry.tester_spots_open === 1 ? "" : "s"} needed</span> : parseInt(entry.testers_required || 0) > 0 ? <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Testers set</span> : null)
-                                : entry.session_type === 'testing' ? null
-                                : entry.spots_open > 0 ? <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{entry.spots_open} open</span> : <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle size={11} /> Full</span>}
-                              {!entry.is_goalie_sp && <a href={`/checkin/${entry.schedule_id}`} className="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Check-in</a>}
-                              {/* Goalie SP evaluates its own goalies — jump straight into scoring. */}
-                              {entry.is_goalie_sp && entry.status !== "cancelled" && (
-                                <a href={`/evaluator/score/${entry.schedule_id}`} className="text-xs px-3 py-1.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg font-semibold hover:shadow-md inline-flex items-center gap-1.5">
-                                  <Star size={12} /> Evaluate
-                                </a>
-                              )}
-                              {/* A tentative session isn't visible to evaluators at all yet
-                                  (the "available" list only shows status='scheduled') --
-                                  blasting one would invite people to sign up for something
-                                  that doesn't exist on their end. Confirm it first. */}
-                              {entry.status === "tentative" ? (
-                                <button
-                                  onClick={() => confirmSession(entry.schedule_id)}
-                                  disabled={confirmingId === entry.schedule_id}
-                                  title="Opens this session to evaluator sign-ups"
-                                  className="text-xs px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
-                                >
-                                  {confirmingId === entry.schedule_id ? "Confirming..." : "Confirm"}
-                                </button>
-                              ) : entry.spots_open > 0 && (
-                                <BlastButton sessions={contiguousBlock(
-                                  entry,
-                                  schedule.filter(s => s.spots_open > 0 && s.session_type !== "testing" && s.status !== "cancelled" && s.status !== "tentative")
-                                )} />
-                              )}
-                            </>
-                          )}
-                          <ScheduleRowControls entry={entry} onSaved={onScheduleSaved} orgParam={orgParam} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {byDate[date].filter(matchesFilters).map(renderEntry)}
+                  </div>
+                )}
               </div>
             ))}
           </div>

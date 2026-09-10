@@ -45,3 +45,38 @@ export function contiguousBlock(clicked, available, gapMin = 30) {
   }
   return sameSlot.slice(lo, hi + 1);
 }
+
+// Group open sessions into contact-ready rink blocks: "are you free from X to
+// Y at this rink?" instead of reading off one open slot at a time. Unlike
+// contiguousBlock (used for the Blast button, which only ever bundles ONE
+// association's back-to-back sessions), this deliberately ignores org
+// entirely -- an evaluator being recruited doesn't care whose session it is,
+// only whether they can physically be at that rink for that stretch of time.
+// Input should already be scoped to one day and pre-filtered (e.g. only
+// sessions that still need evaluators); each entry needs start_time,
+// end_time, and location. Returns blocks sorted by start time, each
+// { location, entries } with entries sorted within the block.
+export function groupIntoRinkBlocks(entries, gapMin = 30) {
+  const byRink = new Map();
+  for (const e of entries) {
+    const key = (e.location || "").trim().toLowerCase() || " tbd";
+    if (!byRink.has(key)) byRink.set(key, []);
+    byRink.get(key).push(e);
+  }
+  const blocks = [];
+  for (const list of byRink.values()) {
+    const sorted = [...list].sort((a, b) => (mins(a.start_time) ?? 0) - (mins(b.start_time) ?? 0));
+    let current = null;
+    for (const e of sorted) {
+      const start = mins(e.start_time);
+      if (current) {
+        const prevLast = current.entries[current.entries.length - 1];
+        const prevEnd = mins(prevLast.end_time) ?? mins(prevLast.start_time);
+        if (start != null && prevEnd != null && start - prevEnd <= gapMin) { current.entries.push(e); continue; }
+      }
+      current = { location: e.location, entries: [e] };
+      blocks.push(current);
+    }
+  }
+  return blocks.sort((a, b) => (mins(a.entries[0].start_time) ?? 0) - (mins(b.entries[0].start_time) ?? 0));
+}
