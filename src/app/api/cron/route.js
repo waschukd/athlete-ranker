@@ -12,6 +12,14 @@ async function getSessionStaffing(orgId, daysAhead) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + daysAhead);
 
+  // Real incident: this never actually filtered by orgId at all, so every
+  // admin's staffing report/alert silently included every OTHER organization's
+  // open sessions too -- Confederation's admin got a "42 sessions need
+  // evaluators" email that was mostly other associations' gaps mislabeled
+  // under their own org name. It also never excluded testing sessions, which
+  // are staffed by testers (tester_session_signups), not evaluators -- a
+  // testing session can never have an evaluator signed up, so every one of
+  // them permanently read as understaffed and inflated the count.
   const sessions = await sql`
     SELECT
       es.id, es.session_number, es.group_number, es.scheduled_date,
@@ -28,7 +36,9 @@ async function getSessionStaffing(orgId, daysAhead) {
     LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
     LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id
     LEFT JOIN users u ON u.id = ess.user_id
-    WHERE es.scheduled_date >= CURRENT_DATE
+    WHERE ac.organization_id = ${orgId}
+      AND COALESCE(cs.session_type, 'evaluation') != 'testing'
+      AND es.scheduled_date >= CURRENT_DATE
       AND es.scheduled_date <= ${cutoff.toISOString().split("T")[0]}
     GROUP BY es.id, ac.name, es.evaluators_required, cs.evaluators_required, o.name, o.id
     ORDER BY o.id, es.scheduled_date, es.start_time
