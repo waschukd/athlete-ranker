@@ -96,11 +96,32 @@ export async function GET(request) {
         AND COALESCE(o.auto_close_sessions, false) = true
         AND (es.scheduled_date + COALESCE(es.end_time, es.start_time))
               AT TIME ZONE 'America/Edmonton' <= NOW()
-      RETURNING ess.id, ess.schedule_id`;
+      RETURNING ess.id, ess.user_id, ess.schedule_id, es.scheduled_date, es.start_time, es.end_time, ac.organization_id`;
 
     // closed_by stays NULL on purpose: nobody closed these, the clock did, and
     // a real user id here would misattribute it in the audit trail.
-    return NextResponse.json({ job, closed: closed.length });
+
+    // These evaluators never submit a score (pen and paper, per the org this
+    // exists for), so the only other place hours get logged -- isFirstScore in
+    // evaluator/scores/route.js -- never fires for them. The clock closing the
+    // session is the only signal this org ever produces that a skate happened,
+    // so it has to be the thing that logs the hours too, or they never get paid.
+    // Same hours math as that path: session length in hours, floored at 1.
+    let hoursLogged = 0;
+    for (const c of closed) {
+      if (!c.start_time || !c.end_time) continue;
+      const [sh, sm] = c.start_time.toString().split(":").map(Number);
+      const [eh, em] = c.end_time.toString().split(":").map(Number);
+      const hours = Math.max(1, ((eh * 60 + em) - (sh * 60 + sm)) / 60);
+      const inserted = await sql`
+        INSERT INTO evaluator_hours (evaluator_id, organization_id, schedule_id, session_date, hours_worked, status)
+        VALUES (${c.user_id}, ${c.organization_id}, ${c.schedule_id}, ${c.scheduled_date}, ${hours}, 'pending')
+        ON CONFLICT (evaluator_id, schedule_id) DO NOTHING
+        RETURNING id`;
+      if (inserted.length) hoursLogged++;
+    }
+
+    return NextResponse.json({ job, closed: closed.length, hoursLogged });
   }
 
   try {

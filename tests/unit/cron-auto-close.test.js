@@ -68,6 +68,35 @@ describe("the close is attributed honestly", () => {
   });
 });
 
+describe("hours get logged too, not just the close", () => {
+  // Real gap: closing a session and logging hours were two completely
+  // unrelated things. The only other place hours get created --
+  // evaluator/scores/route.js's isFirstScore -- never fires for these
+  // evaluators, since the whole point of this org's setup is that they never
+  // submit a score. Without this, auto-close silently closed sessions while
+  // every evaluator on them went unpaid.
+  it("logs an hours row for each closed sign-up, using the session's own duration", () => {
+    expect(JOB).toMatch(/INSERT INTO evaluator_hours/);
+    expect(JOB).toMatch(/'pending'/);
+  });
+
+  it("floors at 1 hour, same as the scoring-org path", () => {
+    expect(JOB).toMatch(/Math\.max\(1,/);
+  });
+
+  it("skips a signup with no start or end time instead of logging garbage hours", () => {
+    expect(JOB).toMatch(/if \(!c\.start_time \|\| !c\.end_time\) continue;/);
+  });
+
+  it("won't double-log if the cron runs again for the same signup", () => {
+    expect(JOB).toMatch(/ON CONFLICT \(evaluator_id, schedule_id\) DO NOTHING/);
+  });
+
+  it("reports how many hours rows it logged, not just how many it closed", () => {
+    expect(JOB).toMatch(/closed: closed\.length, hoursLogged/);
+  });
+});
+
 describe("the route is actually reachable", () => {
   // Real incident: /api/cron was never added to the middleware's public-path
   // allowlist, so every invocation -- Vercel's real 15-minute trigger included
