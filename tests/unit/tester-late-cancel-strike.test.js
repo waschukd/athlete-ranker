@@ -113,6 +113,39 @@ describe("POST /api/tester/sessions — late cancel strikes", () => {
     expect(suspendCall).toBeTruthy();
   });
 
+  it("a third late cancel says 'third', not 'second' again -- and notes they were already suspended", async () => {
+    // Real incident: a tester (Brooklyn Benwood) cancelled 4 different
+    // sessions late in one day. Strikes 2, 3, and 4 all hardcoded "second
+    // late cancellation strike" regardless of the real count, so every alert
+    // after the first read identically and Dan reported getting "the same
+    // email 4 times" -- they were four real, distinct cancellations.
+    const { date, time } = nearSchedule();
+    mockSqlByQuery([
+      ["SELECT es.scheduled_date", [{
+        scheduled_date: date, start_time: time, session_number: 1, group_number: 1,
+        category_name: "U11 House", org_name: "KC North", assoc_org_id: 39, service_provider_id: null,
+      }]],
+      ["FROM evaluation_schedule es", [{ id: 1 }]],
+      ["SELECT name, email FROM users WHERE id", [{ name: "Brooklyn Benwood", email: "brooklyn.benwood@icloud.com" }]],
+      ["FROM evaluator_memberships em", [{ email: "dan@competitivethread.com", name: "Dan" }]],
+      ["FROM tester_flags WHERE tester_id", [{ count: "2" }]],
+    ]);
+
+    const { POST } = await import("@/app/api/tester/sessions/route");
+    const res = await POST(makeReq({ schedule_id: 791, action: "cancel" }));
+    const body = await res.json();
+    expect(body.success).toBe(true);
+
+    expect(emailTesterLateCancelStrike.mock.calls[0][0]).toMatchObject({ strikeCount: 3 });
+    const [, subject, html] = sendEmail.mock.calls[0];
+    expect(subject).toContain("Strike 3");
+    expect(html).toContain("3rd late cancellation strike");
+    expect(html).not.toContain("second late cancellation strike");
+    // Already suspended as of strike 2 -- this alert should say so, not
+    // claim a fresh suspension happened.
+    expect(html).toMatch(/already suspended/i);
+  });
+
   it("cancelling more than 48 hours out does not issue a strike", async () => {
     const dt = new Date(Date.now() + 96 * 60 * 60 * 1000);
     mockSqlByQuery([

@@ -5,6 +5,13 @@ import { getSpCapabilities } from "@/lib/testers";
 import { sendEmail, esc, emailTesterLateCancelStrike } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
+function ordinalSuffix(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return "st";
+  if (n % 10 === 2 && n % 100 !== 12) return "nd";
+  if (n % 10 === 3 && n % 100 !== 13) return "rd";
+  return "th";
+}
+
 // Tester-facing testing sessions. Returns the caller's capabilities (so the
 // dashboard can render tabs) plus, for testers, the testing sessions they can
 // sign up for and the ones they're on. Testing sessions belong to associations
@@ -232,11 +239,19 @@ export async function POST(request) {
             error: strikeRes?.ok ? null : (strikeRes?.error || "send failed").toString().slice(0, 500),
           });
 
+          // newStrikeCount hit exactly 2 the moment they got suspended; every
+          // strike after that is a late cancel on a session they were already
+          // suspended from. Both are worth an alert, but "received their
+          // second strike and got suspended" was hardcoded here regardless of
+          // the real count -- strike 3, 4, 5... all read as the identical
+          // message, so a tester who cancels late repeatedly looks to an admin
+          // like a mail bug instead of a repeat offender.
+          const justSuspended = newStrikeCount === 2;
           for (const admin of spAdmins) {
             const res = await sendEmail(admin.email,
-              newStrikeCount >= 2 ? `🚨 Tester Suspended: ${tester?.name}` : `⚠ Late Cancellation: ${tester?.name} (Strike 1)`,
+              newStrikeCount >= 2 ? `🚨 Tester Suspended: ${tester?.name} (Strike ${newStrikeCount})` : `⚠ Late Cancellation: ${tester?.name} (Strike 1)`,
               newStrikeCount >= 2
-                ? `<p>${esc(tester?.name || "A tester")} has received their second late cancellation strike (cancelled with ${hoursUntil.toFixed(1)} hours notice) and has been automatically suspended from all future testing sessions.</p><p>Session cancelled: ${esc(sessionsLabel)}</p>`
+                ? `<p>${esc(tester?.name || "A tester")} has received their ${newStrikeCount}${ordinalSuffix(newStrikeCount)} late cancellation strike (cancelled with ${hoursUntil.toFixed(1)} hours notice)${justSuspended ? " and has been automatically suspended from all future testing sessions" : " -- they were already suspended as of strike 2"}.</p><p>Session cancelled: ${esc(sessionsLabel)}</p>`
                 : `<p>${esc(tester?.name || "A tester")} cancelled with ${hoursUntil.toFixed(1)} hours notice for ${esc(sessionsLabel)}.</p><p>This is their first strike. One open spot now needs to be filled.</p>`
             );
             await logEmailSend({
