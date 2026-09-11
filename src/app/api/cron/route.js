@@ -168,75 +168,6 @@ export async function GET(request) {
         await sleep(110);
       }
 
-      // Also send weekly schedule to evaluators signed up for sessions this week
-      if (job === "weekly_report") {
-        const evalSignups = await sql`
-          SELECT DISTINCT u.id AS user_id, u.email, u.name,
-            es.scheduled_date, es.start_time, es.end_time, es.location,
-            es.session_number, es.group_number,
-            ac.name as category_name, o.name as org_name, o.id AS org_id
-          FROM evaluator_session_signups ess
-          JOIN users u ON u.id = ess.user_id
-          JOIN evaluation_schedule es ON es.id = ess.schedule_id
-          JOIN age_categories ac ON ac.id = es.age_category_id
-          JOIN organizations o ON o.id = ac.organization_id
-          WHERE ess.status = 'signed_up'
-            AND es.scheduled_date >= CURRENT_DATE
-            AND es.scheduled_date <= CURRENT_DATE + INTERVAL '7 days'
-          ORDER BY u.email, es.scheduled_date, es.start_time
-        `;
-
-        // Group by evaluator
-        const byEval = {};
-        for (const row of evalSignups) {
-          if (!byEval[row.email]) byEval[row.email] = { name: row.name, userId: row.user_id, orgId: row.org_id, sessions: [] };
-          byEval[row.email].sessions.push(row);
-        }
-
-        for (const [email, data] of Object.entries(byEval)) {
-          const sessionRows = data.sessions.map(s => {
-            const date = s.scheduled_date?.toString().split("T")[0];
-            const time = s.start_time ? `${s.start_time}${s.end_time ? ` – ${s.end_time}` : ""}` : "TBD";
-            return `<tr style="border-bottom:1px solid #f3f4f6;">
-              <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">${esc(date)}</td>
-              <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(time)}</td>
-              <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.org_name)} · ${esc(s.category_name)}</td>
-              <td style="padding:10px 0;font-size:13px;color:#6b7280;">S${esc(s.session_number)} G${esc(s.group_number)}</td>
-              <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.location) || "TBD"}</td>
-            </tr>`;
-          }).join("");
-
-          const html = emailWrapper(`
-            <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Your Sessions This Week</h2>
-            <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hi <strong style="color:#111827;">${esc(data.name)}</strong>, here are your upcoming evaluation sessions for the week.</p>
-            <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f3f4f6;">
-              <tr style="background:#f9fafb;">
-                <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Date</th>
-                <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Time</th>
-                <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Organization</th>
-                <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Session</th>
-                <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Location</th>
-              </tr>
-              ${sessionRows}
-            </table>
-            <div style="margin-top:24px;">
-              <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View My Dashboard →</a>
-            </div>
-            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
-          `);
-          try {
-            const res = await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html);
-            await logEmailSend({
-              orgId: data.orgId, emailType: "weekly_evaluator_schedule", recipientUserId: data.userId, athleteName: data.name, to: email,
-              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-            });
-            if (res?.ok) sent++;
-          } catch (emailErr) { console.error("Email failed:", emailErr); }
-          await sleep(110); // pace under Resend's 10 req/sec cap
-        }
-      }
-
       if (job === "daily_alert") {
         const openSessions = sessions.filter(s => s.signed_up < s.required);
         if (openSessions.length) {
@@ -255,6 +186,80 @@ export async function GET(request) {
             if (res?.ok) sent++;
           } catch (emailErr) { console.error("Email failed:", emailErr); }
         }
+      }
+    }
+
+    // Weekly schedule to evaluators signed up for sessions this week. Real
+    // incident: this used to live INSIDE the `for (const admin of admins)`
+    // loop above without ever referencing `admin` -- it re-ran the same
+    // system-wide query and re-sent to every evaluator once per admin, so
+    // with 9 admins every evaluator got the same email 9 times every Sunday.
+    // Runs exactly once here instead.
+    if (job === "weekly_report") {
+      const evalSignups = await sql`
+        SELECT DISTINCT u.id AS user_id, u.email, u.name,
+          es.scheduled_date, es.start_time, es.end_time, es.location,
+          es.session_number, es.group_number,
+          ac.name as category_name, o.name as org_name, o.id AS org_id
+        FROM evaluator_session_signups ess
+        JOIN users u ON u.id = ess.user_id
+        JOIN evaluation_schedule es ON es.id = ess.schedule_id
+        JOIN age_categories ac ON ac.id = es.age_category_id
+        JOIN organizations o ON o.id = ac.organization_id
+        WHERE ess.status = 'signed_up'
+          AND es.scheduled_date >= CURRENT_DATE
+          AND es.scheduled_date <= CURRENT_DATE + INTERVAL '7 days'
+        ORDER BY u.email, es.scheduled_date, es.start_time
+      `;
+
+      // Group by evaluator
+      const byEval = {};
+      for (const row of evalSignups) {
+        if (!byEval[row.email]) byEval[row.email] = { name: row.name, userId: row.user_id, orgId: row.org_id, sessions: [] };
+        byEval[row.email].sessions.push(row);
+      }
+
+      for (const [email, data] of Object.entries(byEval)) {
+        const sessionRows = data.sessions.map(s => {
+          const date = s.scheduled_date?.toString().split("T")[0];
+          const time = s.start_time ? `${s.start_time}${s.end_time ? ` – ${s.end_time}` : ""}` : "TBD";
+          return `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:10px 0;font-size:13px;color:#111827;font-weight:600;">${esc(date)}</td>
+            <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(time)}</td>
+            <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.org_name)} · ${esc(s.category_name)}</td>
+            <td style="padding:10px 0;font-size:13px;color:#6b7280;">S${esc(s.session_number)} G${esc(s.group_number)}</td>
+            <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.location) || "TBD"}</td>
+          </tr>`;
+        }).join("");
+
+        const html = emailWrapper(`
+          <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Your Sessions This Week</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hi <strong style="color:#111827;">${esc(data.name)}</strong>, here are your upcoming evaluation sessions for the week.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #f3f4f6;">
+            <tr style="background:#f9fafb;">
+              <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Date</th>
+              <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Time</th>
+              <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Organization</th>
+              <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Session</th>
+              <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Location</th>
+            </tr>
+            ${sessionRows}
+          </table>
+          <div style="margin-top:24px;">
+            <a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">View My Dashboard →</a>
+          </div>
+          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you can no longer attend a session, cancel at least 24 hours in advance to avoid a strike.</p>
+        `);
+        try {
+          const res = await sendEmail(email, `📅 Your Evaluation Schedule — Week of ${data.sessions[0]?.scheduled_date?.toString().split("T")[0]}`, html);
+          await logEmailSend({
+            orgId: data.orgId, emailType: "weekly_evaluator_schedule", recipientUserId: data.userId, athleteName: data.name, to: email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++;
+        } catch (emailErr) { console.error("Email failed:", emailErr); }
+        await sleep(110); // pace under Resend's 10 req/sec cap
       }
     }
 

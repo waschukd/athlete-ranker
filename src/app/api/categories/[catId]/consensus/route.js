@@ -371,11 +371,22 @@ export async function POST(request, { params }) {
 
         if (schedInfo.length) {
           const s = schedInfo[0];
+          // Real bug: users.organization_id has never existed anywhere in this
+          // schema -- org membership always goes through evaluator_memberships
+          // (see authorize.js, tester/sessions/route.js). This query threw on
+          // every call, and since it sits inside the outer try/catch that
+          // returns the whole response, every session close with an
+          // unreviewed flag came back as a 500 to the evaluator even though
+          // the close itself had already gone through.
           const spAdmins = await sql`
-            SELECT u.email, u.name FROM users u
-            JOIN sp_association_links sal ON sal.service_provider_id = u.organization_id
-            JOIN organizations o ON o.contact_email = u.email
-            WHERE sal.association_id = ${s.org_id}
+            SELECT DISTINCT u.email, u.name
+            FROM evaluator_memberships em
+            JOIN users u ON u.id = em.user_id
+            WHERE em.status = 'active' AND u.role IN ('service_provider_admin', 'association_admin')
+              AND em.organization_id IN (
+                SELECT service_provider_id FROM sp_association_links WHERE association_id = ${s.org_id} AND status = 'active'
+                UNION SELECT ${s.org_id}
+              )
           `;
 
           const playerList = unreviewed_flags.map(p => `- ${esc(p.first_name)} ${esc(p.last_name)} — ${esc(p.overall_agreement)}% agreement`).join("\n");
