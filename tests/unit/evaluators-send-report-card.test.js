@@ -61,6 +61,7 @@ describe("POST /api/service-provider/evaluators — send_report_card", () => {
     expect(computeEvaluatorReportCard).toHaveBeenCalledWith(143);
     expect(emailEvaluatorReportCard).toHaveBeenCalledWith(expect.objectContaining({
       name: "Sara Diamond", email: "sara@test.com", agreementPct: 83, judged: 680, bias: -0.3,
+      videoUrl: expect.stringContaining("loom.com"),
     }));
     expect(logEmailSend).toHaveBeenCalledWith(expect.objectContaining({ emailType: "evaluator_report_card", status: "sent" }));
   });

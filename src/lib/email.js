@@ -338,34 +338,57 @@ export async function emailTesterLateCancelStrike({ name, email, orgName, strike
 // this evaluator's top/middle/bottom call on a player matched the rest of the
 // panel -- not a raw point-closeness number. bias is signed points off the
 // group average (null if not enough shared scores to compute).
-export async function emailEvaluatorReportCard({ name, email, orgName, agreementPct, judged, bias }) {
+export async function emailEvaluatorReportCard({ name, email, orgName, agreementPct, judged, bias, videoUrl }) {
   const hasAgreement = agreementPct != null && judged > 0;
   const agreementColor = !hasAgreement ? "#6b7280" : agreementPct >= 90 ? "#16a34a" : agreementPct >= 75 ? "#d97706" : "#dc2626";
+  const agreementBg = !hasAgreement ? "#f9fafb" : agreementPct >= 90 ? "#f0fdf4" : agreementPct >= 75 ? "#fffbeb" : "#fef2f2";
+  const agreementBorder = !hasAgreement ? "#e5e7eb" : agreementPct >= 90 ? "#bbf7d0" : agreementPct >= 75 ? "#fde68a" : "#fecaca";
   const hasBias = bias != null && Math.abs(bias) >= 0.3;
   const biasDirection = hasBias ? (bias > 0 ? "higher" : "lower") : null;
 
   const agreementBlock = hasAgreement ? `
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin:0 0 20px;text-align:center;">
-      <div style="font-size:36px;font-weight:800;color:${agreementColor};">${agreementPct}%</div>
-      <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">Agreement with your fellow evaluators — how often your top/middle/bottom call on a player matched the rest of the panel, across ${esc(judged)} players scored alongside someone else.</p>
-    </div>` : "";
+    <div style="background:${agreementBg};border:1px solid ${agreementBorder};border-radius:14px;padding:28px 20px;margin:0 0 20px;text-align:center;">
+      <div style="font-family:${DISPLAY_FONT};font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${agreementColor};font-weight:700;margin-bottom:8px;">Panel Agreement</div>
+      <div style="font-family:${SERIF_FONT};font-size:46px;font-weight:900;color:${agreementColor};line-height:1;">${agreementPct}%</div>
+      <p style="margin:12px 0 0;font-size:13px;color:#5b606b;line-height:1.6;">How often your top / middle / bottom call on a player matched the rest of the panel, across <strong style="color:${INK};">${esc(judged)}</strong> player${judged === 1 ? "" : "s"} scored alongside someone else.</p>
+    </div>` : `
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:22px 20px;margin:0 0 20px;text-align:center;">
+      <p style="margin:0;font-size:13px;color:#9ca3af;">Not enough sessions scored alongside another evaluator yet to compare — check back after your next few sessions.</p>
+    </div>`;
 
   const biasBlock = hasBias ? `
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
-      <p style="margin:0;font-size:13px;color:#92400e;">You're currently averaging <strong>${Math.abs(bias).toFixed(1)} pts ${biasDirection}</strong> than other evaluators. We're all trying to see the same players the same way — try to bring your scores more in line with the group.</p>
+    <div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:14px;padding:18px 22px;margin:0 0 20px;">
+      <p style="margin:0;font-size:13px;color:${INK};line-height:1.7;">You're currently averaging <strong style="color:${GOLD_DEEP};">${Math.abs(bias).toFixed(1)} pts ${biasDirection}</strong> than other evaluators. We're all trying to see the same players the same way — try to bring your scores more in line with the group.</p>
     </div>` : "";
 
-  const lowAgreementNote = hasAgreement && agreementPct < 75 ? `
-    <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">In practice, that means when you and another evaluator score the same group, your ranking of a player often lands in a different third (top/middle/bottom) than the rest of the panel — the exact thing that trips a consensus review before results go out.</p>` : "";
+  // Not punitive: the point isn't "you scored this wrong," it's "every player
+  // needs to land in the group they actually belong in," which only happens if
+  // the panel converges. Names the two things that matter most and gives a
+  // concrete habit (talk it out at the end of the session), and says outright
+  // that Consensus can mean revising a score, so nobody's caught off guard by
+  // that being on the table.
+  const consensusBlock = `
+    <div style="border-top:1px solid #ece9e2;padding-top:20px;margin:4px 0 20px;">
+      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD_DEEP};font-weight:700;margin-bottom:10px;">Why this matters</div>
+      <p style="margin:0 0 12px;font-size:13px;color:#5b606b;line-height:1.7;">Agreement isn't about being "right" — it's about making sure every player lands in the group they actually belong in. Two things matter more than anything else while you score: staying inside the suggested range for your group, and reaching consensus with the other evaluators scoring alongside you.</p>
+      <p style="margin:0 0 12px;font-size:13px;color:#5b606b;line-height:1.7;">Make it a habit to compare notes with the other evaluators in your group at the end of every session — that's when most disagreements get caught, while it's still easy to talk through.</p>
+      <p style="margin:0;font-size:13px;color:#5b606b;line-height:1.7;">Working through Consensus may mean adjusting a score or two once you've heard how the rest of the panel saw a player — that's a normal, expected part of the process, not a mark against you.</p>
+    </div>`;
+
+  const videoBlock = videoUrl ? `
+    <div style="background:#eef4ff;border:1px solid #cddcfb;border-radius:14px;padding:20px 22px;margin:0 0 24px;text-align:center;">
+      <p style="margin:0 0 14px;font-size:13px;color:#1e3a5f;line-height:1.6;">Please watch the video attached — a quick walkthrough of what this number means and how to use the Consensus tool when your rankings differ from the rest of the panel.</p>
+      <a href="${videoUrl}" style="display:inline-block;font-family:${DISPLAY_FONT};padding:11px 24px;background:#0b5cd6;color:#ffffff;text-decoration:none;border-radius:99px;font-size:13px;font-weight:700;">▶ Watch the video</a>
+    </div>` : "";
 
   const html = emailWrapper(`
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Your Evaluator Report Card</h2>
-    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, here's how your scoring for <strong>${esc(orgName)}</strong> compares to the rest of the panel.</p>
+    ${emailHeader("EVALUATOR REPORT CARD", "Your Report Card")}
+    <p style="margin:18px 0 22px;font-size:14px;color:#5b606b;line-height:1.6;text-align:center;">Hi <strong style="color:${INK};">${esc(name)}</strong>, here's how your scoring for <strong style="color:${INK};">${esc(orgName)}</strong> compares to the rest of the panel.</p>
     ${agreementBlock}
     ${biasBlock}
-    ${lowAgreementNote}
-    ${!hasAgreement ? `<p style="margin:0 0 20px;font-size:13px;color:#9ca3af;">Not enough sessions scored alongside another evaluator yet to compare — check back after your next few sessions.</p>` : ""}
-    ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}
+    ${consensusBlock}
+    ${videoBlock}
+    <div style="text-align:center;">${btn(`${BASE_URL}/evaluator/dashboard`, "View My Dashboard →")}</div>
   `);
   return sendEmail(email, `Your Evaluator Report Card — ${orgName}`, html);
 }

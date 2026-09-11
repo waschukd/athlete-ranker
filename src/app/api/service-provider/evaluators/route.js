@@ -8,6 +8,10 @@ import { computeEvaluatorReportCard } from "@/lib/evaluatorScorecard";
 import { emailEvaluatorReportCard } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
+// Walkthrough video on what the agreement number means and how to use
+// Consensus, linked from the report card email below.
+const REPORT_CARD_VIDEO_URL = "https://www.loom.com/share/01c0af995ed940de9a82181a51bf5856";
+
 // resolveSpContext resolves for ANY member of the SP's evaluator pool, not just
 // admins (it exists to answer "does this person belong to this SP", used by
 // plain evaluators reading their own dashboard elsewhere) -- pay rates, payroll
@@ -222,6 +226,7 @@ export async function POST(request) {
         const res = await emailEvaluatorReportCard({
           name: ev.name, email: ev.email, orgName: spInfo?.name || "your evaluator pool",
           agreementPct: card.agreementPct, judged: card.judged, bias: card.bias,
+          videoUrl: REPORT_CARD_VIDEO_URL,
         });
         await logEmailSend({
           orgId: sp_id, emailType: "evaluator_report_card", athleteName: ev.name, to: ev.email,
