@@ -14,7 +14,7 @@ export default function ScorePanel({
   navigate, selectedIdx, filteredLength, setSelected,
   updateScore, advanceToNextUnscored, scoreValues, increment, scale,
   updateNotes, notesMode, voiceOn,
-  pending, online,
+  pending, blocked = {}, online,
   athletes, isAnon, helmetMode, teamLabel,
   currentUserId, catId,
   guidanceRange, guidanceGroupNumber, guidanceTotalGroups,
@@ -192,7 +192,12 @@ export default function ScorePanel({
         </div>
 
         {/* Sync status for this player */}
-        {pending[selected.id] && (
+        {blocked[selected.id] ? (
+          <div className="flex items-center gap-2 text-xs text-red-600">
+            <AlertTriangle size={12} />
+            {blocked[selected.id]}
+          </div>
+        ) : pending[selected.id] && (
           <div className="flex items-center gap-2 text-xs text-amber-600">
             <WifiOff size={12} />
             {online ? "Syncing..." : "Saved locally — will sync when online"}

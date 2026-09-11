@@ -7,7 +7,7 @@ import { isPos } from "@/lib/positions";
 const sameTeam = (a, b) => String(a ?? "").toLowerCase() === String(b ?? "").toLowerCase();
 
 export default function TopBar({
-  online, pendingCount,
+  online, pendingCount, blockedCount = 0,
   orgName, sessionNumber, groupNumber,
   complete, partial, remaining,
   syncStatus,
@@ -186,7 +186,7 @@ export default function TopBar({
                 Consensus
               </button>
             )}
-            {pendingCount > 0 && (
+            {(pendingCount > 0 || blockedCount > 0) && (
               <button onClick={onResync} className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-accent/40 text-accent hover:bg-accent-soft">
                 Resync now
               </button>

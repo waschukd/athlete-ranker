@@ -93,6 +93,11 @@ function ScoringInterface() {
   const [calibrationDismissed, setCalibrationDismissed] = useState(false);
   const [scores, setScores] = useState({});
   const [pending, setPending] = useState({});
+  // Athletes whose last save came back with a 4xx -- retrying the identical
+  // payload can't ever succeed (e.g. "not checked in"), so these are pulled
+  // out of the 12s retry loop instead of hammering the API forever. Editing
+  // the athlete's score again clears the block and gives it a fresh attempt.
+  const [blocked, setBlocked] = useState({});
   const [online, setOnline] = useState(true);
   const [voiceOn, setVoiceOn] = useState(false);
   const [showConsensus, setShowConsensus] = useState(false);
@@ -686,11 +691,15 @@ function ScoringInterface() {
   }, [increment, scale]);
 
   // ── Save to server ────────────────────────────────────────────────────────
+  // Returns { ok, permanent, error }. `permanent` means a 4xx came back --
+  // retrying the same payload every 12s can never succeed (wrong checkin
+  // state, session closed, etc). Callers pull the athlete out of the retry
+  // loop when permanent is true instead of looping on it forever.
   const syncToServer = useCallback(async (athleteId, currentScores) => {
-    if (!sessionData?.schedule) return false;
+    if (!sessionData?.schedule) return { ok: false, permanent: false };
     const athlete = athletesRef.current.find(a => a.id === athleteId);
     const s = currentScores[athleteId];
-    if (!s || !Object.keys(s.cats || {}).length) return false;
+    if (!s || !Object.keys(s.cats || {}).length) return { ok: false, permanent: false };
 
     try {
       const res = await fetch("/api/evaluator/scores", {
@@ -711,11 +720,33 @@ function ScoringInterface() {
       });
       if (res.ok) {
         setPending(p => { const n = { ...p }; delete n[athleteId]; return n; });
-        return true;
+        return { ok: true };
       }
-    } catch {}
-    return false;
+      if (res.status >= 400 && res.status < 500) {
+        let error = "Couldn't save this score.";
+        try { const body = await res.json(); if (body?.error) error = body.error; } catch {}
+        return { ok: false, permanent: true, error };
+      }
+      return { ok: false, permanent: false };
+    } catch {
+      return { ok: false, permanent: false };
+    }
   }, [sessionData, scheduleId]);
+
+  // Common handling after any sync attempt: on a permanent failure, stop
+  // treating it as pending (so the 12s loop leaves it alone) and surface it
+  // as blocked instead of silently retrying forever.
+  const applySyncResult = useCallback((athleteId, result) => {
+    if (result.permanent) {
+      setPending(p => { const n = { ...p }; delete n[athleteId]; return n; });
+      setBlocked(b => ({ ...b, [athleteId]: result.error }));
+    } else if (result.ok) {
+      setBlocked(b => {
+        if (!(athleteId in b)) return b;
+        const n = { ...b }; delete n[athleteId]; return n;
+      });
+    }
+  }, []);
 
   // Debounced auto-sync — waits 3s after the last tap, PER ATHLETE. A separate
   // timer per athlete means scoring athlete B never cancels athlete A's pending
@@ -726,11 +757,12 @@ function ScoringInterface() {
     clearTimeout(syncTimerRef.current[athleteId]);
     syncTimerRef.current[athleteId] = setTimeout(async () => {
       setSyncStatus("Syncing...");
-      const ok = await syncToServer(athleteId, currentScores);
-      setSyncStatus(ok ? "Saved ✓" : "Sync failed — saved locally");
+      const result = await syncToServer(athleteId, currentScores);
+      applySyncResult(athleteId, result);
+      setSyncStatus(result.ok ? "Saved ✓" : result.permanent ? "Needs attention — see below" : "Sync failed — saved locally");
       setTimeout(() => setSyncStatus(""), 2000);
     }, 3000);
-  }, [online, syncToServer]);
+  }, [online, syncToServer, applySyncResult]);
 
   // Safety net: while online, retry ANY still-pending athlete every 12s using the
   // latest local scores. Guarantees a score reaches the server even if its debounce
@@ -741,10 +773,13 @@ function ScoringInterface() {
     const iv = setInterval(() => {
       const ids = Object.keys(pending);
       if (!ids.length) return;
-      ids.forEach(id => syncToServer(parseInt(id), scoresRef.current));
+      ids.forEach(async id => {
+        const result = await syncToServer(parseInt(id), scoresRef.current);
+        applySyncResult(id, result);
+      });
     }, 12000);
     return () => clearInterval(iv);
-  }, [online, pending, syncToServer]);
+  }, [online, pending, syncToServer, applySyncResult]);
 
   // Sync all pending when coming back online
   useEffect(() => {
@@ -752,7 +787,8 @@ function ScoringInterface() {
       const syncAll = async () => {
         setSyncStatus(`Syncing ${Object.keys(pending).length} pending...`);
         for (const id of Object.keys(pending)) {
-          await syncToServer(parseInt(id), scoresRef.current);
+          const result = await syncToServer(parseInt(id), scoresRef.current);
+          applySyncResult(id, result);
         }
         setSyncStatus("All synced ✓");
         setTimeout(() => setSyncStatus(""), 2000);
@@ -762,16 +798,23 @@ function ScoringInterface() {
   }, [online]);
 
   // Manual "push everything now" — for the rare case auto-sync didn't fire.
+  // Also retries anything currently blocked, since the evaluator hitting this
+  // button usually means a director just fixed the underlying issue (checked
+  // the athlete in, reopened the session, etc).
   const resyncNow = useCallback(async () => {
-    const ids = Object.keys(pending);
+    const ids = [...new Set([...Object.keys(pending), ...Object.keys(blocked)])];
     if (!ids.length) { setSyncStatus("Nothing to sync — all saved ✓"); setTimeout(() => setSyncStatus(""), 2500); return; }
     if (!online) { setSyncStatus("You're offline — scores are safe on this device and will sync when you reconnect."); setTimeout(() => setSyncStatus(""), 4000); return; }
     setSyncStatus(`Syncing ${ids.length}…`);
     let ok = 0;
-    for (const id of ids) { if (await syncToServer(parseInt(id), scoresRef.current)) ok++; }
-    setSyncStatus(ok === ids.length ? "All synced ✓" : `${ok}/${ids.length} synced — the rest are still saved on this device.`);
+    for (const id of ids) {
+      const result = await syncToServer(parseInt(id), scoresRef.current);
+      applySyncResult(id, result);
+      if (result.ok) ok++;
+    }
+    setSyncStatus(ok === ids.length ? "All synced ✓" : `${ok}/${ids.length} synced — the rest need attention (see below).`);
     setTimeout(() => setSyncStatus(""), 4000);
-  }, [pending, online, syncToServer]);
+  }, [pending, blocked, online, syncToServer, applySyncResult]);
 
   // Last-resort recovery: export this device's saved scores to a CSV the evaluator
   // can hand to the director/SP if sync never lands. Pure client-side — works offline.
@@ -878,6 +921,10 @@ function ScoringInterface() {
       };
       saveLocal(scheduleId, currentUserId, updated);
       setPending(p => ({ ...p, [athleteId]: true }));
+      setBlocked(b => {
+        if (!(athleteId in b)) return b;
+        const n = { ...b }; delete n[athleteId]; return n;
+      });
       debouncedSync(athleteId, updated);
       return updated;
     });
@@ -1453,7 +1500,7 @@ function ScoringInterface() {
       )}
 
       <TopBar
-        online={online} pendingCount={Object.keys(pending).length}
+        online={online} pendingCount={Object.keys(pending).length} blockedCount={Object.keys(blocked).length}
         orgName={sessionData?.schedule?.org_name} sessionNumber={sessionData?.schedule?.session_number} groupNumber={sessionData?.schedule?.group_number}
         complete={complete} partial={partial} remaining={remaining}
         syncStatus={syncStatus}
@@ -1560,6 +1607,17 @@ function ScoringInterface() {
           </div>
         </div>
       )}
+      {/* Blocked (permanently-failing) saves — shown regardless of connectivity
+          since retrying won't fix these on its own. */}
+      {Object.keys(blocked).length > 0 && (
+        <div className="mx-3 mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+          <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-red-700">{Object.keys(blocked).length} score{Object.keys(blocked).length !== 1 ? 's' : ''} couldn't save</p>
+            <p className="text-xs text-red-600 mt-0.5">{Object.values(blocked)[0]} Tell your SP or director, then hit Resync.</p>
+          </div>
+        </div>
+      )}
       {/* ── Grid View (spreadsheet mode) ──────────────────── */}
       {viewMode === "grid" && (
         <GridView
@@ -1594,7 +1652,7 @@ function ScoringInterface() {
           updateScore={updateScore} advanceToNextUnscored={advanceToNextUnscored}
           scoreValues={scoreValues} increment={increment} scale={scale}
           updateNotes={updateNotes} notesMode={notesMode} voiceOn={voiceOn}
-          pending={pending} online={online}
+          pending={pending} blocked={blocked} online={online}
           athletes={athletes} isAnon={isAnon} helmetMode={helmetMode} teamLabel={teamLabel}
           currentUserId={currentUserId} catId={catId}
           guidanceRange={guidanceRange}
