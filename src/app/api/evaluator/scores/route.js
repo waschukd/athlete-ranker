@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { logEvent } from "@/lib/analytics";
 import { resolveHelmetMode } from "@/lib/helmetMode";
+import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
 
 async function getAppUserId(session) {
   if (!session?.email) return null;
@@ -123,6 +124,16 @@ export async function GET(request) {
       ORDER BY pc.jersey_number, a.last_name
     `;
 
+    // Hard server-side isolation for goalie-only evaluators -- checkin/[scheduleId]
+    // already filters their roster to goalies, but this route (the one that
+    // actually populates the scoring screen and accepts submissions) never did,
+    // so a goalie evaluator got every skater on the roster too. Filtered here,
+    // not just left to the UI, since this is the same data the POST below trusts.
+    const myKind = await resolveEvaluatorKind(catId, appUserId, session.email);
+    const scopedAthletes = myKind === "goalie"
+      ? athletes.filter(a => (a.position || "").toLowerCase() === "goalie")
+      : athletes;
+
     // A director can flag a player to "watch closely" for this exact session
     // (age_category_id + session_number) -- surfaced regardless of anon mode,
     // since the star flags the jersey/card on screen, not the athlete's
@@ -140,13 +151,13 @@ export async function GET(request) {
     // while keeping position / jersey / team so the UI can still render the
     // jersey-based labels. Response shape is unchanged — only values differ.
     const safeAthletes = (isAnon
-      ? athletes.map((a) => ({
+      ? scopedAthletes.map((a) => ({
           ...a,
           first_name: null,
           last_name: null,
           external_id: null,
         }))
-      : athletes
+      : scopedAthletes
     ).map(a => ({ ...a, watched: watchedIds.has(a.id) }));
 
     const scoringCats = await sql`
@@ -203,6 +214,18 @@ export async function POST(request) {
         WHERE athlete_id = ${athlete_id} AND schedule_id = ${schedule_id} AND checked_in = true
       `;
       if (!checkin.length) return NextResponse.json({ error: "Athlete not checked in for this session" }, { status: 400 });
+
+      // Same isolation as the GET side: a goalie-only evaluator's client never
+      // shows them a skater, but nothing stopped a crafted request from
+      // submitting one anyway -- this was the actual write path with no
+      // server-side check at all.
+      const myKind = await resolveEvaluatorKind(category_id, appUserId, session.email);
+      if (myKind === "goalie") {
+        const [ath] = await sql`SELECT position FROM athletes WHERE id = ${athlete_id}`;
+        if ((ath?.position || "").toLowerCase() !== "goalie") {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
     }
 
     // Reject out-of-range/non-numeric scores here -- the admin correction

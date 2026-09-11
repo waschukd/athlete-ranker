@@ -24,6 +24,22 @@ export async function GET(request, { params }) {
     const scheduleId = searchParams.get("schedule_id");
     const sessionNumber = searchParams.get("session");
 
+    // authorizeCategoryAccess only proves org-level evaluator membership --
+    // any evaluator active anywhere in the org passes it for EVERY category
+    // that org runs, not just the ones they're actually assigned to. Without
+    // this, an evaluator signed up only for, say, U9 Group 1 could pass a
+    // U15 group's schedule_id here and get back real evaluator names plus
+    // raw per-category scores for a group and category they have no
+    // assignment to -- exactly the "sees a score not intended for them"
+    // scenario this was built to prevent in the first place. Admin/director
+    // roles already have legitimate cross-category oversight and skip this.
+    if (!MANAGE_ROLES.has(session.role)) {
+      if (!scheduleId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const [me] = await sql`SELECT id FROM users WHERE email = ${session.email}`;
+      const signedUp = me && await sql`SELECT id FROM evaluator_session_signups WHERE user_id = ${me.id} AND schedule_id = ${scheduleId}`;
+      if (!signedUp?.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const category = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
     const scale = parseFloat(category[0]?.scoring_scale || 10);
     // Coaches are a parallel, comparison-only scoring track -- their scores

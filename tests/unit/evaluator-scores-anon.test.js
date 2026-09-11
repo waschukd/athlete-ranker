@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), getAppUserId: vi.fn() }));
 vi.mock("@/lib/authorize", () => ({ authorizeCategoryAccess: vi.fn() }));
+vi.mock("@/lib/categoryEvaluators", () => ({ resolveEvaluatorKind: vi.fn() }));
 
 import sql from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { resolveEvaluatorKind } from "@/lib/categoryEvaluators";
 
 function makeReq() {
   return new Request(
@@ -48,6 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   authorizeCategoryAccess.mockResolvedValue({ authorized: true });
   getSession.mockResolvedValue({ email: "e@test", role: "evaluator" });
+  resolveEvaluatorKind.mockResolvedValue("standard");
 });
 
 describe("GET /api/evaluator/scores — anonymous evaluation privacy", () => {
@@ -137,5 +140,48 @@ describe("GET /api/evaluator/scores — director 'watch this player' flag", () =
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.athletes[0].watched).toBe(false);
+  });
+});
+
+describe("GET /api/evaluator/scores — goalie-only evaluator isolation", () => {
+  // Real gap found in a pre-tryout-weekend security audit: checkin/[scheduleId]
+  // already filtered a goalie evaluator's roster to goalies only, but this
+  // route -- the one that actually populates the scoring screen -- had no
+  // such filter at all, so a goalie-only evaluator got every skater too.
+  it("filters the roster to goalies only when the evaluator's kind is goalie", async () => {
+    resolveEvaluatorKind.mockResolvedValue("goalie");
+    sql.mockResolvedValueOnce([{ id: "u1" }]);
+    sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]);
+    sql.mockResolvedValueOnce([{ evaluators_anonymous: false }]);
+    sql.mockResolvedValueOnce([{ helmet: false }]);
+    sql.mockResolvedValueOnce([
+      { id: "a1", first_name: "Gary", last_name: "Goalie", position: "goalie", scores: [] },
+      { id: "a2", first_name: "Sam", last_name: "Skater", position: "F", scores: [] },
+    ]);
+    sql.mockResolvedValueOnce([]); // watch_players
+
+    const { GET } = await import("@/app/api/evaluator/scores/route");
+    const res = await GET(makeReq());
+    const body = await res.json();
+    expect(body.athletes).toHaveLength(1);
+    expect(body.athletes[0].id).toBe("a1");
+  });
+
+  it("shows the full roster when the evaluator's kind is standard", async () => {
+    resolveEvaluatorKind.mockResolvedValue("standard");
+    sql.mockResolvedValueOnce([{ id: "u1" }]);
+    sql.mockResolvedValueOnce([{ id: "sched1", session_number: 2 }]);
+    sql.mockResolvedValueOnce([{ evaluators_anonymous: false }]);
+    sql.mockResolvedValueOnce([{ helmet: false }]);
+    sql.mockResolvedValueOnce([
+      { id: "a1", first_name: "Gary", last_name: "Goalie", position: "goalie", scores: [] },
+      { id: "a2", first_name: "Sam", last_name: "Skater", position: "F", scores: [] },
+    ]);
+    sql.mockResolvedValueOnce([]); // watch_players
+
+    const { GET } = await import("@/app/api/evaluator/scores/route");
+    const res = await GET(makeReq());
+    const body = await res.json();
+    expect(body.athletes).toHaveLength(2);
   });
 });
