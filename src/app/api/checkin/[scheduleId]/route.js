@@ -96,8 +96,14 @@ export async function GET(request, { params }) {
         VALUES (${scheduleId}, ${sched.category_id}, '["Red","Blue"]', true)
         RETURNING *
       `;
-    } else {
+    } else if (!checkinSession[0].is_open) {
+      // Real waste found in a pre-tryout-weekend load audit: this ran on
+      // EVERY poll of the check-in screen regardless of whether anything
+      // changed. At 8 concurrent check-in screens on a 5s poll that's
+      // ~1.6 writes/sec doing nothing 99% of the time -- only write when
+      // the session is actually closed and needs reopening.
       await sql`UPDATE checkin_sessions SET is_open = true WHERE schedule_id = ${scheduleId}`;
+      checkinSession[0].is_open = true;
     }
 
     const csId = checkinSession[0].id;
