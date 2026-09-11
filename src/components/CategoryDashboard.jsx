@@ -430,6 +430,40 @@ export default function CategoryDashboard({
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: athleteId }),
     });
   };
+  // One-click "email this player" for a late add -- welcome + their ice time,
+  // without re-blasting the whole roster (which the batch buttons above do,
+  // and which is exactly what a director asked NOT to have to do for one kid).
+  // Welcome always fires; the ice-time email only fires if this athlete is
+  // actually placed in a scheduled group already, since group-emails has
+  // nothing to send otherwise.
+  const [emailingPlayerId, setEmailingPlayerId] = useState(null);
+  const emailPlayer = async (a) => {
+    setEmailingPlayerId(a.id);
+    try {
+      const welcomeRes = await fetch(`/api/categories/${catId}/notify-parents`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: a.id }),
+      });
+      const welcomeData = await welcomeRes.json();
+
+      const sessRes = await fetch(`/api/categories/${catId}/athletes/${a.id}/current-session`);
+      const sessData = await sessRes.json();
+      let timeSent = 0;
+      if (sessData.hasSchedule) {
+        const timeRes = await fetch(`/api/categories/${catId}/group-emails`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_number: sessData.session_number, athlete_id: a.id }),
+        });
+        const timeData = await timeRes.json();
+        timeSent = timeData.sent || 0;
+      }
+
+      const parts = [];
+      if (welcomeData.sent) parts.push("welcome");
+      if (timeSent) parts.push("ice time");
+      setAthleteMsg(parts.length ? `Sent ${parts.join(" + ")} to ${a.first_name} ${a.last_name}'s family` : "Nothing to send -- no parent email on file");
+    } catch { setAthleteMsg("Failed to send"); }
+    finally { setEmailingPlayerId(null); setTimeout(() => setAthleteMsg(""), 5000); }
+  };
   const schedule = scheduleData?.schedule || [];
   // Schedule entries enriched with their session type, for the calendar views.
   const calSessions = useMemo(() => schedule.map(e => ({
@@ -1799,6 +1833,14 @@ export default function CategoryDashboard({
                         </td>
                       )}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => emailPlayer(a)}
+                          disabled={!(a.parent_email || a.parent_email_2) || emailingPlayerId === a.id}
+                          title="Email this player's family their welcome + ice time (without re-sending to anyone else)"
+                          className="p-1.5 text-gray-400 hover:text-[#0b5cd6] hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                          <Mail size={14} className={emailingPlayerId === a.id ? "animate-pulse" : ""} />
+                        </button>
                         <button onClick={() => openEditAthlete(a)} title="Edit player" className="p-1.5 text-gray-400 hover:text-[#0b5cd6] hover:bg-gray-100 rounded-lg"><Pencil size={14} /></button>
                         <button onClick={() => setDeleteAthleteTarget(a)} title="Delete player" className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                       </td>
