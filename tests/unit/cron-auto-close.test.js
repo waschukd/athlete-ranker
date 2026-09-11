@@ -68,6 +68,18 @@ describe("the close is attributed honestly", () => {
   });
 });
 
+describe("the route is actually reachable", () => {
+  // Real incident: /api/cron was never added to the middleware's public-path
+  // allowlist, so every invocation -- Vercel's real 15-minute trigger included
+  // -- got a 401 from the cookie gate before the route's own CRON_SECRET check
+  // ever ran. All four jobs on this path had silently never fired, not just
+  // auto_close.
+  it("is in the middleware allowlist -- Vercel's scheduler sends no session cookie", () => {
+    const mw = read("src/middleware.js");
+    expect(mw).toContain("/api/cron");
+  });
+});
+
 describe("it is scheduled often enough to be useful", () => {
   it("is registered as a cron job", () => {
     const c = VERCEL.crons.find(x => x.path.includes("auto_close"));

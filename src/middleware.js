@@ -50,6 +50,13 @@ const PUBLIC_PATHS = [
   "/prototype",
   "/api/payments",
   "/api/webhooks",
+  // Vercel's cron scheduler calls this with no session cookie -- it
+  // self-auths via the CRON_SECRET bearer token checked in the route itself,
+  // same pattern as the HMAC-token routes above. Without this entry the
+  // cookie gate 401'd every cron invocation before the route ever ran its
+  // own auth check, so weekly_report/daily_alert/session_reminder/auto_close
+  // never fired even once.
+  "/api/cron",
   "/_next",
   "/favicon",
 ];
