@@ -36,6 +36,11 @@ const toIncrement = (v) => Math.round(v / INCREMENT) * INCREMENT;
 async function teardown() {
   const prior = await sql`SELECT id FROM organizations WHERE name = ${ORG_NAME}`;
   for (const p of prior) {
+    // Real gap: Dan's own pre-scored demo athletes tripped the same
+    // isFirstScore hours-logging path a real session does, leaving a real,
+    // approved evaluator_hours row on his own account with nothing left to
+    // point it at once the org below is gone.
+    await sql`DELETE FROM evaluator_hours WHERE organization_id = ${p.id}`;
     const cats = await sql`SELECT id FROM age_categories WHERE organization_id = ${p.id}`;
     for (const c of cats) {
       await sql`DELETE FROM watch_players WHERE age_category_id = ${c.id}`.catch(() => {});
