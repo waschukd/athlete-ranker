@@ -162,11 +162,25 @@ export async function offerOpenSession({ catId, scheduleRow }) {
     const sps = await sql`SELECT service_provider_id FROM sp_association_links WHERE association_id = ${org_id} AND status = 'active'`;
     sps.forEach(s => orgIds.push(s.service_provider_id));
 
+    // Evaluators are defined by the membership's own is_evaluator flag, never by
+    // users.role: role is the account's primary role and an SP admin who also
+    // evaluates is still 'service_provider_admin' there.
+    //
+    // Coaches (category_evaluators.kind = 'coach') are a comparison-only scoring
+    // track, not evaluators, and must not be recruited to fill an evaluator
+    // spot -- but only for the org where they coach. A real CT evaluator who
+    // also coaches for EFHA is still a CT evaluator, and a blanket "any coach
+    // anywhere" exclusion silently dropped her from CT's own blasts.
     let pool = await sql`
       SELECT DISTINCT u.id, u.email, u.name FROM evaluator_memberships em
       JOIN users u ON u.id = em.user_id
       WHERE em.organization_id = ANY(${orgIds}) AND em.status = 'active'
-        AND u.role IN ('association_evaluator', 'service_provider_evaluator')
+        AND em.is_evaluator = true
+        AND NOT EXISTS (
+          SELECT 1 FROM category_evaluators ce
+          JOIN age_categories cac ON cac.id = ce.age_category_id
+          WHERE ce.user_id = em.user_id AND ce.kind = 'coach' AND cac.organization_id = em.organization_id
+        )
         AND u.id NOT IN (
           SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'
         )

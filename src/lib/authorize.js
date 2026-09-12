@@ -301,9 +301,16 @@ export async function canManageSessionAssignments(session, orgId) {
 /**
  * Get all organization IDs a user has access to (for filtering lists).
  */
-export async function getAccessibleOrgIds(session) {
+// The organizations a user actually BELONGS to -- contact, admin role, or
+// membership -- with no expansion to a service provider's linked associations.
+//
+// This is the set that defines "my evaluators". getAccessibleOrgIds below adds
+// the linked associations, which is right for viewing their schedules but wrong
+// for addressing a message: a CT admin's "all evaluators" was resolving against
+// every linked association too, and only held to CT's own pool because those
+// associations happen to have no non-coach evaluators today.
+export async function getOwnOrgIds(session) {
   if (!session?.email) return [];
-
   if (session.role === "super_admin") return null; // null = all orgs
 
   const users = await sql`SELECT id FROM users WHERE email = ${session.email}`;
@@ -311,18 +318,20 @@ export async function getAccessibleOrgIds(session) {
   const userId = users[0].id;
 
   const orgIds = new Set();
-
-  // Orgs where user is contact
   const owned = await sql`SELECT id FROM organizations WHERE contact_email = ${session.email}`;
   owned.forEach(o => orgIds.add(o.id));
-
-  // Orgs via user_organization_roles
   const roles = await sql`SELECT organization_id FROM user_organization_roles WHERE user_id = ${userId}`;
   roles.forEach(r => orgIds.add(r.organization_id));
-
-  // Orgs via evaluator_memberships
   const memberships = await sql`SELECT organization_id FROM evaluator_memberships WHERE user_id = ${userId} AND status = 'active'`;
   memberships.forEach(m => orgIds.add(m.organization_id));
+  return [...orgIds];
+}
+
+export async function getAccessibleOrgIds(session) {
+  const own = await getOwnOrgIds(session);
+  if (own === null) return null; // super admin
+  if (!own.length) return [];
+  const orgIds = new Set(own);
 
   // For either SP type, include linked client associations.
   if (session.role === "service_provider_admin" || session.role === "goalie_service_provider_admin") {

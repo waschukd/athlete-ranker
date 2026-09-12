@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getAccessibleOrgIds } from "@/lib/authorize";
+import { getOwnOrgIds } from "@/lib/authorize";
 import { appUserId, createNotification } from "@/lib/notify";
 import { sendEmail, emailWrapper, esc } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
@@ -69,25 +69,40 @@ export async function POST(request) {
     let orgId = null;
 
     if (ADMIN_ROLES.has(session.role)) {
-      const accessible = await getAccessibleOrgIds(session);
-      const orgFilter = accessible === null ? null : accessible;
+      // "My evaluators" are the ones in the orgs this admin belongs to -- NOT
+      // every org they can see. getAccessibleOrgIds adds a service provider's
+      // linked associations, so a CT admin's "message all evaluators" was also
+      // addressing every association's evaluators. It only ever reached CT's
+      // own pool because those associations hold no non-coach evaluators today.
+      const own = await getOwnOrgIds(session);
+      const orgFilter = own === null ? null : own;
       orgId = orgFilter && orgFilter.length ? orgFilter[0] : null;
       // The evaluator pool is defined by the membership's own is_evaluator flag
       // -- NOT users.role, which is a person's primary account role (e.g. an SP
       // admin who also evaluates their own clients is still 'service_provider_admin'
       // at the account level, but is_evaluator=true on the membership is what
       // actually means "acts as an evaluator"). Coaches (category_evaluators.kind
-      // ='coach') are a parallel, comparison-only scoring track -- never real
-      // evaluators, so excluded here regardless of their membership flags.
+      // ='coach') are a parallel, comparison-only scoring track, not evaluators,
+      // and are excluded -- but only for the org where they coach. Someone who
+      // coaches for one association and genuinely evaluates for CT is still a
+      // CT evaluator and must still get CT's messages.
       const pool = orgFilter === null
         ? await sql`
             SELECT DISTINCT em.user_id FROM evaluator_memberships em
             WHERE em.status='active' AND em.is_evaluator = true
-              AND NOT EXISTS (SELECT 1 FROM category_evaluators ce WHERE ce.user_id = em.user_id AND ce.kind = 'coach')`
+              AND NOT EXISTS (
+          SELECT 1 FROM category_evaluators ce
+          JOIN age_categories cac ON cac.id = ce.age_category_id
+          WHERE ce.user_id = em.user_id AND ce.kind = 'coach' AND cac.organization_id = em.organization_id
+        )`
         : await sql`
             SELECT DISTINCT em.user_id FROM evaluator_memberships em
             WHERE em.organization_id = ANY(${orgFilter}) AND em.status='active' AND em.is_evaluator = true
-              AND NOT EXISTS (SELECT 1 FROM category_evaluators ce WHERE ce.user_id = em.user_id AND ce.kind = 'coach')`;
+              AND NOT EXISTS (
+          SELECT 1 FROM category_evaluators ce
+          JOIN age_categories cac ON cac.id = ce.age_category_id
+          WHERE ce.user_id = em.user_id AND ce.kind = 'coach' AND cac.organization_id = em.organization_id
+        )`;
       const allowed = new Set(pool.map(p => p.user_id));
       // The tester pool is a separate group, keyed by the is_tester flag (not role).
       const testerPool = orgFilter === null
