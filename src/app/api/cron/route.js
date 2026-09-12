@@ -160,12 +160,16 @@ export async function GET(request) {
     //
     // Recruiting is a separate email (evaluator_spot_fill) and already goes to
     // the evaluator pool, which is where a request to fill a session belongs.
+    //
+    // Goalie providers are excluded too: they are booked per goalie session and
+    // do not staff an evaluator roster, so an evaluator-shortfall digest is not
+    // theirs to act on either.
     const admins = await sql`
       SELECT DISTINCT u.email, u.name, o.id as organization_id, o.name as org_name, o.type
       FROM users u
       JOIN organizations o ON o.contact_email = u.email
       WHERE u.email IS NOT NULL
-        AND o.type IN ('service_provider', 'goalie_service_provider')
+        AND o.type = 'service_provider'
     `;
 
     let sent = 0;

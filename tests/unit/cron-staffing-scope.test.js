@@ -63,19 +63,18 @@ describe("testing sessions are not counted as understaffed", () => {
 describe("staffing emails go to service providers only", () => {
   const ADMINS = CRON.slice(CRON.indexOf("const admins = await sql`"), CRON.indexOf("let sent = 0"));
 
-  it("excludes association admins", () => {
+  it("goes to service providers and nobody else", () => {
     // Confederation's registrar was emailed "these sessions need evaluators"
     // about sessions she has no evaluator pool for and no way to staff.
-    expect(ADMINS).toMatch(/o\.type IN \('service_provider', 'goalie_service_provider'\)/);
+    expect(ADMINS).toMatch(/o\.type = 'service_provider'/);
   });
 
-  it("still reaches both kinds of provider", () => {
-    expect(ADMINS).toMatch(/'service_provider'/);
-    expect(ADMINS).toMatch(/'goalie_service_provider'/);
+  it("excludes goalie providers, who staff no evaluator roster", () => {
+    expect(ADMINS).not.toMatch(/goalie_service_provider/);
   });
 
   it("does not select every org's contact and filter later", () => {
     // The filter has to be in the query -- a later filter is what this was.
-    expect(ADMINS).toMatch(/WHERE[\s\S]*o\.type IN/);
+    expect(ADMINS).toMatch(/WHERE[\s\S]*o\.type = 'service_provider'/);
   });
 });
