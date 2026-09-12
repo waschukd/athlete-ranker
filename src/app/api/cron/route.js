@@ -8,6 +8,15 @@ import { getCategoryDirectors } from "@/lib/categoryRecipients";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
 
+// Scoped to ONE organization. orgId was accepted and then never referenced, so
+// every staffing email carried every organization's sessions: nine admins each
+// received all 121 sessions across seven associations every morning at 07:00,
+// with category names, dates and the evaluators signed up to them. A
+// Confederation admin asking why she was being told to fill Competitive
+// Thread's sessions is what surfaced it.
+//
+// The service-provider reports route has always had this filter; only this copy
+// was missing it.
 async function getSessionStaffing(orgId, daysAhead) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + daysAhead);
@@ -36,7 +45,13 @@ async function getSessionStaffing(orgId, daysAhead) {
     LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
     LEFT JOIN evaluator_session_signups ess ON ess.schedule_id = es.id
     LEFT JOIN users u ON u.id = ess.user_id
-    WHERE ac.organization_id = ${orgId}
+    -- A service provider staffs the associations it is linked to, so its report
+    -- must cover them. Competitive Thread owns one category and staffs eight
+    -- associations; scoping to ac.organization_id alone sent it an empty alert
+    -- while the sessions it is responsible for went unmentioned.
+    LEFT JOIN sp_association_links sal
+      ON sal.association_id = ac.organization_id AND sal.service_provider_id = ${orgId}
+    WHERE (sal.service_provider_id = ${orgId} OR ac.organization_id = ${orgId})
       AND COALESCE(cs.session_type, 'evaluation') != 'testing'
       AND es.scheduled_date >= CURRENT_DATE
       AND es.scheduled_date <= ${cutoff.toISOString().split("T")[0]}
@@ -135,12 +150,22 @@ export async function GET(request) {
   }
 
   try {
-    // Get all SP and association admins
+    // SERVICE PROVIDERS ONLY. Staffing is the provider's job -- they hold the
+    // evaluator pool and they are the only ones who can fill a gap.
+    //
+    // This used to include association admins, so Confederation's registrar was
+    // emailed "these sessions need evaluators" about sessions she has no
+    // evaluators for and no way to staff. She cannot act on it; it is noise at
+    // best and reads as a demand at worst.
+    //
+    // Recruiting is a separate email (evaluator_spot_fill) and already goes to
+    // the evaluator pool, which is where a request to fill a session belongs.
     const admins = await sql`
       SELECT DISTINCT u.email, u.name, o.id as organization_id, o.name as org_name, o.type
       FROM users u
       JOIN organizations o ON o.contact_email = u.email
       WHERE u.email IS NOT NULL
+        AND o.type IN ('service_provider', 'goalie_service_provider')
     `;
 
     let sent = 0;
