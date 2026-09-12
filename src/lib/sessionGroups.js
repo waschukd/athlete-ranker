@@ -176,14 +176,25 @@ export async function isGroupFrozen(catId, sessionNumber, groupNumber) {
 // anywhere in this app, always assigned by hand. Skips a session entirely if
 // it's locked (director has confirmed & sent it to parents) or if every one
 // of its groups is already frozen (played) -- nothing left to place into.
-export async function autoPlaceInExistingGroups(catId, athleteId, position) {
+//
+// skipSessions: sessions the caller has taken explicit responsibility for and
+// auto-place must NOT touch. A roster CSV with a "Session 1 Group #" column
+// is stating every player's session-1 placement -- and a BLANK in that column
+// means "not in session 1", not "put me somewhere". Without this, BAHA's U15
+// upload (BC players in groups 1 and 2, NBC players blank because they only
+// start in session 2) had every blank kid dropped into session 1 anyway,
+// and 87 of 88 ended up in one group. There was no way to say "not this
+// session" through the upload at all.
+export async function autoPlaceInExistingGroups(catId, athleteId, position, { skipSessions = [] } = {}) {
   if ((position || "").toLowerCase() === "goalie") return { placed: [] };
 
+  const skip = new Set((skipSessions || []).map(Number));
   const sessions = await sql`
     SELECT DISTINCT session_number FROM session_groups WHERE age_category_id = ${catId} ORDER BY session_number`;
   const placed = [];
 
   for (const { session_number } of sessions) {
+    if (skip.has(Number(session_number))) continue;
     const [locked] = await sql`SELECT groups_locked_at FROM category_sessions WHERE age_category_id = ${catId} AND session_number = ${session_number}`;
     if (locked?.groups_locked_at) continue;
 

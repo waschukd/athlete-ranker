@@ -61,6 +61,28 @@ export async function POST(request, { params }) {
       let skipped = 0;
       const errors = [];
 
+      // Sessions this file takes explicit responsibility for: any session that
+      // at least one row names a group in. Blank cells never reach us, so this
+      // batch-level view is the only way to know a column existed.
+      //
+      // Opt-in per organization (organizations.blank_group_excludes). For an
+      // org with the flag, a blank in a "Session N Group #" column means "not
+      // in session N" and auto-place leaves them out of it. Everyone else keeps
+      // the long-standing behaviour where a blank still gets auto-placed --
+      // changing that under associations mid-season is not this fix's call.
+      let fileSessions = [];
+      try {
+        const [orgFlag] = await sql`
+          SELECT COALESCE(o.blank_group_excludes, false) AS on
+          FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}`;
+        if (orgFlag?.on) {
+          fileSessions = [...new Set(
+            body.athletes.flatMap(a => (Array.isArray(a.session_groups) ? a.session_groups : [])
+              .map(sg => parseInt(sg.session_number)).filter(Boolean))
+          )];
+        }
+      } catch { /* column not migrated: behave as before */ }
+
       for (const athlete of body.athletes) {
         try {
           const first_name = athlete.first_name || athlete["First Name"] || athlete["FirstName"] || "";
@@ -208,8 +230,14 @@ export async function POST(request, { params }) {
           // column for it, or didn't cover every session) gets the same fallback
           // as quick-add below -- drop into that session's smallest open group
           // rather than leaving the player invisible on Manage Groups.
+          //
+          // EXCEPT any session the file itself has a column for. Blank cells
+          // are stripped client-side, so per row there is no difference between
+          // "no column" and "left blank" -- but across the batch there is: if
+          // any row names a group for session N, the file has a session-N
+          // column, and a blank there is a deliberate "not in session N".
           if (!isTournament && athleteId) {
-            try { await autoPlaceInExistingGroups(catId, athleteId, position); } catch (e) { console.error("import: auto-place failed for athlete", athleteId, e?.message); }
+            try { await autoPlaceInExistingGroups(catId, athleteId, position, { skipSessions: fileSessions }); } catch (e) { console.error("import: auto-place failed for athlete", athleteId, e?.message); }
           }
         } catch (e) {
           errors.push(`${athlete.first_name || "?"} ${athlete.last_name || "?"}: ${e.message}`);
