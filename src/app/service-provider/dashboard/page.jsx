@@ -12,6 +12,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { localToday, sessionStaffing } from "@/lib/spDashboardUtils";
 import { isSessionPast } from "@/lib/sessionTiming";
 import OverviewTab from "@/components/service-provider/OverviewTab";
+import ScoreSlipsPanel from "@/components/service-provider/ScoreSlipsPanel";
 import AssociationsTab from "@/components/service-provider/AssociationsTab";
 import ScheduleTab from "@/components/service-provider/ScheduleTab";
 import EvaluatorsTab from "@/components/service-provider/EvaluatorsTab";
@@ -178,6 +179,8 @@ function SPDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Slipped-finger scores needing approval -- above every tab, only when there are any. */}
+        <ScoreSlipsPanel spUrl={spUrl} />
 
         {activeTab === "testers" && <TestersTab spUrl={spUrl} spName={sp?.name} openSpots={testerOpenSpots} sessionsNeeding={testerSessionsNeeding} />}
         {activeTab === "payroll" && <PayrollTab spUrl={spUrl} />}
