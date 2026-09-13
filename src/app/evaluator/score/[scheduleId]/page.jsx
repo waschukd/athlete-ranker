@@ -697,6 +697,27 @@ function ScoringInterface() {
   // changes (card view moves between players by selection, not by cell blur).
   useEffect(() => { if (rankMode) refreshRank(); }, [rankMode, selected?.id, refreshRank]);
 
+  // Whole-group drift. The per-player nudge above compares each kid to the
+  // range the session is ESTABLISHING -- which follows the panel, so a panel
+  // that scores an entire group low establishes a low range and nothing ever
+  // fires. EFHA U11 session 3: Group 2 came in at 3.8 against a 5-7 band,
+  // all four evaluators, and the same kids had been 5.1 the day before. This
+  // compares the evaluator's own running average to the group's SUGGESTED
+  // band, which is fixed, and speaks up once they are a full point outside
+  // it with enough kids scored for that to mean something.
+  const GROUP_DRIFT_MIN_KIDS = 6;
+  const groupDrift = useMemo(() => {
+    const band = guidanceData?.applicable && guidanceData.format === "standard" ? guidanceData.suggested_range : null;
+    if (!band || readOnly) return null;
+    const avgs = athletes.map(a => myAverage(a.id, scores)).filter(v => v != null);
+    if (avgs.length < GROUP_DRIFT_MIN_KIDS) return null;
+    const avg = avgs.reduce((x, y) => x + y, 0) / avgs.length;
+    if (avg < band.low - 1) return { dir: "low", avg, band, n: avgs.length };
+    if (avg > band.high + 1) return { dir: "high", avg, band, n: avgs.length };
+    return null;
+  }, [guidanceData, athletes, scores, myAverage, readOnly]);
+
+
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
     .filter(a => isPos(a.position, posFilter))
     .filter(a => !hideCompleted || a.id === selected?.id || getStatus(a.id, scores, totalCats) !== "complete")
@@ -1664,6 +1685,21 @@ function ScoringInterface() {
       )}
       {/* Blocked (permanently-failing) saves — shown regardless of connectivity
           since retrying won't fix these on its own. */}
+      {groupDrift && (
+        <div className="mx-3 mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0 mt-1" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800">
+              Your average for this group is {groupDrift.avg.toFixed(1)} across {groupDrift.n} players. This group's range is {groupDrift.band.low}–{groupDrift.band.high}.
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {groupDrift.dir === "low"
+                ? "That's a full point under the band for the whole group, not one player. Check the group isn't being scored low as a whole -- a group that drops together drops in the overall rankings together."
+                : "That's a full point over the band for the whole group. Check the group isn't being scored high as a whole."}
+            </p>
+          </div>
+        </div>
+      )}
       {Object.keys(blocked).length > 0 && (
         <div className="mx-3 mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
           <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1" />

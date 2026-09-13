@@ -74,3 +74,30 @@ describe("it is a view, off by default", () => {
     expect(update).not.toMatch(/rankMode|rankSnap/);
   });
 });
+
+describe("whole-group drift nudge", () => {
+  // EFHA U11 session 3: a new panel scored Group 2 at 3.8 against a 5-7 band,
+  // all four evaluators, and nothing on screen said so. The per-player nudge
+  // compares to the range the session is ESTABLISHING, which follows the
+  // panel. This one compares the evaluator's own running average to the
+  // group's fixed suggested band.
+  it("compares against the suggested band, never the established range", () => {
+    const block = PAGE.slice(PAGE.indexOf("const groupDrift = useMemo"), PAGE.indexOf("const groupDrift = useMemo") + 900);
+    expect(block).toMatch(/guidanceData\.suggested_range/);
+    expect(block).not.toMatch(/established_range/);
+  });
+
+  it("fires a full point outside the band, in either direction", () => {
+    const block = PAGE.slice(PAGE.indexOf("const groupDrift = useMemo"), PAGE.indexOf("const groupDrift = useMemo") + 900);
+    expect(block).toMatch(/avg < band\.low - 1/);
+    expect(block).toMatch(/avg > band\.high \+ 1/);
+  });
+
+  it("waits for enough players scored that the average means something", () => {
+    expect(PAGE).toMatch(/const GROUP_DRIFT_MIN_KIDS = 6;/);
+  });
+
+  it("says it is about the whole group, not one player", () => {
+    expect(PAGE).toMatch(/for the whole group, not one player/);
+  });
+});
