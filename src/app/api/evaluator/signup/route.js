@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { emailStrike1, emailStrike2Suspended, sendEmail, esc } from "@/lib/email";
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { generateICS } from "@/lib/calendar";
@@ -295,7 +296,7 @@ export async function POST(request) {
         const t = (v) => String(v || "").slice(0, 5);
         return NextResponse.json({
           error: "Testing comes first",
-          message: `You're a tester, and there's a testing session at that time (${t(obligation.start_time)}–${t(obligation.end_time)}${obligation.location ? ` @ ${obligation.location}` : ""}). Testing obligations take priority, so you can't sign up for this evaluation — please pick a slot outside testing hours.`,
+          message: `You're a tester, and there's a testing session at that time (${t(obligation.start_time)}–${t(obligation.end_time)}${obligation.location ? ` @ ${arenaLabel(obligation.location)}` : ""}). Testing obligations take priority, so you can't sign up for this evaluation — please pick a slot outside testing hours.`,
         }, { status: 409 });
       }
     }
@@ -348,7 +349,7 @@ export async function POST(request) {
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;width:100px;">Category</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(catInfo[0]?.category_name) || "Evaluation"}</td></tr>
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${sessionDate}</td></tr>
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${timeStr}</td></tr>
-                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(info.location) || "TBD"}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(arenaLabel(info.location)) || "TBD"}</td></tr>
                   <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${esc(info.session_number)} G${esc(info.group_number) || "1"}</td></tr>
                 </table>
               </div>

@@ -12,6 +12,7 @@ import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
 import { useTheme } from "@/lib/useTheme";
+import { arenaLabel } from "@/lib/arenas";
 import ThemeToggle from "@/components/ThemeToggle";
 import ReportCardCard from "@/components/evaluator-scoring/ReportCardCard";
 
@@ -72,7 +73,7 @@ function generateICal(session) {
   const date = session.scheduled_date?.toString().split("T")[0].replace(/-/g, "");
   const startTime = session.start_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
   const endTime = session.end_time?.toString().replace(/:/g, "").substring(0, 4) + "00";
-  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Sideline Star//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation - ${session.org_name} ${session.category_name}\nLOCATION:${session.location || "TBD"}\nDESCRIPTION:Session ${session.session_number}${session.group_number ? ` Group ${session.group_number}` : ""}\nEND:VEVENT\nEND:VCALENDAR`;
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Sideline Star//EN\nBEGIN:VEVENT\nDTSTART:${date}T${startTime}\nDTEND:${date}T${endTime}\nSUMMARY:Evaluation - ${session.org_name} ${session.category_name}\nLOCATION:${session.location ? arenaLabel(session.location) : "TBD"}\nDESCRIPTION:Session ${session.session_number}${session.group_number ? ` Group ${session.group_number}` : ""}\nEND:VEVENT\nEND:VCALENDAR`;
 }
 
 function InviteModal({ session, onClose }) {
@@ -98,7 +99,7 @@ function InviteModal({ session, onClose }) {
             scheduled_date: session.scheduled_date,
             start_time: session.start_time,
             end_time: session.end_time,
-            location: session.location,
+            location: arenaLabel(session.location),
           }
         }),
       });
@@ -285,7 +286,7 @@ function SessionCard({ session, onSignup, onCancel, onCancelWithReason, cancelPe
                 <span className="flex items-center gap-1.5"><Clock size={13} />{formatTime(session.start_time)}{session.end_time ? ` — ${formatTime(session.end_time)}` : ""}</span>
               )}
               {session.location && (
-                <span className="flex items-center gap-1.5"><MapPin size={13} />{session.location}</span>
+                <span className="flex items-center gap-1.5"><MapPin size={13} />{arenaLabel(session.location)}</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
@@ -1335,7 +1336,7 @@ function EvaluatorDashboard() {
                           <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                             {!isToday && <span>{formatDate(s.scheduled_date)}</span>}
                             {s.start_time && <span>{formatTime(s.start_time)}{s.end_time ? ` — ${formatTime(s.end_time)}` : ""}</span>}
-                            {s.location && <span className="truncate">{s.location}</span>}
+                            {s.location && <span className="truncate">{arenaLabel(s.location)}</span>}
                           </div>
                         </div>
                         <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0b5cd6] text-white rounded-lg text-xs font-bold flex-shrink-0 group-hover:bg-[#0a4fc0] transition-colors">

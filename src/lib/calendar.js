@@ -1,3 +1,4 @@
+import { arenaLabel } from "@/lib/arenas";
 /**
  * Generate .ics calendar file content for evaluation sessions.
  * Works with Google Calendar, Outlook, Apple Calendar — any calendar app.
@@ -114,7 +115,7 @@ export function generateICS(sessions) {
         `DTSTART:${formatDate(s.scheduled_date, s.start_time)}`,
         `DTEND:${formatDate(s.scheduled_date, s.end_time || s.start_time)}`,
         `SUMMARY:${escapeText(summary)}`,
-        s.location ? `LOCATION:${escapeText(s.location)}` : "",
+        s.location ? `LOCATION:${escapeText(arenaLabel(s.location))}` : "",
         `DESCRIPTION:${description}`,
         `STATUS:CONFIRMED`,
         "END:VEVENT",

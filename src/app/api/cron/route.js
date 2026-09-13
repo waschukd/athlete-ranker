@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 import { getCategoryDirectors } from "@/lib/categoryRecipients";
@@ -257,7 +258,7 @@ export async function GET(request) {
             <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(time)}</td>
             <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.org_name)} · ${esc(s.category_name)}</td>
             <td style="padding:10px 0;font-size:13px;color:#6b7280;">S${esc(s.session_number)} G${esc(s.group_number)}</td>
-            <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(s.location) || "TBD"}</td>
+            <td style="padding:10px 0;font-size:13px;color:#6b7280;">${esc(arenaLabel(s.location)) || "TBD"}</td>
           </tr>`;
         }).join("");
 
@@ -328,7 +329,7 @@ export async function GET(request) {
               <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;width:120px;">Category</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(session.category_name)}</td></tr>
               <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(dateStr)}</td></tr>
               <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(timeStr)}</td></tr>
-              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(session.location) || "TBD"}</td></tr>
+              <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Location</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">${esc(arenaLabel(session.location)) || "TBD"}</td></tr>
               <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#111827;">S${esc(session.session_number)} G${esc(session.group_number) || "1"}</td></tr>
             </table>
           </div>

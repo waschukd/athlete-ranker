@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { sendEmail, emailWrapper, parentEmails, esc, fmtBlastDate, fmtBlastTime } from "@/lib/email";
 import { getCategoryDirectors, getOrgRoleUsers } from "@/lib/categoryRecipients";
 import { contiguousBlock } from "@/lib/sessionBlocks";
@@ -108,7 +109,7 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
           ${detailRow("Group", r.group_number != null ? `Group ${r.group_number}` : null)}
           ${detailRow("Date", fmtDate(r.scheduled_date))}
           ${detailRow("Time", r.start_time ? `${r.start_time}${r.end_time ? `–${r.end_time}` : ""}` : null)}
-          ${detailRow("Location", r.location)}
+          ${detailRow("Location", arenaLabel(r.location))}
         </table>
       </div>` : ""}
       ${changeType === "cancelled"
@@ -207,7 +208,7 @@ export async function offerOpenSession({ catId, scheduleRow }) {
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastDate(r.scheduled_date)}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${fmtBlastTime(r.start_time)}${r.end_time ? `–${fmtBlastTime(r.end_time)}` : ""}` : "TBD"}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(arenaLabel(r.location)) : "TBD"}</td></tr>
         </table>
       </div>
       <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Sign up →</a></div>
@@ -275,12 +276,12 @@ export async function notifyConnectingEvaluators({ catId, scheduleRow }) {
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
     const html = emailWrapper(`
       <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">A session was added next to one of yours</h2>
-      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">You're already signed up at <strong style="color:#101113;">${esc(r.location)}</strong> on ${fmtBlastDate(r.scheduled_date)} -- <strong style="color:#101113;">${esc(org_name)}</strong> just added a ${esc(category_name)} session that connects right to it.</p>
+      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">You're already signed up at <strong style="color:#101113;">${esc(arenaLabel(r.location))}</strong> on ${fmtBlastDate(r.scheduled_date)} -- <strong style="color:#101113;">${esc(org_name)}</strong> just added a ${esc(category_name)} session that connects right to it.</p>
       <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastDate(r.scheduled_date)}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastTime(r.start_time)}${r.end_time ? `–${fmtBlastTime(r.end_time)}` : ""}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${esc(r.location)}</td></tr>
+          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${esc(arenaLabel(r.location))}</td></tr>
           <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Spots open</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${open}</td></tr>
         </table>
       </div>
@@ -387,11 +388,11 @@ export async function warnScheduleConflicts({ scheduleRow }) {
         <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;">A session time change means you're signed up for two overlapping sessions on <strong style="color:#101113;">${fmtBlastDate(r.scheduled_date)}</strong>. Please cancel one from your dashboard.</p>
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 12px;">
           <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#5b606b;text-transform:uppercase;letter-spacing:0.4px;">${esc(org_name)} · ${esc(category_name)}</p>
-          <p style="margin:0;font-size:13px;color:#101113;">S${esc(r.session_number)}G${esc(r.group_number)} · ${fmtBlastTime(r.start_time)}–${fmtBlastTime(r.end_time)} @ ${esc(r.location || "TBD")}</p>
+          <p style="margin:0;font-size:13px;color:#101113;">S${esc(r.session_number)}G${esc(r.group_number)} · ${fmtBlastTime(r.start_time)}–${fmtBlastTime(r.end_time)} @ ${esc(r.location ? arenaLabel(r.location) : "TBD")}</p>
         </div>
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
           <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#5b606b;text-transform:uppercase;letter-spacing:0.4px;">${esc(c.other_org)} · ${esc(c.other_category)}</p>
-          <p style="margin:0;font-size:13px;color:#101113;">S${esc(c.other_session)}G${esc(c.other_group)} · ${fmtBlastTime(c.other_start)}–${fmtBlastTime(c.other_end)} @ ${esc(c.other_location || "TBD")}</p>
+          <p style="margin:0;font-size:13px;color:#101113;">S${esc(c.other_session)}G${esc(c.other_group)} · ${fmtBlastTime(c.other_start)}–${fmtBlastTime(c.other_end)} @ ${esc(c.other_location ? arenaLabel(c.other_location) : "TBD")}</p>
         </div>
       `);
       await sendEmail(c.email, `You're double-booked on ${fmtBlastDate(r.scheduled_date)}`, html);
@@ -401,10 +402,10 @@ export async function warnScheduleConflicts({ scheduleRow }) {
           <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#d23b3b;">Double-booked</h2>
           <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${esc(c.name)}</strong> (${esc(c.email)}) is now signed up for two overlapping sessions on ${fmtBlastDate(r.scheduled_date)}, caused by a schedule edit. They've been emailed to drop one.</p>
           <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 12px;">
-            <p style="margin:0;font-size:13px;color:#101113;">${esc(org_name)} ${esc(category_name)} S${esc(r.session_number)}G${esc(r.group_number)} · ${fmtBlastTime(r.start_time)}–${fmtBlastTime(r.end_time)} @ ${esc(r.location || "TBD")}</p>
+            <p style="margin:0;font-size:13px;color:#101113;">${esc(org_name)} ${esc(category_name)} S${esc(r.session_number)}G${esc(r.group_number)} · ${fmtBlastTime(r.start_time)}–${fmtBlastTime(r.end_time)} @ ${esc(r.location ? arenaLabel(r.location) : "TBD")}</p>
           </div>
           <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 4px;">
-            <p style="margin:0;font-size:13px;color:#101113;">${esc(c.other_org)} ${esc(c.other_category)} S${esc(c.other_session)}G${esc(c.other_group)} · ${fmtBlastTime(c.other_start)}–${fmtBlastTime(c.other_end)} @ ${esc(c.other_location || "TBD")}</p>
+            <p style="margin:0;font-size:13px;color:#101113;">${esc(c.other_org)} ${esc(c.other_category)} S${esc(c.other_session)}G${esc(c.other_group)} · ${fmtBlastTime(c.other_start)}–${fmtBlastTime(c.other_end)} @ ${esc(c.other_location ? arenaLabel(c.other_location) : "TBD")}</p>
           </div>
         `));
       }
@@ -514,7 +515,7 @@ export async function notifyParentsIfImminent({ catId, scheduleRow, changeType }
         <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">${cancelled ? "Was" : "New time"}</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtDate(r.scheduled_date)}${r.start_time ? ` · ${r.start_time}` : ""}</td></tr>
-            ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(r.location) : "TBD"}</td></tr>`}
+            ${cancelled ? "" : `<tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(arenaLabel(r.location)) : "TBD"}</td></tr>`}
           </table>
         </div>
         <p style="font-size:13px;color:#5b606b;margin:0;">${cancelled ? "You'll be notified if it is rescheduled." : "Please plan to arrive at least 30 minutes early for check-in."}</p>

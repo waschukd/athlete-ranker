@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { getSession, resolveSpContext } from "@/lib/auth";
 import { sendEmail, esc, sleep, fmtBlastDate, fmtBlastTime } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
@@ -170,7 +171,7 @@ export async function POST(request) {
                 <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${esc(sched.org_name)} · ${esc(sched.category_name)}</p>
                 <p style="margin:0 0 4px;color:#555;">Testing · Session ${esc(sched.session_number)}${sched.group_number ? ` · Group ${esc(sched.group_number)}` : ""}</p>
                 <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
-                <p style="margin:0;color:#555;">${esc(sched.location) || ""}</p>
+                <p style="margin:0;color:#555;">${esc(arenaLabel(sched.location)) || ""}</p>
               </div>
               <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
               <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
@@ -246,7 +247,7 @@ export async function POST(request) {
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
           <div style="font-size:14px;font-weight:700;color:#111;">${esc(fmtBlastDate(s.scheduled_date))} · ${esc(fmtBlastTime(s.start_time))}</div>
           <div style="font-size:13px;color:#555;margin-top:3px;">${esc(s.org_name)} · ${esc(s.category_name)} · Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""}</div>
-          <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
+          <div style="font-size:13px;color:#555;">${esc(arenaLabel(s.location)) || ""}</div>
           <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still needed</div>
         </div>`;
     }).join("");

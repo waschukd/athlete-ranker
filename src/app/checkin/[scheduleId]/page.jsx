@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
+import { arenaLabel } from "@/lib/arenas";
 import { useParams } from "next/navigation";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Check, Search, Users, Clock, MapPin, RefreshCw, AlertCircle, X } from "lucide-react";
@@ -236,7 +237,7 @@ function CheckinPageInner() {
             {schedule.location && (
               <span className="flex items-center gap-1">
                 <MapPin size={11} className="text-gray-400" />
-                {schedule.location}
+                {arenaLabel(schedule.location)}
               </span>
             )}
             {schedule.group_number && schedule.group_number > 1 && (

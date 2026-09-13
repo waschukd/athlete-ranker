@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { sendEmail, groupAssignmentHtml, parentEmails, sleep } from "@/lib/email";
@@ -88,7 +89,7 @@ export async function GET(request, { params }) {
         group_number: g.group_number,
         date: fmtDate(g.scheduled_date),
         time: g.start_time ? `${fmtTime(g.start_time)}${g.end_time ? ` – ${fmtTime(g.end_time)}` : ""}` : "",
-        location: g.location || "",
+        location: arenaLabel(g.location) || "",
         scheduled: !!(g.scheduled_date && g.start_time),
         recipients: members.reduce((n, m) => n + parentEmails(m).length, 0),
         missing: members.filter(m => parentEmails(m).length === 0).map(m => `${m.first_name} ${m.last_name}`),
@@ -183,7 +184,7 @@ export async function POST(request, { params }) {
         const calendarUrl = googleCalendarUrl({
           scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
           title: `${plan.category_name} Evaluation`,
-          location: g.location || "",
+          location: arenaLabel(g.location) || "",
           details: `${plan.org_name}\nPlease arrive at least 30 minutes early for check-in.`,
         });
         const icsUrl = g.schedule_id
@@ -192,7 +193,7 @@ export async function POST(request, { params }) {
         // The group picks WHICH date/time this parent gets; it never reaches them.
         const html = groupAssignmentHtml({
           playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
-          sessionLabel, date, time, location: g.location || "", calendarUrl, icsUrl,
+          sessionLabel, date, time, location: arenaLabel(g.location) || "", calendarUrl, icsUrl,
           completedLabel: plan.completedLabel,
         });
         // Email each household on file (separated parents); each is logged separately.

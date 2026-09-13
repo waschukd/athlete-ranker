@@ -11,6 +11,7 @@
 // association admin (locked out once an SP serves them).
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { arenaLabel } from "@/lib/arenas";
 import { getSession, getAppUserId } from "@/lib/auth";
 import { canManageSessionAssignments } from "@/lib/authorize";
 import { eligiblePeople, eligibilityOf } from "@/lib/sessionRoster";
@@ -81,7 +82,7 @@ async function notifySessionRoster({ userId, kind, s, orgId, verb, extra }) {
     if (!person?.email) return;
     const orgName = await sessionOrgName(s);
     const what = s.category_name || (kind === "tester" ? "a testing session" : "a session");
-    const when = [fmtDate(s.scheduled_date), fmtTime(s.start_time), s.location].filter(Boolean).join(" · ");
+    const when = [fmtDate(s.scheduled_date), fmtTime(s.start_time), arenaLabel(s.location)].filter(Boolean).join(" · ");
     const html = emailWrapper(`
       <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">${verb.headline}</h2>
       <p style="margin:0 0 16px;font-size:14px;color:#6b7280;line-height:1.6;">
