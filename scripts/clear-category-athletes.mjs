@@ -75,3 +75,18 @@ console.log(`removed ${g.length} group assignments, ${p.length} check-in rows, $
 
 const [left] = await sql`SELECT COUNT(*)::int AS n FROM athletes WHERE age_category_id = ${CAT}`;
 console.log(`athletes remaining in ${cat.name}: ${left.n}`);
+
+// Groups with no schedule row behind them are a trap for the re-upload. SPS
+// Fuzion U11 had Group 1 and Group 2 per session from an earlier setup but
+// only one ice slot booked; the re-import split 33 kids across both, and the
+// 16 in Group 2 had no session to check in to. The door saw 17.
+const orphanGroups = await sql`
+  SELECT sg.id, sg.session_number, sg.group_number FROM session_groups sg
+  WHERE sg.age_category_id = ${CAT}
+    AND NOT EXISTS (SELECT 1 FROM evaluation_schedule es WHERE es.age_category_id = ${CAT}
+                    AND es.session_number = sg.session_number AND es.group_number = sg.group_number AND es.status = 'scheduled')`;
+if (orphanGroups.length) {
+  await sql`DELETE FROM session_groups WHERE id = ANY(${orphanGroups.map(g => g.id)})`;
+  console.log(`removed ${orphanGroups.length} group(s) with no scheduled skate: ${orphanGroups.map(g => `S${g.session_number}G${g.group_number}`).join(", ")}`);
+  console.log(`  (a re-upload would have split players into them, and those players would have had nowhere to check in)`);
+}
