@@ -701,6 +701,20 @@ function ScoringInterface() {
     const s = currentScores[athleteId];
     if (!s || !Object.keys(s.cats || {}).length) return { ok: false, permanent: false };
 
+    // Never post a score for someone who is not on THIS session's roster,
+    // whatever route it took into local state. Hydrate used to load the
+    // evaluator's scores for every group in the session, saveLocal wrote them
+    // into this group's localStorage, and the next reload marked them all
+    // pending -- 30 posts for Group 1's kids against Group 2, every one
+    // rejected as "not checked in". The server no longer sends those, but a
+    // stale localStorage from before the fix still can. Once the roster has
+    // loaded, an athlete not on it is dropped from pending, silently: it is
+    // not a save that failed, it is a save that was never this session's.
+    if (athletesRef.current.length && !athlete) {
+      setPending(p => { if (!(athleteId in p)) return p; const n = { ...p }; delete n[athleteId]; return n; });
+      return { ok: false, permanent: false, skipped: true };
+    }
+
     try {
       const res = await fetch("/api/evaluator/scores", {
         method: "POST",

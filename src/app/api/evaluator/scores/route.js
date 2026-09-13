@@ -39,23 +39,33 @@ export async function GET(request) {
         return NextResponse.json({ error: "category_id and session_number required" }, { status: 400 });
       }
 
+      // Scoped to athletes on THIS schedule's roster, not the whole session.
+      // A session has several groups sharing one session_number; filtering
+      // on session_number alone handed an evaluator opening Group 2 every
+      // score they had just given Group 1's 30 kids. The client merged those
+      // into local state, wrote them to Group 2's localStorage, and the next
+      // reload marked all 30 pending and posted them against Group 2 -- where
+      // none of them are checked in. That was the "30 scores couldn't save"
+      // banner on EFHA U15 mid-game.
       const rows = await sql`
-        SELECT athlete_id, scoring_category_id, score, updated_at
-        FROM category_scores
-        WHERE evaluator_id = ${appUserId}
-          AND age_category_id = ${catId}
-          AND session_number = ${sessionNumber}
+        SELECT cs.athlete_id, cs.scoring_category_id, cs.score, cs.updated_at
+        FROM category_scores cs
+        WHERE cs.evaluator_id = ${appUserId}
+          AND cs.age_category_id = ${catId}
+          AND cs.session_number = ${sessionNumber}
+          AND EXISTS (SELECT 1 FROM player_checkins pc WHERE pc.athlete_id = cs.athlete_id AND pc.schedule_id = ${scheduleId})
       `;
 
       // Most recent free-form note per athlete (player_notes table), in case
       // the same evaluator dictated a long note and re-saved it from another device.
       const notesRows = await sql`
-        SELECT DISTINCT ON (athlete_id) athlete_id, note_text, updated_at
-        FROM player_notes
-        WHERE evaluator_id = ${appUserId}
-          AND age_category_id = ${catId}
-          AND session_number = ${sessionNumber}
-        ORDER BY athlete_id, updated_at DESC NULLS LAST, created_at DESC
+        SELECT DISTINCT ON (pn.athlete_id) pn.athlete_id, pn.note_text, pn.updated_at
+        FROM player_notes pn
+        WHERE pn.evaluator_id = ${appUserId}
+          AND pn.age_category_id = ${catId}
+          AND pn.session_number = ${sessionNumber}
+          AND EXISTS (SELECT 1 FROM player_checkins pc WHERE pc.athlete_id = pn.athlete_id AND pc.schedule_id = ${scheduleId})
+        ORDER BY pn.athlete_id, pn.updated_at DESC NULLS LAST, pn.created_at DESC
       `;
 
       const scores = {};
