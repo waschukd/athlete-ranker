@@ -16,6 +16,7 @@ export default function TopBar({
   teamColors, teamFilter, setTeamFilter, athletes,
   posFilter, setPosFilter,
   hideCompleted, setHideCompleted,
+  rankMode = false, setRankMode,
   viewMode, collapseList, setCollapseList, setListExpanded,
   readOnly, onOpenConsensus,
   onResync,
@@ -172,6 +173,15 @@ export default function TopBar({
             <button onClick={() => setHideCompleted(h => !h)} className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${hideCompleted ? "bg-green-600 border-green-500 text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}>
               {hideCompleted ? "✓ Hiding" : "Hide done"}
             </button>
+            {setRankMode && (
+              <button
+                onClick={() => setRankMode(v => !v)}
+                title="Sort the list by your own average score, highest first, with your rank and average beside each player. The order updates when you leave a cell, not while you type."
+                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${rankMode ? "bg-accent border-accent text-white" : "bg-gray-100 border-gray-300 text-gray-500"}`}
+              >
+                {rankMode ? "✓ My ranking" : "My ranking"}
+              </button>
+            )}
             {viewMode !== "grid" && (
               <button
                 onClick={() => { setCollapseList(v => !v); setListExpanded(false); }}

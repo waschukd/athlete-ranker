@@ -10,7 +10,11 @@ import { getStatus } from "@/lib/scoringStatus";
 export default function PlayerPool({
   filtered, scores, totalCats, selected, setSelected, teamColors,
   idOf, collapseList, listExpanded, setListExpanded,
+  // "My ranking": a small rank/average tag under each tile. The list itself
+  // is already sorted by the page when this is on.
+  rankMode = false, rankSnap, rankOf,
 }) {
+  const fmtAvg = (v) => (v == null ? null : (Math.round(v * 10) / 10).toFixed(1));
   if (collapseList && selected && !listExpanded) {
     return (
       <div className="px-3 pt-3 pb-1">
@@ -73,6 +77,13 @@ export default function PlayerPool({
                   <span title="Watch this player closely" className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-white border-2 border-white text-amber-500 text-[10px] flex items-center justify-center leading-none">★</span>
                 )}
               </div>
+              {rankMode && rankSnap?.get(athlete.id) != null && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded text-[9px] font-mono font-semibold leading-tight"
+                  style={{ background: "#111827", color: "#fff", border: "1px solid #374151" }}
+                  title="Your rank · your average">
+                  {rankOf?.(athlete.id)}·{fmtAvg(rankSnap.get(athlete.id))}
+                </span>
+              )}
             </button>
           );
         })}

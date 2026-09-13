@@ -11,7 +11,13 @@ export default function GridView({
   scoringCats, filtered, scores, selected, totalCats,
   teamColors, isAnon, anonLabel, increment, scale,
   updateScore, setNotesForId,
+  // "My ranking": when on, the roster arrives sorted by this evaluator's own
+  // average and two columns show the rank and the average. rankSnap is the
+  // snapshot the sort was taken from; onCellBlur asks the page to retake it,
+  // so rows only reorder once the evaluator has left a cell.
+  rankMode = false, rankSnap, rankOf, onCellBlur,
 }) {
+  const fmtAvg = (v) => (v == null ? "" : (Math.round(v * 10) / 10).toFixed(1));
   return (
     <div className="flex-1 overflow-auto px-2 pt-2 pb-20">
       <table className="w-full text-sm border-collapse">
@@ -21,7 +27,9 @@ export default function GridView({
                 giving this column the full-name width regardless pushed the
                 category columns (and Notes/✓ at the far end) off-screen on a
                 phone, forcing a horizontal scroll just to see them. */}
+            {rankMode && <th className="text-center py-2 px-1 text-xs text-gray-600 font-medium w-[34px]" title="Your rank for this player, by your own average">#</th>}
             <th className={`text-left py-2 px-2 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 ${isAnon ? "min-w-[76px]" : "min-w-[140px]"}`}>Name</th>
+            {rankMode && <th className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[44px]" title="Your average across the criteria you have scored">Avg</th>}
             {scoringCats.map(cat => (
               <th key={cat.id} className="text-center py-2 px-1 text-xs text-gray-600 font-medium min-w-[60px]">{cat.name.split(/[\s/]/)[0]}</th>
             ))}
@@ -36,6 +44,9 @@ export default function GridView({
             const isSel = selected?.id === athlete.id;
             return (
               <tr key={athlete.id} className={`border-b border-gray-200 ${isSel ? "ring-2 ring-inset ring-accent" : ""} ${status === "complete" ? "bg-green-50" : status === "partial" ? "bg-amber-50" : ""}`}>
+                {rankMode && (
+                  <td className="text-center py-1.5 px-1 text-xs font-mono text-gray-500">{rankOf?.(athlete.id) ?? ""}</td>
+                )}
                 <td className="py-1.5 px-2 text-xs text-ink font-medium sticky left-0 bg-white whitespace-nowrap">
                   {/* Bracket (arbitrary-value) classes on purpose -- same reason as
                       the big jersey circle below: [data-theme="premium"] remaps
@@ -49,6 +60,9 @@ export default function GridView({
                     ? anonLabel(athlete)
                     : <>{athlete.last_name}, {athlete.first_name?.[0]}.{athlete.jersey_number && <span className="text-gray-500 ml-1">#{athlete.jersey_number}</span>}</>}
                 </td>
+                {rankMode && (
+                  <td className="text-center py-1.5 px-1 text-xs font-mono font-semibold text-ink">{fmtAvg(rankSnap?.get(athlete.id))}</td>
+                )}
                 {scoringCats.map((cat, c) => {
                   const val = athleteScores[cat.id];
                   return (
@@ -62,6 +76,7 @@ export default function GridView({
                         value={val ?? ""}
                         data-cell={`${r}-${c}`}
                         onFocus={e => e.target.select()}
+                        onBlur={onCellBlur}
                         onKeyDown={e => {
                           // Enter / arrows jump to the next cell so you can score
                           // down a row without looking for the next box.

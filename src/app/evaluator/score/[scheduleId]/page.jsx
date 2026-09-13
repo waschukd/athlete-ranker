@@ -115,6 +115,14 @@ function ScoringInterface() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [posFilter, setPosFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
+  // "My ranking": sort the roster by THIS evaluator's own average score so they
+  // can see where they have placed everyone as they go. Client-side only --
+  // nothing about saving or syncing changes. The order comes from a snapshot
+  // that refreshes when a cell is left, not on every keystroke, so a row never
+  // jumps out from under someone mid-entry (the grid's Enter/arrow navigation
+  // is by row index and would otherwise land on a different player).
+  const [rankMode, setRankMode] = useState(false);
+  const [rankSnap, setRankSnap] = useState(new Map()); // athleteId -> average
   const [jerseySearch, setJerseySearch] = useState("");
   const [showRoster, setShowRoster] = useState(false);
   const [showPings, setShowPings] = useState(false);
@@ -673,11 +681,43 @@ function ScoringInterface() {
   // between "six" and "point five". If hideCompleted yanks the row away the
   // instant that partial score completes them, the evaluator loses the row
   // (grid) or jersey button (pool) they were about to correct mid-sentence.
+  // Mean of the criteria this evaluator has filled in for a player; null if none.
+  const myAverage = useCallback((athleteId, from = scoresRef.current) => {
+    const cats = from[athleteId]?.cats || {};
+    const vals = Object.values(cats).filter(v => v !== null && v !== undefined && !Number.isNaN(v));
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }, []);
+  const refreshRank = useCallback(() => {
+    const m = new Map();
+    for (const a of athletesRef.current) m.set(a.id, myAverage(a.id));
+    setRankSnap(m);
+  }, [myAverage]);
+  // Snapshot when the mode is switched on, and whenever the selected player
+  // changes (card view moves between players by selection, not by cell blur).
+  useEffect(() => { if (rankMode) refreshRank(); }, [rankMode, selected?.id, refreshRank]);
+
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
     .filter(a => isPos(a.position, posFilter))
     .filter(a => !hideCompleted || a.id === selected?.id || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
-    .sort((a,b) => sortKey(a) - sortKey(b));
+    .sort((a,b) => {
+      if (rankMode) {
+        const av = rankSnap.get(a.id), bv = rankSnap.get(b.id);
+        // Highest average first; anyone not yet scored sinks to the bottom.
+        if (av != null && bv != null && av !== bv) return bv - av;
+        if (av != null && bv == null) return -1;
+        if (av == null && bv != null) return 1;
+      }
+      return sortKey(a) - sortKey(b);
+    });
+  // Rank number among the players on screen who have an average.
+  const rankOf = (athleteId) => {
+    if (!rankMode) return null;
+    const ranked = filtered.filter(a => rankSnap.get(a.id) != null);
+    const i = ranked.findIndex(a => a.id === athleteId);
+    return i < 0 ? null : i + 1;
+  };
 
   // Score values array
   const scoreValues = React.useMemo(() => {
@@ -1523,6 +1563,7 @@ function ScoringInterface() {
         teamColors={teamColors} teamFilter={teamFilter} setTeamFilter={setTeamFilter} athletes={athletes}
         posFilter={posFilter} setPosFilter={setPosFilter}
         hideCompleted={hideCompleted} setHideCompleted={setHideCompleted}
+        rankMode={rankMode} setRankMode={setRankMode}
         viewMode={viewMode} collapseList={collapseList} setCollapseList={setCollapseList} setListExpanded={setListExpanded}
         readOnly={readOnly}
         onOpenConsensus={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
@@ -1638,6 +1679,7 @@ function ScoringInterface() {
           scoringCats={scoringCats} filtered={filtered} scores={scores} selected={selected} totalCats={totalCats}
           teamColors={teamColors} isAnon={isAnon} anonLabel={anonLabel} increment={increment} scale={scale}
           updateScore={updateScore} setNotesForId={setNotesForId}
+          rankMode={rankMode} rankSnap={rankSnap} rankOf={rankOf} onCellBlur={rankMode ? refreshRank : undefined}
         />
       )}
 
@@ -1654,6 +1696,7 @@ function ScoringInterface() {
           filtered={filtered} scores={scores} totalCats={totalCats}
           selected={selected} setSelected={setSelected} teamColors={teamColors}
           idOf={idOf} collapseList={collapseList} listExpanded={listExpanded} setListExpanded={setListExpanded}
+          rankMode={rankMode} rankSnap={rankSnap} rankOf={rankOf}
         />
       )}
 
