@@ -163,7 +163,15 @@ export async function GET(request) {
           -- Testing takes priority. Hide (not just flag) any evaluation that overlaps
           -- a testing session run by an SP this user tests for, so a tester can never
           -- see — let alone book — an evaluation on top of a testing obligation.
-          AND NOT EXISTS (
+          --
+          -- EXCEPT a session they are already signed up for. That is a commitment,
+          -- not an offer: hiding it does not stop the overlap, it just leaves the
+          -- evaluator unable to open the session they are standing in. A dual-role
+          -- tester/evaluator on EFHA U11 lost all three of her Sunday games this way
+          -- because SPS Fuzion was testing across town at the same hours.
+          AND (
+            EXISTS (SELECT 1 FROM evaluator_session_signups me WHERE me.schedule_id = sch.id AND me.user_id = ${appUId} AND me.status = 'signed_up')
+            OR NOT EXISTS (
             SELECT 1 FROM evaluation_schedule tes
             LEFT JOIN age_categories tac ON tac.id = tes.age_category_id
             LEFT JOIN category_sessions tcs ON tcs.age_category_id = tes.age_category_id AND tcs.session_number = tes.session_number
@@ -178,6 +186,7 @@ export async function GET(request) {
                   JOIN evaluator_memberships em ON em.organization_id = sal.service_provider_id AND em.user_id = ${appUId} AND em.is_tester = true AND em.status = 'active'
                   WHERE sal.status = 'active'))
               )
+            )
           )
         GROUP BY sch.id, ac.id, o.id, cs.session_type, cs.name, cs.evaluators_required
         HAVING (
