@@ -24,20 +24,48 @@ export async function GET() {
       // were logged against (a 'testing' category session, or an SP-owned testing
       // event). Testing hours pay at tester_hourly_rate, evaluation hours at
       // hourly_rate — they're usually different (testing typically lower).
+      //
+      // Real incident: this used to join evaluator_hours to a membership by
+      // matching eh.organization_id = em.organization_id -- but an evaluator's
+      // hours are stamped with the org that actually RAN the session, while
+      // their rate lives on a membership with the SERVICE PROVIDER that placed
+      // them there. An evaluator with one membership (Competitive Thread) whose
+      // real hours are tagged to a client association it staffs (KC North, say)
+      // matched nothing and saw $0 for real, approved, payable hours that the
+      // SP admin's own payroll view (src/app/api/service-provider/payroll/route.js)
+      // already counted correctly. That route resolves the hour's org from the
+      // SESSION, not the hours row's own org_id, and scopes it to "this org
+      // itself, or any association it's linked to via sp_association_links" --
+      // mirrored here per-membership so an evaluator's own dashboard matches
+      // what the SP admin sees them owed.
       const rows = await sql`
         SELECT o.id AS org_id, o.name AS org_name, em.hourly_rate, em.tester_hourly_rate,
           COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'pending'), 0)  AS pending_hours,
           COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'approved'), 0) AS approved_hours,
           COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'paid'), 0)     AS paid_hours,
-          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status IN ('approved','paid') AND (cs.session_type = 'testing' OR es.service_provider_id IS NOT NULL)), 0) AS testing_payable_hours,
-          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'paid' AND (cs.session_type = 'testing' OR es.service_provider_id IS NOT NULL)), 0) AS testing_paid_hours,
-          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status IN ('approved','paid') AND NOT (cs.session_type = 'testing' OR es.service_provider_id IS NOT NULL)), 0) AS eval_payable_hours,
-          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'paid' AND NOT (cs.session_type = 'testing' OR es.service_provider_id IS NOT NULL)), 0) AS eval_paid_hours
+          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status IN ('approved','paid') AND eh.is_testing), 0) AS testing_payable_hours,
+          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'paid' AND eh.is_testing), 0) AS testing_paid_hours,
+          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status IN ('approved','paid') AND NOT eh.is_testing), 0) AS eval_payable_hours,
+          COALESCE(SUM(eh.hours_worked) FILTER (WHERE eh.status = 'paid' AND NOT eh.is_testing), 0) AS eval_paid_hours
         FROM evaluator_memberships em
         JOIN organizations o ON o.id = em.organization_id
-        LEFT JOIN evaluator_hours eh ON eh.evaluator_id = em.user_id AND eh.organization_id = em.organization_id
-        LEFT JOIN evaluation_schedule es ON es.id = eh.schedule_id
-        LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
+        LEFT JOIN LATERAL (
+          SELECT h.status, h.hours_worked,
+            (COALESCE(cs.session_type, '') = 'testing' OR es.service_provider_id IS NOT NULL) AS is_testing
+          FROM evaluator_hours h
+          JOIN evaluation_schedule es ON es.id = h.schedule_id
+          LEFT JOIN age_categories ac ON ac.id = es.age_category_id
+          LEFT JOIN category_sessions cs ON cs.age_category_id = es.age_category_id AND cs.session_number = es.session_number
+          WHERE h.evaluator_id = em.user_id
+            AND (
+              es.service_provider_id = em.organization_id
+              OR ac.organization_id = em.organization_id
+              OR ac.organization_id IN (
+                SELECT association_id FROM sp_association_links
+                WHERE service_provider_id = em.organization_id AND status = 'active'
+              )
+            )
+        ) eh ON true
         WHERE em.user_id = ${userId} AND em.status = 'active'
         GROUP BY o.id, o.name, em.hourly_rate, em.tester_hourly_rate
         ORDER BY o.name
