@@ -426,9 +426,16 @@ export default function CategoryDashboard({
     finally { setWelcomeSending(false); setWelcomePreview(null); setTimeout(() => setMsg(""), 5000); }
   };
   const resendWelcomeTo = async (athleteId) => {
-    await fetch(`/api/categories/${catId}/notify-parents`, {
+    const res = await fetch(`/api/categories/${catId}/notify-parents`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: athleteId }),
     });
+    // The button gave no feedback either way before -- a click that silently
+    // did nothing (or silently sent, no confirmation) is exactly what led
+    // someone to click it 8 times on the same family in five minutes.
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't resend the welcome email.");
+    }
   };
   // One-click "email this player" for a late add -- welcome + their ice time,
   // without re-blasting the whole roster (which the batch buttons above do,

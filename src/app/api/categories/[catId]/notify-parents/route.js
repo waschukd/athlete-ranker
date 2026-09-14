@@ -91,6 +91,28 @@ export async function POST(request, { params }) {
       }
 
       await ensureEmailLogTable();
+
+      // A single-family resend has no other guard against firing repeatedly --
+      // real incident: a director repeatedly clicked "resend welcome" for one
+      // athlete troubleshooting an unrelated issue and it fired 8 times in five
+      // minutes, no dedupe, no cooldown, each one a real email to both parents.
+      // Block a resend within 5 minutes of the last one for this athlete rather
+      // than silently re-sending -- a genuine follow-up resend an hour or a day
+      // later still goes through fine.
+      if (athlete_id) {
+        const recent = await sql`
+          SELECT MAX(created_at) as last_sent FROM group_email_log
+          WHERE athlete_id = ${athlete_id} AND email_type = 'welcome' AND age_category_id = ${catId}
+        `.catch(() => []);
+        const lastSent = recent[0]?.last_sent;
+        if (lastSent && Date.now() - new Date(lastSent).getTime() < 5 * 60 * 1000) {
+          return NextResponse.json({
+            error: "Already sent moments ago — wait a few minutes before resending.",
+            lastSentAt: lastSent,
+          }, { status: 429 });
+        }
+      }
+
       let sent = 0;
       for (const a of athletes) {
         const name = `${a.first_name} ${a.last_name}`;
