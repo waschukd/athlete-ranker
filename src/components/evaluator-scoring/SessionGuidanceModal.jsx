@@ -57,26 +57,27 @@ function TournamentBody({ guidance }) {
 }
 
 function StandardBody({ guidance }) {
-  const { scale, group_number, total_groups, suggested_range, established_range, prior_floor } = guidance;
-  const rangeEstablished = established_range && established_range.athletes_counted > 0;
-  const priorSuggested = group_number > 1 && prior_floor == null
-    ? suggestedRange(group_number - 1, total_groups, scale).low
-    : null;
+  const { scale, group_number, total_groups, suggested_range } = guidance;
+  // Real incident: this used to swap in a live "established range" (whatever
+  // had actually been scored so far) the moment any real score existed, and a
+  // live "prior floor" for the tier above. Both fed a feedback loop -- if the
+  // first evaluator in a group scored low, everyone after them was shown that
+  // low range as the target and the group drifted lower call after call. The
+  // suggested band is fixed by design so it can't do that; it's the only
+  // range shown now, regardless of what's already been scored.
+  const priorSuggested = group_number > 1 ? suggestedRange(group_number - 1, total_groups, scale).low : null;
 
   return (
     <>
       <BiasCallout bias={guidance.bias} />
       <div>
         <p className="text-xs text-gray-400 mb-1.5">
-          {rangeEstablished
-            ? `Group ${group_number}'s range so far, out of ${scale}:`
-            : `Nobody in Group ${group_number} has been scored yet — suggested starting range out of ${scale}:`}
+          Group {group_number}'s suggested range, out of {scale}:
         </p>
         <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-center">
           <span className="font-mono font-black text-2xl text-ink">
-            {rangeEstablished ? `${established_range.ceiling} – ${established_range.floor}` : `${suggested_range.high} – ${suggested_range.low}`}
+            {suggested_range.high} – {suggested_range.low}
           </span>
-          {!rangeEstablished && <div className="text-[11px] text-gray-400 mt-1 uppercase tracking-wide font-semibold">Suggested</div>}
         </div>
       </div>
 
@@ -84,8 +85,7 @@ function StandardBody({ guidance }) {
         <div className="rounded-xl border border-accent/30 bg-accent-soft px-3 py-3">
           <p className="text-sm text-ink leading-snug">
             To rank a player above Group {group_number - 1}, score them higher than{" "}
-            <b className="font-mono">{prior_floor != null ? prior_floor : priorSuggested}</b>
-            {prior_floor == null && <span className="text-xs text-gray-400"> (suggested — Group {group_number - 1} hasn't been scored yet)</span>}.
+            <b className="font-mono">{priorSuggested}</b>.
           </p>
         </div>
       )}

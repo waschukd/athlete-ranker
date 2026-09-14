@@ -8,8 +8,11 @@
 //
 // Standard-format categories use group_number as a skill TIER (Group 1 is
 // the top tier) scored alongside every other tier the same night -- those get
-// a bold suggested/established range plus a "beat the tier above" floor
-// (session-floor/session-ranges' job, folded in here as one query).
+// a fixed suggested range plus a "beat the tier above" floor, both computed
+// from tier position alone (lib/scoringGuidance.js), never from what's
+// actually been scored so far. That used to be dynamic -- see the "Real
+// incident" comment below for why that fed a feedback loop instead of
+// correcting one.
 //
 // Tournament (round_robin) categories rotate a DIFFERENT evaluator panel
 // across nights, and group_number there means "which game/matchup," not a
@@ -24,7 +27,7 @@
 // session_type other than a real scored session.
 //
 // Returns (standard): { applicable, format: "standard", scale, group_number,
-//   total_groups, suggested_range, established_range, prior_floor, bias }
+//   total_groups, suggested_range, bias }
 // Returns (tournament): { applicable, format: "tournament", scale,
 //   last_session, bias }
 
@@ -134,39 +137,18 @@ export async function GET(request) {
     `;
     const totalGroups = groupCountRow?.n || groupNumber;
 
-    // Same source as session-ranges (per-group real range so far) and
-    // session-floor (the lowest average from every group before this one) --
-    // computed together here as one query instead of the popup firing three
-    // separate requests.
-    const rangeRows = await sql`
-      WITH scored AS (
-        SELECT cs.athlete_id, cs.score, sg.group_number
-        FROM category_scores cs
-        JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
-        JOIN session_groups sg ON sg.id = pga.session_group_id
-          AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
-        WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber}
-      ),
-      athlete_avgs AS (
-        SELECT athlete_id, group_number, AVG(score)::float AS avg_score FROM scored GROUP BY athlete_id, group_number
-      )
-      SELECT group_number, MIN(avg_score)::float AS floor, MAX(avg_score)::float AS ceiling, COUNT(*)::int AS athletes_counted
-      FROM athlete_avgs GROUP BY group_number
-    `;
-    const byGroup = Object.fromEntries(rangeRows.map(r => [r.group_number, r]));
-    const thisGroup = byGroup[groupNumber];
-    const establishedRange = thisGroup
-      ? { floor: round1(thisGroup.floor), ceiling: round1(thisGroup.ceiling), athletes_counted: thisGroup.athletes_counted }
-      : null;
-
-    let priorFloor = null;
-    if (groupNumber > 1) {
-      const priorFloors = Object.entries(byGroup)
-        .filter(([g]) => parseInt(g, 10) < groupNumber)
-        .map(([, r]) => r.floor);
-      if (priorFloors.length) priorFloor = round1(Math.min(...priorFloors));
-    }
-
+    // Real incident: this used to also compute a live "established_range" (the
+    // real min/max of whatever had actually been scored so far this session)
+    // and a live "prior_floor" (the tier above's real floor so far), and both
+    // the guidance popup and the live per-player nudge PREFERRED those over the
+    // fixed suggested_range the moment any real score existed. That's a
+    // feedback loop, not guidance: if the first evaluator in a group scores
+    // low, the "established" range becomes low, every evaluator after them is
+    // shown that low range as the target, and the group drifts lower call
+    // after call -- exactly what happened to EFHA U11 session-to-session (see
+    // the group-drift warning below, which was built to detect this symptom).
+    // The suggested_range is fixed by design specifically so it can't do
+    // this -- it's now the only range this endpoint ever returns.
     return NextResponse.json({
       applicable: true,
       format: "standard",
@@ -174,8 +156,6 @@ export async function GET(request) {
       group_number: groupNumber,
       total_groups: totalGroups,
       suggested_range: suggestedRange(groupNumber, totalGroups, scale),
-      established_range: establishedRange,
-      prior_floor: priorFloor,
       bias,
     });
   } catch (error) {

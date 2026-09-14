@@ -407,14 +407,13 @@ function ScoringInterface() {
     if (guidanceShownRef.current) return;
     if (guidanceData?.applicable) { setShowGuidance(true); guidanceShownRef.current = true; }
   }, [guidanceData]);
-  // Range for the live per-player out-of-range nudge in ScorePanel -- prefer
-  // the real established range (once enough scores exist this session) over
-  // the starting suggested band. Tournament format has no tier concept at
-  // all, so there's nothing to nudge against.
+  // Range for the live per-player out-of-range nudge in ScorePanel. Always the
+  // fixed suggested band, never a live "what's been scored so far" range --
+  // that used to feed a feedback loop where one evaluator scoring a group low
+  // became the target every evaluator after them was nudged toward. Tournament
+  // format has no tier concept at all, so there's nothing to nudge against.
   const guidanceRange = guidanceData?.applicable && guidanceData.format === "standard"
-    ? (guidanceData.established_range
-        ? { low: guidanceData.established_range.floor, high: guidanceData.established_range.ceiling }
-        : guidanceData.suggested_range)
+    ? guidanceData.suggested_range
     : null;
 
   // Quick live pings between the evaluators actually on this session --

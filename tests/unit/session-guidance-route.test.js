@@ -45,12 +45,11 @@ describe("GET /api/evaluator/session-guidance", () => {
     expect(body).toEqual({ applicable: false });
   });
 
-  it("returns a suggested range for group 1 when nobody has been scored yet", async () => {
+  it("returns the fixed suggested range for group 1 when nobody has been scored yet", async () => {
     mockSqlByQuery([
       ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
       ["SELECT session_type", [{ session_type: "scrimmage" }]],
       ["FROM session_groups", [{ n: 4 }]],
-      ["WITH scored AS", []], // no scores yet this session
       ["FROM category_scores WHERE age_category_id", [{ total_n: 0, grand_mean: null, my_n: 0, my_mean: null }]],
     ]);
     const { GET } = await import("@/app/api/evaluator/session-guidance/route");
@@ -59,27 +58,30 @@ describe("GET /api/evaluator/session-guidance", () => {
 
     expect(body.applicable).toBe(true);
     expect(body.suggested_range).toEqual({ low: 6, high: 8 });
-    expect(body.established_range).toBeNull();
-    expect(body.prior_floor).toBeNull();
     expect(body.bias).toBeNull();
   });
 
-  it("uses the established range and prior-group floor once real scores exist", async () => {
+  // Real incident: this range used to be dynamic -- it swapped in whatever
+  // had actually been scored so far (an "established range" and a "prior
+  // floor") the moment any real score existed, which fed a feedback loop: the
+  // first evaluator to score a group low made "low" the target every
+  // evaluator after them was shown. The fixed suggested_range can't do that,
+  // and it's now the ONLY range this endpoint ever returns -- unaffected by
+  // however much real scoring has already happened in this or the group above.
+  it("still returns only the fixed suggested range once real scores exist, never a live one", async () => {
     mockSqlByQuery([
       ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
       ["SELECT session_type", [{ session_type: "scrimmage" }]],
       ["FROM session_groups", [{ n: 4 }]],
-      ["WITH scored AS", [
-        { group_number: 1, floor: 6.5, ceiling: 9.0, athletes_counted: 12 },
-      ]],
       ["FROM category_scores WHERE age_category_id", [{ total_n: 100, grand_mean: 6.0, my_n: 0, my_mean: null }]],
     ]);
     const { GET } = await import("@/app/api/evaluator/session-guidance/route");
     const res = await GET(makeUrl({ groupNumber: "2" }));
     const body = await res.json();
 
-    expect(body.established_range).toBeNull(); // group 2 itself has no scores yet
-    expect(body.prior_floor).toBe(6.5); // group 1's floor
+    expect(body.suggested_range).toEqual({ low: 5, high: 7 });
+    expect(body.established_range).toBeUndefined();
+    expect(body.prior_floor).toBeUndefined();
   });
 
   it("surfaces a personal bias message once the evaluator has enough scores and a real gap", async () => {
