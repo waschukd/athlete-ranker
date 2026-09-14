@@ -1749,6 +1749,7 @@ function ScoringInterface() {
           currentUserId={currentUserId} catId={catId}
           guidanceRange={guidanceRange}
           guidanceGroupNumber={guidanceData?.group_number} guidanceTotalGroups={guidanceData?.total_groups}
+          guidancePriorFloor={guidanceData?.prior_floor}
         />
       )}
 

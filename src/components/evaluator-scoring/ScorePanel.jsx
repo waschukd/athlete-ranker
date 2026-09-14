@@ -17,7 +17,7 @@ export default function ScorePanel({
   pending, blocked = {}, online,
   athletes, isAnon, helmetMode, teamLabel,
   currentUserId, catId,
-  guidanceRange, guidanceGroupNumber, guidanceTotalGroups,
+  guidanceRange, guidanceGroupNumber, guidanceTotalGroups, guidancePriorFloor,
 }) {
   const [showCompare, setShowCompare] = useState(false);
   const [compareCount, setCompareCount] = useState(0);
@@ -159,13 +159,20 @@ export default function ScorePanel({
         })
         )}
 
-        {/* Out-of-range nudge -- soft and self-updating, nothing to dismiss */}
+        {/* Out-of-range nudge -- soft and self-updating, nothing to dismiss.
+            On the "up" direction, name the real bar to clear -- the actual
+            lowest score the group above has gotten so far this session, not
+            just "higher than expected" -- so the question has a number
+            attached, not just a feeling. */}
         {rangeNudge && (
           <div className="flex items-start gap-2 text-xs bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-blue-800">
             <span className="flex-shrink-0">{rangeNudge.direction === "up" ? "↑" : "↓"}</span>
             <span>
               This is {rangeNudge.direction === "up" ? "higher" : "lower"} than the expected range for this group ({guidanceRange.low}-{guidanceRange.high}) — your average is {rangeNudge.avg}.
               {" "}Do you believe this player should {rangeNudge.direction === "up" ? "move up a group" : "move down a group"}?
+              {rangeNudge.direction === "up" && guidancePriorFloor != null && (
+                <> The lowest score the group above has gotten so far is <b>{guidancePriorFloor}</b>.</>
+              )}
             </span>
           </div>
         )}

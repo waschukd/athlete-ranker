@@ -8,11 +8,10 @@
 //
 // Standard-format categories use group_number as a skill TIER (Group 1 is
 // the top tier) scored alongside every other tier the same night -- those get
-// a fixed suggested range plus a "beat the tier above" floor, both computed
-// from tier position alone (lib/scoringGuidance.js), never from what's
-// actually been scored so far. That used to be dynamic -- see the "Real
-// incident" comment below for why that fed a feedback loop instead of
-// correcting one.
+// a fixed suggested range (lib/scoringGuidance.js, tier position only, never
+// what's actually been scored -- see the "Real incident" comment below) plus
+// a "beat the tier above" floor, which IS the real lowest score the tier
+// above has actually gotten so far, not a fixed guess.
 //
 // Tournament (round_robin) categories rotate a DIFFERENT evaluator panel
 // across nights, and group_number there means "which game/matchup," not a
@@ -27,7 +26,7 @@
 // session_type other than a real scored session.
 //
 // Returns (standard): { applicable, format: "standard", scale, group_number,
-//   total_groups, suggested_range, bias }
+//   total_groups, suggested_range, prior_floor, bias }
 // Returns (tournament): { applicable, format: "tournament", scale,
 //   last_session, bias }
 
@@ -137,18 +136,43 @@ export async function GET(request) {
     `;
     const totalGroups = groupCountRow?.n || groupNumber;
 
-    // Real incident: this used to also compute a live "established_range" (the
-    // real min/max of whatever had actually been scored so far this session)
-    // and a live "prior_floor" (the tier above's real floor so far), and both
-    // the guidance popup and the live per-player nudge PREFERRED those over the
-    // fixed suggested_range the moment any real score existed. That's a
-    // feedback loop, not guidance: if the first evaluator in a group scores
-    // low, the "established" range becomes low, every evaluator after them is
-    // shown that low range as the target, and the group drifts lower call
-    // after call -- exactly what happened to EFHA U11 session-to-session (see
-    // the group-drift warning below, which was built to detect this symptom).
-    // The suggested_range is fixed by design specifically so it can't do
-    // this -- it's now the only range this endpoint ever returns.
+    // Real incident: this used to ALSO let a live "established_range" (the
+    // real min/max of whatever had actually been scored so far, for THIS
+    // group) replace the fixed suggested_range the moment any real score
+    // existed. That's a feedback loop: if the first evaluator in a group
+    // scores low, "established" becomes low, everyone after them is shown
+    // that low range as the target, and the group drifts lower call after
+    // call -- exactly what happened to EFHA U11 session-to-session (see the
+    // group-drift warning, built to detect the symptom of this). The
+    // suggested_range for THIS group is fixed by design so it can't do that,
+    // and it's the only range ever returned for the group being scored.
+    //
+    // prior_floor is different in kind, not degree: it's not this group's own
+    // target moving, it's a real fact about a DIFFERENT group (the one
+    // above) -- the actual lowest score a real evaluator gave a real kid up
+    // there, this session. "Score higher than the suggested low of the tier
+    // above" is a guess at what that bar will be; "score higher than 6.3,
+    // which is literally the worst kid up there right now" is the real bar.
+    // Falls back to the suggested low of the tier above only when nobody up
+    // there has been scored yet -- there's no real number to give.
+    let priorFloor = null;
+    if (groupNumber > 1) {
+      const [priorRow] = await sql`
+        SELECT MIN(avg_score)::float AS floor
+        FROM (
+          SELECT cs.athlete_id, AVG(cs.score)::float AS avg_score
+          FROM category_scores cs
+          JOIN player_group_assignments pga ON pga.athlete_id = cs.athlete_id
+          JOIN session_groups sg ON sg.id = pga.session_group_id
+            AND sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
+          WHERE cs.age_category_id = ${catId} AND cs.session_number = ${sessionNumber}
+            AND sg.group_number = ${groupNumber - 1}
+          GROUP BY cs.athlete_id
+        ) per_athlete
+      `;
+      if (priorRow?.floor != null) priorFloor = round1(priorRow.floor);
+    }
+
     return NextResponse.json({
       applicable: true,
       format: "standard",
@@ -156,6 +180,7 @@ export async function GET(request) {
       group_number: groupNumber,
       total_groups: totalGroups,
       suggested_range: suggestedRange(groupNumber, totalGroups, scale),
+      prior_floor: priorFloor,
       bias,
     });
   } catch (error) {

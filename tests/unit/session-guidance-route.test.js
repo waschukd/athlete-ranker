@@ -45,7 +45,7 @@ describe("GET /api/evaluator/session-guidance", () => {
     expect(body).toEqual({ applicable: false });
   });
 
-  it("returns the fixed suggested range for group 1 when nobody has been scored yet", async () => {
+  it("returns the fixed suggested range for group 1 when nobody has been scored yet, with no prior floor (no group above)", async () => {
     mockSqlByQuery([
       ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
       ["SELECT session_type", [{ session_type: "scrimmage" }]],
@@ -58,22 +58,24 @@ describe("GET /api/evaluator/session-guidance", () => {
 
     expect(body.applicable).toBe(true);
     expect(body.suggested_range).toEqual({ low: 6, high: 8 });
+    expect(body.prior_floor).toBeNull();
     expect(body.bias).toBeNull();
   });
 
-  // Real incident: this range used to be dynamic -- it swapped in whatever
-  // had actually been scored so far (an "established range" and a "prior
-  // floor") the moment any real score existed, which fed a feedback loop: the
-  // first evaluator to score a group low made "low" the target every
-  // evaluator after them was shown. The fixed suggested_range can't do that,
-  // and it's now the ONLY range this endpoint ever returns -- unaffected by
-  // however much real scoring has already happened in this or the group above.
-  it("still returns only the fixed suggested range once real scores exist, never a live one", async () => {
+  // Real incident: this group's OWN range used to be dynamic -- it swapped in
+  // whatever had actually been scored so far (an "established range") the
+  // moment any real score existed, which fed a feedback loop: the first
+  // evaluator to score a group low made "low" the target every evaluator
+  // after them was shown. The fixed suggested_range can't do that, and it's
+  // the ONLY range ever returned for the group being scored -- unaffected by
+  // however much real scoring has already happened in it.
+  it("keeps suggested_range fixed for the group being scored even once it has real scores", async () => {
     mockSqlByQuery([
       ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
       ["SELECT session_type", [{ session_type: "scrimmage" }]],
       ["FROM session_groups", [{ n: 4 }]],
       ["FROM category_scores WHERE age_category_id", [{ total_n: 100, grand_mean: 6.0, my_n: 0, my_mean: null }]],
+      ["SELECT MIN(avg_score)::float AS floor", [{ floor: 6.3 }]],
     ]);
     const { GET } = await import("@/app/api/evaluator/session-guidance/route");
     const res = await GET(makeUrl({ groupNumber: "2" }));
@@ -81,7 +83,39 @@ describe("GET /api/evaluator/session-guidance", () => {
 
     expect(body.suggested_range).toEqual({ low: 5, high: 7 });
     expect(body.established_range).toBeUndefined();
-    expect(body.prior_floor).toBeUndefined();
+  });
+
+  // prior_floor is different in kind, not degree: it isn't this group's own
+  // target moving, it's a real fact about the group ABOVE -- the actual
+  // lowest score a real evaluator has given a real kid up there this session.
+  it("prior_floor is the real lowest score the group above has gotten this session", async () => {
+    mockSqlByQuery([
+      ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
+      ["SELECT session_type", [{ session_type: "scrimmage" }]],
+      ["FROM session_groups", [{ n: 4 }]],
+      ["FROM category_scores WHERE age_category_id", [{ total_n: 100, grand_mean: 6.0, my_n: 0, my_mean: null }]],
+      ["SELECT MIN(avg_score)::float AS floor", [{ floor: 6.3 }]],
+    ]);
+    const { GET } = await import("@/app/api/evaluator/session-guidance/route");
+    const res = await GET(makeUrl({ groupNumber: "2" }));
+    const body = await res.json();
+
+    expect(body.prior_floor).toBe(6.3);
+  });
+
+  it("prior_floor is null when the group above hasn't been scored yet", async () => {
+    mockSqlByQuery([
+      ["SELECT scoring_scale", [{ scoring_scale: 10 }]],
+      ["SELECT session_type", [{ session_type: "scrimmage" }]],
+      ["FROM session_groups", [{ n: 4 }]],
+      ["FROM category_scores WHERE age_category_id", [{ total_n: 0, grand_mean: null, my_n: 0, my_mean: null }]],
+      ["SELECT MIN(avg_score)::float AS floor", [{ floor: null }]],
+    ]);
+    const { GET } = await import("@/app/api/evaluator/session-guidance/route");
+    const res = await GET(makeUrl({ groupNumber: "2" }));
+    const body = await res.json();
+
+    expect(body.prior_floor).toBeNull();
   });
 
   it("surfaces a personal bias message once the evaluator has enough scores and a real gap", async () => {

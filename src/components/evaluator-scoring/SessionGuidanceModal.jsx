@@ -57,15 +57,20 @@ function TournamentBody({ guidance }) {
 }
 
 function StandardBody({ guidance }) {
-  const { scale, group_number, total_groups, suggested_range } = guidance;
-  // Real incident: this used to swap in a live "established range" (whatever
-  // had actually been scored so far) the moment any real score existed, and a
-  // live "prior floor" for the tier above. Both fed a feedback loop -- if the
-  // first evaluator in a group scored low, everyone after them was shown that
-  // low range as the target and the group drifted lower call after call. The
-  // suggested band is fixed by design so it can't do that; it's the only
-  // range shown now, regardless of what's already been scored.
+  const { scale, group_number, total_groups, suggested_range, prior_floor } = guidance;
+  // Real incident: this used to also let a live "established range" (whatever
+  // had actually been scored so far, for THIS group) replace the suggested
+  // band the moment any real score existed -- a feedback loop where the first
+  // evaluator to score a group low made "low" the target for everyone after
+  // them. The suggested band is fixed by design so it can't do that.
+  //
+  // prior_floor is different in kind, not degree: it isn't this group's own
+  // target moving, it's a real fact about the group above -- the actual
+  // lowest score a real evaluator has given a real kid up there this session.
+  // Only falls back to a suggested number when nobody up there has been
+  // scored yet, because there's no real number to give.
   const priorSuggested = group_number > 1 ? suggestedRange(group_number - 1, total_groups, scale).low : null;
+  const priorBar = prior_floor != null ? prior_floor : priorSuggested;
 
   return (
     <>
@@ -84,8 +89,12 @@ function StandardBody({ guidance }) {
       {group_number > 1 && (
         <div className="rounded-xl border border-accent/30 bg-accent-soft px-3 py-3">
           <p className="text-sm text-ink leading-snug">
-            To rank a player above Group {group_number - 1}, score them higher than{" "}
-            <b className="font-mono">{priorSuggested}</b>.
+            To move a player out of this group and into Group {group_number - 1}, score them higher than{" "}
+            <b className="font-mono">{priorBar}</b>
+            {prior_floor == null
+              ? <span className="text-xs text-gray-400"> (suggested — Group {group_number - 1} hasn't been scored yet)</span>
+              : <span className="text-xs text-gray-400"> (the lowest score Group {group_number - 1} has gotten so far)</span>}
+            .
           </p>
         </div>
       )}
