@@ -1,5 +1,6 @@
 import sql from "@/lib/db";
 import { computeCategoryRankings } from "@/lib/rankings";
+import { sanitizeNoteText } from "@/lib/noteSanitizer";
 
 // ── Coaches (Team Development) Report ────────────────────────────────────────
 // A comprehensive season-planning document for a coach, from the full evaluation
@@ -94,8 +95,15 @@ export async function buildCoachesReport(catId) {
   const noteRows = await sql`
     SELECT athlete_id, note_text FROM player_notes
     WHERE age_category_id = ${catId} AND note_text IS NOT NULL AND length(trim(note_text)) > 0`;
+  // Same enforced content gate as the parent report (noteSanitizer.js) --
+  // this text is only used for keyword concept-matching below, never quoted
+  // verbatim, but it shouldn't run through profanity/sexual content either.
   const notesByAthlete = {};
-  for (const n of noteRows) (notesByAthlete[n.athlete_id] ||= []).push(n.note_text);
+  for (const n of noteRows) {
+    const clean = sanitizeNoteText(n.note_text);
+    if (clean.dropped) continue;
+    (notesByAthlete[n.athlete_id] ||= []).push(clean.text);
+  }
 
   const topTeam = teams[0];
 

@@ -1,6 +1,8 @@
 import sql from "@/lib/db";
 import { computeCategoryRankings } from "@/lib/rankings";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
+import { sanitizeNotes } from "@/lib/noteSanitizer";
+import { applyContradictionGuard } from "@/lib/noteContradictionGuard";
 
 // Canonical SportTesting order: Forward Sprint, Forward Sprint w/ Puck, Backward
 // Sprint, Weave Agility, Transition Agility L, Transition Agility R, Stop & Start.
@@ -215,7 +217,13 @@ export async function buildAthleteReport(catId, athleteId) {
     }))
     .sort((a, b) => a.session_number - b.session_number);
 
-  const notes = notesRows.map(n => ({ session_number: sessionIndexMap[n.session_number] ?? n.session_number, note_text: n.note_text }));
+  // Hard, enforced report-time gate -- see noteSanitizer.js and
+  // noteContradictionGuard.js. Runs here, at the single source both the free
+  // player report and the paid parent report (and the AI narrative prompt in
+  // parentNarrative.js, which reads this same array) pull notes from, so
+  // nothing downstream needs its own copy of this logic.
+  const rawNotes = notesRows.map(n => ({ session_number: sessionIndexMap[n.session_number] ?? n.session_number, note_text: n.note_text }));
+  const notes = applyContradictionGuard(sanitizeNotes(rawNotes), skillProfile);
 
   // Association-curated local training providers ("Where to put in the work"),
   // grouped by area. Renders in the report only when present.

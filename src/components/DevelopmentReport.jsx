@@ -1,5 +1,7 @@
 "use client";
 
+import { getReportIntro } from "@/lib/reportIntro";
+
 // Shared premium-dark Development Report render. Pure presentational — give it a
 // `data` object from lib/reportData.buildAthleteReport and it renders the full
 // report. Used by both the authed director PDF (/player/report/pdf) and the
@@ -149,6 +151,7 @@ export default function DevelopmentReport({ data }) {
   // is preferred; falls back to the raw chronological list only when the AI
   // selection isn't available (e.g. ANTHROPIC_API_KEY unset).
   const displayNotes = curatedNotes !== null ? curatedNotes : notes.slice(0, 12);
+  const reportIntro = getReportIntro(category?.name, athlete?.first_name);
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
   const firstName = athlete?.first_name || "This athlete";
@@ -261,6 +264,15 @@ export default function DevelopmentReport({ data }) {
       </div>
 
       <div style={{ padding: "24px 34px 0" }}>
+
+        {/* Congratulations + age-category development framing — static, per
+            real age bracket (see reportIntro.js), keyed off the athlete's own
+            category name only. Always renders; never guesses or combines
+            brackets. */}
+        <div style={{ marginBottom: 22, breakInside: "avoid" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: GOLD, fontWeight: 700, marginBottom: 9 }}>Congratulations on completing the evaluation</div>
+          <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 500, color: "#dfe2e7", lineHeight: 1.6 }}>{reportIntro}</div>
+        </div>
 
         {/* Opening narrative — AI-synthesized from the notes + numbers below, set
             the scene before any chart. Cached per (athlete, category); see
