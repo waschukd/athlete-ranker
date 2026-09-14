@@ -35,4 +35,16 @@ describe("getReportIntro", () => {
     expect(() => getReportIntro(null, "Sam")).not.toThrow();
     expect(() => getReportIntro(undefined, undefined)).not.toThrow();
   });
+
+  it("closes every bracket, and the fallback, with the same line", () => {
+    const closing = "This report will address what was captured and seen throughout the evaluation.";
+    for (const age of REAL_BRACKETS) expect(getReportIntro(`U${age}`, "Jordan")).toMatch(new RegExp(`${closing}$`));
+    expect(getReportIntro("U7", "Jordan")).toMatch(new RegExp(`${closing}$`));
+  });
+
+  it("keeps U9 focused on love of the game and entry-level habits, not permanent habit-setting language", () => {
+    const u9 = getReportIntro("U9", "Jordan");
+    expect(u9).toMatch(/love (for|of) the game/i);
+    expect(u9).not.toMatch(/habits.{0,20}set here|dramatically easier/i);
+  });
 });

@@ -12,13 +12,14 @@
 // used to select copy.
 //
 // Each bracket gets its own distinct paragraph, written to the age -- never
-// one generic paragraph reused everywhere. Common thread across all of them
-// (Dan's framing): habits are far easier to install now than to change
-// later, so what gets emphasized shifts with the age.
-
+// one generic paragraph reused everywhere. Dan's correction on the first
+// draft: at U9 these kids are realistically 5-6 years old -- it's about
+// building a love of the game and simple entry-level habits, not "habits
+// get set here" language, which is far too heavy for that age. From U11 up,
+// habits genuinely are the thing that compounds, so that framing holds.
 const INTROS = {
   9: (firstName) =>
-    `${firstName} just finished their evaluation, and this is where hockey really begins. At U9, the single most important thing to build is skating -- every other skill in the game sits on top of it, and a player who skates well can be taught almost anything else later. This is also the age where habits form for good: how a player works, listens, and carries themselves on the ice gets set here, and habits installed now are dramatically easier to build than to change once they're a few years older. There's no need to rush anything else -- skating and good habits are the whole job at this age, and everything after this report is in service of that.`,
+    `${firstName} just finished their evaluation, and this is where hockey starts. At U9, the goal isn't to lock anything in -- it's building a love for the game and picking up simple, entry-level habits: showing up with energy, listening, having fun while working hard. Skating is still the single most important thing to spend time on at this age, since everything else in hockey builds on top of it, but there's no rush and no pressure to have it perfected yet.`,
   11: (firstName) =>
     `${firstName} just finished their evaluation. U9 was about laying the skating foundation -- U11 is where that foundation starts to get tested and built on. Skating is still the priority, but now it's skating WITH a purpose: carrying the puck, making a play, competing for it in a battle. The habits a player brought into this age -- how hard they work, how well they listen, how they respond to a mistake -- are becoming part of who they are as a player, which is exactly why this stage matters so much. What gets reinforced now, good or bad, tends to stick.`,
   13: (firstName) =>
@@ -28,25 +29,29 @@ const INTROS = {
   16: (firstName) =>
     `${firstName} just finished their evaluation. At U16, the players separating from the pack are rarely the ones with one flashy tool -- they're the ones who are reliably good at the details, shift after shift: winning small battles, making the simple play, skating with real purpose. Habits are the differentiator now more than raw skill is, because most players at this level have real skill. The work from here is about consistency and refinement, not reinvention.`,
   18: (firstName) =>
-    `${firstName} just finished their evaluation. U18 is late-stage development -- the habits window that's been open since the youngest ages is closing, and what a player has built into their game by now is largely what they'll take into whatever comes next, whether that's junior, prep, or college-track hockey. The margins that matter most here are small and detail-driven: consistency, competing every shift, and being reliable in a role. This report is about identifying exactly where those margins can still move.`,
+    `${firstName} just finished their evaluation. U18 is late-stage development -- the habits window that's been open since the youngest ages is closing, and what a player has built into their game by now is largely what they'll take into whatever comes next, whether that's junior, prep, or college-track hockey. The margins that matter most here are small and detail-driven: consistency, competing every shift, and being reliable in a role.`,
   20: (firstName) =>
-    `${firstName} just finished their evaluation. At U20, development is mostly about polish and reliability rather than building anything new from scratch -- the habits and tools a player has are the ones they'll play with. What separates players at this level is consistency under pressure and the small details that show up over a full season, not any one highlight. This report is meant to point at exactly which of those details are worth the remaining time and attention.`,
+    `${firstName} just finished their evaluation. At U20, development is mostly about polish and reliability rather than building anything new from scratch -- the habits and tools a player has are the ones they'll play with. What separates players at this level is consistency under pressure and the small details that show up over a full season, not any one highlight.`,
 };
 
 // Fallback for any bracket that isn't one of the seven above (a future
 // category, or a name that doesn't parse) -- generic but still honest about
 // the habits-first framing, never a guess at a specific age.
 function genericIntro(firstName) {
-  return `${firstName} just finished their evaluation. At every age, the habits a player builds now -- how they work, compete, and respond to a mistake -- are far easier to install today than to change later, and they're the foundation everything else gets built on. This report is meant to give a clear, honest picture of where things stand right now.`;
+  return `${firstName} just finished their evaluation. At every age, the habits a player builds now -- how they work, compete, and respond to a mistake -- are far easier to install today than to change later, and they're the foundation everything else gets built on.`;
 }
+
+// Every bracket closes on the same line, appended once here rather than
+// repeated in each paragraph above -- Dan's instruction.
+const CLOSING = " This report will address what was captured and seen throughout the evaluation.";
 
 // categoryName e.g. "U13 AA", "U9 House", "U15 Tier 1". Extracts the leading
 // age number only -- the suffix is a skill tier, not part of the age.
 export function getReportIntro(categoryName, firstName) {
   const name = firstName || "This player";
   const match = /^U(\d+)/i.exec((categoryName || "").trim());
-  if (!match) return genericIntro(name);
-  const age = parseInt(match[1], 10);
-  const builder = INTROS[age];
-  return builder ? builder(name) : genericIntro(name);
+  const age = match ? parseInt(match[1], 10) : null;
+  const builder = age != null ? INTROS[age] : null;
+  const body = builder ? builder(name) : genericIntro(name);
+  return body + CLOSING;
 }
