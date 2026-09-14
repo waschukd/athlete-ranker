@@ -128,105 +128,11 @@ export async function notifySessionChange({ catId, scheduleRow, scheduleId, chan
   }
 }
 
-// When a future session is understaffed (e.g. just added, or edited so it needs
-// coverage), automatically invite the eligible evaluator pool to sign up — the
-// association's evaluators plus any linked service provider's evaluators — so
-// staffing self-heals instead of waiting on a manual blast. Skips testing
-// sessions, past dates, full sessions, and evaluators already signed up.
-export async function offerOpenSession({ catId, scheduleRow }) {
-  try {
-    const r = scheduleRow;
-    if (!r || r.status !== "scheduled") return { offered: 0 };
-    if (!r.evaluators_required || r.evaluators_required <= 0) return { offered: 0 };
-
-    if (r.scheduled_date) {
-      const when = new Date(r.scheduled_date);
-      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      if (isFinite(when.getTime()) && when < todayStart) return { offered: 0 };
-    }
-
-    const cnt = await sql`
-      SELECT COUNT(*)::int AS n FROM evaluator_session_signups
-      WHERE schedule_id = ${r.id} AND status = 'signed_up'
-    `;
-    const open = r.evaluators_required - (cnt[0]?.n || 0);
-    if (open <= 0) return { offered: 0 };
-
-    const catInfo = await sql`
-      SELECT ac.name AS category_name, o.id AS org_id, o.name AS org_name
-      FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id WHERE ac.id = ${catId}
-    `;
-    if (!catInfo.length) return { offered: 0 };
-    const { category_name, org_id, org_name } = catInfo[0];
-
-    const orgIds = [org_id];
-    const sps = await sql`SELECT service_provider_id FROM sp_association_links WHERE association_id = ${org_id} AND status = 'active'`;
-    sps.forEach(s => orgIds.push(s.service_provider_id));
-
-    // Evaluators are defined by the membership's own is_evaluator flag, never by
-    // users.role: role is the account's primary role and an SP admin who also
-    // evaluates is still 'service_provider_admin' there.
-    //
-    // Coaches (category_evaluators.kind = 'coach') are a comparison-only scoring
-    // track, not evaluators, and must not be recruited to fill an evaluator
-    // spot -- but only for the org where they coach. A real CT evaluator who
-    // also coaches for EFHA is still a CT evaluator, and a blanket "any coach
-    // anywhere" exclusion silently dropped her from CT's own blasts.
-    let pool = await sql`
-      SELECT DISTINCT u.id, u.email, u.name FROM evaluator_memberships em
-      JOIN users u ON u.id = em.user_id
-      WHERE em.organization_id = ANY(${orgIds}) AND em.status = 'active'
-        AND em.is_evaluator = true
-        AND NOT EXISTS (
-          SELECT 1 FROM category_evaluators ce
-          JOIN age_categories cac ON cac.id = ce.age_category_id
-          WHERE ce.user_id = em.user_id AND ce.kind = 'coach' AND cac.organization_id = em.organization_id
-        )
-        AND u.id NOT IN (
-          SELECT user_id FROM evaluator_session_signups WHERE schedule_id = ${r.id} AND status = 'signed_up'
-        )
-    `;
-    // Skip evaluators who marked themselves unavailable on this date (best-effort:
-    // if the table isn't migrated yet, just don't filter).
-    if (r.scheduled_date) {
-      try {
-        const blocked = await sql`
-          SELECT DISTINCT user_id FROM evaluator_unavailability
-          WHERE start_date <= ${r.scheduled_date} AND end_date >= ${r.scheduled_date}
-        `;
-        const blockedSet = new Set(blocked.map(b => b.user_id));
-        pool = pool.filter(p => !blockedSet.has(p.id));
-      } catch { /* not migrated */ }
-    }
-    if (!pool.length) return { offered: 0 };
-
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
-    const html = emailWrapper(`
-      <h2 style="margin:0 0 6px;font-family:'Archivo','Hanken Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#0b8a3e;">Open evaluator spot${open > 1 ? "s" : ""}</h2>
-      <p style="margin:0 0 18px;font-size:14px;color:#5b606b;line-height:1.6;"><strong style="color:#101113;">${esc(org_name)}</strong> has <strong style="color:#101113;">${open}</strong> open evaluator spot${open > 1 ? "s" : ""} for ${esc(category_name)}. First come, first served.</p>
-      <div style="background:#fbfbf9;border:1px solid #ededeb;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;width:120px;">Date</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${fmtBlastDate(r.scheduled_date)}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Time</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.start_time ? `${fmtBlastTime(r.start_time)}${r.end_time ? `–${fmtBlastTime(r.end_time)}` : ""}` : "TBD"}</td></tr>
-          <tr><td style="padding:5px 0;font-size:13px;color:#5b606b;">Location</td><td style="padding:5px 0;font-size:13px;font-weight:600;color:#101113;">${r.location ? esc(arenaLabel(r.location)) : "TBD"}</td></tr>
-        </table>
-      </div>
-      <div style="text-align:center;margin:8px 0 0;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;font-family:'Archivo',sans-serif;padding:14px 30px;background:#0b5cd6;color:#fff;text-decoration:none;border-radius:99px;font-size:14px;font-weight:700;">Sign up →</a></div>
-    `);
-    const subject = `Open evaluator spot — ${category_name} (${fmtBlastDate(r.scheduled_date)})`;
-    for (const p of pool) await sendEmail(p.email, subject, html);
-    return { offered: pool.length, open };
-  } catch (err) {
-    console.error("offerOpenSession error:", err);
-    return { offered: 0, error: err?.message };
-  }
-}
-
 // Real complaint: a session added (or moved) earlier in the day at the same
 // rink than one an evaluator already signed up for is invisible to them
-// unless they happen to reopen their dashboard -- offerOpenSession blasts the
-// WHOLE eligible pool generically, which is easy to miss/ignore among
-// everything else Sideline Star already emails. This targets specifically
+// unless they happen to reopen their dashboard -- the daily spot_fill_digest
+// (src/app/api/cron/route.js) covers "sessions still need people" generically
+// once a day, which is easy to miss/ignore. This targets specifically
 // the evaluators already committed to a session THAT DAY at THAT RINK which
 // now connects to the new/moved one (same detection as
 // lib/sessionBlocks.contiguousBlock, used for the evaluator-signup prompt and

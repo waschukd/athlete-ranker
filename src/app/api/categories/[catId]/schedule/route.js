@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { notifySessionChange, offerOpenSession, notifyConnectingEvaluators, notifyParentsIfImminent, warnScheduleConflicts } from "@/lib/scheduleNotify";
+import { notifySessionChange, notifyConnectingEvaluators, notifyParentsIfImminent, warnScheduleConflicts } from "@/lib/scheduleNotify";
 import { resolveMatchupTeams, assignMatchupRoster, matchupLabel } from "@/lib/scrimmageTeams";
 import { ensureSessionGroup } from "@/lib/sessionGroups";
 
@@ -125,11 +125,15 @@ export async function POST(request, { params }) {
       // fail the add or the session would silently not appear for the user.
       try { await ensureSessionGroup(catId, session_number, group_number); } catch (e) { console.error("add: ensureSessionGroup", e?.message); }
       try { await applyMatchup(catId, session_number, group_number, a.matchup || a.Matchup, row.id); } catch (e) { console.error("add: applyMatchup", e?.message); }
-      let notified = 0, offered = 0;
+      // Recruiting for an open spot no longer fires per-event here -- that was
+      // one immediate blast to the whole pool on every single add/edit
+      // (src/app/api/cron/route.js's spot_fill_digest job now consolidates
+      // every open session into one daily "here's what's still open" email
+      // per evaluator instead of one-by-one-by-one).
+      let notified = 0;
       try { ({ notified } = await notifySessionChange({ catId, scheduleRow: row, scheduleId: row.id, changeType: "added", summary: "A new session was added to the schedule.", initiator: initiatorOf(session) })); } catch (e) { console.error("add: notifySessionChange", e?.message); }
-      try { const offer = await offerOpenSession({ catId, scheduleRow: row }); offered = offer?.offered || 0; } catch (e) { console.error("add: offerOpenSession", e?.message); }
       try { await notifyConnectingEvaluators({ catId, scheduleRow: row }); } catch (e) { console.error("add: notifyConnectingEvaluators", e?.message); }
-      return NextResponse.json({ success: true, session: row, notified, offered });
+      return NextResponse.json({ success: true, session: row, notified });
     }
 
     // ── Bulk upload / replace (CSV) ───────────────────────────────────────────
@@ -326,8 +330,10 @@ export async function PATCH(request, { params }) {
       changeType: reinstating ? "reinstated" : "edited", summary, initiator: initiatorOf(session),
     });
 
-    // If the session needs more evaluators (e.g. moved date freed people up), recruit.
-    const offer = await offerOpenSession({ catId, scheduleRow: row });
+    // Recruiting for a spot this edit opened up no longer fires here per-event
+    // -- spot_fill_digest (src/app/api/cron/route.js) consolidates every open
+    // session into one daily email per evaluator instead of blasting the pool
+    // on every single edit.
     try { await notifyConnectingEvaluators({ catId, scheduleRow: row }); } catch (e) { console.error("edit: notifyConnectingEvaluators", e?.message); }
 
     // A moved date/time can turn a signed-up evaluator's existing schedule into
@@ -348,7 +354,7 @@ export async function PATCH(request, { params }) {
       await notifyParentsIfImminent({ catId, scheduleRow: row, changeType: "edited" });
     }
 
-    return NextResponse.json({ success: true, session: row, notified, offered: offer.offered, restored });
+    return NextResponse.json({ success: true, session: row, notified, restored });
   } catch (error) {
     console.error("Schedule PATCH error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

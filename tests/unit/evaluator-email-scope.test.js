@@ -24,8 +24,13 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm,
 const NOTIFY = strip(read("src/lib/scheduleNotify.js"));
 const MESSAGES = strip(read("src/app/api/messages/route.js"));
 const AUTHZ = strip(read("src/lib/authorize.js"));
+// Automatic spot-fill recruiting moved from scheduleNotify.js's per-event
+// offerOpenSession into cron/route.js's spot_fill_digest (one consolidated
+// daily email per evaluator instead of one blast per event) -- this is the
+// pool query's new home.
+const CRON = strip(read("src/app/api/cron/route.js"));
 
-const POOL = NOTIFY.slice(NOTIFY.indexOf("let pool = await sql`"), NOTIFY.indexOf("`;", NOTIFY.indexOf("let pool = await sql`")));
+const POOL = CRON.slice(CRON.indexOf("const evaluatorPool = await sql`"), CRON.indexOf("`;", CRON.indexOf("const evaluatorPool = await sql`")));
 
 // The exact shape both routes must use: a coach is excluded only for the org
 // they coach in.
@@ -42,7 +47,13 @@ describe("automatic spot-fill recruits evaluators, not roles", () => {
   });
 
   it("still skips people already signed up", () => {
-    expect(POOL).toMatch(/NOT IN \(\s*SELECT user_id FROM evaluator_session_signups/);
+    // The digest checks this per-session (an evaluator can be committed to
+    // some sessions in the open list and not others) rather than as a single
+    // blanket exclusion in the pool query itself -- look for that filter in
+    // the evaluator-digest send loop right after the pool query.
+    const sendLoop = CRON.slice(CRON.indexOf("const evaluatorPool = await sql`"), CRON.indexOf("if (openTesting.length)"));
+    expect(sendLoop).toMatch(/FROM evaluator_session_signups WHERE user_id = .*AND status = 'signed_up'/);
+    expect(sendLoop).toMatch(/alreadyOnSet/);
   });
 });
 
@@ -77,7 +88,7 @@ describe("the coach exclusion is per org, everywhere it is used", () => {
   });
 
   it("no remaining blanket 'any coach anywhere' exclusion", () => {
-    for (const src of [NOTIFY, MESSAGES]) {
+    for (const src of [NOTIFY, MESSAGES, CRON]) {
       // The old form: a coach subquery with no organization condition.
       expect(src).not.toMatch(/ce\.kind = 'coach'\)/);
     }
