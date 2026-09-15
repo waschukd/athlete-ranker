@@ -15,10 +15,21 @@ describe("getReportIntro", () => {
     const u9 = getReportIntro("U9 House", "Jordan");
     const u11 = getReportIntro("U11 AA", "Jordan");
     expect(u9).not.toBe(u11);
-    // U11's copy may reference U9 as the PRIOR stage the player came from --
-    // that's legitimate context, not a claim the player is in both brackets
-    // at once (the actual bug: "entering U9/U7 hockey" as one combined claim).
     expect(u9).not.toMatch(/entering U9\/U\d+/i);
+  });
+
+  // Real feedback: U11's copy used to open with "U9 was about laying the
+  // skating foundation" as context for the prior stage -- reasonable intent,
+  // but confusing in practice (reads like the player was also in U9). No
+  // bracket's copy should name any OTHER bracket at all.
+  it("never mentions another age bracket inside any one bracket's own copy", () => {
+    for (const age of REAL_BRACKETS) {
+      const intro = getReportIntro(`U${age}`, "Jordan");
+      for (const other of REAL_BRACKETS) {
+        if (other === age) continue;
+        expect(intro).not.toMatch(new RegExp(`\\bU${other}\\b`));
+      }
+    }
   });
 
   it("keys off the leading age number only, ignoring the skill-tier suffix", () => {

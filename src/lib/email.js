@@ -639,6 +639,26 @@ export async function sendParentReportEmail({ to, playerName, orgName, spName, r
   return sendEmail(to, `${playerName}'s Development Report — ${orgName}`, html);
 }
 
+// ── Purchase receipt: sent right after a real Stripe payment completes ──────
+// Real concern: the only place a buyer sees the report link is the browser
+// tab they just paid in -- close it without saving/printing and the link
+// itself (still live and already unlocked) is easy to lose track of. This is
+// a permanent copy of that same link in their inbox, not a second sale.
+export function purchaseReceiptEmailHtml({ playerName: _pn, orgName: _on, reportUrl }) {
+  const playerName = esc(_pn), orgName = esc(_on);
+  return emailWrapper(`
+    ${emailHeader("Purchase confirmed", `${playerName}'s report is unlocked`)}
+    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">Thanks for your purchase. ${playerName}'s full Development Report — ${orgName} — is unlocked and ready whenever you want it.</p>
+    <div style="text-align:center;margin:8px 0 0;">${btn(reportUrl, "View the report")}</div>
+    <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">Keep this email — this link is yours permanently, no need to purchase again to come back to it.</p>
+  `);
+}
+
+export async function sendPurchaseReceiptEmail({ to, playerName, orgName, reportUrl }) {
+  const html = purchaseReceiptEmailHtml({ playerName, orgName, reportUrl });
+  return sendEmail(to, `Purchase confirmed — ${playerName}'s Development Report`, html);
+}
+
 // Placement note when a player is moved out of a division and re-registered at
 // another level. Callers pass `message`/`subject` already resolved (org override
 // or the built-in default from emailTemplateDefaults) and already merged.

@@ -32,7 +32,10 @@ export default function ReportPdfClient({ params }) {
         // PDF is the paid artifact — bounce unpaid viewers back to the paywall.
         if (!d || d.error || !d.purchased) { window.location.href = `/report/${token}`; return; }
         setData(d);
-        setTimeout(() => { if (!safePrint()) setPrintFailed(true); }, 1100);
+        // Real feedback: opening the report used to immediately throw up the
+        // OS print dialog (a setTimeout auto window.print()), which nobody
+        // asked for and got in the way of just reading the report. Printing
+        // is now purely opt-in via the button below.
       })
       .catch(() => { window.location.href = `/report/${token}`; });
   }, [token]);
