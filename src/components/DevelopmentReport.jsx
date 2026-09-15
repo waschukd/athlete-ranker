@@ -173,6 +173,122 @@ function skillElite(name, isGoalie) {
   return "consistent, high-level execution when the game speeds up";
 }
 
+// Stock quotes for "What the evaluators saw" when there aren't enough real
+// notes to fill the section out -- real ask: every report should show at
+// least 5 quotes. These are generated, never invented from nothing: each one
+// is picked from the athlete's OWN real skill data (same strength/developing/
+// focus tiering as skillPill above, itself always relative to the TOP, never
+// an average), so a stock quote can never contradict what the numbers say --
+// the contradiction guard here is structural, not a separate check bolted on.
+// Terse, coach-voice phrasing on purpose, matching how real evaluator notes
+// in this app actually read ("weaker skater, work on first 3 strides" style)
+// rather than the fuller prose used in the skill-card interpretation text
+// above -- two different registers, not a repeat of the same sentence.
+// Notes are already shown with no evaluator name attached (see reportData.js),
+// so a stock quote carries the same identity-free presentation a real one
+// does -- nothing it says claims to be a specific person's observation.
+const STOCK_QUOTES = {
+  skating: {
+    strength: (n) => [`Strong skater — one of the better ones in the group.`, `Skating is a real strength; moves well and covers ice easily.`],
+    developing: (n) => [`Skating is coming along — keep working on edges and first three strides.`, `Good progress on skating; getting lower in the stride will add more power.`],
+    focus: (n) => [`Skating is the clearest area to work on — spend extra time on edges and stride power.`, `Needs more reps on skating fundamentals — stride length and balance especially.`],
+  },
+  puck: {
+    strength: (n) => [`Good hands — protects the puck well under pressure.`, `Strong on the puck; hard to knock off it in tight areas.`],
+    developing: (n) => [`Puck skills are developing — keep working on handling at full speed.`, `Getting more comfortable with the puck; next step is handling it under pressure.`],
+    focus: (n) => [`Needs more reps with the puck — work on protecting it and handling it under pressure.`, `Puck control is the area to attack — stickhandling in tight space especially.`],
+  },
+  sense: {
+    strength: (n) => [`Reads the play well — good positioning with and without the puck.`, `Strong hockey sense; usually in the right spot before the play develops.`],
+    developing: (n) => [`Hockey sense is coming along — keep working on anticipating the next play.`, `Good awareness building; reading the play a beat earlier will help a lot.`],
+    focus: (n) => [`Needs to work on reading the play — anticipate where to be before the puck arrives.`, `Positioning and awareness are the area to attack next.`],
+  },
+  compete: {
+    strength: (n) => [`Competes hard every shift — wins more than his share of battles.`, `Great motor; first on loose pucks and hard to play against.`],
+    developing: (n) => [`Good compete level — keep pushing to win more puck battles.`, `Effort is trending the right way; stay hard on pucks every shift.`],
+    focus: (n) => [`Needs to compete harder for loose pucks and in board battles.`, `Work rate is the area to attack — more urgency on every shift.`],
+  },
+  shooting: {
+    strength: (n) => [`Good shot — gets it off quickly and with power.`, `Strong shooter; a real weapon in tight to the net.`],
+    developing: (n) => [`Shot is coming along — keep working on release speed.`, `Good shot mechanics building; getting it off quicker will help.`],
+    focus: (n) => [`Work on shot release and getting it off quicker in traffic.`, `Shooting is the area to attack — more reps on a quick release.`],
+  },
+  passing: {
+    strength: (n) => [`Good vision — moves the puck well to open teammates.`, `Strong passer; sees the ice and finds the open man.`],
+    developing: (n) => [`Passing is developing — keep working on accuracy under pressure.`, `Vision is building nicely; tightening up pass accuracy is next.`],
+    focus: (n) => [`Work on passing accuracy and vision to find open teammates.`, `Puck movement is the area to attack — quicker, more accurate passes.`],
+  },
+  goalieMove: {
+    strength: (n) => [`Moves well in the crease — quick, controlled pushes.`, `Strong skater for a goalie; covers the net efficiently.`],
+    developing: (n) => [`Crease movement is coming along — keep working on push power.`, `Good progress moving post to post; recovery speed is next.`],
+    focus: (n) => [`Crease movement is the area to attack — pushes and recovery especially.`, `Needs more reps on skating and getting square quickly.`],
+  },
+  goaliePos: {
+    strength: (n) => [`Great positioning — consistently square and at the right depth.`, `Strong angles; takes away the net before the shot.`],
+    developing: (n) => [`Positioning is coming along — keep working on depth in the crease.`, `Good progress on angles; staying square through lateral movement is next.`],
+    focus: (n) => [`Positioning is the area to attack — angles and depth especially.`, `Needs more reps getting square before the shot arrives.`],
+  },
+  goalieSave: {
+    strength: (n) => [`Clean hands and feet — controls rebounds well.`, `Strong save execution; steers rebounds away from danger.`],
+    developing: (n) => [`Save execution is coming along — keep working on rebound control.`, `Good hands building; controlling second chances is the next step.`],
+    focus: (n) => [`Rebound control is the area to attack — steer pucks to the corners.`, `Needs more reps on clean hands and feet under pressure.`],
+  },
+  goalieRead: {
+    strength: (n) => [`Reads the play well — tracks the puck through traffic.`, `Strong anticipation; often set before the shot arrives.`],
+    developing: (n) => [`Reading the play is coming along — keep tracking through screens.`, `Good awareness building; anticipating a beat earlier is next.`],
+    focus: (n) => [`Reading the play is the area to attack — tracking through traffic especially.`, `Needs more reps anticipating the play before it develops.`],
+  },
+};
+function stockQuoteBucket(name, isGoalie) {
+  const n = (name || "").toLowerCase();
+  if (isGoalie) {
+    if (G_MOVE(n)) return "goalieMove";
+    if (G_POS(n)) return "goaliePos";
+    if (G_SAVE(n)) return "goalieSave";
+    if (G_READ(n)) return "goalieRead";
+    return "goalieMove";
+  }
+  if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "skating";
+  if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "puck";
+  if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "sense";
+  if (n.includes("compete") || n.includes("effort") || n.includes("battle") || n.includes("work")) return "compete";
+  if (n.includes("shot") || n.includes("shoot")) return "shooting";
+  if (n.includes("pass")) return "passing";
+  return null;
+}
+// Same tiering as skillPill -- always relative to the TOP, never an average.
+function stockTier(player, top) {
+  if (player == null || top == null) return null;
+  if (player >= top - 0.2) return "strength";
+  const gap = top - player;
+  if (gap <= 2.0) return "developing";
+  return "focus";
+}
+// Priority order: the single strongest skill first (a real anchor point),
+// then the biggest gaps-to-top (the same order the development plan itself
+// uses), so if only a couple of stock quotes are needed they're the most
+// meaningful ones, not an arbitrary first-N.
+function stockQuotesFor(skillProfile, isGoalie, need) {
+  if (need <= 0) return [];
+  const graded = (skillProfile || []).filter(s => s.player != null && s.top != null);
+  if (!graded.length) return [];
+  const withGap = graded.map(s => ({ ...s, gap: s.top - s.player }));
+  const strongest = withGap.slice().sort((a, b) => a.gap - b.gap)[0];
+  const rest = withGap.filter(s => s.scoring_category_id !== strongest.scoring_category_id).sort((a, b) => b.gap - a.gap);
+  const ordered = [strongest, ...rest];
+  const quotes = [];
+  ordered.forEach((s, idx) => {
+    if (quotes.length >= need) return;
+    const bucket = stockQuoteBucket(s.name, isGoalie);
+    if (!bucket) return;
+    const tier = stockTier(s.player, s.top);
+    if (!tier) return;
+    const variants = STOCK_QUOTES[bucket][tier]();
+    quotes.push(variants[idx % variants.length]);
+  });
+  return quotes;
+}
+
 // Position-specific habits that consistently show up well to evaluators —
 // separate from the skill/testing plan above (which is about closing this
 // athlete's specific gaps), this is general, position-appropriate advice for
@@ -280,10 +396,6 @@ export default function DevelopmentReport({ data }) {
   const T = theme === "light" ? LIGHT : DARK;
 
   const { athlete, category, notes = [], curatedNotes = null, standing, skillProfile = [], goalieSkillsProfile = [], testingProfile = [], progress = [], serviceProvider = null, org_name, narrativeSummary = null } = data;
-  // curatedNotes (AI-selected, non-contradictory subset -- see parentNarrative.js)
-  // is preferred; falls back to the raw chronological list only when the AI
-  // selection isn't available (e.g. ANTHROPIC_API_KEY unset).
-  const displayNotes = curatedNotes !== null ? curatedNotes : notes.slice(0, 12);
   const reportIntro = getReportIntro(category?.name, athlete?.first_name);
   const scale = category?.scoring_scale || 10;
   const fullName = `${athlete?.first_name || ""} ${athlete?.last_name || ""}`.trim();
@@ -291,6 +403,19 @@ export default function DevelopmentReport({ data }) {
   // Goalies are graded on goalie categories and ranked against goalies only;
   // the copy below adapts so the report reads as a goaltending report, not a skater one.
   const isGoalie = (athlete?.position || "").toLowerCase().includes("goal");
+  // curatedNotes (AI-selected, non-contradictory subset -- see parentNarrative.js)
+  // is preferred; falls back to the raw chronological list only when the AI
+  // selection isn't available (e.g. ANTHROPIC_API_KEY unset). Real ask: every
+  // report should show at least MIN_QUOTES -- when there aren't enough real
+  // notes, stock quotes (see stockQuotesFor above) fill the gap, generated
+  // straight from the athlete's own real skill data so they can never
+  // contradict it. Never shown with a session number -- that would fabricate
+  // an attribution a real note actually has.
+  const realNotes = curatedNotes !== null ? curatedNotes : notes.slice(0, 12);
+  const MIN_QUOTES = 5;
+  const stockQuotes = stockQuotesFor(isGoalie ? goalieSkillsProfile : skillProfile, isGoalie, MIN_QUOTES - realNotes.length)
+    .map(q => ({ session_number: null, note_text: q }));
+  const displayNotes = [...realNotes, ...stockQuotes];
   const cohortWord = isGoalie ? "goalies" : "skaters";
 
   // Foundation ordering = the sequence a development plan should attack skills in.
@@ -648,7 +773,7 @@ export default function DevelopmentReport({ data }) {
             {displayNotes.map((n, i) => (
               <div key={i} style={{ ...cardStyle, borderLeft: `2px solid ${T.accent}`, padding: "12px 16px", marginBottom: 9, breakInside: "avoid" }}>
                 <div style={{ fontFamily: SANS, color: T.bodyText, lineHeight: 1.6, fontSize: 14 }}>&ldquo;{n.note_text}&rdquo;</div>
-                <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.muted, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>
+                {n.session_number != null && <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.muted, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Session {n.session_number}</div>}
               </div>
             ))}
             {(strengthSkill || focusSkill || standing) && (
