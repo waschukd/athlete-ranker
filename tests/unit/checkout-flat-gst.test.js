@@ -59,7 +59,7 @@ beforeEach(() => {
 describe("POST /api/payments/create-checkout — flat GST, no address collection, no Tax Rates API", () => {
   it("never requests automatic_tax, billing_address_collection, or any tax_rates on the line item", async () => {
     const { POST } = await import("@/app/api/payments/create-checkout/route");
-    await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1" }) }));
+    await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1", agreedToTerms: true }) }));
 
     expect(checkoutSessionsCreate).toHaveBeenCalledTimes(1);
     const args = checkoutSessionsCreate.mock.calls[0][0];
@@ -70,7 +70,7 @@ describe("POST /api/payments/create-checkout — flat GST, no address collection
 
   it("adds GST as a plain second line item at exactly 5% of the price", async () => {
     const { POST } = await import("@/app/api/payments/create-checkout/route");
-    await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1" }) }));
+    await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1", agreedToTerms: true }) }));
 
     const args = checkoutSessionsCreate.mock.calls[0][0];
     expect(args.line_items).toHaveLength(2);
@@ -78,5 +78,26 @@ describe("POST /api/payments/create-checkout — flat GST, no address collection
     expect(args.line_items[1].price_data.product_data.name).toBe("GST (5%)");
     expect(args.line_items[1].price_data.unit_amount).toBe(175); // round(3499 * 0.05)
     expect(args.metadata.gst_cents).toBe("175");
+  });
+});
+
+describe("POST /api/payments/create-checkout — development-use terms", () => {
+  // Real ask: "I'm purchasing this for development purposes, not to dispute
+  // a team selection" is a real condition of sale, not just a disabled
+  // button on the client -- enforced here too.
+  it("refuses to create a checkout session without agreedToTerms: true", async () => {
+    const { POST } = await import("@/app/api/payments/create-checkout/route");
+    const res = await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1" }) }));
+
+    expect(res.status).toBe(400);
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("also refuses a falsy or non-boolean agreedToTerms value", async () => {
+    const { POST } = await import("@/app/api/payments/create-checkout/route");
+    const res = await POST(new Request("http://test/api/payments/create-checkout", { method: "POST", body: JSON.stringify({ token: "tok-1", agreedToTerms: "yes" }) }));
+
+    expect(res.status).toBe(400);
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled();
   });
 });

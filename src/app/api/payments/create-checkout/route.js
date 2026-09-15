@@ -45,9 +45,13 @@ export async function POST(request) {
     }
 
     const stripe = getStripe();
-    const { token } = await request.json();
+    const { token, agreedToTerms } = await request.json();
 
     if (!token) return NextResponse.json({ error: "token required" }, { status: 400 });
+    // Enforced server-side, not just a disabled button -- the checkbox on the
+    // paywall page ("I'm purchasing this for development purposes, not to
+    // dispute a team selection") is a real condition of sale, not decoration.
+    if (agreedToTerms !== true) return NextResponse.json({ error: "You must agree to the terms before purchasing." }, { status: 400 });
 
     // Look up the report link
     const link = await sql`

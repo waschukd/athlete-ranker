@@ -660,6 +660,19 @@ export default function DevelopmentReport({ data }) {
               </div>
             </div>
 
+            {/* Real ask: parents need to understand the scale a small-looking
+                gap sits inside of, AND what this report is (and isn't) for --
+                stated plainly enough that it holds up if someone tries to
+                use it to relitigate a roster decision. */}
+            <div style={{ marginTop: 16, border: `1px solid ${T.panelBorder}`, borderLeft: `3px solid ${T.accent}`, borderRadius: 8, background: T.panelBg, padding: "14px 16px", breakInside: "avoid" }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 8 }}>How to read this report</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
+                Some age categories evaluate well over 100 athletes at once. At that scale, a gap that looks small in these numbers can reflect a real, meaningful difference in where a player actually sits in the group — these scores aren't precise to a tenth of a point the way they might look.
+                <br /><br />
+                This report exists for one purpose: an honest, realistic picture of where {firstName} fits right now and a clear plan to keep developing. It is not evidence for disputing a team selection, an evaluator, or the association, and it will not be treated as one — rosters are set through the full evaluation process, not any single report, and those decisions are final.
+              </div>
+            </div>
+
             <div style={{ lineHeight: 1.6, marginTop: 20, fontFamily: SANS, fontSize: 13.5, color: T.textDim }}>
               <p style={{ marginTop: 0, marginBottom: 18 }}>If {firstName} invests in development, the order matters. Build the foundation first and the rest compounds. Here's the path we'd recommend:</p>
 

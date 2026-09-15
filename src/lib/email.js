@@ -631,6 +631,7 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
     <div style="text-align:center;margin:20px 0 0;">${btn(reportUrl, "View the report")}</div>
     <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">A free preview is open right now — unlocking the full report is secure payment via Stripe, no account needed.</p>
     <p style="margin:14px 0 0;font-size:12.5px;color:#5b606b;text-align:center;line-height:1.6;">Not sure what's inside? <a href="${BASE_URL}/report/sample" style="color:${GOLD_DEEP};font-weight:700;text-decoration:none;border-bottom:1px solid ${GOLD_LINE};">See a full sample report first →</a></p>
+    <p style="margin:18px 0 0;font-size:11px;color:${MUTED};text-align:center;line-height:1.6;border-top:1px solid #ece9e2;padding-top:14px;">This report is for development purposes — an honest picture of where a player stands and what to work on next. Some categories evaluate well over 100 athletes at once, so a small-looking gap in these numbers can be a real, meaningful one. It is not a tool for disputing a team selection, an evaluator, or the association, and it will not be treated as one — rosters are final.</p>
   `);
 }
 

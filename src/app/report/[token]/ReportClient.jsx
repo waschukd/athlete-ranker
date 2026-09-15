@@ -16,6 +16,7 @@ export default function ReportClient({ params }) {
   const [loading, setLoading] = useState(true);
   const [unlocking, setUnlocking] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -41,9 +42,10 @@ export default function ReportClient({ params }) {
   }, [paymentStatus, data?.purchased]);
 
   const handleUnlock = async () => {
+    if (!agreed) return;
     setUnlocking(true);
     const res = await fetch("/api/payments/create-checkout", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, agreedToTerms: true }),
     });
     const result = await res.json();
     if (result.already_purchased) { fetchData(); setUnlocking(false); return; }
@@ -138,7 +140,24 @@ export default function ReportClient({ params }) {
             </div>
             <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 900, color: "#fff" }}>{priceStr}</div>
             <div style={{ fontSize: 11, color: "#6b7078", marginBottom: 18 }}>One-time purchase · Instant access</div>
-            <button onClick={handleUnlock} disabled={unlocking} style={{ padding: "13px 30px", background: GOLD, color: "#141414", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: unlocking ? "default" : "pointer", opacity: unlocking ? 0.6 : 1 }}>
+
+            {/* Real ask: this data needs to be understood as development
+                feedback, not ammunition against a roster decision -- asking
+                for this up front, before payment, makes that expectation
+                explicit rather than buried in copy nobody reads after the fact. */}
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 9, maxWidth: 380, margin: "0 auto 18px", textAlign: "left", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0, accentColor: GOLD, cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 11.5, color: "#b8bcc4", lineHeight: 1.5 }}>
+                I'm purchasing this report for development purposes — to understand where {firstName} stands and what to work on. Not to dispute a team selection, an evaluator, or the association's decision. Rosters are final.
+              </span>
+            </label>
+
+            <button onClick={handleUnlock} disabled={unlocking || !agreed} style={{ padding: "13px 30px", background: GOLD, color: "#141414", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: (unlocking || !agreed) ? "default" : "pointer", opacity: (unlocking || !agreed) ? 0.5 : 1 }}>
               {unlocking ? "Redirecting to checkout…" : `Unlock Report — ${priceStr}`}
             </button>
             <p style={{ fontSize: 11, color: "#6b7078", marginTop: 14 }}>Secure payment via Stripe. No account required.</p>
