@@ -173,6 +173,51 @@ function skillElite(name, isGoalie) {
   return "consistent, high-level execution when the game speeds up";
 }
 
+// Position-specific habits that consistently show up well to evaluators —
+// separate from the skill/testing plan above (which is about closing this
+// athlete's specific gaps), this is general, position-appropriate advice for
+// how to show well at the NEXT evaluation regardless of what gets worked on
+// between now and then. "forward_defense" (a real position value in the
+// data) gets a shorter combined list rather than the full 5 of each.
+const FORWARD_TIPS = [
+  "Be around the puck. Evaluators can't grade what they don't see — get to loose pucks and support the puck carrier.",
+  "Forecheck hard and pressure the other team. Relentless pressure on the puck is one of the most visible things an evaluator watches for.",
+  "Move the puck when it's warranted. Don't hold onto it out of habit — recognize the play that's actually there.",
+  "Don't overhandle the puck. Making one extra move after the play is already there just gives it back.",
+  "Follow your shot. Engage in the battles and rebounds in front of the net instead of watching it go in or wide.",
+  "Backcheck hard. A forward who works hard on the defensive side stands out immediately in a group of players only thinking offense.",
+  "Communicate. Calling for the puck and talking to teammates is an easy, visible signal of hockey sense.",
+  "Make simple plays. The low-risk, right play beats the flashy one almost every time — that's what gets you noticed.",
+  "Avoid risky plays in your own zone. A turnover in front of your own net costs far more than a missed opportunity anywhere else on the ice.",
+  "Be aggressive on pucks and compete hard. It's always a race — the player who treats every puck like a race is the one who wins most of them.",
+];
+const DEFENSE_TIPS = [
+  "Keep your head on a swivel. Constant awareness of where the play and your options are is one of the clearest signs of a defenseman evaluators trust.",
+  "Play good angles. Taking away the right lane before contact beats reacting to the puck carrier after the fact.",
+  "Keep a good stick on the puck. An active, well-placed stick disrupts plays without needing to commit your whole body.",
+  "Communicate. Calling out coverage and options is an easy, visible signal of hockey sense on the back end.",
+  "Make simple plays. The safe, right play out of your own zone beats the low-percentage one almost every time.",
+  "Make a good first pass. A crisp, no-hesitation outlet pass is one of the most valued things a defenseman can show.",
+  "Keep your feet moving with the puck. Standing still with it invites pressure — moving feet keep your options open.",
+];
+const GOALIE_TIPS = [
+  "Be square before the shot. Positioning ahead of the release matters more to evaluators than a spectacular reactive save.",
+  "Control your rebounds. Steering pucks to the corners instead of back into the slot is one of the most heavily weighted things a goalie does.",
+  "Communicate with your defense. Directing coverage and calling out threats in front of the net shows game awareness beyond just stopping pucks.",
+  "Track the puck through traffic. Never lose sight of it behind a screen — evaluators notice a goalie who stays locked on through bodies.",
+  "Recover fast after the first save. Being reset and ready for a second or third shot is weighted just as heavily as the first save itself.",
+];
+function positionTips(position, isGoalie) {
+  if (isGoalie) return GOALIE_TIPS;
+  const p = (position || "").toLowerCase();
+  const isForward = p.includes("forward");
+  const isDefense = p.includes("defense") || p.includes("defence");
+  if (isForward && isDefense) return [...FORWARD_TIPS.slice(0, 3), ...DEFENSE_TIPS.slice(0, 3)];
+  if (isDefense) return DEFENSE_TIPS;
+  if (isForward) return FORWARD_TIPS;
+  return null;
+}
+
 // What evaluators watch for in each goalie skills-session drill.
 function drillBlurb(name) {
   const n = (name || "").toLowerCase();
@@ -288,6 +333,7 @@ export default function DevelopmentReport({ data }) {
   const strengthSkill = gradedSkills.slice().sort((a, b) => b.player - a.player)[0];
   const weaknessSkill = gradedSkills.slice().sort((a, b) => a.player - b.player)[0];
   const focusSkill = skillFocus[0];
+  const tips = positionTips(athlete?.position, isGoalie);
 
   // Pills are keyed to the TOP of the group (the target), never the average — a
   // parent should read every skill as distance-to-aim-for, not a placement grade.
@@ -606,6 +652,8 @@ export default function DevelopmentReport({ data }) {
               <div style={{ fontFamily: SANS, color: T.textDim, lineHeight: 1.6, fontSize: 13 }}>{firstName} was measured across {isGoalie ? "the evaluators' scores" : "objective testing and evaluator scores"} over the evaluation. The point of this report isn't a ranking — it's a clear picture of what to work on and, just as important, the order to work on it in.</div>
               <div style={{ marginTop: 12, border: `1px solid ${T.hair}`, borderRadius: 8, background: T.panelBg, padding: "10px 14px", color: T.textDim, fontFamily: SANS, fontSize: 12, lineHeight: 1.55, breakInside: "avoid" }}>
                 <b style={{ color: T.heading }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player, and it isn't how groups or teams get set. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
+                <br /><br />
+                Evaluator (subjective) grades are also a <b style={{ color: T.heading }}>relative scale, not a fixed one</b> — a score reflects how {firstName} compared to the specific peers on the ice with them that session, not a universal standard applied the same way to every group at every level. That's by design: it's the only fair way to grade a fast-moving scrimmage in real time, and it's exactly why this report frames every score against this group's own top mark instead of a fixed benchmark.
               </div>
             </div>
 
@@ -666,6 +714,26 @@ export default function DevelopmentReport({ data }) {
                 )
               )}
             </div>
+
+            {/* Position-general habits — distinct from the skill/testing plan
+                above (which targets THIS athlete's specific gaps), this is
+                what consistently gets noticed at the next evaluation
+                regardless of what's worked on between now and then. */}
+            {tips && (
+              <div style={{ marginTop: 26, breakInside: "avoid" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Things to get you noticed</div>
+                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the next evaluation</div>
+                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these apply at any evaluation, this one or the next.</p>
+                <div style={{ ...cardStyle, padding: "6px 18px" }}>
+                  {tips.map((t, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i > 0 ? `1px solid ${T.hair}` : "none" }}>
+                      <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 12, color: T.accent, marginTop: 1, flexShrink: 0, width: 16 }}>{i + 1}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: T.bodyText, lineHeight: 1.55 }}>{t}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {!isGoalie && (
               <div style={{ marginTop: 26, breakInside: "avoid" }}>
