@@ -368,10 +368,22 @@ export default function DevelopmentReport({ data }) {
   );
 
   // ── Progress maths (for the dedicated progress page) ──
+  // Framed against the TOP of each session, never a group average (owner's
+  // call: the only "relative to" this report ever uses is relative to the
+  // top, same as the skill profile and testing sections). Real reasoning: a
+  // raw session-to-session score change is a misleading signal on its own --
+  // if the whole field moves together (an easier or tougher session, a
+  // different panel), a flat or falling raw score can still mean real ground
+  // gained, or held, against the actual competition. Tracking the GAP to the
+  // top instead of the raw number stays fair either way.
   const prog = progress.filter(p => p.player != null);
   const firstP = prog[0]?.player, lastP = prog[prog.length - 1]?.player;
-  const totalDelta = (firstP != null && lastP != null) ? Math.round((lastP - firstP) * 10) / 10 : null;
-  const trendWord = totalDelta == null ? "" : totalDelta >= 0.3 ? "Trending up" : totalDelta <= -0.3 ? "Trending down" : "Holding steady";
+  const firstTop = prog[0]?.top, lastTop = prog[prog.length - 1]?.top;
+  const firstGap = (firstP != null && firstTop != null) ? Math.round((firstTop - firstP) * 10) / 10 : null;
+  const lastGap = (lastP != null && lastTop != null) ? Math.round((lastTop - lastP) * 10) / 10 : null;
+  // Positive = the gap narrowed = real ground gained on the top of the field.
+  const gapDelta = (firstGap != null && lastGap != null) ? Math.round((firstGap - lastGap) * 10) / 10 : null;
+  const trendWord = gapDelta == null ? "" : gapDelta >= 0.3 ? "Closing the gap" : gapDelta <= -0.3 ? "Gap widening" : "Holding position";
 
   return (
     <ThemeContext.Provider value={T}>
@@ -554,18 +566,18 @@ export default function DevelopmentReport({ data }) {
           return (
             <div style={{ marginBottom: 10, ...section }}>
               <Shead kicker={trendWord || "Session by session"} title="Progress across sessions" />
-              <div style={leadStyle}>How {firstName}'s evaluator scores moved from one session to the next, against the group average. Improvement across sessions is the strongest signal there is — it shows the work is landing.</div>
+              <div style={leadStyle}>How {firstName}'s own score moved from one session to the next, tracked against the top of that same session. A session-to-session number on its own can be misleading — if the whole field moves together (a tougher session, a different panel), the fair read is the gap to the top, not the raw score.</div>
 
               {/* Big takeaway */}
-              {totalDelta != null && (
+              {gapDelta != null && (
                 <div style={{ display: "flex", alignItems: "center", gap: 18, ...cardStyle, borderLeft: `3px solid ${T.accent}`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
                   <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 32, color: totalDelta >= 0 ? T.success : T.warning, lineHeight: 1 }}>{totalDelta >= 0 ? "+" : ""}{totalDelta.toFixed(1)}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.accent, marginTop: 5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>pts · {n} sessions</div>
+                    <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 32, color: gapDelta >= 0 ? T.success : T.warning, lineHeight: 1 }}>{gapDelta >= 0 ? "-" : "+"}{Math.abs(gapDelta).toFixed(1)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.accent, marginTop: 5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>pts off the top · {n} sessions</div>
                   </div>
                   <div style={{ width: 1, alignSelf: "stretch", background: T.hair }} />
                   <div style={{ fontFamily: SANS, color: T.textDim, fontSize: 13.5, lineHeight: 1.6 }}>
-                    {firstName} {totalDelta >= 0.3 ? "improved" : totalDelta <= -0.3 ? "slipped" : "held steady"} from <b style={{ color: T.heading }}>{firstP.toFixed(1)}</b> in session 1 to <b style={{ color: T.heading }}>{lastP.toFixed(1)}</b> by session {n}{totalDelta >= 0.3 ? " — a clear upward trajectory across the evaluation." : "."} The line below tracks every session against the group.
+                    {firstName} was <b style={{ color: T.heading }}>{firstGap.toFixed(1)}</b> off the top of the field in session 1, and <b style={{ color: T.heading }}>{lastGap.toFixed(1)}</b> off by session {n}{gapDelta >= 0.3 ? " — real ground closed on the top of the field." : gapDelta <= -0.3 ? ", as the top of the field pulled ahead." : ", holding roughly the same position relative to the top."} The line below tracks every session against that session's own top mark.
                   </div>
                 </div>
               )}
@@ -586,11 +598,11 @@ export default function DevelopmentReport({ data }) {
                     </g>
                   ))}
                   <path d={area} fill="url(#progFill)" />
-                  <path d={line("group")} fill="none" stroke={T.seriesMuted} strokeWidth="2" strokeDasharray="5 5" />
+                  <path d={line("top")} fill="none" stroke={T.seriesMuted} strokeWidth="2" strokeDasharray="5 5" />
                   <path d={line("player")} fill="none" stroke={T.accent} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
                   {prog.map((p, i) => (
                     <g key={i}>
-                      <circle cx={x(i)} cy={y(p.group)} r="3.5" fill={T.seriesMuted} />
+                      <circle cx={x(i)} cy={y(p.top)} r="3.5" fill={T.seriesMuted} />
                       <circle cx={x(i)} cy={y(p.player)} r="5.5" fill={T.accent} stroke={T.surface} strokeWidth="2" />
                       <text x={x(i)} y={y(p.player) - 12} textAnchor="middle" fontSize="14" fontWeight="700" fill={T.heading} fontFamily={MONO}>{p.player.toFixed(1)}</text>
                       <text x={x(i)} y={H - 22} textAnchor="middle" fontSize="11" fontWeight="700" letterSpacing="0.08em" fill={T.subtleText} fontFamily={MONO}>SESSION {p.session_number}</text>
@@ -599,14 +611,17 @@ export default function DevelopmentReport({ data }) {
                 </svg>
                 <div style={{ display: "flex", gap: 18, justifyContent: "center", padding: "6px 0 12px", fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, fontWeight: 600 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: T.accent, borderRadius: 2 }} />{firstName}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 0, borderTop: `2px dashed ${T.seriesMuted}` }} />Group average</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 0, borderTop: `2px dashed ${T.seriesMuted}` }} />Top of session</span>
                 </div>
               </div>
 
-              {/* Per-session deltas */}
+              {/* Per-session deltas — the player's own raw movement, plus the
+                  gap to that session's top as the fair, consistent reference
+                  point (never a group average). */}
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                 {prog.map((p, i) => {
                   const d = i === 0 ? null : Math.round((p.player - prog[i - 1].player) * 10) / 10;
+                  const gap = p.top != null ? Math.round((p.top - p.player) * 10) / 10 : null;
                   return (
                     <div key={i} style={{ flex: 1, ...cardStyle, padding: "12px 10px", textAlign: "center" }}>
                       <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.gray, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Session {p.session_number}</div>
@@ -616,6 +631,7 @@ export default function DevelopmentReport({ data }) {
                       ) : (
                         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: d > 0 ? T.success : d < 0 ? T.warning : T.muted }}>{d > 0 ? "▲ +" : d < 0 ? "▼ " : "– "}{Math.abs(d).toFixed(1)} vs S{prog[i - 1].session_number}</div>
                       )}
+                      {gap != null && <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.muted, marginTop: 4 }}>{gap.toFixed(1)} off top</div>}
                     </div>
                   );
                 })}

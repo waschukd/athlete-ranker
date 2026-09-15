@@ -171,14 +171,23 @@ export async function buildAthleteReport(catId, athleteId) {
       .sort((a, b) => testOrder(a.test_name) - testOrder(b.test_name) || a.test_name.localeCompare(b.test_name));
   } catch { testingProfile = []; }
 
-  // ── Session-over-session progress: player avg vs group avg per session ──
+  // ── Session-over-session progress: player vs the TOP of that session ──
   // The $24.99 value-add — shows movement across the evaluation, not just a
-  // single snapshot. Coach scores excluded to match the skill profile.
+  // single snapshot. Never a group average (owner's call: the only "relative
+  // to" this report ever uses is relative to the top, same as skillProfile's
+  // topMap and testingProfile's group_best above) -- "top" here is the
+  // single highest individual athlete's own average that session, not the
+  // single highest individual score (a one-off outlier shouldn't set the bar).
+  // Coach scores excluded to match the skill profile.
   const groupBySession = await sql`
-    SELECT cs.session_number, AVG(cs.score)::float AS avg
-    FROM category_scores cs
-    WHERE cs.age_category_id = ${catId} AND cs.evaluator_id <> ALL(${coachIds})
-    GROUP BY cs.session_number ORDER BY cs.session_number
+    SELECT session_number, MAX(athlete_avg)::float AS top
+    FROM (
+      SELECT cs.session_number, cs.athlete_id, AVG(cs.score) AS athlete_avg
+      FROM category_scores cs
+      WHERE cs.age_category_id = ${catId} AND cs.evaluator_id <> ALL(${coachIds})
+      GROUP BY cs.session_number, cs.athlete_id
+    ) per_athlete
+    GROUP BY session_number ORDER BY session_number
   `;
   const playerBySession = {};
   const playerCntSession = {};
@@ -213,7 +222,7 @@ export async function buildAthleteReport(catId, athleteId) {
     .map(r => ({
       session_number: sessionIndexMap[r.session_number],
       player: round1(playerBySession[r.session_number] / playerCntSession[r.session_number]),
-      group: round1(r.avg),
+      top: round1(r.top),
     }))
     .sort((a, b) => a.session_number - b.session_number);
 

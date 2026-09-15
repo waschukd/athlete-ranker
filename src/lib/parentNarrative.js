@@ -42,7 +42,7 @@ function buildPrompt({ firstName, category, isGoalie, standing, skillProfile, te
     : "No objective testing recorded yet.";
 
   const progressLines = progress.length > 1
-    ? progress.map(p => `- Session ${p.session_number}: ${firstName} ${p.player ?? "—"}, group average ${p.group ?? "—"}`).join("\n")
+    ? progress.map(p => `- Session ${p.session_number}: ${firstName} ${p.player ?? "—"}, top of that session ${p.top ?? "—"}`).join("\n")
     : "Only one scored session so far -- no session-over-session trend yet.";
 
   const notesLines = notes.length
