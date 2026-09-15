@@ -630,6 +630,7 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
     </div>
     <div style="text-align:center;margin:20px 0 0;">${btn(reportUrl, "View the report")}</div>
     <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">A free preview is open right now — unlocking the full report is secure payment via Stripe, no account needed.</p>
+    <p style="margin:14px 0 0;font-size:12.5px;color:#5b606b;text-align:center;line-height:1.6;">Not sure what's inside? <a href="${BASE_URL}/report/sample" style="color:${GOLD_DEEP};font-weight:700;text-decoration:none;border-bottom:1px solid ${GOLD_LINE};">See a full sample report first →</a></p>
   `);
 }
 
