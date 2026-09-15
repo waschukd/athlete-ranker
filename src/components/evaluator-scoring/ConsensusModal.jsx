@@ -24,22 +24,25 @@ export default function ConsensusModal({
             <h2 className="text-lg font-bold text-ink">Consensus Review</h2>
             <p className="text-xs text-gray-500 mt-0.5">Do evaluators rank athletes in the same tier?</p>
           </div>
-          <div className="flex items-center gap-1">
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
+            <X size={20} />
+          </button>
+        </div>
+        {/* Live status + manual refresh live together in the body, not the
+            header -- up there the button sat over the Top/Bottom tier row on
+            narrow screens. */}
+        {updatedAt && !loading && (
+          <div className="flex items-center justify-between gap-2 -mt-2 mb-3">
+            <p className="text-[11px] text-gray-400">
+              Live — refreshes every few seconds. Last update {new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.
+            </p>
             {onRefresh && (
-              <button onClick={onRefresh} title="Pull the latest scores now (also refreshes itself every few seconds)"
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
+              <button onClick={onRefresh} title="Pull the latest scores now"
+                className="shrink-0 px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
                 Refresh
               </button>
             )}
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
-              <X size={20} />
-            </button>
           </div>
-        </div>
-        {updatedAt && !loading && (
-          <p className="text-[11px] text-gray-400 -mt-2 mb-3">
-            Live — refreshes every few seconds. Last update {new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.
-          </p>
         )}
 
         {loading ? (
