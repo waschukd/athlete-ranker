@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
-import { getStripe, stripeConfigured, getGstTaxRate } from "@/lib/stripe";
+import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { resolveReportProvider, isPurchasable, purchaseBlockedReason, resolveReportPrice, splitReportSale } from "@/lib/reportProvider";
 
 // Charge currency. Defaults to usd to preserve existing behaviour — the one
@@ -109,32 +109,45 @@ export async function POST(request) {
     const { spFeeCents, associationFeeCents } = splitReportSale(priceCents);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
-    // Flat 5% GST, no billing address prompt — every sale runs through an
-    // Alberta association/SP, so there's no multi-jurisdiction question for
-    // Stripe Tax's automatic, address-based calculation to solve. See
-    // lib/stripe.js's getGstTaxRate for why this replaced automatic_tax.
-    const gstTaxRateId = await getGstTaxRate(stripe);
+    // Flat 5% GST, no billing address prompt, no Stripe Tax Rate object --
+    // every sale runs through an Alberta association/SP, so there's no
+    // multi-jurisdiction question to solve. Real incident: the first version
+    // of this called stripe.taxRates.list/create, which 403'd on every single
+    // checkout in production ("Permission denied ... Tax Rates Read") because
+    // the live key configured here is a restricted key without that scope --
+    // silently breaking the Unlock button for every buyer until caught. A
+    // plain second line item needs no Stripe Tax permission at all, and the
+    // flat rate is deterministic, so the webhook computes tax_cents from
+    // gst_cents in metadata instead of relying on Stripe to report it.
+    const gstCents = Math.round(priceCents * 0.05);
 
     // Plain charge on Sideline Star's own account — no destination/transfer.
     // The provider's share is remitted off-platform from the ledger.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: [{
-        price_data: {
-          currency: REPORT_CURRENCY,
-          product_data: {
-            // Mask the minor's surname on the (unauthenticated) Stripe page — the
-            // free preview only ever shows "First L." and checkout needs no purchase.
-            name: `Player Report — ${link[0].first_name} ${link[0].last_name ? String(link[0].last_name)[0] + "." : ""}`.trim(),
-            description: `${link[0].category_name} — Full evaluation report with scores, notes, and AI scouting analysis`,
+      line_items: [
+        {
+          price_data: {
+            currency: REPORT_CURRENCY,
+            product_data: {
+              // Mask the minor's surname on the (unauthenticated) Stripe page — the
+              // free preview only ever shows "First L." and checkout needs no purchase.
+              name: `Player Report — ${link[0].first_name} ${link[0].last_name ? String(link[0].last_name)[0] + "." : ""}`.trim(),
+              description: `${link[0].category_name} — Full evaluation report with scores, notes, and AI scouting analysis`,
+            },
+            unit_amount: priceCents,
           },
-          unit_amount: priceCents,
-          // The listed price is PRE-tax; GST is added on top at checkout.
-          tax_behavior: "exclusive",
+          quantity: 1,
         },
-        quantity: 1,
-        tax_rates: [gstTaxRateId],
-      }],
+        {
+          price_data: {
+            currency: REPORT_CURRENCY,
+            product_data: { name: "GST (5%)" },
+            unit_amount: gstCents,
+          },
+          quantity: 1,
+        },
+      ],
       metadata: {
         token,
         athlete_id: String(athlete_id),
@@ -142,6 +155,7 @@ export async function POST(request) {
         provider_org_id: String(provider.orgId),
         platform_fee_cents: String(spFeeCents),
         association_fee_cents: String(associationFeeCents),
+        gst_cents: String(gstCents),
       },
       success_url: `${baseUrl}/report/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/report/${token}?payment=cancelled`,

@@ -38,13 +38,19 @@ export async function POST(request) {
           ? parseInt(session.metadata.platform_fee_cents, 10)
           : null;
 
-        // amount_SUBTOTAL, not amount_total. The total includes GST, which is not
-        // revenue — it's owed to the CRA. Storing the total here would make the
-        // provider's 75% eat a slice of the government's money on every sale
-        // ($27.99 instead of $26.24 at $34.99 + 5%). Tax is held separately.
-        const netCents = Number.isFinite(session.amount_subtotal) ? session.amount_subtotal : null;
-        const taxCents = Number.isFinite(session.total_details?.amount_tax)
-          ? session.total_details.amount_tax
+        // GST is a plain second line item (see create-checkout — no Stripe Tax
+        // Rate object, so Stripe never reports it via total_details.amount_tax),
+        // recorded flat and deterministic in metadata at checkout creation.
+        // amount_subtotal sums BOTH line items, so it must be reduced by the
+        // GST amount to get real product revenue — storing the GST-inclusive
+        // total here would make the provider's cut eat a slice of the money
+        // owed to the CRA ($27.99 instead of $26.24 at $34.99 + 5%).
+        const gstCentsMeta = session.metadata?.gst_cents ? parseInt(session.metadata.gst_cents, 10) : null;
+        const taxCents = Number.isFinite(gstCentsMeta)
+          ? gstCentsMeta
+          : (Number.isFinite(session.total_details?.amount_tax) ? session.total_details.amount_tax : null);
+        const netCents = Number.isFinite(session.amount_subtotal)
+          ? session.amount_subtotal - (Number.isFinite(gstCentsMeta) ? gstCentsMeta : 0)
           : null;
         // The currency Stripe actually settled in. Adaptive pricing can convert a
         // buyer to their local currency, so reconcile the ledger to what was
