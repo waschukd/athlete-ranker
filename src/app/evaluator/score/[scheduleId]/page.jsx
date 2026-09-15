@@ -400,13 +400,22 @@ function ScoringInterface() {
     enabled: !!(catId && scheduleData?.session_number && scheduleData?.group_number && online && !readOnly),
     staleTime: 15_000,
   });
-  // Auto-opens once per page load, the moment guidance data actually says
-  // there's something to show -- never re-fires on its own after being
-  // dismissed (still reachable manually via Settings).
+  // Auto-opens the moment guidance data actually says there's something to
+  // show -- never re-fires on its own after being dismissed (still reachable
+  // manually via Settings). Once per schedule per browser session -- not once per page LOAD. A reload
+  // mid-session (people did it constantly to refresh the consensus view)
+  // brought this popup back every time, on top of whatever they were doing.
   useEffect(() => {
     if (guidanceShownRef.current) return;
-    if (guidanceData?.applicable) { setShowGuidance(true); guidanceShownRef.current = true; }
-  }, [guidanceData]);
+    if (!guidanceData?.applicable) return;
+    const key = `ar_guidance_shown_${scheduleId}`;
+    let seen = false;
+    try { seen = sessionStorage.getItem(key) === "1"; } catch {}
+    guidanceShownRef.current = true;
+    if (seen) return;
+    setShowGuidance(true);
+    try { sessionStorage.setItem(key, "1"); } catch {}
+  }, [guidanceData, scheduleId]);
   // Range for the live per-player out-of-range nudge in ScorePanel. Always the
   // fixed suggested band, never a live "what's been scored so far" range --
   // that used to feed a feedback loop where one evaluator scoring a group low
@@ -1369,21 +1378,36 @@ function ScoringInterface() {
 
   }, [scheduleId, updateScore, navigate]);
 
-  const loadConsensus = async () => {
-    setConsensusLoading(true);
+  // silent = a background refresh while the panel is open: swap the data in
+  // place with no spinner, so the list does not blank out under people who
+  // are mid-discussion. The first load, and a manual retry, still spin.
+  const [consensusUpdatedAt, setConsensusUpdatedAt] = useState(null);
+  const loadConsensus = async (silent = false) => {
+    if (!silent) setConsensusLoading(true);
     setConsensusError(false);
     try {
-      const res = await fetch(`/api/categories/${catId}/consensus?schedule_id=${scheduleId}&session=${scheduleData?.session_number}`);
+      const res = await fetch(`/api/categories/${catId}/consensus?schedule_id=${scheduleId}&session=${scheduleData?.session_number}`, { cache: "no-store" });
       const data = await res.json();
       setConsensusData(data);
+      setConsensusUpdatedAt(Date.now());
     } catch {
       // A flaky rink WiFi connection throwing here (Safari's generic "Load
       // failed") previously left the modal spinning forever with no way out
       // but closing it -- this at least surfaces a retry instead of a stuck spinner.
-      setConsensusError(true);
+      if (!silent) setConsensusError(true);
     }
-    setConsensusLoading(false);
+    if (!silent) setConsensusLoading(false);
   };
+
+  // Live while the panel is open. Evaluators adjust scores at the end of a
+  // session and look back here to see if the disagreement cleared; they were
+  // reloading the whole page to find out, which reset the screen and brought
+  // the session guidance popup back. Now it just refreshes itself.
+  useEffect(() => {
+    if (!showConsensus) return;
+    const t = setInterval(() => loadConsensus(true), 8000);
+    return () => clearInterval(t);
+  }, [showConsensus, catId, scheduleId, scheduleData?.session_number]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After the lock is set, run the existing consensus/flag-review notify and leave.
   const finishClose = async () => {
@@ -1586,7 +1610,17 @@ function ScoringInterface() {
         rankMode={rankMode} setRankMode={setRankMode}
         viewMode={viewMode} collapseList={collapseList} setCollapseList={setCollapseList} setListExpanded={setListExpanded}
         readOnly={readOnly}
-        onOpenConsensus={async () => { setShowConsensus(true); logClientEvent("consensus.opened", { metadata: { catId, scheduleId } }); await loadConsensus(); }}
+        onOpenConsensus={async () => {
+          setShowConsensus(true);
+          logClientEvent("consensus.opened", { metadata: { catId, scheduleId } });
+          // Push this evaluator's own unsent edits before reading, so a score
+          // they just fixed is in the view they are about to discuss -- not
+          // still sitting in the debounce timer.
+          const ids = Object.keys(pending);
+          for (const id of ids) { clearTimeout(syncTimerRef.current[id]); }
+          await Promise.all(ids.map(async id => { const r = await syncToServer(parseInt(id), scoresRef.current); applySyncResult(id, r); }));
+          await loadConsensus();
+        }}
         onResync={resyncNow}
       />
 
@@ -1768,7 +1802,8 @@ function ScoringInterface() {
       {/* ── Consensus overlay ─────────────────────────────────── */}
       {showConsensus && (
         <ConsensusModal
-          data={consensusData} loading={consensusLoading} error={consensusError} onRetry={loadConsensus}
+          data={consensusData} loading={consensusLoading} error={consensusError} onRetry={() => loadConsensus(false)}
+          onRefresh={() => loadConsensus(true)} updatedAt={consensusUpdatedAt}
           evalFilter={consensusEvalFilter} setEvalFilter={setConsensusEvalFilter}
           reviewedFlags={reviewedFlags}
           onDiscussed={(athleteId, severity) => { setReviewedFlags(prev => new Set([...prev, athleteId])); logClientEvent("consensus.flag_resolved", { metadata: { catId, athleteId, severity } }); }}

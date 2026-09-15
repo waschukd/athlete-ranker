@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 export default function ConsensusModal({
   data, loading, error, onRetry,
+  onRefresh, updatedAt,
   evalFilter, setEvalFilter,
   reviewedFlags, onDiscussed,
   isAnon, anonLabel, athletes,
@@ -23,10 +24,23 @@ export default function ConsensusModal({
             <h2 className="text-lg font-bold text-ink">Consensus Review</h2>
             <p className="text-xs text-gray-500 mt-0.5">Do evaluators rank athletes in the same tier?</p>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            {onRefresh && (
+              <button onClick={onRefresh} title="Pull the latest scores now (also refreshes itself every few seconds)"
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
+                Refresh
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-ink rounded-lg hover:bg-gray-100">
+              <X size={20} />
+            </button>
+          </div>
         </div>
+        {updatedAt && !loading && (
+          <p className="text-[11px] text-gray-400 -mt-2 mb-3">
+            Live — refreshes every few seconds. Last update {new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.
+          </p>
+        )}
 
         {loading ? (
           <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" /></div>
