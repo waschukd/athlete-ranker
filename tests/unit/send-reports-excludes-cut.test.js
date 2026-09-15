@@ -40,7 +40,7 @@ beforeEach(() => {
 describe("GET /api/categories/[catId]/send-reports (dry-run count)", () => {
   it("never counts a cut athlete toward the with_email total", async () => {
     mockSqlByQuery([
-      ["ac.name, o.name", [{ name: "U13 AA", org_name: "EFHA" }]],
+      ["ac.name, ac.teams_finalized_at", [{ name: "U13 AA", org_name: "EFHA", teams_finalized_at: new Date().toISOString() }]],
       ["SELECT COUNT(*)::int AS with_email", [{ with_email: 0 }]], // the real query includes cut_at IS NULL; a mock DB would return 0 here, real Postgres does the filtering
     ]);
     const { GET } = await import("@/app/api/categories/[catId]/send-reports/route");
@@ -58,7 +58,7 @@ describe("GET /api/categories/[catId]/send-reports (dry-run count)", () => {
 describe("POST /api/categories/[catId]/send-reports", () => {
   it("excludes a cut player from the roster query used to send emails", async () => {
     mockSqlByQuery([
-      ["ac.name, o.name", [{ name: "U13 AA", org_name: "EFHA" }]],
+      ["ac.name, ac.teams_finalized_at", [{ name: "U13 AA", org_name: "EFHA", teams_finalized_at: new Date().toISOString() }]],
       ["FROM users WHERE email", [{ id: 24 }]],
       ["SELECT id, first_name, last_name, parent_email", []], // real Postgres excludes the cut row; here we assert on the query text below
       ["FROM report_links WHERE athlete_id", []],

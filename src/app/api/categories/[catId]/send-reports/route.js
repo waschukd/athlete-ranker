@@ -15,11 +15,11 @@ async function ctx(session, catId) {
   const auth = await authorizeCategoryAccess(session, catId);
   if (!auth.authorized) return null;
   const cat = await sql`
-    SELECT ac.name, o.name AS org_name
+    SELECT ac.name, ac.teams_finalized_at, o.name AS org_name
     FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
     WHERE ac.id = ${catId}
   `;
-  return { auth, orgName: cat[0]?.org_name || "Your association" };
+  return { auth, orgName: cat[0]?.org_name || "Your association", teamsFinalized: !!cat[0]?.teams_finalized_at };
 }
 
 // Dry-run: how many parents would be emailed.
@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
   `;
   const { priceCents } = await resolveReportPrice(c.auth.orgId);
-  return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: priceCents });
+  return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: priceCents, teams_finalized: c.teamsFinalized });
 }
 
 // Email each parent a link to their child's report (free preview → paywall).
@@ -45,6 +45,13 @@ export async function POST(request, { params }) {
   if (!MANAGE_ROLES.has(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const c = await ctx(session, params.catId);
   if (!c) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Enforced here too, not just a disabled button -- teams_finalized_at is a
+  // manual, per-category confirmation (see categories/[catId]/teams-finalized)
+  // since this app can't reliably know whether a roster built in a separate
+  // tool is actually done.
+  if (!c.teamsFinalized) {
+    return NextResponse.json({ error: "Mark teams as finalized for this category before sending reports." }, { status: 409 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const spName = (body.spName || "").trim() || null;

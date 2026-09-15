@@ -101,6 +101,16 @@ function EndOfEvalReportsModal({ orgId, onClose }) {
     setSendingId(null);
   };
 
+  // Manual, per-category confirmation -- deliberately not inferred from
+  // anything in-app, since some associations build their real rosters in a
+  // separate tool entirely and this app has no way to know that's done.
+  const toggleFinalized = async (catId, finalized) => {
+    await fetch(`/api/categories/${catId}/teams-finalized`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["report-settings", orgId] });
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -168,23 +178,38 @@ function EndOfEvalReportsModal({ orgId, onClose }) {
             <div className="space-y-2">
               {settings.categories.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-6">No categories yet.</p>
-              ) : settings.categories.map(cat => (
-                <div key={cat.id} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-ink truncate">{cat.name}</p>
-                    <p className="text-xs text-gray-400">{cat.has_scores ? "Has scores" : "No scores recorded yet"}</p>
-                    {sendMsg[cat.id] && <p className="text-xs text-accent mt-0.5">{sendMsg[cat.id]}</p>}
+              ) : settings.categories.map(cat => {
+                const finalized = !!cat.teams_finalized_at;
+                const canSend = cat.has_scores && finalized;
+                return (
+                  <div key={cat.id} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-ink truncate">{cat.name}</p>
+                        <p className="text-xs text-gray-400">{cat.has_scores ? "Has scores" : "No scores recorded yet"}</p>
+                        {sendMsg[cat.id] && <p className="text-xs text-accent mt-0.5">{sendMsg[cat.id]}</p>}
+                      </div>
+                      <button
+                        onClick={() => sendReports(cat.id)}
+                        disabled={!canSend || sendingId === cat.id}
+                        title={!cat.has_scores ? "No scores yet — nothing to report" : !finalized ? "Mark teams finalized below first" : "Email every parent a report link"}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-40 whitespace-nowrap"
+                      >
+                        {sendingId === cat.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                      <div>
+                        <p className="text-xs font-medium text-ink">Teams finalized</p>
+                        <p className="text-[11px] text-gray-400">Whether rosters were built here or elsewhere — flip this once they're actually decided.</p>
+                      </div>
+                      <button onClick={() => toggleFinalized(cat.id, !finalized)} className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${finalized ? "bg-accent" : "bg-gray-300"}`}>
+                        <span className={`block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${finalized ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => sendReports(cat.id)}
-                    disabled={!cat.has_scores || sendingId === cat.id}
-                    title={!cat.has_scores ? "No scores yet — nothing to report" : "Email every parent a report link"}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-40 whitespace-nowrap"
-                  >
-                    {sendingId === cat.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div>

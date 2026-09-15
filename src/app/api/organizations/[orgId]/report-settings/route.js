@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
     const split = splitReportSale(priceCents);
 
     const categories = await sql`
-      SELECT ac.id, ac.name,
+      SELECT ac.id, ac.name, ac.teams_finalized_at,
         EXISTS(SELECT 1 FROM category_scores cs WHERE cs.age_category_id = ac.id) AS has_scores
       FROM age_categories ac
       WHERE ac.organization_id = ${params.orgId} AND COALESCE(ac.status, 'active') <> 'archived'
