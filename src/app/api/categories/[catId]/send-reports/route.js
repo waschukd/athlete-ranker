@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
   const rows = await sql`
     SELECT COUNT(*)::int AS with_email
     FROM athletes
-    WHERE age_category_id = ${params.catId} AND is_active = true
+    WHERE age_category_id = ${params.catId} AND is_active = true AND cut_at IS NULL
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
   `;
   const { priceCents } = await resolveReportPrice(c.auth.orgId);
@@ -54,10 +54,22 @@ export async function POST(request, { params }) {
   const priceStr = `$${(priceCents / 100).toFixed(2)}`;
   const userId = (await sql`SELECT id FROM users WHERE email = ${session.email}`)[0]?.id;
 
+  // cut_at IS NULL: a player cut from THIS category (moved to another tier,
+  // or released) stays active + visible here on purpose, flagged "Cut", so
+  // their real scores still show in this division's own ranking -- see
+  // categories/[catId]/cut/route.js. But that means they'd otherwise still
+  // get offered a report purchase for a tier they're no longer part of,
+  // which reads as very confusing to a parent (an AA-tryout report landing
+  // in the inbox of a family who already knows their kid plays House now).
+  // A "move" also gives the player a brand-new athlete row in the
+  // destination category (clean slate, no AA-tagged scores/notes at all --
+  // see buildAthleteReport's own athlete_id + age_category_id scoping), so
+  // excluding the cut row here never loses anyone a report; it's covered
+  // once reports go out for their real, current category instead.
   const athletes = await sql`
     SELECT id, first_name, last_name, parent_email, parent_email_2
     FROM athletes
-    WHERE age_category_id = ${params.catId} AND is_active = true
+    WHERE age_category_id = ${params.catId} AND is_active = true AND cut_at IS NULL
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
       ${athleteId ? sql`AND id = ${athleteId}` : sql``}
   `;
