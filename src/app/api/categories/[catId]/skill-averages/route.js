@@ -95,7 +95,7 @@ export async function GET(request, { params }) {
     }));
 
     const athleteRows = await sql`
-      SELECT id, first_name, last_name, position, helmet_number, is_active, cut_at
+      SELECT id, first_name, last_name, position, helmet_number, is_active, cut_at, non_contact
       FROM athletes
       WHERE age_category_id = ${catId} AND is_active = true
       ORDER BY last_name, first_name`;
@@ -131,6 +131,7 @@ export async function GET(request, { params }) {
         position: a.position,
         helmet_number: a.helmet_number,
         cut: !!a.cut_at,
+        contact: a.non_contact ? "NBC" : "BC",
         is_goalie: isGoalie(a),
         scores,
         overall,

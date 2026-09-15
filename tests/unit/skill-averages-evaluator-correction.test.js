@@ -15,8 +15,8 @@ const { default: sql } = await import("@/lib/db");
 const { getSession } = await import("@/lib/auth");
 
 const ATHLETES = [
-  { id: 1, first_name: "A1", last_name: "L1", position: "forward", helmet_number: null, is_active: true, cut_at: null },
-  { id: 5, first_name: "A5", last_name: "L5", position: "forward", helmet_number: null, is_active: true, cut_at: null },
+  { id: 1, first_name: "A1", last_name: "L1", position: "forward", helmet_number: null, is_active: true, cut_at: null, non_contact: false },
+  { id: 5, first_name: "A5", last_name: "L5", position: "forward", helmet_number: null, is_active: true, cut_at: null, non_contact: true },
 ];
 
 // Same shape as the rankings-evaluator-correction fixture: "hot" flat-9s
@@ -80,5 +80,17 @@ describe("skill-averages route — evaluator correction parity with rankings.js"
     const a5 = body.athletes.find(a => a.athlete_id === 5);
     expect(a1.scores[10].avg).toBe(9);
     expect(a5.scores[10].avg).toBe(5);
+  });
+
+  // SEERA asked for a BC/NBC (Body Contact / Non-Body-Contact) indicator on
+  // exports built from this route (e.g. Rank by Category's CSV download).
+  it("surfaces each athlete's contact status as BC/NBC", async () => {
+    mockRoute("standard");
+    const { GET } = await import("@/app/api/categories/[catId]/skill-averages/route");
+    const res = await GET(new Request("http://test/api/categories/99/skill-averages"), { params: { catId: "99" } });
+    const body = await res.json();
+
+    expect(body.athletes.find(a => a.athlete_id === 1).contact).toBe("BC");
+    expect(body.athletes.find(a => a.athlete_id === 5).contact).toBe("NBC");
   });
 });

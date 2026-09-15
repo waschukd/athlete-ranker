@@ -119,7 +119,7 @@ export default function ScrimmageTeams({ catId }) {
       return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
     };
 
-    const lines = [["Team", "Rank", "First Name", "Last Name", "Position", "Helmet #"].join(",")];
+    const lines = [["Team", "Rank", "First Name", "Last Name", "Position", "Helmet #", "Contact"].join(",")];
     for (const t of teams) {
       const members = t.members || [];
       // Defense (incl. F/D) by rank, then forwards by rank.
@@ -132,6 +132,7 @@ export default function ScrimmageTeams({ catId }) {
           esc(m.last_name || ""),
           esc(posShort(m.position)),
           esc(m.helmet_number ?? ""),
+          esc(m.non_contact ? "NBC" : "BC"),
         ].join(","));
       }
     }

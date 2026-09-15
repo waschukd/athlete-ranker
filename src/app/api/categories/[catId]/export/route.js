@@ -75,6 +75,7 @@ export async function GET(request, { params }) {
         birth_year: a.birth_year ?? null,
         position: a.position ?? null,
         external_id: a.external_id ?? null,
+        contact: a.non_contact ? "NBC" : "BC",
         rank: a.rank ?? null,
         weighted_total: a.weighted_total ?? null,
         skills,

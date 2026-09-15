@@ -80,13 +80,14 @@ export default function RankByCategory({ catId }) {
   };
 
   const downloadCsv = () => {
-    const header = ["Rank", "Last", "First", ...shownCriteria.map(c => c.name), "Overall", "Evaluators", "Sessions"];
+    const header = ["Rank", "Last", "First", "Contact", ...shownCriteria.map(c => c.name), "Overall", "Evaluators", "Sessions"];
     const lines = [header.join(",")];
     rows.forEach((a, i) => {
       lines.push([
         i + 1,
         `"${a.last_name || ""}"`,
         `"${a.first_name || ""}"`,
+        a.contact || "BC",
         ...shownCriteria.map(c => a.scores?.[c.id]?.avg ?? ""),
         a.overall ?? "",
         a.evaluators || 0,

@@ -203,9 +203,9 @@ function TeamGeneratorInner() {
     const lines = [];
     for (const team of teams) {
       lines.push(`${team.name}`);
-      lines.push("Rank,First,Last,Position,HC#");
+      lines.push("Rank,First,Last,Position,HC#,Contact");
       const players = rosters.filter(r => r.team_id === team.id).sort((a, b) => a.team_rank - b.team_rank);
-      players.forEach(p => lines.push(`${p.team_rank},${p.first_name},${p.last_name},${p.position || ""},${p.external_id || ""}`));
+      players.forEach(p => lines.push(`${p.team_rank},${p.first_name},${p.last_name},${p.position || ""},${p.external_id || ""},${p.non_contact ? "NBC" : "BC"}`));
       lines.push("");
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });

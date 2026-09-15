@@ -570,7 +570,7 @@ export default function CategoryDashboard({
       const str = String(v ?? "");
       return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
     };
-    const header = ["Rank", "First Name", "Last Name", "Position", "Jersey #", "Helmet #", "ID", "Birth Year", "Status", "Parent Email", "Parent Email 2", "Parent Phone"];
+    const header = ["Rank", "First Name", "Last Name", "Position", "Jersey #", "Helmet #", "ID", "Birth Year", "Status", "Contact", "Parent Email", "Parent Email 2", "Parent Phone"];
     const lines = [header.join(",")];
     for (const a of ordered) {
       lines.push([
@@ -583,6 +583,7 @@ export default function CategoryDashboard({
         esc(a.external_id || ""),
         a.birth_year ?? "",
         a.cut_at ? "Cut" : (a.is_active === false ? "Inactive" : "Active"),
+        a.non_contact ? "NBC" : "BC",
         esc(a.parent_email || ""),
         esc(a.parent_email_2 || ""),
         esc(a.parent_phone || ""),
@@ -693,8 +694,8 @@ export default function CategoryDashboard({
   };
 
   const exportRankingsCSV = () => {
-    const headers = ["Rank", "First", "Last", "Position", "HC#", ...sessions.map(s => `S${s.session_number} (${s.weight_percentage}%)`), "Total"];
-    const rows = rankedAthletes.map(a => [a.rank, a.first_name, a.last_name, a.position || "", a.external_id || "", ...sessions.map(s => a.session_scores?.[s.session_number]?.normalized_score?.toFixed(1) || ""), a.weighted_total?.toFixed(1) || ""]);
+    const headers = ["Rank", "First", "Last", "Position", "HC#", "Contact", ...sessions.map(s => `S${s.session_number} (${s.weight_percentage}%)`), "Total"];
+    const rows = rankedAthletes.map(a => [a.rank, a.first_name, a.last_name, a.position || "", a.external_id || "", a.non_contact ? "NBC" : "BC", ...sessions.map(s => a.session_scores?.[s.session_number]?.normalized_score?.toFixed(1) || ""), a.weighted_total?.toFixed(1) || ""]);
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -703,8 +704,8 @@ export default function CategoryDashboard({
 
   const exportSessionSummary = (sessionNum) => {
     const sessionAthletes = rankedAthletes.filter(a => a.session_scores?.[sessionNum]);
-    const headers = ["Rank", "First", "Last", "Score", "Evaluators"];
-    const rows = sessionAthletes.map(a => { const sd = a.session_scores[sessionNum]; return [a.rank, a.first_name, a.last_name, sd.normalized_score?.toFixed(1), sd.evaluator_count || 1]; });
+    const headers = ["Rank", "First", "Last", "Contact", "Score", "Evaluators"];
+    const rows = sessionAthletes.map(a => { const sd = a.session_scores[sessionNum]; return [a.rank, a.first_name, a.last_name, a.non_contact ? "NBC" : "BC", sd.normalized_score?.toFixed(1), sd.evaluator_count || 1]; });
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -2077,8 +2078,8 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center"><Users size={18} className="text-white" /></div><div><div className="font-semibold text-gray-900">Player Report Cards</div><div className="text-xs text-gray-400">Individual player score history</div></div></div>
                 <button onClick={() => {
-                  const headers = ["Rank", "First", "Last", "HC#", "Position", ...sessions.map(s => `S${s.session_number}`), "Total"];
-                  const rows = rankedAthletes.map(a => [a.rank, a.first_name, a.last_name, a.external_id || "", a.position || "", ...sessions.map(s => a.session_scores?.[s.session_number]?.normalized_score?.toFixed(1) || ""), a.weighted_total?.toFixed(1) || ""]);
+                  const headers = ["Rank", "First", "Last", "HC#", "Position", "Contact", ...sessions.map(s => `S${s.session_number}`), "Total"];
+                  const rows = rankedAthletes.map(a => [a.rank, a.first_name, a.last_name, a.external_id || "", a.position || "", a.non_contact ? "NBC" : "BC", ...sessions.map(s => a.session_scores?.[s.session_number]?.normalized_score?.toFixed(1) || ""), a.weighted_total?.toFixed(1) || ""]);
                   const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
                   const blob = new Blob([csv], { type: "text/csv" });
                   const url = URL.createObjectURL(blob);

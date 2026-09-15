@@ -46,7 +46,7 @@ export async function GET(request, { params }) {
     `;
 
     const rosters = await sql`
-      SELECT tr.*, a.first_name, a.last_name, a.external_id, a.position,
+      SELECT tr.*, a.first_name, a.last_name, a.external_id, a.position, a.non_contact,
         t.name as team_name, t.id as team_id
       FROM team_rosters tr
       JOIN athletes a ON a.id = tr.athlete_id

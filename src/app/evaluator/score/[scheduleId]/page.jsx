@@ -905,7 +905,7 @@ function ScoringInterface() {
     const cats = scoringCatsRef.current || [];
     const aths = athletesRef.current || [];
     const showName = !isAnon;
-    const header = ["Jersey", ...(showName ? ["Name"] : []), "Team", ...cats.map(c => c.name), "Notes"];
+    const header = ["Jersey", ...(showName ? ["Name"] : []), "Team", "Contact", ...cats.map(c => c.name), "Notes"];
     const rows = [header];
     for (const a of aths) {
       const s = scoresRef.current[a.id];
@@ -914,6 +914,7 @@ function ScoringInterface() {
         a.jersey_number ?? "",
         ...(showName ? [`${a.first_name || ""} ${a.last_name || ""}`.trim()] : []),
         a.team_color || "",
+        a.non_contact ? "NBC" : "BC",
         ...cats.map(c => (s.cats?.[c.id] ?? "")),
         (s.notes || "").replace(/[\r\n]+/g, " "),
       ]);

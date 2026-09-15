@@ -177,7 +177,7 @@ export async function GET(request, { params }) {
       // only what's actually returned to the check-in screen changes here.
       athletes = await sql`
         SELECT
-          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
+          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number, a.non_contact,
           pc.id as checkin_id, pc.jersey_number, pc.team_color,
           pc.checked_in, pc.checked_in_at,
           pga.display_order
@@ -191,7 +191,7 @@ export async function GET(request, { params }) {
       // Fallback — no groups set up yet
       athletes = await sql`
         SELECT
-          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number,
+          a.id, a.first_name, a.last_name, a.external_id, a.position, a.birth_year, a.helmet_number, a.non_contact,
           pc.id as checkin_id, pc.jersey_number, pc.team_color,
           pc.checked_in, pc.checked_in_at, 0 as display_order
         FROM athletes a
