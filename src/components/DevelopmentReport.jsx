@@ -199,6 +199,9 @@ const DEFENSE_TIPS = [
   "Make simple plays. The safe, right play out of your own zone beats the low-percentage one almost every time.",
   "Make a good first pass. A crisp, no-hesitation outlet pass is one of the most valued things a defenseman can show.",
   "Keep your feet moving with the puck. Standing still with it invites pressure — moving feet keep your options open.",
+  "Box out in front of your own net. Clear the stick and body before the puck arrives, not after.",
+  "Don't get beat to the middle. Force players wide, where they have fewer options and less time to make a play.",
+  "Protect the puck under pressure at the blue lines. A turnover there — not just your own — can turn into a direct scoring chance against.",
 ];
 const GOALIE_TIPS = [
   "Be square before the shot. Positioning ahead of the release matters more to evaluators than a spectacular reactive save.",
@@ -715,26 +718,6 @@ export default function DevelopmentReport({ data }) {
               )}
             </div>
 
-            {/* Position-general habits — distinct from the skill/testing plan
-                above (which targets THIS athlete's specific gaps), this is
-                what consistently gets noticed at the next evaluation
-                regardless of what's worked on between now and then. */}
-            {tips && (
-              <div style={{ marginTop: 26, breakInside: "avoid" }}>
-                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Things to get you noticed</div>
-                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the next evaluation</div>
-                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these apply at any evaluation, this one or the next.</p>
-                <div style={{ ...cardStyle, padding: "6px 18px" }}>
-                  {tips.map((t, i) => (
-                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i > 0 ? `1px solid ${T.hair}` : "none" }}>
-                      <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 12, color: T.accent, marginTop: 1, flexShrink: 0, width: 16 }}>{i + 1}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 13, color: T.bodyText, lineHeight: 1.55 }}>{t}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {!isGoalie && (
               <div style={{ marginTop: 26, breakInside: "avoid" }}>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Off-ice next steps</div>
@@ -768,6 +751,27 @@ export default function DevelopmentReport({ data }) {
                     <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 6 }}>Questions worth asking before you book</div>
                     <div style={{ fontFamily: SANS, color: T.textDim, fontSize: 12.5, lineHeight: 1.6 }}>How many players per coach on the ice? Can you sit in on or trial a session first? Does the coach have a playing or coaching background at a level worth trusting? And do they track progress session-to-session, or is every session the same drills with no read on what's actually improving?</div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Position-general habits — distinct from the skill/testing plan
+                above (which targets THIS athlete's specific gaps), this is
+                what consistently gets noticed at the next evaluation
+                regardless of what's worked on between now and then. Sits
+                last, after the development plan and off-ice guidance. */}
+            {tips && (
+              <div style={{ marginTop: 26, breakInside: "avoid" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Things to get you noticed</div>
+                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the next evaluation</div>
+                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these apply at any evaluation, this one or the next.</p>
+                <div style={{ ...cardStyle, padding: "6px 18px" }}>
+                  {tips.map((t, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i > 0 ? `1px solid ${T.hair}` : "none" }}>
+                      <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 12, color: T.accent, marginTop: 1, flexShrink: 0, width: 16 }}>{i + 1}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: T.bodyText, lineHeight: 1.55 }}>{t}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
