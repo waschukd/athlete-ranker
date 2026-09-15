@@ -694,26 +694,26 @@ export default function DevelopmentReport({ data }) {
                         ))}
                       </ul>
                       {testFocus.length > 0 ? (
-                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`, color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`, color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. This is the work to build this season — attack it now, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                       ) : (
-                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`, color: T.textDim }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                        <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`, color: T.textDim }}>This is the foundation to build this season — attack it now, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                       )}
                     </div>
                   )}
                   {skillFocus.length <= 1 && (
                     testFocus.length > 0 ? (
-                      <p style={{ margin: "16px 0 0", color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                      <p style={{ margin: "16px 0 0", color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} — reflect the same {skillFocus[0].name.toLowerCase()} gap driving the plan above. This is the work to build this season — attack it now, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                     ) : (
-                      <p style={{ margin: "16px 0 0", color: T.textDim }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                      <p style={{ margin: "16px 0 0", color: T.textDim }}>This is the foundation to build this season — attack it now, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                     )
                   )}
                 </div>
               )}
               {skillFocus.length === 0 && (
                 testFocus.length > 0 ? (
-                  <p style={{ margin: 0, color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} are the clearest places to invest between now and the next evaluation. Attack it through the off-season, then come back and beat these numbers. The work shows up on the sheet.</p>
+                  <p style={{ margin: 0, color: T.textDim }}>The objective targets to chase first — {testFocus.map((t, i) => <b key={t.test_name} style={{ color: T.heading }}>{t.test_name}{i < testFocus.length - 1 ? " and " : ""}</b>)} are the clearest places to invest right now, early in the season — attack them, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                 ) : (
-                  <p style={{ margin: 0, color: T.textDim }}>Attack the foundation through the off-season, then come back and beat these numbers at the next evaluation. The work shows up on the sheet.</p>
+                  <p style={{ margin: 0, color: T.textDim }}>This is the foundation to build this season — attack it now, and come back to beat these numbers as the year goes on. The work shows up on the sheet.</p>
                 )
               )}
             </div>
@@ -757,14 +757,17 @@ export default function DevelopmentReport({ data }) {
 
             {/* Position-general habits — distinct from the skill/testing plan
                 above (which targets THIS athlete's specific gaps), this is
-                what consistently gets noticed at the next evaluation
-                regardless of what's worked on between now and then. Sits
-                last, after the development plan and off-ice guidance. */}
+                what consistently gets noticed all season, not tied to any
+                one evaluation. Sits last, after the development plan and
+                off-ice guidance. Real feedback: report copy shouldn't assume
+                a tryout-to-tryout gap year -- a report going out at the
+                START of a season should point at building through THIS
+                season, not "wait for the off-season, come back next time." */}
             {tips && (
               <div style={{ marginTop: 26, breakInside: "avoid" }}>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Things to get you noticed</div>
-                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the next evaluation</div>
-                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these apply at any evaluation, this one or the next.</p>
+                <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the season ahead</div>
+                <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these are worth building all season long, not just something to remember for the next evaluation.</p>
                 <div style={{ ...cardStyle, padding: "6px 18px" }}>
                   {tips.map((t, i) => (
                     <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i > 0 ? `1px solid ${T.hair}` : "none" }}>
