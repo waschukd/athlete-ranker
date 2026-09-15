@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
-import { getStripe, stripeConfigured } from "@/lib/stripe";
+import { getStripe, stripeConfigured, getGstTaxRate } from "@/lib/stripe";
 import { resolveReportProvider, isPurchasable, purchaseBlockedReason, resolveReportPrice, splitReportSale } from "@/lib/reportProvider";
 
 // Charge currency. Defaults to usd to preserve existing behaviour — the one
@@ -109,6 +109,12 @@ export async function POST(request) {
     const { spFeeCents, associationFeeCents } = splitReportSale(priceCents);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 
+    // Flat 5% GST, no billing address prompt — every sale runs through an
+    // Alberta association/SP, so there's no multi-jurisdiction question for
+    // Stripe Tax's automatic, address-based calculation to solve. See
+    // lib/stripe.js's getGstTaxRate for why this replaced automatic_tax.
+    const gstTaxRateId = await getGstTaxRate(stripe);
+
     // Plain charge on Sideline Star's own account — no destination/transfer.
     // The provider's share is remitted off-platform from the ledger.
     const session = await stripe.checkout.sessions.create({
@@ -127,13 +133,8 @@ export async function POST(request) {
           tax_behavior: "exclusive",
         },
         quantity: 1,
+        tax_rates: [gstTaxRateId],
       }],
-      // Stripe Tax. Safe to ship before any registration exists — it collects
-      // nothing until a registration is active in Dashboard > Tax > Registrations,
-      // so until the accountant says go this behaves exactly as it does today.
-      automatic_tax: { enabled: true },
-      // Tax can't be computed without knowing where the buyer is.
-      billing_address_collection: "required",
       metadata: {
         token,
         athlete_id: String(athlete_id),

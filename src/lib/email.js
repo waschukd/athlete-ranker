@@ -590,6 +590,24 @@ export function parentTeamPlacementHtml({ playerName: _pn, categoryName: _cn, or
   `);
 }
 
+// Left-aligned checklist as a real <table> (bulletproof in email clients that
+// don't reliably lay out inline-block/flex spans) with a solid checkmark
+// badge per row. Real bug: the previous version used the HTML named entity
+// "&check;" for the checkmark -- reliably supported in a browser, but a
+// number of email clients (Outlook desktop chief among them) don't resolve
+// less-common named entities and print the literal text "&check;" instead.
+// A real UTF-8 ✓ character renders everywhere.
+function checklistTable(items) {
+  const rows = items.map(t => `
+    <tr>
+      <td width="24" valign="top" style="padding:6px 4px 6px 0;">
+        <table cellpadding="0" cellspacing="0" role="presentation"><tr><td width="18" height="18" align="center" valign="middle" style="width:18px;height:18px;border-radius:50%;background:${GOLD};font-size:11px;line-height:18px;color:#1b1505;font-weight:800;">✓</td></tr></table>
+      </td>
+      <td valign="middle" style="padding:6px 0;font-size:13.5px;color:${INK};line-height:1.5;text-align:left;">${t}</td>
+    </tr>`).join("");
+  return `<table width="100%" cellpadding="0" cellspacing="0" role="presentation">${rows}</table>`;
+}
+
 // ── Parent paywall delivery: "your child's report is ready" + preview/buy CTA ──
 // fromLine reads "<SP> on behalf of <Association>" when an SP name is provided.
 export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _sp, reportUrl, priceStr }) {
@@ -597,12 +615,21 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
   const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
   return emailWrapper(`
     ${emailHeader(fromLine, `${esc(playerName)}'s Development Report is ready`)}
-    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report breaks down their objective testing results, how the evaluators graded each skill, what a top mark looks like, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
-    ${infoCard("Inside the full report", `<div style="font-size:13px;color:#4a4f57;line-height:1.95;text-align:center;">
-        ${["Objective testing with a target to chase", "Skill scores &amp; what a top mark looks like", "Session-by-session progress", "Every evaluator note", "A personalized development plan", "Downloadable PDF"].map(t => `<div><span style="color:${GOLD_DEEP};font-weight:800;">&check;</span>&nbsp; ${t}</div>`).join("")}
-      </div>`, { center: true })}
-    <div style="text-align:center;margin:8px 0 0;">${btn(reportUrl, "View the report")}</div>
-    <p style="margin:18px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">Open a free preview now; unlock the full report for ${priceStr}. Secure payment via Stripe — no account needed.</p>
+    <p style="margin:14px auto 26px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report breaks down their objective testing results, how the evaluators graded each skill, what a top mark looks like, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
+    ${infoCard("Inside the full report", checklistTable([
+      "Objective testing with a target to chase",
+      "Skill scores &amp; what a top mark looks like",
+      "Session-by-session progress",
+      "Every evaluator note",
+      "A personalized development plan",
+      "Downloadable PDF",
+    ]), { center: true })}
+    <div style="text-align:center;margin:26px 0 4px;">
+      <div style="font-family:${SERIF_FONT};font-size:34px;font-weight:900;color:${INK};letter-spacing:-0.3px;">${priceStr}</div>
+      <div style="font-size:10.5px;color:${MUTED};letter-spacing:0.14em;text-transform:uppercase;font-weight:700;margin-top:2px;">One-time purchase · Instant access</div>
+    </div>
+    <div style="text-align:center;margin:20px 0 0;">${btn(reportUrl, "View the report")}</div>
+    <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">A free preview is open right now — unlocking the full report is secure payment via Stripe, no account needed.</p>
   `);
 }
 
