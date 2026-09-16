@@ -291,17 +291,17 @@ function stockQuotesFor(skillProfile, isGoalie, need) {
   // developmental framing, so a genuinely across-the-board result doesn't
   // read as pure criticism with zero encouragement anywhere in the report.
   const noRealStrength = stockTier(strongest.player, strongest.top) === "focus";
-  // When there's no real strength anywhere, the smallest numeric gap is
-  // essentially noise -- across-the-board-low scores don't meaningfully
-  // differentiate which skill is "closest." Skating is the one skill
-  // everything else in hockey is built on, so for a player in that spot the
-  // anchor point should always be skating (if it was even tested), not
-  // whichever stat happened to have the smallest gap.
+  const skatingSkill = !isGoalie ? withGap.find(s => stockQuoteBucket(s.name, isGoalie) === "skating") : null;
+  // A raw skating score under 5 (fixed 0-10 scale, same at every age bracket)
+  // is always the right place to start -- full stop, even if another skill
+  // technically has a smaller gap-to-top or the player is genuinely strong
+  // elsewhere. Skating is the one skill everything else in hockey builds
+  // from, so this takes priority over the noRealStrength case below (which
+  // only forces skating when NO skill stands out at all).
+  const skatingBelow5 = !!skatingSkill && skatingSkill.player < 5;
   let anchorSkill = strongest;
-  if (!isGoalie && noRealStrength) {
-    const skatingSkill = withGap.find(s => stockQuoteBucket(s.name, isGoalie) === "skating");
-    if (skatingSkill) anchorSkill = skatingSkill;
-  }
+  if (skatingBelow5) anchorSkill = skatingSkill;
+  else if (!isGoalie && noRealStrength && skatingSkill) anchorSkill = skatingSkill;
   const rest = withGap.filter(s => s.scoring_category_id !== anchorSkill.scoring_category_id).sort((a, b) => b.gap - a.gap);
   const ordered = [anchorSkill, ...rest];
   const quotes = [];
@@ -309,7 +309,7 @@ function stockQuotesFor(skillProfile, isGoalie, need) {
     if (quotes.length >= need) return;
     const bucket = stockQuoteBucket(s.name, isGoalie);
     if (!bucket) return;
-    const tier = idx === 0 && noRealStrength ? "anchor" : stockTier(s.player, s.top);
+    const tier = idx === 0 && (noRealStrength || skatingBelow5) ? "anchor" : stockTier(s.player, s.top);
     if (!tier) return;
     const variants = STOCK_QUOTES[bucket][tier]();
     quotes.push(variants[idx % variants.length]);
