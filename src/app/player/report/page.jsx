@@ -87,17 +87,31 @@ function PlayerReportInner() {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [aiReport, setAiReport] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
+  // Real incident: this fetch had no .catch() at all, so a Safari "Load
+  // failed" network error (backgrounding, sleep/wake, a network switch --
+  // reported on a Mac in production, not just flaky mobile) surfaced as an
+  // unhandled promise rejection in Sentry and left the page spinning forever
+  // with zero feedback. A prior fix (see the includeNarrative param on the
+  // API route) cut the latency that made this common; this catch handles the
+  // failures that still get through regardless of how fast the request is.
   useEffect(() => {
     if (!athleteId || !catId) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
     fetch(`/api/athletes/${athleteId}/report?cat=${catId}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); });
-  }, [athleteId, catId]);
+      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setLoadError(true); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [athleteId, catId, retryCount]);
 
   const generateAIReport = async () => {
     if (!data?.notes?.length) return;
@@ -156,6 +170,16 @@ function PlayerReportInner() {
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium-light">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" />
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3" data-theme="premium-light">
+      <p className="text-gray-400">Couldn't load this report — check your connection.</p>
+      <button onClick={() => setRetryCount(c => c + 1)}
+        className="px-4 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:opacity-90">
+        Try again
+      </button>
     </div>
   );
 
