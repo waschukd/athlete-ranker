@@ -61,7 +61,7 @@ export default function PayrollTab({ spUrl }) {
               <tbody className="divide-y divide-gray-100">
                 {people.map(p => (
                   <tr key={p.id}>
-                    <td className="px-5 py-3"><div className="font-medium text-ink">{p.name}</div><div className="text-[11px] text-gray-400">{roleTag(p)}</div></td>
+                    <td className="px-5 py-3"><div className="font-medium text-ink">{p.name}</div><div className="text-[11px] text-gray-400">{roleTag(p)}{p.email ? ` · ${p.email}` : ""}</div></td>
                     <td className="px-4 py-3 text-gray-600">{p.is_tester ? <>{hrs(p.testing_hours.pending + p.testing_hours.approved)} <span className="text-gray-400">@ {p.tester_rate != null ? `$${p.tester_rate}` : "—"}</span></> : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-gray-600">{p.is_evaluator ? <>{hrs(p.eval_hours.pending + p.eval_hours.approved)} <span className="text-gray-400">@ {p.eval_rate != null ? `$${p.eval_rate}` : "—"}</span></> : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-right text-gray-500 tabular-nums">{p.pending_amount ? $(p.pending_amount) : <span className="text-gray-300">—</span>}</td>
