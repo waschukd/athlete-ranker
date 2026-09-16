@@ -284,8 +284,6 @@ function stockQuotesFor(skillProfile, isGoalie, need) {
   if (!graded.length) return [];
   const withGap = graded.map(s => ({ ...s, gap: s.top - s.player }));
   const strongest = withGap.slice().sort((a, b) => a.gap - b.gap)[0];
-  const rest = withGap.filter(s => s.scoring_category_id !== strongest.scoring_category_id).sort((a, b) => b.gap - a.gap);
-  const ordered = [strongest, ...rest];
   // Real, data-driven signal, never a guess: if even the closest-to-top skill
   // still sits in the bottom "focus" tier, there is no real strength
   // anywhere for this athlete. Never changes the numbers or the plan --
@@ -293,6 +291,19 @@ function stockQuotesFor(skillProfile, isGoalie, need) {
   // developmental framing, so a genuinely across-the-board result doesn't
   // read as pure criticism with zero encouragement anywhere in the report.
   const noRealStrength = stockTier(strongest.player, strongest.top) === "focus";
+  // When there's no real strength anywhere, the smallest numeric gap is
+  // essentially noise -- across-the-board-low scores don't meaningfully
+  // differentiate which skill is "closest." Skating is the one skill
+  // everything else in hockey is built on, so for a player in that spot the
+  // anchor point should always be skating (if it was even tested), not
+  // whichever stat happened to have the smallest gap.
+  let anchorSkill = strongest;
+  if (!isGoalie && noRealStrength) {
+    const skatingSkill = withGap.find(s => stockQuoteBucket(s.name, isGoalie) === "skating");
+    if (skatingSkill) anchorSkill = skatingSkill;
+  }
+  const rest = withGap.filter(s => s.scoring_category_id !== anchorSkill.scoring_category_id).sort((a, b) => b.gap - a.gap);
+  const ordered = [anchorSkill, ...rest];
   const quotes = [];
   ordered.forEach((s, idx) => {
     if (quotes.length >= need) return;
