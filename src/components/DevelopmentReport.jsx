@@ -882,6 +882,19 @@ export default function DevelopmentReport({ data }) {
                       <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 5, textTransform: "uppercase" }}>{skillFocus[0].name}</div>
                       <div style={{ color: T.textDim }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
                       <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${T.hair}`, color: T.textDim }}><b style={{ color: T.accent }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
+                      {/* Real ask: a small gap-to-top can read as "already near the
+                          ceiling" when the top of THIS group is itself still well
+                          short of a full scale mark — closing the gap gets a player
+                          to the front of this particular room, not to the level the
+                          skill can actually be played at. Only worth saying when the
+                          group's own ceiling has real room left; skip it when the
+                          top is already near-maximum, where the two really are the
+                          same thing. */}
+                      {skillFocus[0].top < scale - 1 && (
+                        <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${T.hair}`, color: T.textDim, fontStyle: "italic" }}>
+                          Worth keeping in mind: the top of this specific group is itself still {(scale - skillFocus[0].top).toFixed(1)} points from a full {scale} — so closing this gap gets {firstName} to the front of this group, not to the ceiling of the skill itself. There's a bigger picture past this one season worth continuing to chase.
+                        </div>
+                      )}
                     </div>
                   </div>
 
