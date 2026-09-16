@@ -22,20 +22,29 @@ async function ctx(session, catId) {
   return { auth, orgName: cat[0]?.org_name || "Your association", teamsFinalized: !!cat[0]?.teams_finalized_at };
 }
 
-// Dry-run: how many parents would be emailed.
+// Dry-run: how many parents would be emailed, AND the actual list -- sending
+// a paid-report email to the wrong address is real money and a real trust
+// problem, so this is shown before the button is ever clicked, not just a
+// count taken on faith.
 export async function GET(request, { params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const c = await ctx(session, params.catId);
   if (!c) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const rows = await sql`
-    SELECT COUNT(*)::int AS with_email
+  const athletes = await sql`
+    SELECT id, first_name, last_name, parent_email, parent_email_2
     FROM athletes
     WHERE age_category_id = ${params.catId} AND is_active = true AND cut_at IS NULL
       AND ((parent_email IS NOT NULL AND parent_email != '') OR (parent_email_2 IS NOT NULL AND parent_email_2 != ''))
+    ORDER BY last_name, first_name
   `;
+  const recipients = athletes.map(a => ({
+    id: a.id,
+    name: `${a.first_name} ${a.last_name}`.trim(),
+    emails: parentEmails(a),
+  }));
   const { priceCents } = await resolveReportPrice(c.auth.orgId);
-  return NextResponse.json({ org_name: c.orgName, with_email: rows[0]?.with_email || 0, price_cents: priceCents, teams_finalized: c.teamsFinalized });
+  return NextResponse.json({ org_name: c.orgName, with_email: recipients.length, recipients, price_cents: priceCents, teams_finalized: c.teamsFinalized });
 }
 
 // Email each parent a link to their child's report (free preview → paywall).
@@ -83,6 +92,9 @@ export async function POST(request, { params }) {
 
   await ensureEmailLogTable();
   let sent = 0, skipped = 0, failed = 0;
+  // Per-recipient results, not just a count -- the actual confirmation of
+  // exactly who got emailed at exactly which address.
+  const results = [];
   for (const a of athletes) {
     let token;
     const existing = await sql`SELECT token FROM report_links WHERE athlete_id = ${a.id} AND age_category_id = ${params.catId}`;
@@ -104,13 +116,15 @@ export async function POST(request, { params }) {
         reportUrl: `${baseUrl}/report/${token}`,
         priceStr,
       });
+      const status = res?.ok ? "sent" : (res?.skipped ? "skipped" : "failed");
       if (res?.ok) sent++; else if (res?.skipped) skipped++; else failed++;
+      results.push({ athlete_id: a.id, name: playerName, email: to, status });
       await logEmailSend({
         catId: params.catId, emailType: "report", athleteId: a.id, athleteName: playerName, to,
-        resendId: res?.id || null, status: res?.ok ? "sent" : (res?.skipped ? "skipped" : "failed"),
+        resendId: res?.id || null, status,
         error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
       });
     }
   }
-  return NextResponse.json({ success: true, total: athletes.length, sent, skipped, failed });
+  return NextResponse.json({ success: true, total: athletes.length, sent, skipped, failed, results });
 }

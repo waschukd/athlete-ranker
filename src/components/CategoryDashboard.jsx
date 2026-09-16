@@ -69,6 +69,8 @@ function SendReportPurchaseCard({ catId }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState("");
+  const [results, setResults] = useState(null); // per-recipient outcome, after sending
+  const [showRecipients, setShowRecipients] = useState(false);
 
   const load = () => {
     fetch(`/api/categories/${catId}/send-reports`)
@@ -88,10 +90,14 @@ function SendReportPurchaseCard({ catId }) {
   const send = async () => {
     setSending(true);
     setSendMsg("");
+    setResults(null);
     try {
       const res = await fetch(`/api/categories/${catId}/send-reports`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const data = await res.json();
       setSendMsg(data.success ? `Sent to ${data.sent} of ${data.total}.` : (data.error || "Failed to send."));
+      // Real confirmation of exactly who got it, at exactly which address --
+      // a count alone isn't enough for a paid, money-making email blast.
+      if (data.results) setResults(data.results);
     } catch { setSendMsg("Network error — please try again."); }
     setSending(false);
     load();
@@ -99,9 +105,10 @@ function SendReportPurchaseCard({ catId }) {
 
   const fmt = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
   const finalized = !!info?.teams_finalized;
+  const recipients = info?.recipients || [];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border-2 border-accent/30 rounded-xl p-5">
       <div className="flex items-center gap-2 mb-1">
         <Send size={15} className="text-accent" />
         <h3 className="text-sm font-semibold text-gray-900">Send Report Purchase</h3>
@@ -110,7 +117,25 @@ function SendReportPurchaseCard({ catId }) {
         <p className="text-xs text-gray-400 mt-2">Loading…</p>
       ) : (
         <>
-          <p className="text-xs text-gray-400 mb-4">Emails every parent a link to buy their child&apos;s Development Report — {fmt(info?.price_cents)} each, {info?.with_email ?? 0} famil{info?.with_email === 1 ? "y" : "ies"} with an email on file.</p>
+          <p className="text-xs text-gray-400 mb-2">Emails every parent a link to buy their child&apos;s Development Report — {fmt(info?.price_cents)} each.</p>
+          {/* Real, expandable list of exactly who gets emailed and at exactly
+              which address -- reviewable before the send button is ever
+              clicked, not just a count taken on faith. */}
+          <button onClick={() => setShowRecipients(v => !v)} className="text-xs font-semibold text-accent hover:opacity-70 mb-3">
+            {showRecipients ? "Hide" : "Show"} recipients ({recipients.length})
+          </button>
+          {showRecipients && (
+            <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50 mb-3">
+              {recipients.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-2">No parent emails on file yet.</p>
+              ) : recipients.map(r => (
+                <div key={r.id} className="px-3 py-1.5">
+                  <div className="text-xs font-medium text-gray-700">{r.name}</div>
+                  {r.emails.map(e => <div key={e} className="text-[11px] text-gray-400 font-mono truncate">{e}</div>)}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
             <div>
               <div className="text-sm font-medium text-gray-700">Teams finalized</div>
@@ -120,12 +145,27 @@ function SendReportPurchaseCard({ catId }) {
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${finalized ? "translate-x-6" : "translate-x-1"}`} />
             </button>
           </div>
-          <button onClick={send} disabled={!finalized || sending || !info?.with_email}
-            title={!finalized ? "Mark teams finalized first" : !info?.with_email ? "No parent emails on file yet" : "Email every parent a report link"}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+          <button onClick={send} disabled={!finalized || sending || !recipients.length}
+            title={!finalized ? "Mark teams finalized first" : !recipients.length ? "No parent emails on file yet" : "Email every parent a report link"}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
             <Send size={14} /> {sending ? "Sending…" : "Send to all parents"}
           </button>
           {sendMsg && <p className="text-xs text-accent mt-2">{sendMsg}</p>}
+          {/* Post-send confirmation: exactly who, at exactly which address, and
+              whether it actually went through -- not just a total. */}
+          {results && results.length > 0 && (
+            <div className="mt-3 max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+              {results.map((r, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-gray-700 truncate">{r.name}</div>
+                    <div className="text-[11px] text-gray-400 font-mono truncate">{r.email}</div>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${r.status === "sent" ? "bg-green-100 text-green-700" : r.status === "skipped" ? "bg-gray-100 text-gray-500" : "bg-red-100 text-red-600"}`}>{r.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -1214,6 +1254,13 @@ export default function CategoryDashboard({
             )}
             </div>
             <aside className="space-y-6">
+              {/* RAIL CARD — Send Report Purchase. Front and center on the
+                  category's main page, not buried in Settings -- this is the
+                  money-making action, and hiding it behind a tab meant a
+                  director/admin might never find it at all (see the SPS
+                  Fuzion U9 incident). */}
+              <SendReportPurchaseCard catId={catId} />
+
               {/* RAIL CARD A — Session Progress */}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-gray-100">
@@ -2563,7 +2610,6 @@ export default function CategoryDashboard({
                 </div>
               )}
               <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
-              <SendReportPurchaseCard catId={catId} />
             </div>
           ) : (
             <div className="space-y-4">
@@ -2584,9 +2630,8 @@ export default function CategoryDashboard({
                   </div>
                 ))}
               </div>
-              <SendReportPurchaseCard catId={catId} />
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-700">To change other settings, contact your association admin.</p>
+                <p className="text-sm text-amber-700">To change settings, contact your association admin.</p>
               </div>
             </div>
           )

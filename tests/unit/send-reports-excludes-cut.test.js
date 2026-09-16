@@ -37,20 +37,21 @@ beforeEach(() => {
   authorizeCategoryAccess.mockResolvedValue({ authorized: true, orgId: 49 });
 });
 
-describe("GET /api/categories/[catId]/send-reports (dry-run count)", () => {
-  it("never counts a cut athlete toward the with_email total", async () => {
+describe("GET /api/categories/[catId]/send-reports (dry-run + recipient preview)", () => {
+  it("never counts (or lists) a cut athlete as a recipient", async () => {
     mockSqlByQuery([
       ["ac.name, ac.teams_finalized_at", [{ name: "U13 AA", org_name: "EFHA", teams_finalized_at: new Date().toISOString() }]],
-      ["SELECT COUNT(*)::int AS with_email", [{ with_email: 0 }]], // the real query includes cut_at IS NULL; a mock DB would return 0 here, real Postgres does the filtering
+      ["SELECT id, first_name, last_name, parent_email", []], // real Postgres excludes the cut row; here we assert on the query text below
     ]);
     const { GET } = await import("@/app/api/categories/[catId]/send-reports/route");
     const res = await GET(new Request("http://test/api/categories/113/send-reports"), { params: { catId: "113" } });
     const data = await res.json();
     expect(data.with_email).toBe(0);
+    expect(data.recipients).toEqual([]);
 
     // Pin the actual query text so this test fails loudly if the exclusion
     // ever gets refactored away, not just when a mock happens to agree with it.
-    const queryText = sql.mock.calls.find(c => c[0].join("?").includes("with_email"))[0].join("?");
+    const queryText = sql.mock.calls.find(c => c[0].join("?").includes("first_name, last_name, parent_email"))[0].join("?");
     expect(queryText).toContain("cut_at IS NULL");
   });
 });
