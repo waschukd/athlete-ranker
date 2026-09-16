@@ -8,7 +8,7 @@ import { renderTemplate } from "@/lib/emailTemplateDefaults";
 import {
   ArrowLeft, Users, Calendar, Trophy, Settings, BarChart3,
   Upload, Plus,
-  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award, ClipboardList, Flag
+  Download, FileText, LogOut, Search, X, AlertTriangle, Scissors, Check, History, Mail, Pencil, Trash2, Award, ClipboardList, Flag, Send
 } from "lucide-react";
 import { OrgBrandIcon } from "@/components/OrgBrandIcon";
 import RankBadge from "@/components/RankBadge";
@@ -54,6 +54,83 @@ function fmtDayLabel(d) {
   return new Date(y, m - 1, dd).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+
+// Category-scoped report-purchase sending. The org-wide "Send Report
+// Purchase" card lives only on the main association dashboard's right rail
+// -- a page a director's role can never reach (middleware confines them to
+// /director/dashboard plus a handful of category subpages). But the API
+// underneath (send-reports POST, teams-finalized PATCH) already authorizes
+// a director for their own assigned category -- this was purely a missing
+// UI, not a permissions gap. Reported by SPS Fuzion's U9 director, who had
+// created teams and sent team-assignment emails but had no way at all to
+// find or trigger the separate report-purchase email.
+function SendReportPurchaseCard({ catId }) {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState("");
+
+  const load = () => {
+    fetch(`/api/categories/${catId}/send-reports`)
+      .then(r => r.json())
+      .then(d => { setInfo(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [catId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleFinalized = async (finalized) => {
+    await fetch(`/api/categories/${catId}/teams-finalized`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
+    });
+    load();
+  };
+
+  const send = async () => {
+    setSending(true);
+    setSendMsg("");
+    try {
+      const res = await fetch(`/api/categories/${catId}/send-reports`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json();
+      setSendMsg(data.success ? `Sent to ${data.sent} of ${data.total}.` : (data.error || "Failed to send."));
+    } catch { setSendMsg("Network error — please try again."); }
+    setSending(false);
+    load();
+  };
+
+  const fmt = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
+  const finalized = !!info?.teams_finalized;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Send size={15} className="text-accent" />
+        <h3 className="text-sm font-semibold text-gray-900">Send Report Purchase</h3>
+      </div>
+      {loading ? (
+        <p className="text-xs text-gray-400 mt-2">Loading…</p>
+      ) : (
+        <>
+          <p className="text-xs text-gray-400 mb-4">Emails every parent a link to buy their child&apos;s Development Report — {fmt(info?.price_cents)} each, {info?.with_email ?? 0} famil{info?.with_email === 1 ? "y" : "ies"} with an email on file.</p>
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
+            <div>
+              <div className="text-sm font-medium text-gray-700">Teams finalized</div>
+              <div className="text-xs text-gray-400">Whether rosters were built here or elsewhere — flip this once they&apos;re actually decided.</div>
+            </div>
+            <button onClick={() => toggleFinalized(!finalized)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${finalized ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${finalized ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+          <button onClick={send} disabled={!finalized || sending || !info?.with_email}
+            title={!finalized ? "Mark teams finalized first" : !info?.with_email ? "No parent emails on file yet" : "Email every parent a report link"}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+            <Send size={14} /> {sending ? "Sending…" : "Send to all parents"}
+          </button>
+          {sendMsg && <p className="text-xs text-accent mt-2">{sendMsg}</p>}
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * Shared dashboard used by both the association category page and the director
@@ -2486,6 +2563,7 @@ export default function CategoryDashboard({
                 </div>
               )}
               <a href={`/association/dashboard/category/${catId}/setup?cat=${catId}&org=${orgId}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold hover:bg-[#0F4FCC]"><Settings size={14} /> Edit All Settings</a>
+              <SendReportPurchaseCard catId={catId} />
             </div>
           ) : (
             <div className="space-y-4">
@@ -2506,8 +2584,9 @@ export default function CategoryDashboard({
                   </div>
                 ))}
               </div>
+              <SendReportPurchaseCard catId={catId} />
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-700">To change settings, contact your association admin.</p>
+                <p className="text-sm text-amber-700">To change other settings, contact your association admin.</p>
               </div>
             </div>
           )
