@@ -476,10 +476,19 @@ export default function DevelopmentReport({ data }) {
   // Development order = biggest gap to the top first ("attack first"), with the
   // foundation order as a tiebreak only — so a skill that's already a strength is
   // never put at the top of the plan just because it's foundational.
-  const skillFocus = skillProfile
+  const gradedFocus = skillProfile
     .filter(s => s.player != null && s.top != null).map(s => ({ ...s, gap: Math.round((s.top - s.player) * 10) / 10 }))
-    .filter(s => s.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 4)
+    .filter(s => s.gap > 0);
+  // A raw skating score under 5 (fixed 0-10 scale, same at every age bracket)
+  // is always the #1 thing to chase, full stop -- even if another skill has
+  // a bigger numeric gap. See the matching rule in stockQuotesFor.
+  const skatingFocusSkill = !isGoalie ? gradedFocus.find(s => stockQuoteBucket(s.name, isGoalie) === "skating") : null;
+  const skatingFocusBelow5 = !!skatingFocusSkill && skatingFocusSkill.player < 5;
+  const restFocus = gradedFocus
+    .filter(s => !skatingFocusBelow5 || s.scoring_category_id !== skatingFocusSkill.scoring_category_id)
+    .sort((a, b) => b.gap - a.gap).slice(0, skatingFocusBelow5 ? 3 : 4)
     .sort((a, b) => (b.gap - a.gap) || (foundationRank(a.name) - foundationRank(b.name)));
+  const skillFocus = skatingFocusBelow5 ? [skatingFocusSkill, ...restFocus] : restFocus;
   const testFocus = testingProfile
     .filter(t => t.player_best != null && t.group_best != null).map(t => ({ ...t, gap: Math.round((t.player_best - t.group_best) * 1000) / 1000 }))
     .filter(t => t.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 2);
