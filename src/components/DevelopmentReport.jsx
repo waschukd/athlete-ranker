@@ -466,7 +466,7 @@ export default function DevelopmentReport({ data }) {
       return "the highest-leverage gap to close first; the areas below get easier once it's in place";
     }
     if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
-      return "the foundation everything else is built on — stronger edges, balance and top speed make puck control, shooting and compete battles all easier, so improving it first tends to lift the other scores with it";
+      return `the foundation everything else in hockey is built on. If a player can't get to their spot or get to the puck, none of their other skills ever get a chance to show up — puck control, shooting, hockey sense and compete all depend on skating getting them there first. It's rare at the higher levels of today's game to see a player who can't keep up on their skates, which is exactly why strengthening it first tends to lift every other score with it. This isn't a knock on ${firstName} — it reflects how much a strong skating foundation carries everything else`;
     if (n.includes("puck") || n.includes("stick") || n.includes("hand"))
       return "a high-leverage base skill — once the hands are reliable at speed, hockey sense and shooting under pressure improve on their own";
     if (n.includes("iq") || n.includes("sense") || n.includes("position"))
