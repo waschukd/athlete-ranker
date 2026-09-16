@@ -52,3 +52,25 @@ describe("the prompt tells the model to skip garbled/unreadable notes", () => {
     expect(getPrompt()).toMatch(/fine to select fewer/i);
   });
 });
+
+describe("the prompt tells the model to skip mockery, not blunt fair criticism", () => {
+  it("includes an explicit tone rule distinguishing mockery from honest criticism", async () => {
+    const getPrompt = capturePrompt();
+    sql.mockResolvedValueOnce([]);
+    await generateParentNarrative({
+      token: "tok1", athlete: {}, category: {}, skillProfile: [], testingProfile: [], progress: [], notes: [],
+    });
+    const prompt = getPrompt();
+    expect(prompt).toMatch(/TONE RULE/);
+    expect(prompt).toMatch(/mocks, belittles, or "chirps"/i);
+  });
+
+  it("explicitly protects harsh-but-fair skill criticism from being filtered out", async () => {
+    const getPrompt = capturePrompt();
+    sql.mockResolvedValueOnce([]);
+    await generateParentNarrative({
+      token: "tok1", athlete: {}, category: {}, skillProfile: [], testingProfile: [], progress: [], notes: [],
+    });
+    expect(getPrompt()).toMatch(/critique the PLAY, not the PLAYER/);
+  });
+});

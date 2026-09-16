@@ -821,7 +821,7 @@ export default function DevelopmentReport({ data }) {
         {displayNotes.length > 0 && (
           <div style={{ marginBottom: 10, ...section }}>
             <Shead kicker="Selected observations" title="What the evaluators saw" />
-            <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play.</div>
+            <div style={leadStyle}>In their own words — the notes evaluators wrote while watching {firstName} play. These are jotted down live, mid-session, not composed for print, so expect plain, quick language rather than polished writing.</div>
             {displayNotes.map((n, i) => (
               <div key={i} style={{ ...cardStyle, borderLeft: `2px solid ${T.accent}`, padding: "12px 16px", marginBottom: 9, breakInside: "avoid" }}>
                 <div style={{ fontFamily: SANS, color: T.bodyText, lineHeight: 1.6, fontSize: 14 }}>&ldquo;{n.note_text}&rdquo;</div>
