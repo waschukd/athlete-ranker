@@ -138,9 +138,9 @@ const G_READ = (n) => n.includes("anticip") || n.includes("read") || n.includes(
 function skillInfo(name, isGoalie) {
   const n = (name || "").toLowerCase();
   if (isGoalie) {
-    if (G_MOVE(n)) return "Crease movement, push power, edges and recovery — how efficiently he gets across the net and resets square for the next shot.";
+    if (G_MOVE(n)) return "Crease movement, push power, edges and recovery — how efficiently they get across the net and reset square for the next shot.";
     if (G_POS(n)) return "Angles, depth and net coverage — taking away shooting lanes by being square and set before the puck is released.";
-    if (G_SAVE(n)) return "Save execution — glove, blocker, feet and stick, plus how cleanly he controls or steers rebounds away from danger.";
+    if (G_SAVE(n)) return "Save execution — glove, blocker, feet and stick, plus how cleanly they control or steer rebounds away from danger.";
     if (G_READ(n)) return "Reading the play — tracking the puck through traffic and anticipating passes a beat before they happen.";
     return "";
   }
@@ -167,8 +167,8 @@ function skillElite(name, isGoalie) {
   if (n.includes("skat") || n.includes("edge") || n.includes("balance")) return "explosive first three steps, edges that hold through hard turns, and the speed to separate with the puck on the stick";
   if (n.includes("puck") || n.includes("stick") || n.includes("hand")) return "clean hands at full speed, pucks protected through contact, and the right play made under pressure instead of forced";
   if (n.includes("iq") || n.includes("sense") || n.includes("position") || n.includes("hockey")) return "a step ahead of the play — reading it before it develops, supporting the puck, and in the right spot away from it";
-  if (n.includes("compete") || n.includes("effort") || n.includes("battle") || n.includes("work")) return "winning more than his share of battles, first on every loose puck, with the same motor in the third period as the first";
-  if (n.includes("shot") || n.includes("shoot")) return "a quick, deceptive release he can get off in traffic and off the rush";
+  if (n.includes("compete") || n.includes("effort") || n.includes("battle") || n.includes("work")) return "winning more than their share of battles, first on every loose puck, with the same motor in the third period as the first";
+  if (n.includes("shot") || n.includes("shoot")) return "a quick, deceptive release they can get off in traffic and off the rush";
   if (n.includes("pass")) return "crisp, accurate puck movement that hits teammates in stride";
   return "consistent, high-level execution when the game speeds up";
 }
@@ -207,7 +207,7 @@ const STOCK_QUOTES = {
     anchor: (n) => [`A good foundation to build on — awareness grows quickly with more ice time.`, `The best place to start building from — reads and positioning come with reps and experience.`],
   },
   compete: {
-    strength: (n) => [`Competes hard every shift — wins more than his share of battles.`, `Great motor; first on loose pucks and hard to play against.`],
+    strength: (n) => [`Competes hard every shift — wins more than their share of battles.`, `Great motor; first on loose pucks and hard to play against.`],
     developing: (n) => [`Good compete level — keep pushing to win more puck battles.`, `Effort is trending the right way; stay hard on pucks every shift.`],
     focus: (n) => [`Needs to compete harder for loose pucks and in board battles.`, `Work rate is the area to attack — more urgency on every shift.`],
     anchor: (n) => [`A good foundation to build from — compete level grows with confidence and reps.`, `The best place to start — a stronger motor lifts everything else with it.`],
@@ -460,7 +460,7 @@ export default function DevelopmentReport({ data }) {
   const cascadeFor = (name) => {
     const n = (name || "").toLowerCase();
     if (isGoalie) {
-      if (G_MOVE(n)) return "the foundation of goaltending — efficient crease movement gets him square and set for every shot, which makes positioning, clean saves and rebound control all easier; improving it first tends to lift the other scores with it";
+      if (G_MOVE(n)) return "the foundation of goaltending — efficient crease movement gets them square and set for every shot, which makes positioning, clean saves and rebound control all easier; improving it first tends to lift the other scores with it";
       if (G_POS(n)) return "where being square and at the right depth makes every save simpler — good position takes away the net before the shot, so the hands have less to do";
       if (G_SAVE(n)) return "the difference between a save and a second chance — settling pucks into the body and steering rebounds to the corners keeps the slot clean and loose pucks from becoming goals";
       return "the highest-leverage gap to close first; the areas below get easier once it's in place";
