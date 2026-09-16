@@ -74,13 +74,21 @@ const ROLE_ROUTES = {
 };
 
 // Directors are not association admins, but an assigned director may use the
-// group-building, flags and raw-testing sub-pages (the APIs already authorize
-// them per-category -- authorizeCategoryAccess checks director_assignments).
+// group-building, flags, raw-testing and team-building sub-pages (the APIs
+// already authorize them per-category -- authorizeCategoryAccess checks
+// director_assignments).
 //
 // "testing" was missing here, so an EFHA director opening Raw Testing Scores
 // was redirected to the sign-in page with a perfectly valid token. It reads as
 // being logged out at random, and that is exactly how it was reported.
-const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags|testing)(\/|$)/;
+//
+// "teams" had the same gap: the director dashboard embeds the same
+// CategoryDashboard component an association admin sees, "Create Final
+// Teams" button included, but that button's href always points at
+// /association/dashboard/category/[catId]/teams -- a director clicking it
+// got bounced straight back to their own dashboard with zero explanation
+// (reported as SPS Fuzion U9, 2026-09-16).
+const DIRECTOR_ASSOC_ALLOW = /^\/association\/dashboard\/category\/[^/]+\/(groups|flags|testing|teams)(\/|$)/;
 
 // Where a signed-in user belongs when they land somewhere their role cannot go.
 // Mirrors roleRedirect() in lib/auth.js, inlined because middleware runs on the

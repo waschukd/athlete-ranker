@@ -14,6 +14,11 @@ import { resolve } from "node:path";
 //
 // The API side was never the problem: authorizeCategoryAccess already grants a
 // director access to a category they are assigned to.
+//
+// Same class of bug hit "teams" later: an SPS Fuzion U9 director clicked
+// "Create Final Teams" (her own dashboard embeds the same CategoryDashboard
+// component an association admin sees) and got silently bounced back to her
+// own dashboard, since /teams wasn't in the allow-list either.
 
 const SRC = readFileSync(resolve(process.cwd(), "src/middleware.js"), "utf8");
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -32,6 +37,15 @@ describe("a director can reach the pages they are meant to use", () => {
     expect(DIRECTOR_ALLOW.test("/association/dashboard/category/113/flags")).toBe(true);
   });
 
+  it("allows building final teams -- the director dashboard embeds the same 'Create Final Teams' button an association admin sees", () => {
+    // Same shape of bug as testing above: an SPS Fuzion U9 director clicked
+    // "Create Final Teams" and was bounced straight back to her own
+    // dashboard with zero explanation, because /teams was missing here even
+    // though authorizeCategoryAccess (and the teams API's own MANAGE_ROLES)
+    // already grant a director access to a category they're assigned to.
+    expect(DIRECTOR_ALLOW.test("/association/dashboard/category/95/teams")).toBe(true);
+  });
+
   it("works with a query string and a trailing segment", () => {
     expect(DIRECTOR_ALLOW.test("/association/dashboard/category/95/testing/")).toBe(true);
   });
@@ -42,7 +56,6 @@ describe("a director can reach the pages they are meant to use", () => {
       "/association/dashboard",
       "/association/dashboard/category/95",
       "/association/dashboard/category/95/setup",
-      "/association/dashboard/category/95/teams",
     ]) {
       expect(DIRECTOR_ALLOW.test(p), p).toBe(false);
     }
