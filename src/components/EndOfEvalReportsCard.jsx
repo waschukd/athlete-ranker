@@ -2,39 +2,110 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, X, Loader2, Send, DollarSign, Receipt } from "lucide-react";
+import { FileText, X, Loader2, Send, DollarSign, Receipt, Settings } from "lucide-react";
 
-// Self-service home for the Development Report: set a price (if the SP has
-// granted control), send the purchase link to parents per category, and
-// track what's sold. Card lives on the association dashboard's right rail;
-// everything else lives behind the modal it opens.
+// Self-service home for the Development Report. As evaluations wind down,
+// directors need to send the purchase link out fast -- so the ready-to-send
+// categories are inline on the dashboard's right rail, one click, no modal.
+// Price and purchase tracking are secondary and stay behind a small settings
+// modal opened from the card header.
 export default function EndOfEvalReportsCard({ orgId }) {
-  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sendingId, setSendingId] = useState(null);
+  const [sendMsg, setSendMsg] = useState({});
+
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["report-settings", orgId],
+    queryFn: async () => {
+      const res = await fetch(`/api/organizations/${orgId}/report-settings`);
+      return res.json();
+    },
+  });
+
+  const sendReports = async (catId) => {
+    setSendingId(catId);
+    try {
+      const res = await fetch(`/api/categories/${catId}/send-reports`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json();
+      setSendMsg(m => ({ ...m, [catId]: data.success ? `Sent to ${data.sent} of ${data.total}.` : (data.error || "Failed.") }));
+    } catch { setSendMsg(m => ({ ...m, [catId]: "Failed." })); }
+    setSendingId(null);
+  };
+
+  // Manual, per-category confirmation -- deliberately not inferred from
+  // anything in-app, since some associations build their real rosters in a
+  // separate tool entirely and this app has no way to know that's done.
+  const toggleFinalized = async (catId, finalized) => {
+    await fetch(`/api/categories/${catId}/teams-finalized`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["report-settings", orgId] });
+  };
+
+  // Only categories with something to actually report on -- and ready
+  // (finalized + has scores) ones first, so a director scanning this at a
+  // glance sees who they can send to right now.
+  const evaluated = (settings?.categories || []).filter(c => c.has_scores);
+  const ready = (c) => c.has_scores && !!c.teams_finalized_at;
+  const sortedCats = [...evaluated].sort((a, b) => (ready(b) - ready(a)));
+
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full bg-white border border-gray-200 rounded-xl overflow-hidden text-left hover:border-accent/40 hover:shadow-sm transition-all"
-      >
-        <div className="px-5 py-4 flex items-center gap-2">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
           <FileText size={15} className="text-accent" />
-          <h3 className="font-display font-bold text-ink text-sm">End of Eval Reports</h3>
-          <span className="ml-auto text-xs text-gray-400">Set price · Send · Track →</span>
+          <h3 className="font-display font-bold text-ink text-sm">Send Report Purchase</h3>
+          <button onClick={() => setSettingsOpen(true)} title="Price & tracking" className="ml-auto text-gray-400 hover:text-accent">
+            <Settings size={15} />
+          </button>
         </div>
-      </button>
-      {open && <EndOfEvalReportsModal orgId={orgId} onClose={() => setOpen(false)} />}
+        {isLoading || !settings ? (
+          <div className="py-8 px-5 text-center text-sm text-gray-400">Loading…</div>
+        ) : sortedCats.length === 0 ? (
+          <div className="py-8 px-5 text-center text-sm text-gray-400">Once a category has scores, it shows up here to send.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {sortedCats.map(cat => {
+              const finalized = !!cat.teams_finalized_at;
+              const canSend = cat.has_scores && finalized;
+              return (
+                <div key={cat.id} className="px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-ink truncate flex-1 min-w-0">{cat.name}</p>
+                    <button
+                      onClick={() => sendReports(cat.id)}
+                      disabled={!canSend || sendingId === cat.id}
+                      title={!finalized ? "Mark teams finalized first" : "Email every parent a report link"}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-40 whitespace-nowrap"
+                    >
+                      {sendingId === cat.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
+                    </button>
+                  </div>
+                  {finalized ? (
+                    sendMsg[cat.id] && <p className="text-xs text-accent mt-1">{sendMsg[cat.id]}</p>
+                  ) : (
+                    <button onClick={() => toggleFinalized(cat.id, true)} className="text-[11px] font-semibold text-amber-600 hover:opacity-70 mt-1">
+                      Teams not finalized yet — click to confirm they're set →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {settingsOpen && <ReportSettingsModal orgId={orgId} onClose={() => setSettingsOpen(false)} />}
     </>
   );
 }
 
-function EndOfEvalReportsModal({ orgId, onClose }) {
+function ReportSettingsModal({ orgId, onClose }) {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState("price"); // price | send | track
+  const [tab, setTab] = useState("price"); // price | track
   const [priceDraft, setPriceDraft] = useState("");
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceMsg, setPriceMsg] = useState("");
-  const [sendingId, setSendingId] = useState(null);
-  const [sendMsg, setSendMsg] = useState({});
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["report-settings", orgId],
@@ -91,36 +162,16 @@ function EndOfEvalReportsModal({ orgId, onClose }) {
     queryClient.invalidateQueries({ queryKey: ["report-settings", orgId] });
   };
 
-  const sendReports = async (catId) => {
-    setSendingId(catId);
-    try {
-      const res = await fetch(`/api/categories/${catId}/send-reports`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      const data = await res.json();
-      setSendMsg(m => ({ ...m, [catId]: data.success ? `Sent to ${data.sent} of ${data.total}.` : (data.error || "Failed.") }));
-    } catch { setSendMsg(m => ({ ...m, [catId]: "Failed." })); }
-    setSendingId(null);
-  };
-
-  // Manual, per-category confirmation -- deliberately not inferred from
-  // anything in-app, since some associations build their real rosters in a
-  // separate tool entirely and this app has no way to know that's done.
-  const toggleFinalized = async (catId, finalized) => {
-    await fetch(`/api/categories/${catId}/teams-finalized`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
-    });
-    queryClient.invalidateQueries({ queryKey: ["report-settings", orgId] });
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="font-display font-bold text-ink">End of Eval Reports</h2>
+          <h2 className="font-display font-bold text-ink">Report Price & Tracking</h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
 
         <div className="flex border-b border-gray-100 flex-shrink-0">
-          {[["price", "Price", DollarSign], ["send", "Send", Send], ["track", "Track", Receipt]].map(([id, label, Icon]) => (
+          {[["price", "Price", DollarSign], ["track", "Track", Receipt]].map(([id, label, Icon]) => (
             <button key={id} onClick={() => setTab(id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === id ? "border-accent text-ink" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
               <Icon size={13} /> {label}
             </button>
@@ -173,43 +224,6 @@ function EndOfEvalReportsModal({ orgId, onClose }) {
                   <span className={`block w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.purchasingEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
                 </button>
               </div>
-            </div>
-          ) : tab === "send" ? (
-            <div className="space-y-2">
-              {settings.categories.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">No categories yet.</p>
-              ) : settings.categories.map(cat => {
-                const finalized = !!cat.teams_finalized_at;
-                const canSend = cat.has_scores && finalized;
-                return (
-                  <div key={cat.id} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-ink truncate">{cat.name}</p>
-                        <p className="text-xs text-gray-400">{cat.has_scores ? "Has scores" : "No scores recorded yet"}</p>
-                        {sendMsg[cat.id] && <p className="text-xs text-accent mt-0.5">{sendMsg[cat.id]}</p>}
-                      </div>
-                      <button
-                        onClick={() => sendReports(cat.id)}
-                        disabled={!canSend || sendingId === cat.id}
-                        title={!cat.has_scores ? "No scores yet — nothing to report" : !finalized ? "Mark teams finalized below first" : "Email every parent a report link"}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold disabled:opacity-40 whitespace-nowrap"
-                      >
-                        {sendingId === cat.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                      <div>
-                        <p className="text-xs font-medium text-ink">Teams finalized</p>
-                        <p className="text-[11px] text-gray-400">Whether rosters were built here or elsewhere — flip this once they're actually decided.</p>
-                      </div>
-                      <button onClick={() => toggleFinalized(cat.id, !finalized)} className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${finalized ? "bg-accent" : "bg-gray-300"}`}>
-                        <span className={`block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${finalized ? "translate-x-4" : "translate-x-0.5"}`} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           ) : (
             <div>
