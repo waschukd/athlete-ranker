@@ -192,51 +192,61 @@ const STOCK_QUOTES = {
     strength: (n) => [`Strong skater — one of the better ones in the group.`, `Skating is a real strength; moves well and covers ice easily.`],
     developing: (n) => [`Skating is coming along — keep working on edges and first three strides.`, `Good progress on skating; getting lower in the stride will add more power.`],
     focus: (n) => [`Skating is the clearest area to work on — spend extra time on edges and stride power.`, `Needs more reps on skating fundamentals — stride length and balance especially.`],
+    anchor: (n) => [`The best place to start — skating fundamentals first, everything else builds from there.`, `A good foundation to build from — stride and edges improve fast with focused reps.`],
   },
   puck: {
     strength: (n) => [`Good hands — protects the puck well under pressure.`, `Strong on the puck; hard to knock off it in tight areas.`],
     developing: (n) => [`Puck skills are developing — keep working on handling at full speed.`, `Getting more comfortable with the puck; next step is handling it under pressure.`],
     focus: (n) => [`Needs more reps with the puck — work on protecting it and handling it under pressure.`, `Puck control is the area to attack — stickhandling in tight space especially.`],
+    anchor: (n) => [`A good starting point — puck comfort builds quickly with reps.`, `The best place to start — getting comfortable with the puck opens up the rest of the game.`],
   },
   sense: {
     strength: (n) => [`Reads the play well — good positioning with and without the puck.`, `Strong hockey sense; usually in the right spot before the play develops.`],
     developing: (n) => [`Hockey sense is coming along — keep working on anticipating the next play.`, `Good awareness building; reading the play a beat earlier will help a lot.`],
     focus: (n) => [`Needs to work on reading the play — anticipate where to be before the puck arrives.`, `Positioning and awareness are the area to attack next.`],
+    anchor: (n) => [`A good foundation to build on — awareness grows quickly with more ice time.`, `The best place to start building from — reads and positioning come with reps and experience.`],
   },
   compete: {
     strength: (n) => [`Competes hard every shift — wins more than his share of battles.`, `Great motor; first on loose pucks and hard to play against.`],
     developing: (n) => [`Good compete level — keep pushing to win more puck battles.`, `Effort is trending the right way; stay hard on pucks every shift.`],
     focus: (n) => [`Needs to compete harder for loose pucks and in board battles.`, `Work rate is the area to attack — more urgency on every shift.`],
+    anchor: (n) => [`A good foundation to build from — compete level grows with confidence and reps.`, `The best place to start — a stronger motor lifts everything else with it.`],
   },
   shooting: {
     strength: (n) => [`Good shot — gets it off quickly and with power.`, `Strong shooter; a real weapon in tight to the net.`],
     developing: (n) => [`Shot is coming along — keep working on release speed.`, `Good shot mechanics building; getting it off quicker will help.`],
     focus: (n) => [`Work on shot release and getting it off quicker in traffic.`, `Shooting is the area to attack — more reps on a quick release.`],
+    anchor: (n) => [`A good starting point — shot mechanics improve quickly with focused reps.`, `The best place to start building — a more confident release comes with practice.`],
   },
   passing: {
     strength: (n) => [`Good vision — moves the puck well to open teammates.`, `Strong passer; sees the ice and finds the open man.`],
     developing: (n) => [`Passing is developing — keep working on accuracy under pressure.`, `Vision is building nicely; tightening up pass accuracy is next.`],
     focus: (n) => [`Work on passing accuracy and vision to find open teammates.`, `Puck movement is the area to attack — quicker, more accurate passes.`],
+    anchor: (n) => [`A good starting point — vision and accuracy build quickly with more ice time.`, `The best place to start — puck movement improves fast with reps.`],
   },
   goalieMove: {
     strength: (n) => [`Moves well in the crease — quick, controlled pushes.`, `Strong skater for a goalie; covers the net efficiently.`],
     developing: (n) => [`Crease movement is coming along — keep working on push power.`, `Good progress moving post to post; recovery speed is next.`],
     focus: (n) => [`Crease movement is the area to attack — pushes and recovery especially.`, `Needs more reps on skating and getting square quickly.`],
+    anchor: (n) => [`A good foundation to build from — comfort moving in the crease grows quickly with reps.`, `The best place to start — crease movement underpins everything else.`],
   },
   goaliePos: {
     strength: (n) => [`Great positioning — consistently square and at the right depth.`, `Strong angles; takes away the net before the shot.`],
     developing: (n) => [`Positioning is coming along — keep working on depth in the crease.`, `Good progress on angles; staying square through lateral movement is next.`],
     focus: (n) => [`Positioning is the area to attack — angles and depth especially.`, `Needs more reps getting square before the shot arrives.`],
+    anchor: (n) => [`A good foundation to build from — angles and depth improve quickly with reps in net.`, `The best place to start — better positioning habits make every save simpler.`],
   },
   goalieSave: {
     strength: (n) => [`Clean hands and feet — controls rebounds well.`, `Strong save execution; steers rebounds away from danger.`],
     developing: (n) => [`Save execution is coming along — keep working on rebound control.`, `Good hands building; controlling second chances is the next step.`],
     focus: (n) => [`Rebound control is the area to attack — steer pucks to the corners.`, `Needs more reps on clean hands and feet under pressure.`],
+    anchor: (n) => [`A good foundation to build from — save execution improves quickly with reps.`, `The best place to start — consistency in the basics comes with more time in net.`],
   },
   goalieRead: {
     strength: (n) => [`Reads the play well — tracks the puck through traffic.`, `Strong anticipation; often set before the shot arrives.`],
     developing: (n) => [`Reading the play is coming along — keep tracking through screens.`, `Good awareness building; anticipating a beat earlier is next.`],
     focus: (n) => [`Reading the play is the area to attack — tracking through traffic especially.`, `Needs more reps anticipating the play before it develops.`],
+    anchor: (n) => [`A good foundation to build from — reading the play comes with more time in net.`, `The best place to start — game experience sharpens anticipation quickly.`],
   },
 };
 function stockQuoteBucket(name, isGoalie) {
@@ -276,12 +286,19 @@ function stockQuotesFor(skillProfile, isGoalie, need) {
   const strongest = withGap.slice().sort((a, b) => a.gap - b.gap)[0];
   const rest = withGap.filter(s => s.scoring_category_id !== strongest.scoring_category_id).sort((a, b) => b.gap - a.gap);
   const ordered = [strongest, ...rest];
+  // Real, data-driven signal, never a guess: if even the closest-to-top skill
+  // still sits in the bottom "focus" tier, there is no real strength
+  // anywhere for this athlete. Never changes the numbers or the plan --
+  // only softens the TONE of the anchor quote (idx 0) to a warmer,
+  // developmental framing, so a genuinely across-the-board result doesn't
+  // read as pure criticism with zero encouragement anywhere in the report.
+  const noRealStrength = stockTier(strongest.player, strongest.top) === "focus";
   const quotes = [];
   ordered.forEach((s, idx) => {
     if (quotes.length >= need) return;
     const bucket = stockQuoteBucket(s.name, isGoalie);
     if (!bucket) return;
-    const tier = stockTier(s.player, s.top);
+    const tier = idx === 0 && noRealStrength ? "anchor" : stockTier(s.player, s.top);
     if (!tier) return;
     const variants = STOCK_QUOTES[bucket][tier]();
     quotes.push(variants[idx % variants.length]);
@@ -461,6 +478,14 @@ export default function DevelopmentReport({ data }) {
   const strengthSkill = gradedSkills.slice().sort((a, b) => b.player - a.player)[0];
   const weaknessSkill = gradedSkills.slice().sort((a, b) => a.player - b.player)[0];
   const focusSkill = skillFocus[0];
+  // Real, data-driven signal, never a guess: true only when EVERY graded
+  // skill sits in the bottom "focus" tier relative to the top -- a genuinely
+  // across-the-board result, not just "has one weak area among several
+  // strengths." Never changes a number; only adds a brief, honest
+  // encouragement note below so the report doesn't read as pure criticism
+  // with nothing else in it. See stockQuotesFor for the matching tone
+  // softening on the stock-quote anchor.
+  const noRealStrength = gradedSkills.length > 0 && gradedSkills.every(s => s.top != null && stockTier(s.player, s.top) === "focus");
   const tips = positionTips(athlete?.position, isGoalie);
 
   // Pills are keyed to the TOP of the group (the target), never the average — a
@@ -676,6 +701,13 @@ export default function DevelopmentReport({ data }) {
                 </div>
               );
             })}
+            {noRealStrength && (
+              <div style={{ marginTop: 4, background: T.panelBg, border: `1px solid ${T.panelBorder}`, borderLeft: `3px solid ${T.accent}`, borderRadius: 10, padding: "13px 16px", breakInside: "avoid" }}>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: T.bodyText, lineHeight: 1.6 }}>
+                  Every skill here is early in its development relative to the top of the group — that's normal, and it's exactly what this report and the plan below are for. Development doesn't move in a straight line for anyone. The starting point above is a real place to build from, not a verdict.
+                </div>
+              </div>
+            )}
           </div>
         )}
 
