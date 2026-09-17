@@ -14,7 +14,9 @@ export default function ReportClient({ params }) {
   const { token } = params;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [agreed, setAgreed] = useState(false);
 
@@ -25,10 +27,22 @@ export default function ReportClient({ params }) {
     fetchData();
   }, [token]);
 
+  // Real incident: this had no .catch() at all. A paying (or about-to-pay)
+  // parent's network hiccup left the page spinning forever and threw an
+  // unhandled "Failed to fetch" straight to Sentry -- same failure mode as
+  // /player/report, but on the actual checkout page this time.
   const fetchData = async () => {
     setLoading(true);
-    const res = await fetch(`/api/report/${token}`);
-    if (res.ok) setData(await res.json());
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/report/${token}`);
+      // A clean non-OK response (e.g. a bad/expired token) already has its
+      // own correct handling below via the "Report Not Found" branch -- only
+      // an actual thrown exception (network failure) is the new case.
+      if (res.ok) setData(await res.json());
+    } catch {
+      setLoadError(true);
+    }
     setLoading(false);
   };
 
@@ -41,22 +55,41 @@ export default function ReportClient({ params }) {
     }
   }, [paymentStatus, data?.purchased]);
 
+  // Same class of bug as fetchData -- this is the actual checkout button. A
+  // failed fetch here left it stuck on "Redirecting to checkout…" forever
+  // with no way to tell the parent anything went wrong, right at the moment
+  // they were trying to pay.
   const handleUnlock = async () => {
     if (!agreed) return;
     setUnlocking(true);
-    const res = await fetch("/api/payments/create-checkout", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, agreedToTerms: true }),
-    });
-    const result = await res.json();
-    if (result.already_purchased) { fetchData(); setUnlocking(false); return; }
-    if (result.checkout_url) window.location.href = result.checkout_url;
-    else setUnlocking(false);
+    setUnlockError(false);
+    try {
+      const res = await fetch("/api/payments/create-checkout", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, agreedToTerms: true }),
+      });
+      const result = await res.json();
+      if (result.already_purchased) { fetchData(); setUnlocking(false); return; }
+      if (result.checkout_url) { window.location.href = result.checkout_url; return; }
+      setUnlockError(true);
+    } catch {
+      setUnlockError(true);
+    }
+    setUnlocking(false);
   };
 
   const Fonts = () => <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
   const shell = { minHeight: "100vh", background: BG, color: "#e9eaec", fontFamily: SANS };
 
   if (loading) return <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center" }}><Fonts /><span style={{ color: "#8b8f99" }}>Loading…</span></div>;
+  if (loadError) return (
+    <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <Fonts />
+      <div style={{ textAlign: "center" }}>
+        <p style={{ color: "#8b8f99", fontSize: 14, marginBottom: 16 }}>Couldn't load this report — check your connection.</p>
+        <button onClick={fetchData} style={{ padding: "10px 24px", background: GOLD, color: "#141414", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Try again</button>
+      </div>
+    </div>
+  );
   if (!data || data.error) return (
     <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <Fonts />
@@ -160,6 +193,7 @@ export default function ReportClient({ params }) {
             <button onClick={handleUnlock} disabled={unlocking || !agreed} style={{ padding: "13px 30px", background: GOLD, color: "#141414", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: (unlocking || !agreed) ? "default" : "pointer", opacity: (unlocking || !agreed) ? 0.5 : 1 }}>
               {unlocking ? "Redirecting to checkout…" : `Unlock Report — ${priceStr}`}
             </button>
+            {unlockError && <p style={{ fontSize: 12, color: "#e08a8a", marginTop: 12 }}>Something went wrong — please try again.</p>}
             <p style={{ fontSize: 11, color: "#6b7078", marginTop: 14 }}>Secure payment via Stripe. No account required.</p>
           </div>
         ) : (
