@@ -996,6 +996,7 @@ export default function DevelopmentReport({ data }) {
                 season, not "wait for the off-season, come back next time." */}
             {tips && (
               <div style={{ marginTop: 26, breakInside: "avoid" }}>
+                <p style={{ margin: "0 0 16px", fontFamily: SANS, color: T.textDim, fontSize: 13, fontStyle: "italic" }}>This report is your baseline. Future testing and evaluations can be compared directly against these results to measure development.</p>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>Things to get you noticed</div>
                 <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 9, textTransform: "uppercase" }}>Tips for the season ahead</div>
                 <p style={{ margin: "0 0 14px", fontFamily: SANS, color: T.textDim, fontSize: 13 }}>General habits evaluators consistently notice at {isGoalie ? "the goalie position" : `${athlete?.position === "forward_defense" ? "forward and defense" : (athlete?.position || "this position")}`} — separate from {firstName}'s specific plan above, these are worth building all season long, not just something to remember for the next evaluation.</p>
