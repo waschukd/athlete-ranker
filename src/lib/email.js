@@ -660,6 +660,25 @@ export async function sendPurchaseReceiptEmail({ to, playerName, orgName, report
   return sendEmail(to, `Purchase confirmed — ${playerName}'s Development Report`, html);
 }
 
+// ── Complimentary access: an admin unlocked a report for someone without a
+// real purchase (a demo, an internal look, a comp for a specific contact) --
+// separate from purchaseReceiptEmailHtml above specifically so this never
+// claims "thanks for your purchase" when nothing was actually bought.
+export function complimentaryAccessEmailHtml({ playerName: _pn, orgName: _on, reportUrl }) {
+  const playerName = esc(_pn), orgName = esc(_on);
+  return emailWrapper(`
+    ${emailHeader("Complimentary access", `${playerName}'s report is ready to view`)}
+    <p style="margin:14px auto 22px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${playerName}'s full Development Report — ${orgName} — has been unlocked for you, no purchase needed.</p>
+    <div style="text-align:center;margin:8px 0 0;">${btn(reportUrl, "View the report")}</div>
+    <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">This link is yours to keep — no need to buy anything to come back to it.</p>
+  `);
+}
+
+export async function sendComplimentaryAccessEmail({ to, playerName, orgName, reportUrl }) {
+  const html = complimentaryAccessEmailHtml({ playerName, orgName, reportUrl });
+  return sendEmail(to, `${playerName}'s Development Report — complimentary access`, html);
+}
+
 // Placement note when a player is moved out of a division and re-registered at
 // another level. Callers pass `message`/`subject` already resolved (org override
 // or the built-in default from emailTemplateDefaults) and already merged.
