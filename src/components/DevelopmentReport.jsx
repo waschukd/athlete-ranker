@@ -70,47 +70,47 @@ const THEN_IN_ORDER_CLAUSE = [
   "; rounds out the picture once the earlier work sticks.",
 ];
 
-// Skill-card interpretation, by tier. Real feedback: every skill card in the
-// same tier ("A genuine strength — at 8.6, Elliot is right at the top of the
-// group (8.6). Keep it sharp and lean on it.") used the identical sentence,
-// just with different numbers swapped in — reads like a template once a
-// report has 3+ skills in the same tier. Rotated by the skill's position in
-// the list (same pattern as THEN_IN_ORDER_CLAUSE above) so it varies without
-// being random -- a report looks the same every time it's viewed or reprinted.
+// Skill-card interpretation, by tier. Real feedback (twice now): naming the
+// exact player/top/gap numbers here repeats what the card's own bar already
+// shows, and states more mathematical precision than a subjective evaluation
+// actually has. Purely qualitative now -- the real numbers stay on the card
+// itself, this sentence only interprets them. Also real feedback: every
+// skill card in the same tier used to read as an identical sentence with
+// different numbers swapped in once a report had 3+ skills in the same
+// tier; rotated by the skill's position in the list (same pattern as
+// THEN_IN_ORDER_CLAUSE above) so it varies without being random -- a report
+// looks the same every time it's viewed or reprinted.
 const STRENGTH_PHRASING = [
-  (n, p, t) => `A genuine strength — at ${p}, ${n} is right at the top of the group (${t}). Keep it sharp and lean on it.`,
-  (n, p, t) => `${n} is elite here — ${p} matches the very top of the group (${t}). A skill to build the rest of the game around.`,
-  (n, p, t) => `Right at the group's ceiling — ${p} against a top of ${t}. This is already a weapon, not a work in progress.`,
-  (n, p, t) => `A real strength to lean on — ${p}, matching the group's best (${t}). Keep reinforcing what's already working here.`,
+  (n) => `A genuine strength — right at the top of the group. Keep it sharp and lean on it.`,
+  (n) => `${n} is elite here — matching the very top of the group. A skill to build the rest of the game around.`,
+  (n) => `Right at the group's ceiling. This is already a weapon, not a work in progress.`,
+  (n) => `A real strength to lean on — matching the group's best. Keep reinforcing what's already working here.`,
 ];
 const CLOSE_PHRASING = [
-  (n, p, t, g) => `Close to the top — ${p} against a group top of ${t}, about ${g} away. A focused block of reps closes this fast.`,
-  (n, p, t, g) => `Nearly there — only ${g} separates ${n}'s ${p} from the group's best (${t}). Worth a dedicated push.`,
-  (n, p, t, g) => `${n} is within striking distance: ${p} vs. a top of ${t}, a gap of just ${g}. Small, focused reps get this the rest of the way.`,
-  (n, p, t, g) => `A short climb left — ${g} shy of the group top (${t}) at ${p} right now. An efficient place to invest practice time.`,
+  (n) => `Close to the top of the group. A focused block of reps closes this fast.`,
+  (n) => `Nearly there — ${n} is within a short reach of the group's best. Worth a dedicated push.`,
+  (n) => `${n} is within striking distance of the top of the group. Small, focused reps get this the rest of the way.`,
+  (n) => `A short climb left to the top of the group. An efficient place to invest practice time.`,
 ];
 const DEVELOPING_PHRASING = [
-  (n, p, t, g) => `Coming along — ${p} with room to the top of the group (${t}), about ${g} to close. A clear place to put in work.`,
-  (n, p, t, g) => `Developing steadily — ${p} today, ${g} behind the group's top mark of ${t}. A good, realistic target for the next block of training.`,
-  (n, p, t, g) => `${n} sits at ${p}, ${g} off the group top (${t}). Real progress is available here with consistent reps.`,
-  (n, p, t, g) => `Solid groundwork, more to build — ${p} against a group top of ${t} (${g} to go). A development priority, not a concern.`,
+  (n) => `Coming along, with real room to the top of the group. A clear place to put in work.`,
+  (n) => `Developing steadily, behind the group's top mark. A good, realistic target for the next block of training.`,
+  (n) => `${n} has real progress available here with consistent reps.`,
+  (n) => `Solid groundwork, more to build toward the top of the group. A development priority, not a concern.`,
 ];
 const FOCUS_PHRASING = [
-  (n, p, t) => `The clearest area to attack — ${p} against a group top of ${t}. The single biggest opportunity to climb.`,
-  (n, p, t) => `This is where the biggest gains are waiting — ${p} vs. a group top of ${t}. Prioritizing this skill moves the needle the most.`,
-  (n, p, t) => `${n}'s furthest skill from the group's ceiling right now — ${p} against ${t}. The highest-leverage place to focus training.`,
-  (n, p, t) => `The single biggest opportunity in this report — ${p} today, group top sits at ${t}. Focused work here pays off the most.`,
+  (n) => `The clearest area to attack — the single biggest opportunity to climb relative to the top of the group.`,
+  (n) => `This is where the biggest gains are waiting. Prioritizing this skill moves the needle the most.`,
+  (n) => `${n}'s furthest skill from the group's ceiling right now. The highest-leverage place to focus training.`,
+  (n) => `The single biggest opportunity in this report. Focused work here pays off the most.`,
 ];
 function skillInterpretation(idx, firstName, s) {
   if (s.player == null) return "";
-  const f = (v) => (v != null ? v.toFixed(1) : "—");
-  const p = f(s.player), t = f(s.top);
   const gap = s.top != null ? Math.round((s.top - s.player) * 10) / 10 : null;
-  const g = gap != null ? gap.toFixed(1) : null;
-  if (s.top != null && s.player >= s.top - 0.2) return STRENGTH_PHRASING[idx % STRENGTH_PHRASING.length](firstName, p, t);
-  if (gap != null && gap <= 1.0) return CLOSE_PHRASING[idx % CLOSE_PHRASING.length](firstName, p, t, g);
-  if (gap != null && gap <= 2.0) return DEVELOPING_PHRASING[idx % DEVELOPING_PHRASING.length](firstName, p, t, g);
-  return FOCUS_PHRASING[idx % FOCUS_PHRASING.length](firstName, p, t);
+  if (s.top != null && s.player >= s.top - 0.2) return STRENGTH_PHRASING[idx % STRENGTH_PHRASING.length](firstName);
+  if (gap != null && gap <= 1.0) return CLOSE_PHRASING[idx % CLOSE_PHRASING.length](firstName);
+  if (gap != null && gap <= 2.0) return DEVELOPING_PHRASING[idx % DEVELOPING_PHRASING.length](firstName);
+  return FOCUS_PHRASING[idx % FOCUS_PHRASING.length](firstName);
 }
 
 function testInfo(name) {
