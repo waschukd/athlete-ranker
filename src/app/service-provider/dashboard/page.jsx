@@ -16,7 +16,7 @@ import ScoreSlipsPanel from "@/components/service-provider/ScoreSlipsPanel";
 import AssociationsTab from "@/components/service-provider/AssociationsTab";
 import ScheduleTab from "@/components/service-provider/ScheduleTab";
 import EvaluatorsTab from "@/components/service-provider/EvaluatorsTab";
-import { EvaluatorEfficiencyReport, StaffingReports } from "@/components/service-provider/Reports";
+import { EvaluatorEfficiencyReport, StaffingReports, ReportSalesReport } from "@/components/service-provider/Reports";
 import LeadsSection from "@/components/service-provider/LeadsSection";
 import PayrollTab from "@/components/service-provider/PayrollTab";
 import SpLogoControl from "@/components/service-provider/SpLogoControl";
@@ -214,6 +214,7 @@ function SPDashboard() {
 
         {activeTab === "reports" && (
           <div className="space-y-6">
+            <ReportSalesReport />
             <StaffingReports />
             <EvaluatorEfficiencyReport />
           </div>

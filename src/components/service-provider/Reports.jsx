@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function EvaluatorEfficiencyReport() {
   const [data, setData] = useState(null);
@@ -91,6 +91,85 @@ export function EvaluatorEfficiencyReport() {
   );
 }
 
+export function ReportSalesReport() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await fetch("/api/service-provider/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "report_sales" }) });
+    setData(await res.json());
+    setLoading(false);
+  };
+  // Real ask: the only place to see this was Stripe's raw transaction list --
+  // no per-association breakdown at all. Loads automatically so it's just
+  // there to check, same as any other dashboard number.
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const associations = data?.associations || [];
+  const totals = associations.reduce((acc, a) => ({
+    today: acc.today + a.count_today, d7: acc.d7 + a.count_7d, allTime: acc.allTime + a.count_all_time,
+    net: acc.net + a.association_net_all_time, fee: acc.fee + a.sp_fee_all_time,
+  }), { today: 0, d7: 0, allTime: 0, net: 0, fee: 0 });
+  const money = (cents) => `$${(cents / 100).toFixed(2)}`;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div>
+          <div className="font-semibold text-gray-900">Development Report Sales</div>
+          <div className="text-xs text-gray-400">Every Development Report purchase, by association — this used to only be visible in Stripe</div>
+        </div>
+        <button onClick={load} disabled={loading} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+          {loading ? "Loading..." : "Refresh"}
+        </button>
+      </div>
+      {!data && loading && <div className="py-12 text-center text-gray-400 text-sm">Loading...</div>}
+      {data && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Association</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Today</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Last 7 Days</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">All Time</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Association Net</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Your Fee</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {associations.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">No report purchases yet</td></tr>}
+              {associations.map(a => (
+                <tr key={a.organization_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{a.org_name}</td>
+                  <td className="px-4 py-3 text-center">{a.count_today || "-"}</td>
+                  <td className="px-4 py-3 text-center">{a.count_7d || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{a.count_all_time}</td>
+                  <td className="px-4 py-3 text-right">{money(a.association_net_all_time)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-green-700">{money(a.sp_fee_all_time)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {associations.length > 0 && (
+              <tfoot className="bg-gray-50 border-t border-gray-200">
+                <tr>
+                  <td className="px-4 py-3 font-semibold text-gray-700">Total</td>
+                  <td className="px-4 py-3 text-center font-semibold">{totals.today || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{totals.d7 || "-"}</td>
+                  <td className="px-4 py-3 text-center font-bold">{totals.allTime}</td>
+                  <td className="px-4 py-3 text-right font-semibold">{money(totals.net)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-green-700">{money(totals.fee)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StaffingReports() {
   const [loading, setLoading] = useState(null);
   const [msg, setMsg] = useState("");
@@ -106,7 +185,7 @@ export function StaffingReports() {
     <div className="space-y-5">
       <h2 className="text-lg font-semibold text-gray-900">Reports and Notifications</h2>
       {msg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">{msg}</div>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="font-semibold text-gray-900 mb-1">Weekly Staffing Report</div>
           <p className="text-xs text-gray-500 mb-4">All sessions for the next 7 days with evaluator rosters.</p>
@@ -119,6 +198,13 @@ export function StaffingReports() {
           <p className="text-xs text-gray-500 mb-4">Sessions in next 48 hours that need evaluators.</p>
           <button onClick={() => run("daily_alert")} disabled={loading === "daily_alert"} className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
             {loading === "daily_alert" ? "Checking..." : "Send Daily Alert Now"}
+          </button>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="font-semibold text-gray-900 mb-1">Report Sales Digest</div>
+          <p className="text-xs text-gray-500 mb-4">Yesterday's Development Report sales, by association. Sends automatically every morning.</p>
+          <button onClick={() => run("report_sales_digest_now")} disabled={loading === "report_sales_digest_now"} className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+            {loading === "report_sales_digest_now" ? "Sending..." : "Send Sales Digest Now"}
           </button>
         </div>
       </div>

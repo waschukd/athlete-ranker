@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import sql from "@/lib/db";
 import { arenaLabel } from "@/lib/arenas";
-import { emailWeeklyStaffingReport, emailDailyStaffingAlert, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
+import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailReportSalesDigest, sendEmail, emailWrapper, esc, sleep } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 import { getCategoryDirectors } from "@/lib/categoryRecipients";
 
@@ -88,7 +88,7 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const job = searchParams.get("job"); // weekly_report | daily_alert | session_reminder | auto_close
+  const job = searchParams.get("job"); // weekly_report | daily_alert | session_reminder | auto_close | report_sales_digest
 
   // ── auto_close ────────────────────────────────────────────────────────────
   //
@@ -519,6 +519,63 @@ export async function GET(request) {
           try { await sendEmail(dir.email, `Reminder: ${session.category_name} Session Tomorrow — ${dateStr}`, reminderHtml); sent++; } catch (emailErr) { console.error("Email failed:", emailErr); }
           await sleep(110); // pace under Resend's 10 req/sec cap
         }
+      }
+    }
+
+    // ── Daily Development Report Sales Digest ──
+    //
+    // Real ask: an SP could only ever see report purchases in Stripe's own
+    // raw transaction list -- no per-association breakdown, no daily
+    // summary, nothing inside the app. One email per SP admin, covering the
+    // last full calendar day, across every association they're linked to
+    // (plus their own org, in case the SP sells reports for a category it
+    // owns directly). Same admins query as weekly_report/daily_alert above.
+    if (job === "report_sales_digest") {
+      const spAdmins = await sql`
+        SELECT DISTINCT u.email, u.name, o.id as organization_id, o.name as org_name
+        FROM users u
+        JOIN organizations o ON o.contact_email = u.email
+        WHERE u.email IS NOT NULL AND o.type = 'service_provider'
+      `;
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateLabel = yesterday.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+
+      await ensureEmailLogTable();
+      for (const admin of spAdmins) {
+        const rows = await sql`
+          WITH linked_orgs AS (
+            SELECT association_id AS org_id FROM sp_association_links
+            WHERE service_provider_id = ${admin.organization_id} AND status = 'active'
+            UNION
+            SELECT ${admin.organization_id}::int
+          )
+          SELECT o.name AS org_name,
+            COUNT(*)::int AS count,
+            COALESCE(SUM(rp.amount_cents), 0)::int AS association_net_cents,
+            COALESCE(SUM(rp.platform_fee_cents), 0)::int AS sp_fee_cents
+          FROM report_purchases rp
+          JOIN age_categories ac ON ac.id = rp.age_category_id
+          JOIN organizations o ON o.id = ac.organization_id
+          JOIN linked_orgs lo ON lo.org_id = o.id
+          WHERE rp.status = 'completed'
+            AND rp.completed_at >= CURRENT_DATE - INTERVAL '1 day'
+            AND rp.completed_at < CURRENT_DATE
+          GROUP BY o.name
+          ORDER BY count DESC
+        `;
+        if (!rows.length) continue; // nothing sold yesterday -- no empty "$0" email
+        try {
+          const res = await emailReportSalesDigest({ adminEmail: admin.email, adminName: admin.name, orgName: admin.org_name, dateLabel, rows });
+          await logEmailSend({
+            orgId: admin.organization_id, emailType: "report_sales_digest", athleteName: admin.name, to: admin.email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++;
+        } catch (emailErr) { console.error("Email failed:", emailErr); }
+        await sleep(110);
       }
     }
 

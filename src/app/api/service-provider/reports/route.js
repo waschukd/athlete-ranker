@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSession, resolveSpContext } from "@/lib/auth";
-import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailOpenSessionsBlast } from "@/lib/email";
+import { emailWeeklyStaffingReport, emailDailyStaffingAlert, emailOpenSessionsBlast, emailReportSalesDigest } from "@/lib/email";
 import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 async function getOrgId(session) {
@@ -216,6 +216,69 @@ export async function POST(request) {
     if (action === "get_sessions") {
       const sessions = await getSessionStaffing(orgId, 30);
       return NextResponse.json({ sessions });
+    }
+
+    // Real ask: the only place an SP could see Development Report sales was
+    // Stripe's own raw transaction list -- no per-association breakdown, no
+    // view inside the app at all. amount_cents on report_purchases is the
+    // ASSOCIATION's net take (post-GST); platform_fee_cents is the SP's own
+    // flat cut -- see webhook/route.js and reportProvider.js's splitReportSale.
+    if (action === "report_sales") {
+      const rows = await sql`
+        WITH linked_orgs AS (
+          SELECT association_id AS org_id FROM sp_association_links
+          WHERE service_provider_id = ${orgId} AND status = 'active'
+          UNION
+          SELECT ${orgId}::int
+        )
+        SELECT o.id AS organization_id, o.name AS org_name,
+          COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '1 day')::int AS count_today,
+          COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '7 days')::int AS count_7d,
+          COUNT(*)::int AS count_all_time,
+          COALESCE(SUM(rp.amount_cents), 0)::int AS association_net_all_time,
+          COALESCE(SUM(rp.platform_fee_cents), 0)::int AS sp_fee_all_time
+        FROM report_purchases rp
+        JOIN age_categories ac ON ac.id = rp.age_category_id
+        JOIN organizations o ON o.id = ac.organization_id
+        JOIN linked_orgs lo ON lo.org_id = o.id
+        WHERE rp.status = 'completed'
+        GROUP BY o.id, o.name
+        ORDER BY count_all_time DESC
+      `;
+      return NextResponse.json({ associations: rows });
+    }
+
+    // Manual trigger for the same digest the report_sales_digest cron sends
+    // daily -- lets an SP admin test it or pull an on-demand copy without
+    // waiting for the schedule.
+    if (action === "report_sales_digest_now") {
+      const rows = await sql`
+        WITH linked_orgs AS (
+          SELECT association_id AS org_id FROM sp_association_links
+          WHERE service_provider_id = ${orgId} AND status = 'active'
+          UNION
+          SELECT ${orgId}::int
+        )
+        SELECT o.name AS org_name,
+          COUNT(*)::int AS count,
+          COALESCE(SUM(rp.amount_cents), 0)::int AS association_net_cents,
+          COALESCE(SUM(rp.platform_fee_cents), 0)::int AS sp_fee_cents
+        FROM report_purchases rp
+        JOIN age_categories ac ON ac.id = rp.age_category_id
+        JOIN organizations o ON o.id = ac.organization_id
+        JOIN linked_orgs lo ON lo.org_id = o.id
+        WHERE rp.status = 'completed'
+          AND rp.completed_at >= CURRENT_DATE - INTERVAL '1 day'
+          AND rp.completed_at < CURRENT_DATE
+        GROUP BY o.name
+        ORDER BY count DESC
+      `;
+      if (!rows.length) return NextResponse.json({ success: true, message: "No reports sold in the last full day — nothing to send" });
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateLabel = yesterday.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+      await emailReportSalesDigest({ adminEmail, adminName, orgName, dateLabel, rows });
+      return NextResponse.json({ success: true, message: `Sales digest sent to ${adminEmail}` });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

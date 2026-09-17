@@ -466,6 +466,48 @@ export async function emailDailyStaffingAlert({ adminEmail, adminName, orgName, 
   return sendEmail(adminEmail, `🚨 ${openSessions.length} Session${openSessions.length !== 1 ? "s" : ""} Need Evaluators — ${orgName}`, html);
 }
 
+// Real ask: an SP could only ever see Development Report sales in Stripe's
+// own raw transaction list -- no per-association breakdown, no daily
+// summary, nothing inside the app itself. rows = per-association tally for
+// the digest window (see the "report_sales_digest" cron job) --
+// association_net_cents is that org's own take (post-GST), sp_fee_cents is
+// the SP's own flat cut. Never sent when nothing was purchased in the
+// window -- an empty "$0 sold today" email every single day is noise.
+export async function emailReportSalesDigest({ adminEmail, adminName, orgName, dateLabel, rows }) {
+  if (!rows.length) return;
+
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  const totalFee = rows.reduce((s, r) => s + r.sp_fee_cents, 0);
+  const money = (cents) => `$${(cents / 100).toFixed(2)}`;
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td style="padding:8px 0;font-size:13px;color:#111827;border-top:1px solid #f3f4f6;">${esc(r.org_name)}</td>
+      <td style="padding:8px 0;font-size:13px;color:#111827;text-align:center;border-top:1px solid #f3f4f6;">${r.count}</td>
+      <td style="padding:8px 0;font-size:13px;color:#111827;text-align:right;border-top:1px solid #f3f4f6;">${money(r.association_net_cents)}</td>
+      <td style="padding:8px 0;font-size:13px;color:#16a34a;font-weight:700;text-align:right;border-top:1px solid #f3f4f6;">${money(r.sp_fee_cents)}</td>
+    </tr>
+  `).join("");
+
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Development Report Sales — ${esc(dateLabel)}</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">${totalCount} report${totalCount !== 1 ? "s" : ""} purchased across ${rows.length} association${rows.length !== 1 ? "s" : ""} — ${money(totalFee)} to ${esc(orgName)}.</p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr style="background:#f9fafb;">
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:left;font-weight:600;text-transform:uppercase;">Association</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:center;font-weight:600;text-transform:uppercase;">Sold</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:right;font-weight:600;text-transform:uppercase;">Their Net</th>
+        <th style="padding:8px 0;font-size:11px;color:#6b7280;text-align:right;font-weight:600;text-transform:uppercase;">Your Fee</th>
+      </tr>
+      ${tableRows}
+    </table>
+    <div style="margin-top:24px;">
+      ${btn(`${BASE_URL}/service-provider/dashboard`, "View Full Sales →")}
+    </div>
+  `);
+  return sendEmail(adminEmail, `💰 ${totalCount} Report${totalCount !== 1 ? "s" : ""} Sold Yesterday — ${orgName}`, html);
+}
+
 // Returns [{ user_id, email, ok, id, error }] per recipient so the caller can
 // log delivery status -- email.js just sends, the route owns the DB write.
 export async function emailOpenSessionsBlast({ evaluators, orgName, openSessions, adminName }) {
