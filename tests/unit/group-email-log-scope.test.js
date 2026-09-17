@@ -66,7 +66,7 @@ describe("recipients never come from the log", () => {
 
   it("writes its own rows tagged as 'session'", () => {
     const inserts = CODE.split("INSERT INTO group_email_log").slice(1);
-    expect(inserts.length).toBe(2); // no-email skip, and the real send
+    expect(inserts.length).toBe(3); // no-email skip, the real send, and the per-recipient failure catch
     for (const i of inserts) expect(i).toMatch(/'session'/);
   });
 });

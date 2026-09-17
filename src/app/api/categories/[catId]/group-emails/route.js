@@ -8,6 +8,19 @@ import { googleCalendarUrl } from "@/lib/calendar";
 import { signSessionIcsToken, canonicalCalendarBase } from "@/lib/calendar-token";
 import { ensureEmailLogTable } from "@/lib/emailLog";
 
+// Real incident: SPS Fuzion U13, 33 athletes / ~58 parent emails for one
+// session -- the batch send logged exactly ONE delivered row and stopped,
+// with no "failed" rows for anyone else (a graceful per-recipient failure
+// would have logged one). That points to the function itself getting killed
+// mid-loop by the platform's default timeout, not an application error --
+// this route sends one email at a time with a 110ms pace-limiter between
+// each (see the sleep() call below), and a roster this size can take well
+// past a short default before it's done. maxDuration gives it real headroom;
+// the try/catch around each recipient below is a second, independent
+// safety net so one bad recipient can no longer silently take the rest of
+// the batch down with it.
+export const maxDuration = 60;
+
 // Sending the group-assignment email blast is a director/admin-level action --
 // authorizeCategoryAccess alone also admits plain evaluators. The GET
 // preview/status view stays open to any category-authorized role.
@@ -169,47 +182,61 @@ export async function POST(request, { params }) {
       const time = g.start_time ? `${fmtTime(g.start_time)}${g.end_time ? ` – ${fmtTime(g.end_time)}` : ""}` : "";
       for (const m of members) {
         const name = `${m.first_name} ${m.last_name}`;
-        const emails = parentEmails(m);
-        if (!emails.length) {
-          skipped++;
-          await sql`INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
-          continue;
-        }
-        // Two "add to calendar" LINKS, never an attachment (Gmail would render
-        // its own event card above our email). Google's template URL for Google
-        // users; a signed .ics link for Apple/Outlook, which the Google URL
-        // can't serve — it would bounce them to a Google sign-in and save the
-        // event to a calendar they don't use.
-        // No group_number — it would land in the calendar event's title.
-        const calendarUrl = googleCalendarUrl({
-          scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
-          title: `${plan.category_name} Evaluation`,
-          location: arenaLabel(g.location) || "",
-          details: `${plan.org_name}\nPlease arrive at least 30 minutes early for check-in.`,
-        });
-        const icsUrl = g.schedule_id
-          ? `${baseUrl}/api/calendar/session.ics?t=${signSessionIcsToken(g.schedule_id)}`
-          : null;
-        // The group picks WHICH date/time this parent gets; it never reaches them.
-        const html = groupAssignmentHtml({
-          playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
-          sessionLabel, date, time, location: arenaLabel(g.location) || "", calendarUrl, icsUrl,
-          completedLabel: plan.completedLabel,
-        });
-        // Email each household on file (separated parents); each is logged separately.
-        for (const to of emails) {
-          // Subject carries no group either — it's the first thing shown in the
-          // inbox list, so a group here defeats every other precaution.
-          const res = await sendEmail(to, `${name}'s ice time — ${plan.category_name} (${plan.org_name})`, html);
-          if (res.ok) sent++; else failed++;
+        // One recipient's unexpected failure (a bad template build, a DB
+        // hiccup on the log insert, anything not already handled inside
+        // sendEmail) must never take the rest of the batch down with it --
+        // see the maxDuration comment above for the real incident this
+        // guards against.
+        try {
+          const emails = parentEmails(m);
+          if (!emails.length) {
+            skipped++;
+            await sql`INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error) VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'no_email', 'No parent email on file')`;
+            continue;
+          }
+          // Two "add to calendar" LINKS, never an attachment (Gmail would render
+          // its own event card above our email). Google's template URL for Google
+          // users; a signed .ics link for Apple/Outlook, which the Google URL
+          // can't serve — it would bounce them to a Google sign-in and save the
+          // event to a calendar they don't use.
+          // No group_number — it would land in the calendar event's title.
+          const calendarUrl = googleCalendarUrl({
+            scheduled_date: g.scheduled_date, start_time: g.start_time, end_time: g.end_time,
+            title: `${plan.category_name} Evaluation`,
+            location: arenaLabel(g.location) || "",
+            details: `${plan.org_name}\nPlease arrive at least 30 minutes early for check-in.`,
+          });
+          const icsUrl = g.schedule_id
+            ? `${baseUrl}/api/calendar/session.ics?t=${signSessionIcsToken(g.schedule_id)}`
+            : null;
+          // The group picks WHICH date/time this parent gets; it never reaches them.
+          const html = groupAssignmentHtml({
+            playerName: name, categoryName: plan.category_name, orgName: plan.org_name,
+            sessionLabel, date, time, location: arenaLabel(g.location) || "", calendarUrl, icsUrl,
+            completedLabel: plan.completedLabel,
+          });
+          // Email each household on file (separated parents); each is logged separately.
+          for (const to of emails) {
+            // Subject carries no group either — it's the first thing shown in the
+            // inbox list, so a group here defeats every other precaution.
+            const res = await sendEmail(to, `${name}'s ice time — ${plan.category_name} (${plan.org_name})`, html);
+            if (res.ok) sent++; else failed++;
+            await sql`
+              INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
+              VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
+            `;
+            // Pace ourselves under Resend's 10 req/sec cap -- on a busy roster this
+            // loop can fire dozens of sends back to back, and sendEmail's own retry
+            // is a safety net, not something to lean on for a whole blast.
+            await sleep(110);
+          }
+        } catch (memberErr) {
+          failed++;
+          console.error(`group-emails: failed for athlete ${m.athlete_id} (${name}):`, memberErr);
           await sql`
-            INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, resend_id, status, error)
-            VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${to}, ${res.id || null}, ${res.ok ? "sent" : "failed"}, ${res.ok ? null : (res.error || "send failed").slice(0, 500)})
-          `;
-          // Pace ourselves under Resend's 10 req/sec cap -- on a busy roster this
-          // loop can fire dozens of sends back to back, and sendEmail's own retry
-          // is a safety net, not something to lean on for a whole blast.
-          await sleep(110);
+            INSERT INTO group_email_log (age_category_id, email_type, session_number, group_number, athlete_id, athlete_name, recipient_email, status, error)
+            VALUES (${catId}, 'session', ${session_number}, ${g.group_number}, ${m.athlete_id}, ${name}, ${""}, 'failed', ${(memberErr?.message || "send failed").toString().slice(0, 500)})
+          `.catch(() => {});
         }
       }
     }
