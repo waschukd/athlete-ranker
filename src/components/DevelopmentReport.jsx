@@ -51,6 +51,18 @@ const MONO = "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace";
 // easier once the foundation above is in place," which read as a template
 // dump once there were 3+ items. Cycled rather than repeated so a longer
 // list still reads like it was written, not generated.
+// Real feedback: naming the exact point-gap here (alongside the player's own
+// score and the group top, both already shown on the skill-profile card
+// above) is three ways of stating the same number -- and states a false
+// precision a subjective evaluation doesn't really have. The visualization
+// keeps the real numbers; this narrative interprets them instead of
+// repeating the math. Rotated by list position, same reasoning as
+// THEN_IN_ORDER_CLAUSE below.
+const GAP_QUALITATIVE = [
+  "one of the largest development opportunities relative to the strongest performances in this evaluation group",
+  "a real opportunity to close relative to the strongest performances in this evaluation group",
+  "another area with room to close relative to the top performers in this evaluation group",
+];
 const THEN_IN_ORDER_CLAUSE = [
   "; gets easier once the foundation above is in place.",
   "; builds naturally on that same foundation.",
@@ -466,7 +478,7 @@ export default function DevelopmentReport({ data }) {
       return "the highest-leverage gap to close first; the areas below get easier once it's in place";
     }
     if (n.includes("skat") || n.includes("edge") || n.includes("balance"))
-      return `the foundation everything else in hockey is built on. If a player can't get to their spot or get to the puck, none of their other skills ever get a chance to show up — puck control, shooting, hockey sense and compete all depend on skating getting them there first. It's rare at the higher levels of today's game to see a player who can't keep up on their skates, which is exactly why strengthening it first tends to lift every other score with it. This isn't a knock on ${firstName} — it reflects how much a strong skating foundation carries everything else`;
+      return `the foundation everything else in hockey is built on. If a player can't get to their spot or get to the puck, none of their other skills ever get a chance to show up — puck control, shooting, hockey sense and compete all depend on skating getting them there first. As players move into higher levels, skating becomes increasingly important because stronger acceleration, edge control and speed allow every other skill to show up more consistently. This isn't a knock on ${firstName} — it reflects how much a strong skating foundation carries everything else`;
     if (n.includes("puck") || n.includes("stick") || n.includes("hand"))
       return "a high-leverage base skill — once the hands are reliable at speed, hockey sense and shooting under pressure improve on their own";
     if (n.includes("iq") || n.includes("sense") || n.includes("position"))
@@ -880,7 +892,7 @@ export default function DevelopmentReport({ data }) {
                     <div style={{ ...cardStyle, borderLeft: `3px solid ${T.accent}`, padding: "16px 18px" }}>
                       <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: T.accent, fontWeight: 700, marginBottom: 7 }}>{isGoalie ? "Start here — the priority" : "Start here — the foundation"}</div>
                       <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 18, color: T.heading, marginBottom: 5, textTransform: "uppercase" }}>{skillFocus[0].name}</div>
-                      <div style={{ color: T.textDim }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's a {skillFocus[0].gap.toFixed(1)}-point gap to the top of the group — the single best place to start.</div>
+                      <div style={{ color: T.textDim }}>{skillFocus[0].name} is {cascadeFor(skillFocus[0].name)}. It's the clearest development opportunity relative to the strongest performances in this evaluation group — the single best place to start.</div>
                       <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${T.hair}`, color: T.textDim }}><b style={{ color: T.accent }}>At the top of the group, this looks like</b> {skillElite(skillFocus[0].name, isGoalie)}.</div>
                       {/* Real ask: a small gap-to-top can read as "already near the
                           ceiling" when the top of THIS group is itself still well
@@ -908,7 +920,7 @@ export default function DevelopmentReport({ data }) {
                         {skillFocus.slice(1).map((s, i) => (
                           <li key={s.scoring_category_id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.accent, marginTop: 6, flexShrink: 0 }} />
-                            <span style={{ color: T.textDim }}><b style={{ color: T.heading }}>{s.name}</b> — about {s.gap.toFixed(1)} behind the top of the group{THEN_IN_ORDER_CLAUSE[i % THEN_IN_ORDER_CLAUSE.length]}</span>
+                            <span style={{ color: T.textDim }}><b style={{ color: T.heading }}>{s.name}</b> — {GAP_QUALITATIVE[i % GAP_QUALITATIVE.length]}{THEN_IN_ORDER_CLAUSE[i % THEN_IN_ORDER_CLAUSE.length]}</span>
                           </li>
                         ))}
                       </ul>
