@@ -45,6 +45,9 @@ export async function GET(request, { params }) {
           WHERE sg.age_category_id = ${catId}
           GROUP BY sg.id ORDER BY sg.session_number, sg.group_number`;
 
+    // NOT a.injured everywhere below: an injured player is parked in the
+    // injured_players bucket instead, never in a group and never offered up
+    // to be placed in one -- see mark_injured/unmark_injured below.
     const assignments = sessionNum
       ? await sql`
           SELECT pga.id as assignment_id, pga.athlete_id, pga.session_group_id, pga.display_order, pga.auto_group_number,
@@ -54,7 +57,7 @@ export async function GET(request, { params }) {
             es.checkin_code, es.id as schedule_id,
             es.scheduled_date, es.start_time, es.end_time, es.location
           FROM player_group_assignments pga
-          JOIN athletes a ON a.id = pga.athlete_id
+          JOIN athletes a ON a.id = pga.athlete_id AND NOT a.injured
           JOIN session_groups sg ON sg.id = pga.session_group_id
           LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId}
             AND es.session_number = sg.session_number AND es.group_number = sg.group_number
@@ -68,7 +71,7 @@ export async function GET(request, { params }) {
             pc.jersey_number, pc.team_color, pc.checked_in,
             es.checkin_code, es.id as schedule_id
           FROM player_group_assignments pga
-          JOIN athletes a ON a.id = pga.athlete_id
+          JOIN athletes a ON a.id = pga.athlete_id AND NOT a.injured
           JOIN session_groups sg ON sg.id = pga.session_group_id
           LEFT JOIN evaluation_schedule es ON es.age_category_id = ${catId}
             AND es.session_number = sg.session_number AND es.group_number = sg.group_number
@@ -80,7 +83,7 @@ export async function GET(request, { params }) {
     const goalies = sessionNum ? await sql`
       SELECT a.id, a.first_name, a.last_name, a.external_id, a.helmet_number, a.non_contact
       FROM athletes a
-      WHERE a.age_category_id = ${catId} AND a.position = 'goalie' AND a.is_active = true
+      WHERE a.age_category_id = ${catId} AND a.position = 'goalie' AND a.is_active = true AND NOT a.injured
         AND a.id NOT IN (
           SELECT pga.athlete_id FROM player_group_assignments pga
           JOIN session_groups sg ON sg.id = pga.session_group_id
@@ -97,13 +100,23 @@ export async function GET(request, { params }) {
     const unassigned_skaters = sessionNum ? await sql`
       SELECT a.id, a.first_name, a.last_name, a.external_id, a.position, a.helmet_number, a.non_contact
       FROM athletes a
-      WHERE a.age_category_id = ${catId} AND a.is_active = true AND COALESCE(a.position, '') <> 'goalie'
+      WHERE a.age_category_id = ${catId} AND a.is_active = true AND NOT a.injured AND COALESCE(a.position, '') <> 'goalie'
         AND a.id NOT IN (
           SELECT pga.athlete_id FROM player_group_assignments pga
           JOIN session_groups sg ON sg.id = pga.session_group_id
           WHERE sg.age_category_id = ${catId} AND sg.session_number = ${sessionNum}
         )
       ORDER BY a.last_name` : [];
+
+    // Injured -- deliberately parked out of every session's groups (see
+    // mark_injured/unmark_injured below), site-wide feature, not just SEERA.
+    // Not gated on sessionNum: injured is a persistent flag, so this list is
+    // the same regardless of which session tab a director is looking at.
+    const injured_players = await sql`
+      SELECT a.id, a.first_name, a.last_name, a.external_id, a.position, a.helmet_number, a.non_contact
+      FROM athletes a
+      WHERE a.age_category_id = ${catId} AND a.is_active = true AND a.injured
+      ORDER BY a.last_name`;
 
     let locked_at = null;
     if (sessionNum) {
@@ -133,6 +146,7 @@ export async function GET(request, { params }) {
       assignments: assignments.map(withRank),
       goalies: goalies.map(withRank),
       unassigned_skaters: unassigned_skaters.map(withRank),
+      injured_players: injured_players.map(withRank),
       locked_at,
       team_colors_by_schedule,
     });
@@ -251,6 +265,14 @@ export async function POST(request, { params }) {
         rankedAthletes = rankData.athletes || [];
       } catch (e) { console.error('Ranking error in groups:', e); }
 
+      // Injured players never get auto-placed into a group -- computeCategoryRankings
+      // doesn't know about the flag (they're still ranked; that's separate from
+      // whether they're fit to skate), so filter it out here specifically.
+      const injuredIds = new Set(
+        (await sql`SELECT id FROM athletes WHERE age_category_id = ${catId} AND injured`).map(r => r.id)
+      );
+      rankedAthletes = rankedAthletes.filter(a => !injuredIds.has(a.id));
+
       // Clear skater assignments for this session (always). Clear goalies only when
       // we're going to redistribute them (scrimmage) — a testing session keeps its
       // goalie-skills group intact.
@@ -282,13 +304,13 @@ export async function POST(request, { params }) {
         // split is on — the contact boundary takes precedence.)
         const ranked = rankedAthletes.length
           ? rankedAthletes.filter(a => a.position !== 'goalie')
-          : (await sql`SELECT id, non_contact FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name`);
+          : (await sql`SELECT id, non_contact FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND NOT injured AND (position != 'goalie' OR position IS NULL) ORDER BY last_name`);
         assignments = partitionByContact(ranked, skaterGroups, contactBoundary);
 
       } else if (method === "alphabetical") {
         const athletes = await sql`
           SELECT id FROM athletes
-          WHERE age_category_id = ${catId} AND is_active = true
+          WHERE age_category_id = ${catId} AND is_active = true AND NOT injured
           AND (position != 'goalie' OR position IS NULL)
           ORDER BY last_name, first_name`;
 
@@ -298,14 +320,14 @@ export async function POST(request, { params }) {
         // Sequential by rank, exclude goalies
         const ids = rankedAthletes.length
           ? rankedAthletes.filter(a => a.position !== 'goalie').map(a => a.id)
-          : (await sql`SELECT id FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND (position != 'goalie' OR position IS NULL) ORDER BY last_name`).map(a => a.id);
+          : (await sql`SELECT id FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND NOT injured AND (position != 'goalie' OR position IS NULL) ORDER BY last_name`).map(a => a.id);
 
         assignments = distributeSequential(ids, numGroups);
 
       } else if (method === "ranking" && position_balanced) {
         // Position-balanced: 3:2 F:D ratio, goalies excluded
         const totalSkaters = rankedAthletes.filter(a => a.position !== 'goalie').length ||
-          (await sql`SELECT COUNT(*) as c FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND position != 'goalie'`)[0]?.c || 0;
+          (await sql`SELECT COUNT(*) as c FROM athletes WHERE age_category_id = ${catId} AND is_active = true AND NOT injured AND position != 'goalie'`)[0]?.c || 0;
 
         const groupSize = Math.ceil(totalSkaters / numGroups);
         // 3:2 ratio → 3/5 forwards, 2/5 defense per group
@@ -316,21 +338,21 @@ export async function POST(request, { params }) {
           ? rankedAthletes.filter(a => a.position === 'forward')
           : (await sql`
               SELECT a.id FROM athletes a
-              WHERE a.age_category_id = ${catId} AND a.is_active = true AND a.position = 'forward'
+              WHERE a.age_category_id = ${catId} AND a.is_active = true AND NOT a.injured AND a.position = 'forward'
               ORDER BY a.last_name`);
 
         const defense = rankedAthletes.length
           ? rankedAthletes.filter(a => a.position === 'defense')
           : (await sql`
               SELECT a.id FROM athletes a
-              WHERE a.age_category_id = ${catId} AND a.is_active = true AND a.position = 'defense'
+              WHERE a.age_category_id = ${catId} AND a.is_active = true AND NOT a.injured AND a.position = 'defense'
               ORDER BY a.last_name`);
 
         const others = rankedAthletes.length
           ? rankedAthletes.filter(a => !a.position || (a.position !== 'forward' && a.position !== 'defense' && a.position !== 'goalie'))
           : (await sql`
               SELECT a.id FROM athletes a
-              WHERE a.age_category_id = ${catId} AND a.is_active = true
+              WHERE a.age_category_id = ${catId} AND a.is_active = true AND NOT a.injured
               AND (a.position IS NULL OR a.position NOT IN ('forward','defense','goalie'))
               ORDER BY a.last_name`);
 
@@ -430,6 +452,43 @@ export async function POST(request, { params }) {
         INSERT INTO audit_log (age_category_id, user_id, action, entity_type, entity_id, old_value, new_value)
         VALUES (${catId}, ${userId}, 'move_player_group', 'athlete', ${athlete_id},
           ${'Group ' + oldGroup[0]?.group_number}, ${'Group ' + newGroup[0]?.group_number})`;
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Injured -- pulled out of every session's groups in this category at once
+    // (not just the one a director happens to be looking at), since an injury
+    // isn't scoped to a single session. Their evaluation history (scores) is
+    // untouched; only group PLACEMENT is cleared. Site-wide feature, real ask
+    // from SEERA U15.
+    if (action === "mark_injured") {
+      const athleteId = parseInt(body.athlete_id);
+      const owned = await sql`SELECT id, first_name, last_name FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+      if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+      await sql`UPDATE athletes SET injured = true WHERE id = ${athleteId}`;
+      await sql`
+        DELETE FROM player_group_assignments
+        WHERE athlete_id = ${athleteId}
+          AND session_group_id IN (SELECT id FROM session_groups WHERE age_category_id = ${catId})`;
+
+      await sql`
+        INSERT INTO audit_log (age_category_id, user_id, action, entity_type, entity_id, new_value)
+        VALUES (${catId}, ${userId}, 'mark_injured', 'athlete', ${athleteId}, ${owned[0].first_name + ' ' + owned[0].last_name})`;
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "unmark_injured") {
+      const athleteId = parseInt(body.athlete_id);
+      const owned = await sql`SELECT id, first_name, last_name FROM athletes WHERE id = ${athleteId} AND age_category_id = ${catId}`;
+      if (!owned.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+      await sql`UPDATE athletes SET injured = false WHERE id = ${athleteId}`;
+
+      await sql`
+        INSERT INTO audit_log (age_category_id, user_id, action, entity_type, entity_id, new_value)
+        VALUES (${catId}, ${userId}, 'unmark_injured', 'athlete', ${athleteId}, ${owned[0].first_name + ' ' + owned[0].last_name})`;
 
       return NextResponse.json({ success: true });
     }

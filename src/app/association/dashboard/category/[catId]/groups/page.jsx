@@ -387,6 +387,7 @@ function GroupsManagerInner() {
   const unassigned = assignments.filter(a => !groups.find(g => g.id === a.session_group_id));
   const goalies = groupsData?.goalies || [];
   const unassignedSkaters = groupsData?.unassigned_skaters || [];
+  const injuredPlayers = groupsData?.injured_players || [];
   // U15+ categories that split contact / non-contact (SEERA U15 and similar)
   // -- directors building groups by hand couldn't see which players were BC
   // vs Non-BC. age_categories.contact_groups/non_contact_groups only
@@ -533,6 +534,27 @@ function GroupsManagerInner() {
     } else {
       showMsg(data.error, "error");
     }
+  };
+
+  // Injured — pulled out of every session's groups in this category at once,
+  // not just the one currently open. Real ask: SEERA U15 has a bunch of
+  // injured players with nowhere to put them but a real group.
+  const markInjured = async (athleteId) => {
+    const data = await groupsPost({ action: "mark_injured", athlete_id: athleteId });
+    if (data.success) { showMsg("Marked injured — out of every session's groups."); refetch(); }
+    else if (!data.cancelled) showMsg(data.error, "error");
+  };
+  const unmarkInjured = async (athleteId) => {
+    const data = await groupsPost({ action: "unmark_injured", athlete_id: athleteId });
+    if (data.success) { showMsg("Back in the pool — place them in a group when ready."); refetch(); }
+    else if (!data.cancelled) showMsg(data.error, "error");
+  };
+  const [injuredDropActive, setInjuredDropActive] = useState(false);
+  const onInjuredDrop = (e) => {
+    e.preventDefault();
+    if (dragging) markInjured(dragging.athleteId);
+    setDragging(null);
+    setInjuredDropActive(false);
   };
 
   // Z-score based movement: candidates are players > sdThreshold SDs from their group mean
@@ -1290,6 +1312,9 @@ function GroupsManagerInner() {
                         → G{group.group_number}
                       </button>
                     ))}
+                    <button onClick={() => markInjured(p.id)} className="text-xs px-2 py-0.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium">
+                      🩹 Injured
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1324,12 +1349,58 @@ function GroupsManagerInner() {
                         → G{group.group_number}
                       </button>
                     ))}
+                    <button onClick={() => markInjured(g.id)} className="text-xs px-2 py-0.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium">
+                      🩹 Injured
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* Injured Players Panel — deliberately kept out of every session's
+            groups until a director says otherwise. Drag a player out of any
+            group above and drop them here; site-wide feature, not just
+            SEERA's -- any association can have injured players to park. */}
+        <div
+          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setInjuredDropActive(true); }}
+          onDragLeave={() => setInjuredDropActive(false)}
+          onDrop={onInjuredDrop}
+          className={`mt-6 rounded-2xl border p-5 transition-colors ${
+            injuredDropActive ? "bg-rose-100 border-rose-400 border-2" : "bg-rose-50 border-rose-200"
+          } ${injuredPlayers.length === 0 && !injuredDropActive ? "border-dashed" : ""}`}
+        >
+          <h3 className="text-sm font-semibold text-rose-800 mb-1">
+            🩹 Injured — Not In Groups {injuredPlayers.length > 0 ? `(${injuredPlayers.length})` : ""}
+          </h3>
+          <p className="text-xs text-rose-600 mb-4">
+            {injuredDropActive
+              ? "Drop to mark injured — they'll come out of every session's groups in this category."
+              : "Drag a player from any group above and drop them here. They stay off every session's groups (this one and future ones) until you bring them back."}
+          </p>
+          {injuredPlayers.length === 0 ? (
+            <p className="text-xs text-rose-400 italic">No injured players right now.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {injuredPlayers.map(p => (
+                <div key={p.id} className="bg-white border border-rose-200 rounded-xl px-3 py-2">
+                  <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                    {p.last_name}, {p.first_name}
+                    {p.position && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${POSITION_COLORS[p.position] || "bg-gray-100 text-gray-600"}`}>
+                        {POSITION_SHORT[p.position] || p.position}
+                      </span>
+                    )}
+                  </div>
+                  <button onClick={() => unmarkInjured(p.id)} className="text-xs px-2 py-0.5 mt-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium">
+                    ← Return to pool
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Finalize bar — review your changes, confirm & lock, then send to parents */}
         {groups.length > 0 && assignments.length > 0 && selectedSession && (
