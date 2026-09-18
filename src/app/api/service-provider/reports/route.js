@@ -230,26 +230,60 @@ export async function POST(request) {
     // buying his own report to smoke-test the flow before an association has
     // released reports (see migrations/2026-09-report-purchase-test-flag.sql).
     if (action === "report_sales") {
+      // "Released" = a report_links row minted for an athlete, which only
+      // happens when send-reports actually emails a parent -- so it's a real
+      // proxy for "this report was made available to buy", not just "exists".
+      // "Viewed" = the free-preview page was opened at all (report.viewed
+      // analytics event, which logEvent already stamps with its own org_id
+      // column -- no need to parse metadata for this one). Both let an
+      // association see conversion, not just raw sales -- e.g. 3 purchased
+      // out of 40 released says something very different than 3 out of 4,
+      // even though the sales count is identical.
       const rows = await sql`
         WITH linked_orgs AS (
           SELECT association_id AS org_id FROM sp_association_links
           WHERE service_provider_id = ${orgId} AND status = 'active'
           UNION
           SELECT ${orgId}::int
+        ),
+        purchases AS (
+          SELECT ac.organization_id AS org_id,
+            COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '1 day')::int AS count_today,
+            COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '7 days')::int AS count_7d,
+            COUNT(*)::int AS count_all_time,
+            COALESCE(SUM(rp.amount_cents), 0)::int AS association_net_all_time,
+            COALESCE(SUM(rp.platform_fee_cents), 0)::int AS sp_fee_all_time
+          FROM report_purchases rp
+          JOIN age_categories ac ON ac.id = rp.age_category_id
+          WHERE rp.status = 'completed' AND rp.amount_cents > 0 AND NOT rp.is_test
+          GROUP BY ac.organization_id
+        ),
+        released AS (
+          SELECT organization_id AS org_id, COUNT(DISTINCT athlete_id)::int AS n
+          FROM report_links
+          GROUP BY organization_id
+        ),
+        viewed AS (
+          SELECT org_id, COUNT(*)::int AS n
+          FROM analytics_events
+          WHERE event = 'report.viewed'
+          GROUP BY org_id
         )
         SELECT o.id AS organization_id, o.name AS org_name,
-          COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '1 day')::int AS count_today,
-          COUNT(*) FILTER (WHERE rp.completed_at >= NOW() - INTERVAL '7 days')::int AS count_7d,
-          COUNT(*)::int AS count_all_time,
-          COALESCE(SUM(rp.amount_cents), 0)::int AS association_net_all_time,
-          COALESCE(SUM(rp.platform_fee_cents), 0)::int AS sp_fee_all_time
-        FROM report_purchases rp
-        JOIN age_categories ac ON ac.id = rp.age_category_id
-        JOIN organizations o ON o.id = ac.organization_id
-        JOIN linked_orgs lo ON lo.org_id = o.id
-        WHERE rp.status = 'completed' AND rp.amount_cents > 0 AND NOT rp.is_test
-        GROUP BY o.id, o.name
-        ORDER BY count_all_time DESC
+          COALESCE(p.count_today, 0) AS count_today,
+          COALESCE(p.count_7d, 0) AS count_7d,
+          COALESCE(p.count_all_time, 0) AS count_all_time,
+          COALESCE(p.association_net_all_time, 0) AS association_net_all_time,
+          COALESCE(p.sp_fee_all_time, 0) AS sp_fee_all_time,
+          COALESCE(r.n, 0) AS released,
+          COALESCE(v.n, 0) AS viewed
+        FROM linked_orgs lo
+        JOIN organizations o ON o.id = lo.org_id
+        LEFT JOIN purchases p ON p.org_id = o.id
+        LEFT JOIN released r ON r.org_id = o.id
+        LEFT JOIN viewed v ON v.org_id = o.id
+        WHERE COALESCE(p.count_all_time, 0) > 0 OR COALESCE(r.n, 0) > 0
+        ORDER BY count_all_time DESC, released DESC
       `;
       return NextResponse.json({ associations: rows });
     }

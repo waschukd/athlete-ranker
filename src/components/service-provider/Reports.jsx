@@ -94,6 +94,7 @@ export function EvaluatorEfficiencyReport() {
 export function ReportSalesReport() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [viewOrg, setViewOrg] = useState(null); // { organization_id, org_name } — who to show purchasers for
 
   const load = async () => {
     setLoading(true);
@@ -110,8 +111,15 @@ export function ReportSalesReport() {
   const totals = associations.reduce((acc, a) => ({
     today: acc.today + a.count_today, d7: acc.d7 + a.count_7d, allTime: acc.allTime + a.count_all_time,
     net: acc.net + a.association_net_all_time, fee: acc.fee + a.sp_fee_all_time,
-  }), { today: 0, d7: 0, allTime: 0, net: 0, fee: 0 });
+    released: acc.released + (a.released || 0), viewed: acc.viewed + (a.viewed || 0),
+  }), { today: 0, d7: 0, allTime: 0, net: 0, fee: 0, released: 0, viewed: 0 });
   const money = (cents) => `$${(cents / 100).toFixed(2)}`;
+  // Two different conversion questions worth telling apart: purchase rate
+  // (of everyone this went out to, how many bought) is a pricing/value signal;
+  // close rate (of everyone who actually opened it, how many bought) isolates
+  // the report itself -- a low close rate with a decent view rate points at
+  // the report's content or price, not the outreach email.
+  const pct = (num, denom) => (denom > 0 ? `${Math.round((num / denom) * 100)}%` : "—");
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -134,20 +142,32 @@ export function ReportSalesReport() {
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Today</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Last 7 Days</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">All Time</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Reports actually emailed to a parent (send-reports has gone out)">Released</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Purchased ÷ Released — of every report sent out, how many got bought">Purchase Rate</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Free-preview page opened at all">Viewed</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase" title="Purchased ÷ Viewed — of everyone who actually opened it, how many bought">Close Rate</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Association Net</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Your Fee</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Who</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {associations.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-gray-400 text-sm">No report purchases yet</td></tr>}
+              {associations.length === 0 && <tr><td colSpan={10} className="py-10 text-center text-gray-400 text-sm">No report purchases yet</td></tr>}
               {associations.map(a => (
                 <tr key={a.organization_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{a.org_name}</td>
                   <td className="px-4 py-3 text-center">{a.count_today || "-"}</td>
                   <td className="px-4 py-3 text-center">{a.count_7d || "-"}</td>
                   <td className="px-4 py-3 text-center font-semibold">{a.count_all_time}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{a.released || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{pct(a.count_all_time, a.released)}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{a.viewed || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{pct(a.count_all_time, a.viewed)}</td>
                   <td className="px-4 py-3 text-right">{money(a.association_net_all_time)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-green-700">{money(a.sp_fee_all_time)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => setViewOrg({ organization_id: a.organization_id, org_name: a.org_name })} className="text-xs font-semibold text-blue-600 hover:underline">View</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -158,14 +178,83 @@ export function ReportSalesReport() {
                   <td className="px-4 py-3 text-center font-semibold">{totals.today || "-"}</td>
                   <td className="px-4 py-3 text-center font-semibold">{totals.d7 || "-"}</td>
                   <td className="px-4 py-3 text-center font-bold">{totals.allTime}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{totals.released || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{pct(totals.allTime, totals.released)}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{totals.viewed || "-"}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{pct(totals.allTime, totals.viewed)}</td>
                   <td className="px-4 py-3 text-right font-semibold">{money(totals.net)}</td>
                   <td className="px-4 py-3 text-right font-bold text-green-700">{money(totals.fee)}</td>
+                  <td />
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
       )}
+      {viewOrg && <ReportPurchasersModal org={viewOrg} onClose={() => setViewOrg(null)} />}
+    </div>
+  );
+}
+
+// Who-purchased drill-down for one association -- an SP admin sometimes needs
+// this (a family asking "did I already buy this?", reconciling a payout), but
+// it doesn't belong inline in the summary table above, so it's a click away.
+function ReportPurchasersModal({ org, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/organizations/${org.organization_id}/report-purchases`);
+        const json = await res.json();
+        if (!cancelled) setData(json);
+      } catch {
+        if (!cancelled) setData({ purchases: [] });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [org.organization_id]);
+
+  const money = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
+  const purchases = data?.purchases || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <div className="font-semibold text-gray-900">Who's purchased — {org.org_name}</div>
+            <div className="text-xs text-gray-400">Every real Development Report sale, most recent first</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+        <div className="overflow-y-auto p-5">
+          {loading ? (
+            <div className="py-10 text-center text-gray-400 text-sm">Loading…</div>
+          ) : purchases.length === 0 ? (
+            <div className="py-10 text-center text-gray-400 text-sm">No report purchases yet</div>
+          ) : (
+            <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+              {purchases.map(p => (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-ink font-medium truncate">{p.athlete_name}</p>
+                    <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-accent-soft text-accent text-[11px] font-semibold rounded truncate max-w-full">{p.category_name || "Unknown age group"}</span>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`font-semibold ${p.status === "completed" ? "text-ink" : "text-gray-400"}`}>{money(p.amount_cents)}</p>
+                    <p className="text-xs text-gray-400">{p.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

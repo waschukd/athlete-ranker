@@ -242,7 +242,7 @@ function ReportSettingsModal({ orgId, onClose }) {
                       <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                         <div className="flex-1 min-w-0">
                           <p className="text-ink font-medium truncate">{p.athlete_name}</p>
-                          <p className="text-xs text-gray-400 truncate">{p.category_name}</p>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-accent-soft text-accent text-[11px] font-semibold rounded truncate max-w-full">{p.category_name || "Unknown age group"}</span>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className={`font-semibold ${p.status === "completed" ? "text-ink" : "text-gray-400"}`}>{fmt(p.amount_cents)}</p>
