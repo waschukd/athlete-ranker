@@ -115,6 +115,13 @@ function ScoringInterface() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [posFilter, setPosFilter] = useState("all");
   const [hideCompleted, setHideCompleted] = useState(false);
+  // Grid view: the row whose cell the evaluator is typing in. Grid cells do
+  // not set `selected`, so "never hide the player being scored" (below) did
+  // nothing there -- typing "6" then "." then "5" into the LAST category
+  // completed the row on the "6" and hideCompleted yanked it away before the
+  // ".5" landed. Same for a note: the row was gone before the note icon could
+  // be tapped. A row now stays until a cell in a DIFFERENT row takes focus.
+  const [gridActiveId, setGridActiveId] = useState(null);
   // "My ranking": sort the roster by THIS evaluator's own average score so they
   // can see where they have placed everyone as they go. Client-side only --
   // nothing about saving or syncing changes. The order comes from a snapshot
@@ -728,7 +735,7 @@ function ScoringInterface() {
 
   const filtered = (teamFilter === "all" ? athletes : athletes.filter(a => sameTeam(a.team_color, teamFilter)))
     .filter(a => isPos(a.position, posFilter))
-    .filter(a => !hideCompleted || a.id === selected?.id || getStatus(a.id, scores, totalCats) !== "complete")
+    .filter(a => !hideCompleted || a.id === selected?.id || a.id === gridActiveId || getStatus(a.id, scores, totalCats) !== "complete")
     .filter(matchesSearch)
     .sort((a,b) => {
       if (rankMode) {
@@ -776,11 +783,22 @@ function ScoringInterface() {
     // into this group's localStorage, and the next reload marked them all
     // pending -- 30 posts for Group 1's kids against Group 2, every one
     // rejected as "not checked in". The server no longer sends those, but a
-    // stale localStorage from before the fix still can. Once the roster has
-    // loaded, an athlete not on it is dropped from pending, silently: it is
-    // not a save that failed, it is a save that was never this session's.
+    // stale localStorage from before the fix still can.
+    //
+    // Two different cases hide behind "not on the roster right now":
+    //   - no check-in row for this schedule at all: another group's kid.
+    //     Dropped from pending, silently -- never this session's save.
+    //   - a check-in row exists but checked_in is false at this instant: the
+    //     door un-checked and re-checked them, and the 20s roster poll caught
+    //     the gap. Fuzion U13 S5: three late check-ins scored on the phone,
+    //     dropped here, and sat in localStorage with no pending count and no
+    //     banner while Consensus showed the evaluator missing all three.
+    //     Left pending so the 12s retry posts them once the roster catches up.
     if (athletesRef.current.length && !athlete) {
-      setPending(p => { if (!(athleteId in p)) return p; const n = { ...p }; delete n[athleteId]; return n; });
+      const anyRow = (sessionData?.athletes || []).some(a => a.id === athleteId);
+      if (!anyRow) {
+        setPending(p => { if (!(athleteId in p)) return p; const n = { ...p }; delete n[athleteId]; return n; });
+      }
       return { ok: false, permanent: false, skipped: true };
     }
 
@@ -1750,6 +1768,7 @@ function ScoringInterface() {
           teamColors={teamColors} isAnon={isAnon} anonLabel={anonLabel} increment={increment} scale={scale}
           updateScore={updateScore} setNotesForId={setNotesForId}
           rankMode={rankMode} rankSnap={rankSnap} rankOf={rankOf} onCellBlur={rankMode ? refreshRank : undefined}
+          onRowFocus={setGridActiveId}
         />
       )}
 

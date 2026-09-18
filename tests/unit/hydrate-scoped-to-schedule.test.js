@@ -52,10 +52,17 @@ describe("the client never posts a score for someone not on its roster", () => {
     expect(SYNC).toMatch(/return \{ ok: false, permanent: false, skipped: true \}/);
   });
 
-  it("removes it from pending so the 12s loop stops carrying it", () => {
+  it("removes it from pending so the 12s loop stops carrying it -- but only when there is no check-in row for this schedule at all", () => {
     const guard = SYNC.slice(SYNC.indexOf("athletesRef.current.length && !athlete"), SYNC.indexOf("skipped: true"));
     expect(guard).toMatch(/setPending\(/);
     expect(guard).toMatch(/delete n\[athleteId\]/);
+    // A kid with a check-in row who is momentarily checked_in=false (door
+    // un-checked and re-checked them mid-session; the roster poll caught the
+    // gap) stays pending so the retry loop posts them once the roster catches
+    // up. Fuzion U13 S5: three late check-ins vanished from the queue with no
+    // pending count and no banner.
+    expect(guard).toMatch(/const anyRow = \(sessionData\?\.athletes \|\| \[\]\)\.some\(a => a\.id === athleteId\)/);
+    expect(guard).toMatch(/if \(!anyRow\) \{[\s\S]*setPending/);
   });
 
   it("does not treat it as a permanent failure -- it is not a failed save", () => {

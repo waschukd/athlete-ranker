@@ -16,6 +16,9 @@ export default function GridView({
   // snapshot the sort was taken from; onCellBlur asks the page to retake it,
   // so rows only reorder once the evaluator has left a cell.
   rankMode = false, rankSnap, rankOf, onCellBlur,
+  // Tells the page which row is being typed in, so hideCompleted leaves that
+  // row alone until the evaluator moves to another player's row.
+  onRowFocus,
 }) {
   const fmtAvg = (v) => (v == null ? "" : (Math.round(v * 10) / 10).toFixed(1));
   return (
@@ -75,7 +78,7 @@ export default function GridView({
                         max={scale}
                         value={val ?? ""}
                         data-cell={`${r}-${c}`}
-                        onFocus={e => e.target.select()}
+                        onFocus={e => { e.target.select(); onRowFocus?.(athlete.id); }}
                         onBlur={onCellBlur}
                         onKeyDown={e => {
                           // Enter / arrows jump to the next cell so you can score
