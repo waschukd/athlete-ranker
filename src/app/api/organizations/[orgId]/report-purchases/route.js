@@ -22,7 +22,7 @@ export async function GET(request, { params }) {
       FROM report_purchases rp
       JOIN athletes a ON a.id = rp.athlete_id
       JOIN age_categories ac ON ac.id = rp.age_category_id
-      WHERE ac.organization_id = ${params.orgId}
+      WHERE ac.organization_id = ${params.orgId} AND NOT rp.is_test
       ORDER BY rp.created_at DESC
       LIMIT 500`;
 

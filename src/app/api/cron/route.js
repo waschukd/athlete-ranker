@@ -559,7 +559,7 @@ export async function GET(request) {
           JOIN age_categories ac ON ac.id = rp.age_category_id
           JOIN organizations o ON o.id = ac.organization_id
           JOIN linked_orgs lo ON lo.org_id = o.id
-          WHERE rp.status = 'completed' AND rp.amount_cents > 0
+          WHERE rp.status = 'completed' AND rp.amount_cents > 0 AND NOT rp.is_test
             AND rp.completed_at >= CURRENT_DATE - INTERVAL '1 day'
             AND rp.completed_at < CURRENT_DATE
           GROUP BY o.name

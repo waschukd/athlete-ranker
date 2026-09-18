@@ -47,8 +47,8 @@ export async function GET() {
           (SELECT COUNT(*) FROM athletes WHERE is_active = true) AS total_athletes,
           (SELECT COUNT(*) FROM category_scores) AS total_scores,
           (SELECT COUNT(*) FROM testing_results) AS total_testing_scores,
-          (SELECT COUNT(*) FROM report_purchases WHERE status = 'completed') AS total_reports,
-          (SELECT COALESCE(SUM(amount_cents), 0) FROM report_purchases WHERE status = 'completed') AS total_revenue_cents,
+          (SELECT COUNT(*) FROM report_purchases WHERE status = 'completed' AND NOT is_test) AS total_reports,
+          (SELECT COALESCE(SUM(amount_cents), 0) FROM report_purchases WHERE status = 'completed' AND NOT is_test) AS total_revenue_cents,
           (SELECT COUNT(*) FROM sess) AS total_sessions,
           (SELECT COUNT(*) FROM sess WHERE is_testing) AS total_testing_sessions,
           (SELECT ROUND(COALESCE(SUM(hours), 0)::numeric, 1) FROM sess) AS total_hours,
@@ -68,7 +68,7 @@ export async function GET() {
           (SELECT COUNT(*) FROM athletes, d
             WHERE (created_at AT TIME ZONE 'UTC' AT TIME ZONE ${TZ})::date = d.day) AS athletes,
           (SELECT COUNT(*) FROM report_purchases, d
-            WHERE status = 'completed'
+            WHERE status = 'completed' AND NOT is_test
               AND (completed_at AT TIME ZONE 'UTC' AT TIME ZONE ${TZ})::date = d.day) AS reports,
           (SELECT COUNT(DISTINCT user_id) FROM analytics_events, d
             WHERE (ts AT TIME ZONE ${TZ})::date = d.day) AS active_users
@@ -171,7 +171,7 @@ export async function GET() {
         FROM report_purchases rp
         LEFT JOIN age_categories ac ON ac.id = rp.age_category_id
         JOIN organizations o ON o.id = COALESCE(rp.provider_org_id, ac.organization_id)
-        WHERE rp.status = 'completed'
+        WHERE rp.status = 'completed' AND NOT rp.is_test
         GROUP BY o.id, o.name, o.type
         ORDER BY owed_cents DESC, reports DESC
         LIMIT 8
