@@ -48,7 +48,7 @@ describe("getReportIntro", () => {
   });
 
   it("closes every bracket, and the fallback, with the same line", () => {
-    const closing = "This report will address what was captured and seen throughout the evaluation.";
+    const closing = "This report covers what evaluators saw and measured throughout the evaluation.";
     for (const age of REAL_BRACKETS) expect(getReportIntro(`U${age}`, "Jordan")).toMatch(new RegExp(`${closing}$`));
     expect(getReportIntro("U7", "Jordan")).toMatch(new RegExp(`${closing}$`));
   });

@@ -783,7 +783,7 @@ export default function DevelopmentReport({ data }) {
                   {gridVals.map((g, i) => (
                     <g key={i}>
                       <line x1={padX} y1={y(g)} x2={W - padX} y2={y(g)} stroke={T.gridLine} strokeWidth="1" />
-                      <text x={padX - 8} y={y(g) + 3} textAnchor="end" fontSize="11" fill={T.muted} fontFamily={MONO}>{g}</text>
+                      <text x={padX - 8} y={y(g) + 4} textAnchor="end" fontSize="14" fill={T.muted} fontFamily={MONO}>{g}</text>
                     </g>
                   ))}
                   <path d={area} fill="url(#progFill)" />
@@ -791,10 +791,10 @@ export default function DevelopmentReport({ data }) {
                   <path d={line("player")} fill="none" stroke={T.accent} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
                   {prog.map((p, i) => (
                     <g key={i}>
-                      <circle cx={x(i)} cy={y(p.top)} r="3.5" fill={T.seriesMuted} />
-                      <circle cx={x(i)} cy={y(p.player)} r="5.5" fill={T.accent} stroke={T.surface} strokeWidth="2" />
-                      <text x={x(i)} y={y(p.player) - 12} textAnchor="middle" fontSize="14" fontWeight="700" fill={T.heading} fontFamily={MONO}>{p.player.toFixed(1)}</text>
-                      <text x={x(i)} y={H - 22} textAnchor="middle" fontSize="11" fontWeight="700" letterSpacing="0.08em" fill={T.subtleText} fontFamily={MONO}>SESSION {p.session_number}</text>
+                      <circle cx={x(i)} cy={y(p.top)} r="4" fill={T.seriesMuted} />
+                      <circle cx={x(i)} cy={y(p.player)} r="6" fill={T.accent} stroke={T.surface} strokeWidth="2" />
+                      <text x={x(i)} y={y(p.player) - 14} textAnchor="middle" fontSize="17" fontWeight="700" fill={T.heading} fontFamily={MONO}>{p.player.toFixed(1)}</text>
+                      <text x={x(i)} y={H - 20} textAnchor="middle" fontSize="15" fontWeight="700" letterSpacing="0.04em" fill={T.subtleText} fontFamily={MONO}>S{p.session_number}</text>
                     </g>
                   ))}
                 </svg>
@@ -807,12 +807,12 @@ export default function DevelopmentReport({ data }) {
               {/* Per-session deltas — the player's own raw movement, plus the
                   gap to that session's top as the fair, consistent reference
                   point (never a group average). */}
-              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
                 {prog.map((p, i) => {
                   const d = i === 0 ? null : Math.round((p.player - prog[i - 1].player) * 10) / 10;
                   const gap = p.top != null ? Math.round((p.top - p.player) * 10) / 10 : null;
                   return (
-                    <div key={i} style={{ flex: 1, ...cardStyle, padding: "12px 10px", textAlign: "center" }}>
+                    <div key={i} style={{ flex: "1 1 84px", minWidth: 84, ...cardStyle, padding: "12px 10px", textAlign: "center" }}>
                       <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.gray, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Session {p.session_number}</div>
                       <div style={{ fontFamily: SANS, fontSize: 24, fontWeight: 800, color: T.heading, margin: "5px 0 3px" }}>{p.player.toFixed(1)}</div>
                       {d == null ? (
@@ -861,7 +861,7 @@ export default function DevelopmentReport({ data }) {
               <div style={{ marginTop: 12, border: `1px solid ${T.hair}`, borderRadius: 8, background: T.panelBg, padding: "10px 14px", color: T.textDim, fontFamily: SANS, fontSize: 12, lineHeight: 1.55, breakInside: "avoid" }}>
                 <b style={{ color: T.heading }}>A note on the numbers.</b> Every evaluation is a snapshot of one moment in a long journey. In a group this size, some athletes have skated for years, some are just getting started — so a score is never a verdict on a player, and it isn't how groups or teams get set. Read each number here as a map of what to work on next, not a grade. With the right focus, these bars move quickly.
                 <br /><br />
-                Evaluator (subjective) grades are also a <b style={{ color: T.heading }}>relative scale, not a fixed one</b> — a score reflects how {firstName} compared to the specific peers on the ice with them that session, not a universal standard applied the same way to every group at every level. That's by design: it's the only fair way to grade a fast-moving scrimmage in real time, and it's exactly why this report frames every score against this group's own top mark instead of a fixed benchmark.
+Evaluator (subjective) grades use the <b style={{ color: T.heading }}>same fixed scale for every player</b>, but they're graded relative to the peers around {firstName} — and that comparison runs across the whole age category, not just the specific group sharing the ice in a single session. That's by design: it's the fairest way to grade a fast-moving scrimmage in real time, and it's exactly why this report frames every score against the top of the group instead of an arbitrary fixed benchmark.
               </div>
             </div>
 
