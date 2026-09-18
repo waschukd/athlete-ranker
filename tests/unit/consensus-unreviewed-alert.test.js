@@ -42,7 +42,8 @@ describe("POST /api/categories/[catId]/consensus — close_session with unreview
       if (text.includes("FROM evaluation_schedule WHERE id")) return [{ id: 656 }]; // schedOwned guard
       if (text.includes("FROM evaluation_schedule es") && text.includes("total_checked_in")) return []; // skip integrity checks
       if (text.includes("SELECT es.*")) return [{ id: 656, org_id: 49, category_name: "U13 AA", group_number: 1, scheduled_date: "2026-09-13" }];
-      if (text.includes("FROM evaluator_memberships em") && text.includes("sp_association_links")) {
+      if (text.includes("FROM sp_association_links")) return [{ service_provider_id: 16 }];
+      if (text.includes("FROM evaluator_memberships em")) {
         return [{ email: "spadmin@test.com", name: "SP Admin" }];
       }
       return [];
@@ -61,12 +62,13 @@ describe("POST /api/categories/[catId]/consensus — close_session with unreview
     expect(sendEmail).toHaveBeenCalledWith("spadmin@test.com", expect.stringContaining("Consensus Skipped"), expect.any(String));
   });
 
-  it("resolves SP admins through evaluator_memberships, scoped to the association's own SP link", async () => {
+  it("resolves SP admins via the association's own SP link, and only service-provider admins", async () => {
     sql.mockImplementation(async (strings) => {
       const text = strings.join("?");
       if (text.includes("FROM evaluation_schedule WHERE id")) return [{ id: 656 }];
       if (text.includes("FROM evaluation_schedule es") && text.includes("total_checked_in")) return [];
       if (text.includes("SELECT es.*")) return [{ id: 656, org_id: 49, category_name: "U13 AA", group_number: 1, scheduled_date: "2026-09-13" }];
+      if (text.includes("FROM sp_association_links")) return [{ service_provider_id: 16 }];
       return [];
     });
 
@@ -76,12 +78,17 @@ describe("POST /api/categories/[catId]/consensus — close_session with unreview
       unreviewed_flags: [{ first_name: "Alex", last_name: "Athlete", overall_agreement: 60 }],
     }), { params: { catId: "113" } });
 
-    const call = sql.mock.calls.find(c => c[0].join("?").includes("evaluator_memberships em") && c[0].join("?").includes("sp_association_links"));
+    const link = sql.mock.calls.find(c => c[0].join("?").includes("FROM sp_association_links"));
+    expect(link).toBeTruthy();
+    expect(link[1]).toBe(49);
+    const call = sql.mock.calls.find(c => c[0].join("?").includes("evaluator_memberships em"));
     expect(call).toBeTruthy();
-    const [strings, orgIdArg] = call;
-    const text = strings.join("?");
-    expect(text).toMatch(/association_id = \?/);
-    expect(text).toMatch(/UNION SELECT \?/);
-    expect(orgIdArg).toBe(49);
+    const text = call[0].join("?");
+    // Staffing mail: SP admins of SP orgs only. An SP evaluator who is an
+    // association admin elsewhere must never match.
+    expect(text).toMatch(/u\.role = 'service_provider_admin'/);
+    expect(text).toMatch(/o\.type = 'service_provider'/);
+    expect(text).not.toMatch(/association_admin/);
+    expect(call[1]).toEqual([16]);
   });
 });

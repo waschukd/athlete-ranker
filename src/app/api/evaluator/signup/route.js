@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { emailStrike1, emailStrike2Suspended, sendEmail, esc } from "@/lib/email";
 import sql from "@/lib/db";
+import { spAdminRecipients, spOrgIdsFor } from "@/lib/spAdmins";
 import { arenaLabel } from "@/lib/arenas";
 import { getSession } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
@@ -82,20 +83,9 @@ export async function POST(request) {
       const evalName = evalUser[0]?.name;
       const evalEmail = evalUser[0]?.email;
 
-      // Get SP admin for this org (via sp_association_links or direct membership)
-      const spAdmins = await sql`
-        SELECT DISTINCT u.email, u.name
-        FROM evaluator_memberships em
-        JOIN users u ON u.id = em.user_id
-        JOIN organizations o ON o.id = em.organization_id
-        WHERE em.organization_id IN (
-          SELECT service_provider_id FROM sp_association_links WHERE association_id = ${sched.organization_id}
-          UNION
-          SELECT organization_id FROM evaluator_memberships WHERE user_id = ${appUserId}
-        )
-        AND u.role IN ('service_provider_admin', 'association_admin')
-        AND em.status = 'active'
-      `;
+      // The SP's own admins only -- never association admins, never the
+      // evaluator's other orgs (see spAdmins.js for the two leaks that fixed).
+      const spAdmins = await spAdminRecipients(await spOrgIdsFor({ associationOrgId: sched.organization_id, serviceProviderId: sched.service_provider_id }));
 
       if (isLateCancel) {
         // Check existing strikes

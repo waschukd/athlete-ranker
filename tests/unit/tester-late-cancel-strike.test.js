@@ -63,6 +63,7 @@ describe("POST /api/tester/sessions — late cancel strikes", () => {
       }]],
       ["FROM evaluation_schedule es", [{ id: 1 }]],
       ["SELECT name, email FROM users WHERE id", [{ name: "Grayer Conway", email: "grayerconway0@gmail.com" }]],
+      ["FROM sp_association_links", [{ service_provider_id: 16 }]],
       ["FROM evaluator_memberships em", [{ email: "dan@competitivethread.com", name: "Dan" }]],
       ["FROM tester_flags WHERE tester_id", [{ count: "0" }]],
     ]);
@@ -96,6 +97,7 @@ describe("POST /api/tester/sessions — late cancel strikes", () => {
       }]],
       ["FROM evaluation_schedule es", [{ id: 1 }]],
       ["SELECT name, email FROM users WHERE id", [{ name: "Grayer Conway", email: "grayerconway0@gmail.com" }]],
+      ["FROM sp_association_links", [{ service_provider_id: 16 }]],
       ["FROM evaluator_memberships em", [{ email: "dan@competitivethread.com", name: "Dan" }]],
       ["FROM tester_flags WHERE tester_id", [{ count: "1" }]],
     ]);
@@ -127,6 +129,7 @@ describe("POST /api/tester/sessions — late cancel strikes", () => {
       }]],
       ["FROM evaluation_schedule es", [{ id: 1 }]],
       ["SELECT name, email FROM users WHERE id", [{ name: "Brooklyn Benwood", email: "brooklyn.benwood@icloud.com" }]],
+      ["FROM sp_association_links", [{ service_provider_id: 16 }]],
       ["FROM evaluator_memberships em", [{ email: "dan@competitivethread.com", name: "Dan" }]],
       ["FROM tester_flags WHERE tester_id", [{ count: "2" }]],
     ]);
@@ -155,6 +158,7 @@ describe("POST /api/tester/sessions — late cancel strikes", () => {
       }]],
       ["FROM evaluation_schedule es", [{ id: 1 }]],
       ["SELECT name, email FROM users WHERE id", [{ name: "Daniella Martorana", email: "daniellamartorana86@icloud.com" }]],
+      ["FROM sp_association_links", [{ service_provider_id: 16 }]],
       ["FROM evaluator_memberships em", [{ email: "dan@competitivethread.com", name: "Dan" }]],
     ]);
 

@@ -3,6 +3,7 @@ import { authorizeCategoryAccess } from "@/lib/authorize";
 
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { spAdminRecipients, spOrgIdsFor } from "@/lib/spAdmins";
 import { sendEmail, esc } from "@/lib/email";
 import { getTier } from "@/lib/scoring";
 import { getCoachUserIds } from "@/lib/categoryEvaluators";
@@ -394,16 +395,8 @@ export async function POST(request, { params }) {
           // returns the whole response, every session close with an
           // unreviewed flag came back as a 500 to the evaluator even though
           // the close itself had already gone through.
-          const spAdmins = await sql`
-            SELECT DISTINCT u.email, u.name
-            FROM evaluator_memberships em
-            JOIN users u ON u.id = em.user_id
-            WHERE em.status = 'active' AND u.role IN ('service_provider_admin', 'association_admin')
-              AND em.organization_id IN (
-                SELECT service_provider_id FROM sp_association_links WHERE association_id = ${s.org_id} AND status = 'active'
-                UNION SELECT ${s.org_id}
-              )
-          `;
+          // The SP's own admins only (see spAdmins.js).
+          const spAdmins = await spAdminRecipients(await spOrgIdsFor({ associationOrgId: s.org_id }));
 
           const playerList = unreviewed_flags.map(p => `- ${esc(p.first_name)} ${esc(p.last_name)} — ${esc(p.overall_agreement)}% agreement`).join("\n");
           const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">

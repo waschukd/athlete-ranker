@@ -57,6 +57,7 @@ describe("POST /api/tester/sessions — cancel notifies the SP admin", () => {
       ["FROM evaluation_schedule es", [{ id: 1 }]],                       // signup POST guard (scoped to tester's SP)
       ["UPDATE tester_session_signups", []],
       ["SELECT name, email FROM users WHERE id", [{ name: "Donny Milburn", email: "donny@test" }]],
+      ["FROM sp_association_links", [{ service_provider_id: 16 }]],
       ["FROM evaluator_memberships em", [
         { email: "dan@competitivethread.com", name: "Dan" },
       ]],

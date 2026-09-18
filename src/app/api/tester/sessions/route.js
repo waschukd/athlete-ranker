@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { spAdminRecipients, spOrgIdsFor } from "@/lib/spAdmins";
 import { getSession } from "@/lib/auth";
 import { getSpCapabilities } from "@/lib/testers";
 import { sendEmail, esc, emailTesterLateCancelStrike } from "@/lib/email";
@@ -187,18 +188,8 @@ export async function POST(request) {
         `;
         const [tester] = await sql`SELECT name, email FROM users WHERE id = ${cap.userId}`;
 
-        const spAdmins = await sql`
-          SELECT DISTINCT u.email, u.name
-          FROM evaluator_memberships em
-          JOIN users u ON u.id = em.user_id
-          WHERE em.status = 'active' AND u.role IN ('service_provider_admin', 'association_admin')
-            AND em.organization_id IN (
-              SELECT service_provider_id FROM sp_association_links
-              WHERE association_id = ${sched?.assoc_org_id ?? -1} AND status = 'active'
-              UNION SELECT ${sched?.service_provider_id ?? -1}
-              UNION SELECT organization_id FROM evaluator_memberships WHERE user_id = ${cap.userId}
-            )
-        `;
+        // The SP's own admins only (see spAdmins.js).
+        const spAdmins = await spAdminRecipients(await spOrgIdsFor({ associationOrgId: sched?.assoc_org_id, serviceProviderId: sched?.service_provider_id }));
 
         await ensureEmailLogTable();
 
