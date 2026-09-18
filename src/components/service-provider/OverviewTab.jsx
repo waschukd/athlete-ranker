@@ -1,31 +1,37 @@
 "use client";
 
-import { Building2, CalendarDays, Calendar, AlertTriangle, ArrowRight, Star } from "lucide-react";
+import { Building2, CalendarDays, Calendar, AlertTriangle, ArrowRight, Star, DollarSign } from "lucide-react";
 import { formatDate, sessionStaffing } from "@/lib/spDashboardUtils";
 import { SessionRow } from "@/components/service-provider/OverviewWidgets";
 
 export default function OverviewTab({
   associations, todaySessions, upcomingSessions, schedLoading, today,
   totalUpcoming, openSpots, needsEvaluators, needsAttention, topEvaluators, onGoToTab,
+  reportsToday,
 }) {
   return (
     <div className="space-y-6">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Client Associations", value: associations.length, Icon: Building2 },
           { label: "Sessions Today", value: todaySessions.length, Icon: CalendarDays, gold: true },
           { label: "Upcoming Sessions", value: totalUpcoming, Icon: Calendar },
           { label: "Open Spots", value: openSpots, Icon: AlertTriangle, amber: openSpots > 0 },
-        ].map((c, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{c.label}</div>
-              <c.Icon size={16} className={c.amber ? "text-amber-500" : "text-accent"} />
-            </div>
-            <div className={`mt-2 font-display font-black text-3xl ${c.gold ? "text-accent" : c.amber ? "text-amber-600" : "text-ink"}`}>{c.value}</div>
-          </div>
-        ))}
+          { label: "Reports Purchased", sublabel: "today", value: reportsToday ?? 0, Icon: DollarSign, onClick: () => onGoToTab("reports") },
+        ].map((c, i) => {
+          const Tag = c.onClick ? "button" : "div";
+          return (
+            <Tag key={i} onClick={c.onClick} className={`bg-white border border-gray-200 rounded-2xl p-5 text-left ${c.onClick ? "hover:border-accent/40 hover:shadow-sm transition-all cursor-pointer" : ""}`}>
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{c.label}{c.sublabel ? ` (${c.sublabel})` : ""}</div>
+                <c.Icon size={16} className={c.amber ? "text-amber-500" : "text-accent"} />
+              </div>
+              <div className={`mt-2 font-display font-black text-3xl ${c.gold ? "text-accent" : c.amber ? "text-amber-600" : "text-ink"}`}>{c.value}</div>
+              {c.onClick && <div className="mt-1 text-xs font-semibold text-accent inline-flex items-center gap-1">Development Report Sales <ArrowRight size={11} /></div>}
+            </Tag>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

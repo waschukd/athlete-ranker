@@ -76,6 +76,19 @@ function SPDashboard() {
     },
   });
 
+  // Same data the Reports tab's Development Report Sales table shows -- loaded
+  // here too so the overview stat card can surface today's count at a glance,
+  // with the full per-association breakdown one click away.
+  const { data: reportSalesData } = useQuery({
+    queryKey: ["sp-report-sales", orgParam],
+    queryFn: async () => {
+      const res = await fetch("/api/service-provider/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "report_sales" }) });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+  const reportsToday = (reportSalesData?.associations || []).reduce((sum, a) => sum + (a.count_today || 0), 0);
+
   const sp = assocData?.sp;
   const associations = assocData?.associations || [];
   const evaluatorStats = assocData?.evaluatorStats || {};
@@ -190,7 +203,7 @@ function SPDashboard() {
             associations={associations} todaySessions={todaySessions} upcomingSessions={upcomingSessions}
             schedLoading={schedLoading} today={today} totalUpcoming={totalUpcoming} openSpots={openSpots}
             needsEvaluators={needsEvaluators} needsAttention={needsAttention} topEvaluators={topEvaluators}
-            onGoToTab={setActiveTab}
+            onGoToTab={setActiveTab} reportsToday={reportsToday}
           />
         )}
 
