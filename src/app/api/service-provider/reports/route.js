@@ -223,6 +223,9 @@ export async function POST(request) {
     // view inside the app at all. amount_cents on report_purchases is the
     // ASSOCIATION's net take (post-GST); platform_fee_cents is the SP's own
     // flat cut -- see webhook/route.js and reportProvider.js's splitReportSale.
+    // amount_cents > 0 excludes complimentary/comp grants (status='completed'
+    // with amount_cents=0, used to unlock a report without a real purchase) --
+    // those aren't sales and shouldn't inflate an association's sold count.
     if (action === "report_sales") {
       const rows = await sql`
         WITH linked_orgs AS (
@@ -241,7 +244,7 @@ export async function POST(request) {
         JOIN age_categories ac ON ac.id = rp.age_category_id
         JOIN organizations o ON o.id = ac.organization_id
         JOIN linked_orgs lo ON lo.org_id = o.id
-        WHERE rp.status = 'completed'
+        WHERE rp.status = 'completed' AND rp.amount_cents > 0
         GROUP BY o.id, o.name
         ORDER BY count_all_time DESC
       `;
@@ -267,7 +270,7 @@ export async function POST(request) {
         JOIN age_categories ac ON ac.id = rp.age_category_id
         JOIN organizations o ON o.id = ac.organization_id
         JOIN linked_orgs lo ON lo.org_id = o.id
-        WHERE rp.status = 'completed'
+        WHERE rp.status = 'completed' AND rp.amount_cents > 0
           AND rp.completed_at >= CURRENT_DATE - INTERVAL '1 day'
           AND rp.completed_at < CURRENT_DATE
         GROUP BY o.name
