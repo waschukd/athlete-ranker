@@ -19,7 +19,12 @@ import { ensureEmailLogTable } from "@/lib/emailLog";
 // the try/catch around each recipient below is a second, independent
 // safety net so one bad recipient can no longer silently take the rest of
 // the batch down with it.
-export const maxDuration = 60;
+//
+// 60s turned out to still be too tight for a full roster (56 emails) once
+// Resend latency and 429 backoff are counted, not just the 110ms pacing --
+// 300 is Vercel's own current platform ceiling/default, so this is real
+// headroom rather than another guess at a number.
+export const maxDuration = 300;
 
 // Sending the group-assignment email blast is a director/admin-level action --
 // authorizeCategoryAccess alone also admits plain evaluators. The GET

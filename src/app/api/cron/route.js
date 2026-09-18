@@ -9,6 +9,12 @@ import { getCategoryDirectors } from "@/lib/categoryRecipients";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://sidelinestar.com";
 const CRON_SECRET = process.env.CRON_SECRET;
 
+// Same failure class as categories/[catId]/group-emails -- see that route's
+// comment. session_reminder in particular can fan out to every evaluator and
+// director with a session tomorrow, platform-wide, which can easily outrun a
+// short default timeout mid-loop.
+export const maxDuration = 300;
+
 // Scoped to ONE organization. orgId was accepted and then never referenced, so
 // every staffing email carried every organization's sessions: nine admins each
 // received all 121 sessions across seven associations every morning at 07:00,
@@ -197,7 +203,7 @@ export async function GET(request) {
 
       const openTesting = await sql`
         SELECT es.id, es.session_number, es.group_number, es.scheduled_date, es.start_time, es.end_time, es.location,
-          COALESCE(es.testers_required, cs.testers_required, 1) as testers_required, ac.name as category_name, o.name as org_name,
+          COALESCE(es.testers_required, 1) as testers_required, ac.name as category_name, o.name as org_name,
           COUNT(*) FILTER (WHERE tss.status = 'signed_up') as signed_up
         FROM evaluation_schedule es
         JOIN age_categories ac ON ac.id = es.age_category_id
@@ -208,8 +214,8 @@ export async function GET(request) {
           AND es.status = 'scheduled'
           AND es.scheduled_date = CURRENT_DATE
           AND COALESCE(cs.session_type, 'evaluation') = 'testing'
-        GROUP BY es.id, ac.name, o.name, cs.testers_required
-        HAVING COUNT(*) FILTER (WHERE tss.status = 'signed_up') < COALESCE(MAX(es.testers_required), cs.testers_required, 1)
+        GROUP BY es.id, ac.name, o.name
+        HAVING COUNT(*) FILTER (WHERE tss.status = 'signed_up') < COALESCE(MAX(es.testers_required), 1)
         ORDER BY es.scheduled_date, es.start_time
       `;
 
@@ -241,36 +247,43 @@ export async function GET(request) {
 
         for (const ev of evaluatorPool) {
           if (unavailableSet.has(ev.id)) continue;
-          const alreadyOn = await sql`
-            SELECT schedule_id FROM evaluator_session_signups WHERE user_id = ${ev.id} AND status = 'signed_up' AND schedule_id = ANY(${openEval.map(s => s.id)})
-          `;
-          const alreadyOnSet = new Set(alreadyOn.map(a => a.schedule_id));
-          const relevant = openEval.filter(s => !alreadyOnSet.has(s.id));
-          if (!relevant.length) continue;
+          // One evaluator's failure must never take the rest of this pool (or
+          // every remaining pool) down with it -- see the maxDuration comment
+          // above for the failure class this guards against.
+          try {
+            const alreadyOn = await sql`
+              SELECT schedule_id FROM evaluator_session_signups WHERE user_id = ${ev.id} AND status = 'signed_up' AND schedule_id = ANY(${openEval.map(s => s.id)})
+            `;
+            const alreadyOnSet = new Set(alreadyOn.map(a => a.schedule_id));
+            const relevant = openEval.filter(s => !alreadyOnSet.has(s.id));
+            if (!relevant.length) continue;
 
-          const rowsHtml = relevant.map(s => {
-            const open = Math.max(0, parseInt(s.evaluators_required || 4) - parseInt(s.signed_up || 0));
-            return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-              <div style="font-size:14px;font-weight:700;color:#111;">${esc(s.org_name)} · ${esc(s.category_name)}</div>
-              <div style="font-size:13px;color:#555;margin-top:3px;">Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""} — ${s.start_time ? esc(s.start_time.toString().slice(0, 5)) : "TBD"}</div>
-              <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
-              <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still open</div>
-            </div>`;
-          }).join("");
-          const html = emailWrapper(`
-            <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Evaluators needed today</h2>
-            <p style="margin:0 0 18px;font-size:14px;color:#6b7280;">Hey ${esc(ev.name || "there")} — looking for people for these sessions today:</p>
-            ${rowsHtml}
-            <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign Up →</a></div>
-          `);
-          const res = await sendEmail(ev.email, `Evaluators needed today — ${relevant.length} open session${relevant.length === 1 ? "" : "s"}`, html);
-          await ensureEmailLogTable();
-          await logEmailSend({
-            orgId: pool.id, emailType: "evaluator_spot_fill_digest", athleteName: ev.name, to: ev.email,
-            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-          });
-          if (res?.ok) evaluatorsSent++;
+            const rowsHtml = relevant.map(s => {
+              const open = Math.max(0, parseInt(s.evaluators_required || 4) - parseInt(s.signed_up || 0));
+              return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
+                <div style="font-size:14px;font-weight:700;color:#111;">${esc(s.org_name)} · ${esc(s.category_name)}</div>
+                <div style="font-size:13px;color:#555;margin-top:3px;">Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""} — ${s.start_time ? esc(s.start_time.toString().slice(0, 5)) : "TBD"}</div>
+                <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
+                <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still open</div>
+              </div>`;
+            }).join("");
+            const html = emailWrapper(`
+              <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Evaluators needed today</h2>
+              <p style="margin:0 0 18px;font-size:14px;color:#6b7280;">Hey ${esc(ev.name || "there")} — looking for people for these sessions today:</p>
+              ${rowsHtml}
+              <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign Up →</a></div>
+            `);
+            const res = await sendEmail(ev.email, `Evaluators needed today — ${relevant.length} open session${relevant.length === 1 ? "" : "s"}`, html);
+            await ensureEmailLogTable();
+            await logEmailSend({
+              orgId: pool.id, emailType: "evaluator_spot_fill_digest", athleteName: ev.name, to: ev.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) evaluatorsSent++;
+          } catch (e) {
+            console.error(`spot_fill_digest evaluator: failed for ${ev.email}:`, e?.message || e);
+          }
           await sleep(110);
         }
       }
@@ -282,36 +295,40 @@ export async function GET(request) {
           WHERE em.organization_id = ${pool.id} AND em.status = 'active' AND em.is_tester = true
         `;
         for (const t of testerPool) {
-          const alreadyOn = await sql`
-            SELECT schedule_id FROM tester_session_signups WHERE user_id = ${t.id} AND status = 'signed_up' AND schedule_id = ANY(${openTesting.map(s => s.id)})
-          `;
-          const alreadyOnSet = new Set(alreadyOn.map(a => a.schedule_id));
-          const relevant = openTesting.filter(s => !alreadyOnSet.has(s.id));
-          if (!relevant.length) continue;
+          try {
+            const alreadyOn = await sql`
+              SELECT schedule_id FROM tester_session_signups WHERE user_id = ${t.id} AND status = 'signed_up' AND schedule_id = ANY(${openTesting.map(s => s.id)})
+            `;
+            const alreadyOnSet = new Set(alreadyOn.map(a => a.schedule_id));
+            const relevant = openTesting.filter(s => !alreadyOnSet.has(s.id));
+            if (!relevant.length) continue;
 
-          const rowsHtml = relevant.map(s => {
-            const open = Math.max(0, parseInt(s.testers_required || 1) - parseInt(s.signed_up || 0));
-            return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
-              <div style="font-size:14px;font-weight:700;color:#111;">${esc(s.org_name)} · ${esc(s.category_name)}</div>
-              <div style="font-size:13px;color:#555;margin-top:3px;">Testing · Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""} — ${s.start_time ? esc(s.start_time.toString().slice(0, 5)) : "TBD"}</div>
-              <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
-              <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still open</div>
-            </div>`;
-          }).join("");
-          const html = emailWrapper(`
-            <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Testers needed today</h2>
-            <p style="margin:0 0 18px;font-size:14px;color:#6b7280;">Hey ${esc(t.name || "there")} — looking for people for these testing sessions today:</p>
-            ${rowsHtml}
-            <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign Up →</a></div>
-          `);
-          const res = await sendEmail(t.email, `Testers needed today — ${relevant.length} open session${relevant.length === 1 ? "" : "s"}`, html);
-          await ensureEmailLogTable();
-          await logEmailSend({
-            orgId: pool.id, emailType: "tester_spot_fill_digest", athleteName: t.name, to: t.email,
-            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-          });
-          if (res?.ok) testersSent++;
+            const rowsHtml = relevant.map(s => {
+              const open = Math.max(0, parseInt(s.testers_required || 1) - parseInt(s.signed_up || 0));
+              return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
+                <div style="font-size:14px;font-weight:700;color:#111;">${esc(s.org_name)} · ${esc(s.category_name)}</div>
+                <div style="font-size:13px;color:#555;margin-top:3px;">Testing · Session ${esc(s.session_number)}${s.group_number ? ` · Group ${esc(s.group_number)}` : ""} — ${s.start_time ? esc(s.start_time.toString().slice(0, 5)) : "TBD"}</div>
+                <div style="font-size:13px;color:#555;">${esc(s.location) || ""}</div>
+                <div style="font-size:13px;color:#b45309;font-weight:600;margin-top:4px;">${open} spot${open === 1 ? "" : "s"} still open</div>
+              </div>`;
+            }).join("");
+            const html = emailWrapper(`
+              <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Testers needed today</h2>
+              <p style="margin:0 0 18px;font-size:14px;color:#6b7280;">Hey ${esc(t.name || "there")} — looking for people for these testing sessions today:</p>
+              ${rowsHtml}
+              <div style="margin-top:20px;"><a href="${BASE_URL}/evaluator/dashboard" style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#0b5cd6,#3b82f6);color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">Sign Up →</a></div>
+            `);
+            const res = await sendEmail(t.email, `Testers needed today — ${relevant.length} open session${relevant.length === 1 ? "" : "s"}`, html);
+            await ensureEmailLogTable();
+            await logEmailSend({
+              orgId: pool.id, emailType: "tester_spot_fill_digest", athleteName: t.name, to: t.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) testersSent++;
+          } catch (e) {
+            console.error(`spot_fill_digest tester: failed for ${t.email}:`, e?.message || e);
+          }
           await sleep(110);
         }
       }

@@ -8,6 +8,12 @@ import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 
 const ADMIN_ROLES = new Set(["super_admin", "service_provider_admin", "association_admin"]);
 
+// Same failure class as categories/[catId]/group-emails -- see that route's
+// comment. An SP's whole evaluator or tester pool can run to 100+ people at
+// 110ms pacing plus real Resend latency, which can outrun a short default
+// timeout mid-loop.
+export const maxDuration = 300;
+
 // Send one tester invite email. Returns true if actually sent (RESEND configured).
 async function sendTesterInvite(email, signup_url, sp_name, orgId) {
   const res = await sendEmail(email, `You've been invited to join the testing crew for ${sp_name || "a hockey organization"}`,
@@ -85,12 +91,16 @@ export async function POST(request) {
       await ensureEmailLogTable();
       let sent = 0; const links = [];
       for (const email of valid) {
-        const token = randomUUID();
-        await sql`INSERT INTO evaluator_invitations (organization_id, email, invited_by_user_id, invite_token, status, role, expires_at)
-          VALUES (${sp_id}, ${email}, ${inviterId}, ${token}, 'pending', ${role}, NOW() + INTERVAL '30 days')`;
-        const link = `${origin}/evaluator/signup?invite=${token}`;
-        links.push({ email, link });
-        if (isTesterInvite ? await sendTesterInvite(email, link, sp_name, sp_id) : await sendEvaluatorInvite(email, link, sp_name, sp_id)) sent++;
+        try {
+          const token = randomUUID();
+          await sql`INSERT INTO evaluator_invitations (organization_id, email, invited_by_user_id, invite_token, status, role, expires_at)
+            VALUES (${sp_id}, ${email}, ${inviterId}, ${token}, 'pending', ${role}, NOW() + INTERVAL '30 days')`;
+          const link = `${origin}/evaluator/signup?invite=${token}`;
+          links.push({ email, link });
+          if (isTesterInvite ? await sendTesterInvite(email, link, sp_name, sp_id) : await sendEvaluatorInvite(email, link, sp_name, sp_id)) sent++;
+        } catch (e) {
+          console.error(`notify invite: failed for ${email}:`, e?.message || e);
+        }
         // Pace under Resend's 10 req/sec cap for a large batch invite.
         await sleep(110);
       }
@@ -163,25 +173,33 @@ export async function POST(request) {
       if (process.env.RESEND_API_KEY) {
         await ensureEmailLogTable();
         for (const t of testers) {
-          const res = await sendEmail(t.email, `Tester needed — ${sched.org_name} ${sessionDate}`,
-            `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h2 style="color:#111;">A testing spot needs filling</h2>
-              ${message ? `<p style="color:#555;">${esc(message)}</p>` : ""}
-              <div style="background:#f9f9f9;border-radius:12px;padding:20px;margin:20px 0;">
-                <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${esc(sched.org_name)} · ${esc(sched.category_name)}</p>
-                <p style="margin:0 0 4px;color:#555;">Testing · Session ${esc(sched.session_number)}${sched.group_number ? ` · Group ${esc(sched.group_number)}` : ""}</p>
-                <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
-                <p style="margin:0;color:#555;">${esc(arenaLabel(sched.location)) || ""}</p>
-              </div>
-              <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
-              <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
-            </div>`);
-          await logEmailSend({
-            catId: sched.age_category_id || null, orgId: sp_id, emailType: "tester_spot_fill", sessionNumber: sched.session_number, groupNumber: sched.group_number, athleteName: t.name, to: t.email,
-            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-          });
-          if (res?.ok) sent++;
+          try {
+            const res = await sendEmail(t.email, `Tester needed — ${sched.org_name} ${sessionDate}`,
+              `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <h2 style="color:#111;">A testing spot needs filling</h2>
+                ${message ? `<p style="color:#555;">${esc(message)}</p>` : ""}
+                <div style="background:#f9f9f9;border-radius:12px;padding:20px;margin:20px 0;">
+                  <p style="margin:0 0 8px;font-weight:600;font-size:16px;">${esc(sched.org_name)} · ${esc(sched.category_name)}</p>
+                  <p style="margin:0 0 4px;color:#555;">Testing · Session ${esc(sched.session_number)}${sched.group_number ? ` · Group ${esc(sched.group_number)}` : ""}</p>
+                  <p style="margin:0 0 4px;color:#555;">${sessionDate}</p>
+                  <p style="margin:0;color:#555;">${esc(arenaLabel(sched.location)) || ""}</p>
+                </div>
+                <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:#0b5cd6;color:white;text-decoration:none;border-radius:10px;font-weight:600;">Sign Up to Test →</a>
+                <p style="color:#aaa;font-size:12px;margin-top:32px;">Sideline Star · ${esc(admin_name)}</p>
+              </div>`);
+            await logEmailSend({
+              catId: sched.age_category_id || null, orgId: sp_id, emailType: "tester_spot_fill", sessionNumber: sched.session_number, groupNumber: sched.group_number, athleteName: t.name, to: t.email,
+              resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+              error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+            });
+            if (res?.ok) sent++;
+          } catch (e) {
+            console.error(`notify_testers: failed for ${t.email}:`, e?.message || e);
+            await logEmailSend({
+              catId: sched.age_category_id || null, orgId: sp_id, emailType: "tester_spot_fill", sessionNumber: sched.session_number, groupNumber: sched.group_number, athleteName: t.name, to: t.email,
+              status: "failed", error: (e?.message || "send failed").toString().slice(0, 500),
+            }).catch(() => {});
+          }
           // Pace under Resend's 10 req/sec cap for a large tester pool.
           await sleep(110);
         }
@@ -256,29 +274,39 @@ export async function POST(request) {
     if (process.env.RESEND_API_KEY) {
       await ensureEmailLogTable();
       for (const evaluator of availableEvaluators) {
-        const res = await sendEmail(evaluator.email, subject,
-          `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <div style="background: #FFF3CD; border: 1px solid #FFD700; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
-                <strong style="color: #856404;">⚡ Urgent Opening${isMulti ? "s" : ""}</strong>
+        try {
+          const res = await sendEmail(evaluator.email, subject,
+            `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <div style="background: #FFF3CD; border: 1px solid #FFD700; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                  <strong style="color: #856404;">⚡ Urgent Opening${isMulti ? "s" : ""}</strong>
+                </div>
+                <h2 style="color: #111;">${isMulti ? `${schedInfo.length} evaluator spots available, back to back` : "Evaluator spot available"}</h2>
+                ${message ? `<p style="color: #555;">${esc(message)}</p>` : ""}
+                ${rowsHtml}
+                <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                  Sign Up Now →
+                </a>
+                <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${esc(admin_name)}</p>
               </div>
-              <h2 style="color: #111;">${isMulti ? `${schedInfo.length} evaluator spots available, back to back` : "Evaluator spot available"}</h2>
-              ${message ? `<p style="color: #555;">${esc(message)}</p>` : ""}
-              ${rowsHtml}
-              <a href="${signupUrl}" style="display: inline-block; padding: 14px 28px; background: #0b5cd6; color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
-                Sign Up Now →
-              </a>
-              <p style="color: #aaa; font-size: 12px; margin-top: 32px;">Sideline Star · ${esc(admin_name)}</p>
-            </div>
-          `);
-        await logEmailSend({
-          catId: sched.age_category_id || null, orgId: sp_id, emailType: "evaluator_spot_fill",
-          sessionNumber: isMulti ? null : sched.session_number, groupNumber: isMulti ? null : sched.group_number,
-          athleteName: evaluator.name, to: evaluator.email,
-          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-        });
-        if (res?.ok) sent++;
+            `);
+          await logEmailSend({
+            catId: sched.age_category_id || null, orgId: sp_id, emailType: "evaluator_spot_fill",
+            sessionNumber: isMulti ? null : sched.session_number, groupNumber: isMulti ? null : sched.group_number,
+            athleteName: evaluator.name, to: evaluator.email,
+            resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+            error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+          });
+          if (res?.ok) sent++;
+        } catch (e) {
+          console.error(`evaluator spot-fill: failed for ${evaluator.email}:`, e?.message || e);
+          await logEmailSend({
+            catId: sched.age_category_id || null, orgId: sp_id, emailType: "evaluator_spot_fill",
+            sessionNumber: isMulti ? null : sched.session_number, groupNumber: isMulti ? null : sched.group_number,
+            athleteName: evaluator.name, to: evaluator.email,
+            status: "failed", error: (e?.message || "send failed").toString().slice(0, 500),
+          }).catch(() => {});
+        }
         // Pace under Resend's 10 req/sec cap for a large evaluator pool.
         await sleep(110);
       }

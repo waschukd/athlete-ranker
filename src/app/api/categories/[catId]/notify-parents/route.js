@@ -12,6 +12,12 @@ import { ensureEmailLogTable, logEmailSend } from "@/lib/emailLog";
 // plain evaluators.
 const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "service_provider_admin", "goalie_service_provider_admin"]);
 
+// A welcome blast sends to every athlete's parent(s) on a roster -- the same
+// failure class as group-emails (see that route's comment): a large enough
+// roster can outrun a short default timeout mid-loop. Per-recipient try/catch
+// below already isolates one bad send; this gives the whole batch real room.
+export const maxDuration = 300;
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();

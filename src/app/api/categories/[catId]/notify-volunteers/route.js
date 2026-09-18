@@ -12,6 +12,11 @@ const MANAGE_ROLES = new Set(["super_admin", "association_admin", "director", "s
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_RECIPIENTS = 200;
 
+// Same failure class as group-emails -- see that route's comment. Up to 200
+// recipients at 110ms pacing plus real Resend latency can outrun a short
+// default timeout mid-loop.
+export const maxDuration = 300;
+
 export async function POST(request, { params }) {
   try {
     const session = await getSession();
@@ -74,13 +79,24 @@ export async function POST(request, { params }) {
     await ensureEmailLogTable();
     let sent = 0;
     for (const email of emails) {
-      const res = await sendEmail(email.trim(), "Volunteer assignment - " + categoryName + " Session " + sessionNum, html);
-      await logEmailSend({
-        catId, emailType: "volunteer_assignment", sessionNumber: sessionNum || null, to: email.trim(),
-        resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
-        error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
-      });
-      if (res?.ok) sent++;
+      // One recipient's failure (a bad log insert, anything not already
+      // handled inside sendEmail) must never take the rest of the batch
+      // down with it -- see the maxDuration comment above.
+      try {
+        const res = await sendEmail(email.trim(), "Volunteer assignment - " + categoryName + " Session " + sessionNum, html);
+        await logEmailSend({
+          catId, emailType: "volunteer_assignment", sessionNumber: sessionNum || null, to: email.trim(),
+          resendId: res?.id || null, status: res?.ok ? "sent" : "failed",
+          error: res?.ok ? null : (res?.error || "send failed").toString().slice(0, 500),
+        });
+        if (res?.ok) sent++;
+      } catch (e) {
+        console.error(`notify-volunteers: failed for ${email}:`, e?.message || e);
+        await logEmailSend({
+          catId, emailType: "volunteer_assignment", sessionNumber: sessionNum || null, to: email.trim(),
+          status: "failed", error: (e?.message || "send failed").toString().slice(0, 500),
+        }).catch(() => {});
+      }
       await sleep(110); // pace under Resend's 10 req/sec cap
     }
 
