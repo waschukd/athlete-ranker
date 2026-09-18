@@ -81,9 +81,11 @@ function SendReportPurchaseCard({ catId }) {
   useEffect(() => { load(); }, [catId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleFinalized = async (finalized) => {
-    await fetch(`/api/categories/${catId}/teams-finalized`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
-    });
+    try {
+      await fetch(`/api/categories/${catId}/teams-finalized`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalized }),
+      });
+    } catch { /* load() below still runs and reflects whatever actually happened */ }
     load();
   };
 
@@ -543,15 +545,19 @@ export default function CategoryDashboard({
     finally { setWelcomeSending(false); setWelcomePreview(null); setTimeout(() => setMsg(""), 5000); }
   };
   const resendWelcomeTo = async (athleteId) => {
-    const res = await fetch(`/api/categories/${catId}/notify-parents`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: athleteId }),
-    });
-    // The button gave no feedback either way before -- a click that silently
-    // did nothing (or silently sent, no confirmation) is exactly what led
-    // someone to click it 8 times on the same family in five minutes.
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || "Couldn't resend the welcome email.");
+    try {
+      const res = await fetch(`/api/categories/${catId}/notify-parents`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "onboarding", athlete_id: athleteId }),
+      });
+      // The button gave no feedback either way before -- a click that silently
+      // did nothing (or silently sent, no confirmation) is exactly what led
+      // someone to click it 8 times on the same family in five minutes.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Couldn't resend the welcome email.");
+      }
+    } catch {
+      alert("Network error — couldn't resend the welcome email. Please try again.");
     }
   };
   // One-click "email this player" for a late add -- welcome + their ice time,
@@ -776,13 +782,17 @@ export default function CategoryDashboard({
     if (!volunteerEmails.trim()) return;
     setVolunteerSending(true);
     const emails = volunteerEmails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
-    const res = await fetch("/api/categories/" + catId + "/notify-volunteers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emails, sessionNum: volunteerModal.sessionNum, entries: volunteerModal.entries, categoryName: category?.name || "" }),
-    });
-    const data = await res.json();
-    setVolunteerMsg(data.success ? "Sent to " + data.sent + " volunteer(s)" : "Error: " + data.error);
+    try {
+      const res = await fetch("/api/categories/" + catId + "/notify-volunteers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails, sessionNum: volunteerModal.sessionNum, entries: volunteerModal.entries, categoryName: category?.name || "" }),
+      });
+      const data = await res.json();
+      setVolunteerMsg(data.success ? "Sent to " + data.sent + " volunteer(s)" : "Error: " + data.error);
+    } catch {
+      setVolunteerMsg("Network error — please try again.");
+    }
     setVolunteerSending(false);
     setTimeout(() => { setVolunteerMsg(""); setVolunteerModal(null); setVolunteerEmails(""); }, 3000);
   };
@@ -793,21 +803,25 @@ export default function CategoryDashboard({
     const body = evalAddUserId
       ? { user_id: evalAddUserId, kind: evalAddKind }
       : { email: evalAddEmail.trim(), kind: evalAddKind };
-    const res = await fetch(`/api/categories/${catId}/evaluators`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setEvalAdding(false);
-    if (res.ok) {
-      setEvalAddUserId(""); setEvalAddEmail("");
-      setEvalMsg("Added — they've been emailed.");
-      refetchEvaluators();
-      setTimeout(() => setEvalMsg(""), 4000);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setEvalMsg("Error: " + (data.error || "could not add"));
+    try {
+      const res = await fetch(`/api/categories/${catId}/evaluators`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setEvalAddUserId(""); setEvalAddEmail("");
+        setEvalMsg("Added — they've been emailed.");
+        refetchEvaluators();
+        setTimeout(() => setEvalMsg(""), 4000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEvalMsg("Error: " + (data.error || "could not add"));
+      }
+    } catch {
+      setEvalMsg("Network error — please try again.");
     }
+    setEvalAdding(false);
   };
 
   const exportRankingsCSV = () => {
@@ -1372,10 +1386,14 @@ export default function CategoryDashboard({
                     const hasHeader = headerLine.includes("session") || headerLine.includes("date");
                     const dataRows = hasHeader ? allRows.slice(1) : allRows;
                     const rows = dataRows.map(cols => ({ session_number: cols[0], group_number: cols[1], scheduled_date: cols[2], start_time: cols[3], end_time: cols[4], location: cols[5], evaluators_required: cols[6], matchup: cols[7] || null })).filter(r => r.session_number && r.scheduled_date);
-                    const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
-                    const data = await res.json();
-                    setUploadMsg(data.success ? `${data.inserted ?? data.count ?? 0} added, ${data.updated ?? 0} updated` : "Error: " + data.error);
-                    if (data.success) { refetchSchedule(); refetchRankings(); }
+                    try {
+                      const res = await fetch(`/api/categories/${catId}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule: rows }) });
+                      const data = await res.json();
+                      setUploadMsg(data.success ? `${data.inserted ?? data.count ?? 0} added, ${data.updated ?? 0} updated` : "Error: " + data.error);
+                      if (data.success) { refetchSchedule(); refetchRankings(); }
+                    } catch {
+                      setUploadMsg("Network error — please try again.");
+                    }
                     setImporting(false); e.target.value = ""; setTimeout(() => setUploadMsg(""), 4000);
                   }} />
                 </label>
@@ -1501,20 +1519,24 @@ export default function CategoryDashboard({
                                   .map(cols => ({ first_name: cols[0], last_name: cols[1], overall_rank: cols[2] }))
                                   .filter(r => r.first_name && r.last_name && r.overall_rank);
                               }
-                              const res = await fetch(`/api/categories/${catId}/testing-upload`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
-                              });
-                              const data = await res.json();
-                              if (data.success) {
-                                const lines = [`${data.matched} matched${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}`];
-                                if (data.fuzzy_matched > 0) lines.push(`${data.fuzzy_matched} matched despite a likely spelling difference: ${data.fuzzy_matched_names.join(', ')} -- double-check these are actually the same player.`);
-                                if (data.created > 0) lines.push(`${data.created} new player${data.created === 1 ? '' : 's'} added to the roster (not previously in the app): ${data.created_names.join(', ')} -- double-check these for typos of an existing player.`);
-                                if (data.skipped > 0) lines.push(`${data.skipped} skipped (missing name/rank): ${data.skipped_names.join(', ')}`);
-                                alert(lines.join('\n\n'));
-                              } else {
-                                alert('Error: ' + data.error);
+                              try {
+                                const res = await fetch(`/api/categories/${catId}/testing-upload`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ session_number: parseInt(sessionNum), results }),
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  const lines = [`${data.matched} matched${data.tests_stored ? ` · ${data.tests_stored} test values stored` : ''}`];
+                                  if (data.fuzzy_matched > 0) lines.push(`${data.fuzzy_matched} matched despite a likely spelling difference: ${data.fuzzy_matched_names.join(', ')} -- double-check these are actually the same player.`);
+                                  if (data.created > 0) lines.push(`${data.created} new player${data.created === 1 ? '' : 's'} added to the roster (not previously in the app): ${data.created_names.join(', ')} -- double-check these for typos of an existing player.`);
+                                  if (data.skipped > 0) lines.push(`${data.skipped} skipped (missing name/rank): ${data.skipped_names.join(', ')}`);
+                                  alert(lines.join('\n\n'));
+                                } else {
+                                  alert('Error: ' + data.error);
+                                }
+                              } catch {
+                                alert('Network error — please try again.');
                               }
                               refetchRankings(); e.target.value = "";
                             }} />
@@ -1811,7 +1833,11 @@ export default function CategoryDashboard({
           onCancel={() => setEvalRemoveTarget(null)}
           onConfirm={async () => {
             setEvalRemoving(true);
-            await fetch(`/api/categories/${catId}/evaluators?id=${evalRemoveTarget.id}`, { method: "DELETE" });
+            try {
+              await fetch(`/api/categories/${catId}/evaluators?id=${evalRemoveTarget.id}`, { method: "DELETE" });
+            } catch {
+              // ignore — refetch below will reflect actual state
+            }
             setEvalRemoveTarget(null);
             setEvalRemoving(false);
             refetchEvaluators();
@@ -1899,10 +1925,15 @@ export default function CategoryDashboard({
                   <button onClick={async () => {
                     if (!athleteForm.first_name || !athleteForm.last_name) return;
                     setAthleteSaving(true);
-                    await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: [athleteForm] }) });
-                    setAthleteMsg(`${athleteForm.first_name} ${athleteForm.last_name} added`);
-                    setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "", non_contact: false });
-                    setShowAdd(false); refetchAthletes(); refetchRankings(); setAthleteSaving(false); setTimeout(() => setAthleteMsg(""), 3000);
+                    try {
+                      await fetch(`/api/categories/${catId}/athletes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ athletes: [athleteForm] }) });
+                      setAthleteMsg(`${athleteForm.first_name} ${athleteForm.last_name} added`);
+                      setAthleteForm({ first_name: "", last_name: "", external_id: "", position: "", birth_year: "", parent_email: "", parent_email_2: "", helmet_number: "", non_contact: false });
+                      setShowAdd(false); refetchAthletes(); refetchRankings();
+                    } catch {
+                      setAthleteMsg("Network error — player not added, please try again.");
+                    }
+                    setAthleteSaving(false); setTimeout(() => setAthleteMsg(""), 3000);
                   }} disabled={!athleteForm.first_name || !athleteForm.last_name || athleteSaving} className="px-5 py-2 bg-[#0b5cd6] text-white rounded-lg text-sm font-semibold disabled:opacity-50">{athleteSaving ? "Saving..." : "Add Player"}</button>
                 </div>
               </div>
@@ -2510,7 +2541,7 @@ export default function CategoryDashboard({
               <div className="bg-white border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center justify-between">
                   <div><div className="text-sm font-medium text-gray-700">Keep players anonymous to evaluators</div><div className="text-xs text-gray-400 mt-0.5">Hide athlete names — evaluators see jersey color + number only (recommended)</div></div>
-                  <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: !(category?.evaluators_anonymous ?? true), categories: scoringCategories } }) }); queryClient.invalidateQueries({ queryKey: ["category-setup", catId] }); }}
+                  <button onClick={async () => { try { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: !(category?.evaluators_anonymous ?? true), categories: scoringCategories } }) }); queryClient.invalidateQueries({ queryKey: ["category-setup", catId] }); } catch { alert("Network error — please try again."); } }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(category?.evaluators_anonymous ?? true) ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${(category?.evaluators_anonymous ?? true) ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
@@ -2522,8 +2553,12 @@ export default function CategoryDashboard({
                     <div><div className="text-sm font-medium text-gray-700">Let this association manage coach & goalie evaluators</div><div className="text-xs text-gray-400 mt-0.5">Your call only, per category — the association's own admins/directors can't turn this on themselves, and it never carries over from other categories.</div></div>
                     <button onClick={async () => {
                         const next = !allowAssociationEvaluators;
-                        await fetch(`/api/categories/${catId}/coach-access`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
-                        queryClient.invalidateQueries({ queryKey: ["category-setup", catId] });
+                        try {
+                          await fetch(`/api/categories/${catId}/coach-access`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+                          queryClient.invalidateQueries({ queryKey: ["category-setup", catId] });
+                        } catch {
+                          alert("Network error — please try again.");
+                        }
                       }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${allowAssociationEvaluators ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${allowAssociationEvaluators ? "translate-x-6" : "translate-x-1"}`} />
@@ -2535,7 +2570,7 @@ export default function CategoryDashboard({
                 <div className="bg-white border border-gray-200 rounded-xl p-5">
                   <div className="flex items-center justify-between">
                     <div><div className="text-sm font-medium text-gray-700">Carry jersey numbers between sessions</div><div className="text-xs text-gray-400 mt-0.5">Tournament only. Pre-fills each player's jersey number at check-in from their last session — still editable, useful when the number stays with the player all tournament (like a helmet sticker) unless teams get rebalanced.</div></div>
-                    <button onClick={async () => { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: category?.evaluators_anonymous ?? true, sticky_jersey_numbers: !category?.sticky_jersey_numbers, categories: scoringCategories } }) }); queryClient.invalidateQueries({ queryKey: ["category-setup", catId] }); }}
+                    <button onClick={async () => { try { await fetch(`/api/categories/${catId}/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "scoring", data: { scoring_scale: category?.scoring_scale, scoring_increment: category?.scoring_increment, position_tagging: category?.position_tagging, evaluators_anonymous: category?.evaluators_anonymous ?? true, sticky_jersey_numbers: !category?.sticky_jersey_numbers, categories: scoringCategories } }) }); queryClient.invalidateQueries({ queryKey: ["category-setup", catId] }); } catch { alert("Network error — please try again."); } }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${category?.sticky_jersey_numbers ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${category?.sticky_jersey_numbers ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
@@ -2552,7 +2587,7 @@ export default function CategoryDashboard({
                     {directorsData.directors.map(d => (
                       <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-2">
                         <div><div className="text-sm font-medium text-gray-900">{d.name}</div><div className="text-xs text-gray-400">{d.email}</div></div>
-                        <button onClick={async () => { if (confirm(`Remove ${d.name}?`)) { await fetch(`/api/categories/${catId}/invite-director?user_id=${d.id}`, { method: "DELETE" }); refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Remove</button>
+                        <button onClick={async () => { if (confirm(`Remove ${d.name}?`)) { try { await fetch(`/api/categories/${catId}/invite-director?user_id=${d.id}`, { method: "DELETE" }); } catch { alert("Network error — please try again."); } refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Remove</button>
                       </div>
                     ))}
                     {/* Invited but not yet accepted -- e.g. sent by mistake. No
@@ -2564,7 +2599,7 @@ export default function CategoryDashboard({
                           <div className="text-sm font-medium text-gray-900">{inv.name} <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold uppercase tracking-wide">Invited — not accepted</span></div>
                           <div className="text-xs text-gray-400">{inv.email}</div>
                         </div>
-                        <button onClick={async () => { if (confirm(`Cancel the invite to ${inv.name}? They won't be able to use that link anymore.`)) { await fetch(`/api/categories/${catId}/invite-director?invite_id=${inv.id}`, { method: "DELETE" }); refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Cancel invite</button>
+                        <button onClick={async () => { if (confirm(`Cancel the invite to ${inv.name}? They won't be able to use that link anymore.`)) { try { await fetch(`/api/categories/${catId}/invite-director?invite_id=${inv.id}`, { method: "DELETE" }); } catch { alert("Network error — please try again."); } refetchDirectors(); } }} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg">Cancel invite</button>
                       </div>
                     ))}
                   </>
