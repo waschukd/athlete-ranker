@@ -71,13 +71,13 @@ async function postToResend(payload) {
 // to the user instead of silently swallowing failures. `id` is the Resend
 // message id — callers that track delivery/bounces correlate webhook events to it.
 // `attachments` (optional) = [{ filename, content }] where content is base64.
-export async function sendEmail(to, subject, html, attachments) {
+export async function sendEmail(to, subject, html, attachments, fromOverride) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set — skipping email to", to);
     return { ok: false, skipped: true, error: "Email is not configured" };
   }
   try {
-    const payload = { from: FROM, to, subject, html, reply_to: REPLY_TO };
+    const payload = { from: fromOverride || FROM, to, subject, html, reply_to: REPLY_TO };
     if (attachments?.length) payload.attachments = attachments;
 
     let res = await postToResend(payload);
@@ -506,6 +506,29 @@ export async function emailReportSalesDigest({ adminEmail, adminName, orgName, d
     </div>
   `);
   return sendEmail(adminEmail, `💰 ${totalCount} Report${totalCount !== 1 ? "s" : ""} Sold Yesterday — ${orgName}`, html);
+}
+
+// Real ask: a personal nudge from Dan to evaluators who are scoring plenty
+// of athletes but writing few or no notes, for the final stretch of the
+// season. Sent with a personalized display name (not the system sender)
+// since competitivethread.com isn't a verified Resend domain -- REPLY_TO
+// already points to dan@competitivethread.com regardless, so a reply lands
+// in his real inbox either way.
+export function evaluatorNoteReminderEmailHtml({ evaluatorName }) {
+  const name = esc(evaluatorName || "");
+  return emailWrapper(`
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">Hi ${name || "there"},</p>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">As we head into the final stretch of evaluations, I wanted to ask a favor. When you've got a spare moment during a session, jotting down even a quick note on a player — one thing they did well, one thing to work on — makes a real difference. Families read these, and it's often the most valuable part of the whole report to them.</p>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">You don't need one for every player, just whenever something stands out. A sentence or two is plenty.</p>
+    <p style="margin:0 0 4px;font-size:14px;color:#374151;line-height:1.7;">Thanks for everything you're doing out there.</p>
+    <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">Dan</p>
+  `);
+}
+
+export async function sendEvaluatorNoteReminderEmail({ to, evaluatorName }) {
+  const html = evaluatorNoteReminderEmailHtml({ evaluatorName });
+  const bareAddress = RAW_FROM.includes("<") ? RAW_FROM.match(/<(.+)>/)[1] : RAW_FROM;
+  return sendEmail(to, "Quick ask for this final stretch of evaluations", html, null, `"Dan Waschuk" <${bareAddress}>`);
 }
 
 // Returns [{ user_id, email, ok, id, error }] per recipient so the caller can
