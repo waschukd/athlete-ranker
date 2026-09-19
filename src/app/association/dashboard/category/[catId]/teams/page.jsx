@@ -28,15 +28,28 @@ function TeamGeneratorInner() {
   const catId = params.catId;
 
   const [step, setStep] = useState("setup"); // setup | review
-  const [teamConfig, setTeamConfig] = useState(() => {
+  // Tiers: an ordered list of { method: "straight"|"snake", teams: [{name,size}] }.
+  // Each tier claims the next rank-window of the pool (sized to its own teams'
+  // total) and drafts only within that window -- a single-team tier is just
+  // that rank-window handed to one roster; a multi-team tier splits the SAME
+  // window across them, straight (tiered strength) or snake (parity), so one
+  // pass can produce e.g. a straight Tier 1, two snake-drafted Tier 2 teams,
+  // a straight Tier 3, and two more snake Tier 4 teams -- however the
+  // association actually wants to slice the pool. Real ask, not a guess:
+  // Dan wanted exactly this shape (single top team, parity pairs, etc).
+  const [tierConfig, setTierConfig] = useState(() => {
     const sizesParam = searchParams.get("sizes");
     if (sizesParam) {
       const sizes = sizesParam.split(",").map(s => parseInt(s)).filter(n => n > 0);
-      if (sizes.length) return sizes.map((size, i) => ({ name: `Team ${String.fromCharCode(65 + i)}`, size }));
+      // "Build teams from these cuts" is a straight-cut suggestion (a natural
+      // talent break per team, not a parity split) -- one single-team tier
+      // per suggested cut preserves that exactly.
+      if (sizes.length) return sizes.map((size, i) => ({ method: "straight", teams: [{ name: `Team ${String.fromCharCode(65 + i)}`, size }] }));
     }
-    return [{ name: "Team A", size: 16 }, { name: "Team B", size: 16 }];
+    // Default: one tier, two teams -- and two teams defaults to snake (parity),
+    // matching the tool's own rule for any tier with more than one team.
+    return [{ method: "snake", teams: [{ name: "Team A", size: 16 }, { name: "Team B", size: 16 }] }];
   });
-  const [method, setMethod] = useState("straight");
   const [positionBalanced, setPositionBalanced] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -78,15 +91,41 @@ function TeamGeneratorInner() {
   const rankByAthlete = {};
   ranked.forEach(a => { rankByAthlete[a.id] = { rank: a.rank, score: a.weighted_total }; });
 
-  const totalConfigured = teamConfig.reduce((s, t) => s + (parseInt(t.size) || 0), 0);
+  const flatTeamCount = tierConfig.reduce((s, t) => s + t.teams.length, 0);
+  const totalConfigured = tierConfig.reduce((s, t) => s + t.teams.reduce((s2, x) => s2 + (parseInt(x.size) || 0), 0), 0);
   const totalAthletes = ranked.filter(a => a.position !== 'goalie').length;
+  // Lets each tier's card show which ranks it's drafting from, so a director
+  // can see at a glance that Tier 2 is "ranks 17-48" before generating.
+  let runningRank = 1;
+  const tierRankRanges = tierConfig.map(t => {
+    const size = t.teams.reduce((s, x) => s + (parseInt(x.size) || 0), 0);
+    const range = size > 0 ? [runningRank, runningRank + size - 1] : null;
+    runningRank += size;
+    return range;
+  });
 
-  const addTeam = () => setTeamConfig(prev => [...prev, { name: `Team ${String.fromCharCode(65 + prev.length)}`, size: 16 }]);
-  const removeTeam = (i) => setTeamConfig(prev => prev.filter((_, idx) => idx !== i));
-  const updateTeam = (i, field, val) => setTeamConfig(prev => prev.map((t, idx) => idx === i ? { ...t, [field]: val } : t));
+  const nextTeamLetter = () => String.fromCharCode(65 + flatTeamCount);
+  const addTier = () => setTierConfig(prev => [...prev, { method: "straight", teams: [{ name: `Team ${nextTeamLetter()}`, size: 16 }] }]);
+  const removeTier = (tierIdx) => setTierConfig(prev => prev.filter((_, idx) => idx !== tierIdx));
+  const setTierMethod = (tierIdx, method) => setTierConfig(prev => prev.map((t, idx) => idx === tierIdx ? { ...t, method } : t));
+  const addTeamToTier = (tierIdx) => setTierConfig(prev => prev.map((t, idx) => {
+    if (idx !== tierIdx) return t;
+    const teams = [...t.teams, { name: `Team ${nextTeamLetter()}`, size: 16 }];
+    // A tier just grew past one team -- default it to snake (parity) unless
+    // the director already chose straight for it deliberately... but we can't
+    // tell "default" from "deliberate" once it's just one team (straight is
+    // forced either way), so this only fires the first time it matters.
+    return { ...t, teams, method: t.teams.length === 1 ? "snake" : t.method };
+  }));
+  const removeTeamFromTier = (tierIdx, teamIdx) => setTierConfig(prev => prev.map((t, idx) =>
+    idx === tierIdx ? { ...t, teams: t.teams.filter((_, i) => i !== teamIdx) } : t
+  ));
+  const updateTeamInTier = (tierIdx, teamIdx, field, val) => setTierConfig(prev => prev.map((t, idx) =>
+    idx === tierIdx ? { ...t, teams: t.teams.map((x, i) => i === teamIdx ? { ...x, [field]: val } : x) } : t
+  ));
 
   const generate = async () => {
-    if (!teamConfig.length) return;
+    if (!tierConfig.length || !flatTeamCount) return;
     setGenerating(true);
     setError("");
     const res = await fetch(`/api/categories/${catId}/teams`, {
@@ -94,9 +133,10 @@ function TeamGeneratorInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "generate",
-        teams: teamConfig.map(t => ({ ...t, size: parseInt(t.size) })),
-        method,
-        snake_range: null,
+        tiers: tierConfig.map(t => ({
+          method: t.teams.length > 1 ? t.method : "straight",
+          teams: t.teams.map(x => ({ name: x.name, size: parseInt(x.size) || 0 })),
+        })),
         position_balanced: positionBalanced,
       }),
     });
@@ -269,87 +309,111 @@ function TeamGeneratorInner() {
         {step === "setup" && (
           <div className="max-w-2xl mx-auto space-y-6">
 
-            {/* Team list */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">Teams</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {totalConfigured} spots configured · {totalAthletes} skaters available
-                    {totalConfigured !== totalAthletes && (
-                      <span className="text-amber-500 ml-1">· {Math.abs(totalConfigured - totalAthletes)} {totalConfigured > totalAthletes ? "over" : "under"}</span>
-                    )}
-                  </p>
-                </div>
-                <button onClick={addTeam}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
-                  <Plus size={14} /> Add Team
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {teamConfig.map((team, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {i + 1}
-                    </div>
-                    <input
-                      type="text"
-                      value={team.name}
-                      onChange={e => updateTeam(i, "name", e.target.value)}
-                      placeholder="Team name"
-                      className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={team.size}
-                        onChange={e => updateTeam(i, "size", e.target.value)}
-                        min={1}
-                        className="w-16 px-3 py-2 border border-gray-200 rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
-                      />
-                      <span className="text-xs text-gray-400">players</span>
-                    </div>
-                    {teamConfig.length > 1 && (
-                      <button onClick={() => removeTeam(i)} className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg">
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* Summary */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                {totalConfigured} spots configured · {totalAthletes} skaters available
+                {totalConfigured !== totalAthletes && (
+                  <span className="text-amber-500 ml-1">· {Math.abs(totalConfigured - totalAthletes)} {totalConfigured > totalAthletes ? "over" : "under"}</span>
+                )}
+              </p>
+              <button onClick={addTier}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <Plus size={14} /> Add Tier
+              </button>
             </div>
 
-            {/* Draft method */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
-              <h2 className="text-base font-semibold text-gray-900">Draft Method</h2>
+            {/* Tiers — each one claims the next rank-window of the pool and
+                either hands it straight to one team or snake-drafts it across
+                several for parity. Ordered top of the pool to bottom. */}
+            {tierConfig.map((tier, tierIdx) => (
+              <div key={tierIdx} className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-gray-900">Tier {tierIdx + 1}</h2>
+                    {tierRankRanges[tierIdx] && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Ranks {tierRankRanges[tierIdx][0]}–{tierRankRanges[tierIdx][1]} of the pool
+                      </p>
+                    )}
+                  </div>
+                  {tierConfig.length > 1 && (
+                    <button onClick={() => removeTier(tierIdx)} className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg" title="Remove this tier">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setMethod("straight")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${method === "straight" ? "border-[#0b5cd6] bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
-                >
-                  <div className="font-semibold text-gray-900 text-sm mb-1">Straight Cut</div>
-                  <div className="text-xs text-gray-400">Top N to Team 1, next N to Team 2, etc. Creates tiered teams (AA, A, BB...)</div>
+                <div className="space-y-3">
+                  {tier.teams.map((team, teamIdx) => (
+                    <div key={teamIdx} className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {teamIdx + 1}
+                      </div>
+                      <input
+                        type="text"
+                        value={team.name}
+                        onChange={e => updateTeamInTier(tierIdx, teamIdx, "name", e.target.value)}
+                        placeholder="Team name"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={team.size}
+                          onChange={e => updateTeamInTier(tierIdx, teamIdx, "size", e.target.value)}
+                          min={1}
+                          className="w-16 px-3 py-2 border border-gray-200 rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0b5cd6]"
+                        />
+                        <span className="text-xs text-gray-400">players</span>
+                      </div>
+                      {tier.teams.length > 1 && (
+                        <button onClick={() => removeTeamFromTier(tierIdx, teamIdx)} className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => addTeamToTier(tierIdx)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50">
+                  <Plus size={12} /> Add team to this tier
                 </button>
-                <button
-                  onClick={() => setMethod("snake")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${method === "snake" ? "border-[#0b5cd6] bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
-                >
-                  <div className="font-semibold text-gray-900 text-sm mb-1">Snake Draft</div>
-                  <div className="text-xs text-gray-400">1→2→3→3→2→1 pick order. Creates balanced teams of equal caliber.</div>
-                </button>
+
+                {/* Draft method — only meaningful once a tier has more than one
+                    team; a single-team tier has nowhere else for a player to go. */}
+                {tier.teams.length > 1 && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      onClick={() => setTierMethod(tierIdx, "straight")}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${tier.method === "straight" ? "border-[#0b5cd6] bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
+                    >
+                      <div className="font-semibold text-gray-900 text-sm mb-0.5">Straight Cut</div>
+                      <div className="text-xs text-gray-400">Top of this range to the first team, next to the second, etc.</div>
+                    </button>
+                    <button
+                      onClick={() => setTierMethod(tierIdx, "snake")}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${tier.method === "snake" ? "border-[#0b5cd6] bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
+                    >
+                      <div className="font-semibold text-gray-900 text-sm mb-0.5">Snake Draft <span className="font-normal text-gray-400">(default)</span></div>
+                      <div className="text-xs text-gray-400">1→2→2→1 pick order — balances this range for parity.</div>
+                    </button>
+                  </div>
+                )}
               </div>
+            ))}
 
-              {/* Position balancing */}
-              <div className="flex items-center justify-between border border-gray-200 rounded-xl p-4">
+            {/* Position balancing — applies across every tier */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+              <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Position Balanced</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Fill Forward and Defense slots separately — about 5 defense per team (capped at 6), the rest forwards. E.g. a team of 15 → top 10 F + top 5 D. Goalies assigned manually.</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Fill Forward and Defense slots separately in every team — about 5 defense per team (capped at 6), the rest forwards. Goalies assigned manually.</div>
                 </div>
                 <button
                   onClick={() => setPositionBalanced(!positionBalanced)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${positionBalanced ? "bg-[#0b5cd6]" : "bg-gray-200"}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${positionBalanced ? "bg-[#0b5cd6]" : "bg-gray-200"}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${positionBalanced ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
@@ -360,11 +424,11 @@ function TeamGeneratorInner() {
 
             <button
               onClick={generate}
-              disabled={generating || !teamConfig.length}
+              disabled={generating || !flatTeamCount}
               className="w-full py-3.5 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold text-base disabled:opacity-50 hover:shadow-lg transition-shadow flex items-center justify-center gap-2"
             >
               <Shuffle size={18} />
-              {generating ? "Generating..." : `Generate ${teamConfig.length} Teams`}
+              {generating ? "Generating..." : `Generate ${flatTeamCount} Teams`}
             </button>
 
             {hasExistingTeams && (

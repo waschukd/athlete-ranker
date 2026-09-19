@@ -91,11 +91,17 @@ export async function POST(request, { params }) {
     const { action } = body;
 
     if (action === "generate") {
-      const { teams: teamConfig, method, snake_range, position_balanced } = body;
-      // teamConfig = [{ name: "AA", size: 16 }, { name: "A", size: 15 }, ...]
-      // method = "straight" | "snake"
-      // snake_range = { from: 1, to: 36 } — optional, null means full list
-      // position_balanced = true/false
+      // tiers = [{ method: "straight"|"snake", teams: [{ name, size }, ...] }, ...]
+      // Tiers are consumed in order down the ranked list -- tier 1 gets the top
+      // (sum of its teams' sizes) players, tier 2 the next chunk, and so on. A
+      // tier with one team is just that rank-window handed to one roster; a
+      // tier with several teams splits that SAME rank-window across them,
+      // straight (tiered strength) or snake (parity) as chosen for that tier
+      // only -- so one "final teams" pass can produce a single top team, two
+      // parity-drafted mid teams, a single tier-3 team, two more parity teams,
+      // etc., matching however the association actually wants to slice the pool.
+      const { tiers, position_balanced } = body;
+      if (!Array.isArray(tiers) || !tiers.length) return NextResponse.json({ error: "At least one tier is required" }, { status: 400 });
 
       // Get live rankings (computed directly — see lib/rankings.js)
       const rankData = await computeCategoryRankings(catId);
@@ -111,16 +117,20 @@ export async function POST(request, { params }) {
       const goalies = rankData.goalies || [];
       const skaters = ranked.filter(a => a.position !== 'goalie');
 
+      const flatTeams = tiers.flatMap(t => t.teams);
+      if (!flatTeams.length) return NextResponse.json({ error: "Every tier needs at least one team" }, { status: 400 });
+
       // Clear existing teams for this category
       await sql`DELETE FROM team_rosters WHERE team_id IN (SELECT id FROM teams WHERE age_category_id = ${catId})`;
       await sql`DELETE FROM teams WHERE age_category_id = ${catId}`;
 
-      // Create team records
+      // Create team records, in tier order (rank_order carries the tier ordering
+      // through to the review grid and the export/coach-report team lists).
       const createdTeams = [];
-      for (let i = 0; i < teamConfig.length; i++) {
+      for (let i = 0; i < flatTeams.length; i++) {
         const [team] = await sql`
           INSERT INTO teams (age_category_id, name, max_roster_size, rank_order)
-          VALUES (${catId}, ${teamConfig[i].name}, ${teamConfig[i].size}, ${i + 1})
+          VALUES (${catId}, ${flatTeams[i].name}, ${flatTeams[i].size}, ${i + 1})
           RETURNING *
         `;
         createdTeams.push(team);
@@ -128,7 +138,7 @@ export async function POST(request, { params }) {
 
       // Build assignment list — never drops a player who fits within total capacity;
       // honors per-team size caps and (when balanced) a defense target of ~5 (cap 6).
-      const assignments = buildTeamAssignments(skaters, teamConfig, method, position_balanced);
+      const assignments = buildTeamAssignments(skaters, tiers, position_balanced);
 
       // Insert rosters
       for (const { athlete_id, team_index, team_rank } of assignments) {
@@ -145,7 +155,7 @@ export async function POST(request, { params }) {
       await sql`
         INSERT INTO audit_log (age_category_id, user_id, action, entity_type, new_value)
         VALUES (${catId}, ${userId}, 'generate_teams', 'category',
-          ${JSON.stringify({ method, teams: teamConfig.length, position_balanced })})
+          ${JSON.stringify({ tiers: tiers.map(t => ({ method: t.method, teams: t.teams.length })), teams: flatTeams.length, position_balanced })})
       `;
 
       return NextResponse.json({ success: true, teams: createdTeams.length, assigned: assignments.length, unassigned_goalies: goalies.length });
@@ -367,59 +377,78 @@ export async function POST(request, { params }) {
   }
 }
 
-// Assign ranked skaters to teams. Guarantees: (1) a real snake draft (1→2→3→3→2→1…)
-// for even teams, or straight-cut tiering; (2) per-team size caps respected; (3) NO
-// player dropped who fits within total capacity — leftovers always backfill; (4) unique
-// team_rank per team (no ON CONFLICT collisions). Balanced mode targets ~5 D (cap 6).
-function buildTeamAssignments(skaters, teamConfig, method, positionBalanced) {
-  const numTeams = teamConfig.length;
-  const size = teamConfig.map(t => Math.max(0, parseInt(t.size) || 0));
+// Assign ranked skaters to teams, tier by tier. Each tier consumes the next
+// slice of the ranked list (sized to the sum of its own teams) and drafts
+// ONLY within that slice/those teams -- a snake tier never reaches into a
+// different tier's rank-window, and a later tier never sees players a
+// straight tier ahead of it already claimed. Within one tier: a real snake
+// draft (1→2→3→3→2→1…) for parity, or straight-cut tiering; per-team size
+// caps respected; unique team_rank per team (no ON CONFLICT collisions).
+// Balanced mode targets ~5 D per team (cap 6). A team that fits fewer
+// players than its slice provides (mismatched configured vs. available
+// totals) simply leaves the remainder for that tier unassigned, same as the
+// single-tier version this replaces.
+function buildTeamAssignments(skaters, tiers, positionBalanced) {
+  const flatTeams = tiers.flatMap(t => t.teams);
+  const numTeams = flatTeams.length;
+  const size = flatTeams.map(t => Math.max(0, parseInt(t.size) || 0));
   const counts = new Array(numTeams).fill(0);
   const ranks = new Array(numTeams).fill(0);
   const assignments = [];
-  const teams012 = Array.from({ length: numTeams }, (_, i) => i);
-  const reversed = [...teams012].reverse();
-  let round = 0;
 
   const place = (id, t) => { ranks[t]++; counts[t]++; assignments.push({ athlete_id: id, team_index: t, team_rank: ranks[t] }); };
 
-  // Assign `list` in order; team t accepts until counts[t] reaches min(size[t], target[t]).
-  // Snake alternates team order each round (even distribution); straight fills each team
-  // to target before moving on. Returns players that didn't fit this phase.
-  const assignPhase = (list, target) => {
+  // Assign `list` across GLOBAL team indices `teamIndices` only; team t accepts
+  // until counts[t] reaches min(size[t], target[t]). Snake alternates order
+  // each round (even distribution) within just this tier's teams; straight
+  // fills each team to target before moving to the next. A single-team tier
+  // is unaffected by the method -- there's nowhere else for a player to go.
+  const assignPhase = (list, teamIndices, method, target) => {
     const cap = (t) => Math.min(size[t], target[t]);
     let i = 0;
-    if (method === "straight") {
-      for (let t = 0; t < numTeams && i < list.length; t++) {
-        while (counts[t] < cap(t) && i < list.length) { place(list[i].id, t); i++; }
-      }
+    if (method === "straight" || teamIndices.length === 1) {
+      for (const t of teamIndices) { while (counts[t] < cap(t) && i < list.length) { place(list[i].id, t); i++; } }
     } else {
+      const reversed = [...teamIndices].reverse();
+      let round = 0;
       while (i < list.length) {
-        const order = (round++ % 2 === 0) ? teams012 : reversed;
+        const order = (round++ % 2 === 0) ? teamIndices : reversed;
         let placed = false;
         for (const t of order) {
           if (i >= list.length) break;
           if (counts[t] < cap(t)) { place(list[i].id, t); i++; placed = true; }
         }
-        if (!placed) break; // every team is at its cap for this phase
+        if (!placed) break; // every team in this tier is at its cap
       }
     }
     return list.slice(i);
   };
 
-  if (positionBalanced) {
-    const forwards = skaters.filter(a => a.position === "forward");
-    // Forward/Defense players are D-capable, so they compete for the D target
-    // first (like pure defense) -- any left over once the target's filled
-    // cascade into the forward pass below via dLeft, same as a natural F.
-    const defense = skaters.filter(a => a.position === "defense" || a.position === "forward_defense");
-    const other = skaters.filter(a => a.position !== "forward" && a.position !== "defense" && a.position !== "forward_defense");
-    const dTarget = size.map(s => Math.min(6, Math.round(s / 3)));   // ~5 D, cap 6
-    const dLeft = assignPhase(defense, dTarget);                      // D up to target
-    const fLeft = assignPhase(forwards, size.slice());               // F fill to full size (uses any empty D slots)
-    assignPhase([...dLeft, ...fLeft, ...other], size.slice());       // backfill everyone else
-  } else {
-    assignPhase(skaters, size.slice());
+  let globalIdx = 0;
+  let pool = skaters; // remaining ranked pool, consumed tier by tier in order
+  for (const tier of tiers) {
+    const teamIndices = tier.teams.map((_, i) => globalIdx + i);
+    globalIdx += tier.teams.length;
+
+    const tierSize = teamIndices.reduce((s, t) => s + size[t], 0);
+    const slice = pool.slice(0, tierSize);
+    pool = pool.slice(tierSize);
+    const target = Object.fromEntries(teamIndices.map(t => [t, size[t]]));
+
+    if (positionBalanced) {
+      const forwards = slice.filter(a => a.position === "forward");
+      // Forward/Defense players are D-capable, so they compete for the D target
+      // first (like pure defense) -- any left over once the target's filled
+      // cascade into the forward pass below via dLeft, same as a natural F.
+      const defense = slice.filter(a => a.position === "defense" || a.position === "forward_defense");
+      const other = slice.filter(a => a.position !== "forward" && a.position !== "defense" && a.position !== "forward_defense");
+      const dTarget = Object.fromEntries(teamIndices.map(t => [t, Math.min(6, Math.round(size[t] / 3))])); // ~5 D, cap 6
+      const dLeft = assignPhase(defense, teamIndices, tier.method, dTarget);      // D up to target
+      const fLeft = assignPhase(forwards, teamIndices, tier.method, target);     // F fill to full size (uses any empty D slots)
+      assignPhase([...dLeft, ...fLeft, ...other], teamIndices, tier.method, target); // backfill everyone else in this tier
+    } else {
+      assignPhase(slice, teamIndices, tier.method, target);
+    }
   }
   return assignments;
 }
