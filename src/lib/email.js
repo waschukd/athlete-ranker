@@ -301,6 +301,23 @@ export async function emailStrike1({ name, email, orgName, sessionDate }) {
   return sendEmail(email, `⚠️ Strike 1 — Late Cancellation Warning`, html);
 }
 
+// Manual reversal -- there's no automated path that removes a strike (the
+// suspension count in evaluator/signup's late-cancel logic just counts every
+// evaluator_flags row, no "reviewed" exception), so this only ever fires from
+// an admin deciding a specific strike shouldn't count, e.g. a cancellation
+// that was actually a favor/accommodation, not a real late no-show.
+export async function emailStrikeRemoved({ name, email, orgName, sessionLabel }) {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#16a34a;">Strike Removed</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">Hi <strong style="color:#111827;">${esc(name)}</strong>, the late-cancellation strike from ${sessionLabel ? `<strong>${esc(sessionLabel)}</strong> ` : ""}with <strong style="color:#111827;">${esc(orgName)}</strong> has been removed from your record.</p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <p style="margin:0;font-size:13px;color:#166534;">Thanks for your flexibility — it doesn't count against you.</p>
+    </div>
+    ${btn(`${BASE_URL}/evaluator/dashboard`, "View My Sessions →")}
+  `);
+  return sendEmail(email, `Strike Removed — ${orgName}`, html);
+}
+
 export async function emailStrike2Suspended({ name, email, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#dc2626;">Account Suspended</h2>
