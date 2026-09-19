@@ -36,7 +36,22 @@ export async function GET(request, { params }) {
       const rows = await sql`
         SELECT cs.age_category_id AS cat, cs.session_number AS sn, cs.session_type AS type,
           (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = cs.age_category_id AND a.is_active = true AND a.position <> 'goalie')::int AS skaters,
-          (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = cs.age_category_id AND a.is_active = true)::int AS total_ath,
+          -- Athletes actually assigned to THIS session's groups, not the
+          -- category's whole roster -- a session where some players sit out
+          -- (a tiering decision, an injury, anything short of the full
+          -- roster) never reaches 70% of the FULL roster even once everyone
+          -- who actually played is fully scored. Real incident: SPS Fuzion
+          -- U13 sessions 2, 4 and 6 all ran ~32 of 43 players and never
+          -- showed as complete, so the dashboard kept prompting "Manage
+          -- Groups" for an already-finished session instead of "Create Final
+          -- Teams". Falls back to the full roster when no groups exist yet
+          -- (a session that hasn't been built shouldn't read as done because
+          -- of a stray score).
+          COALESCE(NULLIF((
+            SELECT COUNT(DISTINCT pga.athlete_id) FROM player_group_assignments pga
+            JOIN session_groups sg ON sg.id = pga.session_group_id
+            WHERE sg.age_category_id = cs.age_category_id AND sg.session_number = cs.session_number
+          ), 0), (SELECT COUNT(*) FROM athletes a WHERE a.age_category_id = cs.age_category_id AND a.is_active = true))::int AS total_ath,
           (SELECT COUNT(*) FROM testing_drill_results t WHERE t.age_category_id = cs.age_category_id AND t.session_number = cs.session_number)::int AS testing_n,
           (SELECT COUNT(DISTINCT c.athlete_id) FROM category_scores c WHERE c.age_category_id = cs.age_category_id AND c.session_number = cs.session_number)::int AS scored_n
         FROM category_sessions cs
@@ -48,8 +63,15 @@ export async function GET(request, { params }) {
       for (const r of rows) {
         (byCat[r.cat] = byCat[r.cat] || { total: 0, complete: [] });
         byCat[r.cat].total++;
+        // Testing is a one-shot CSV upload, not a live session evaluators
+        // trickle scores into -- there's no second upload coming to fill in
+        // stragglers, so requiring every roster skater to have a result held
+        // this "in progress" forever whenever anyone was absent or joined
+        // the roster late. Matches rankings.js's own definition of a
+        // complete testing session (any data uploaded at all), which this
+        // route had drifted from.
         const done = r.type === "testing"
-          ? (r.skaters > 0 && r.testing_n >= r.skaters)
+          ? r.testing_n > 0
           : (r.total_ath > 0 && r.scored_n >= Math.ceil(r.total_ath * 0.7));
         if (done) byCat[r.cat].complete.push(r.sn);
       }
