@@ -41,7 +41,8 @@ function mockRankings(testingRanks) {
     .mockResolvedValueOnce([{ count: 0 }])                                                              // category_scores count
     .mockResolvedValueOnce([{ count: testingRanks.length }])                                            // testing_drill_results count
     .mockResolvedValueOnce([])                                                                          // allEvalScores
-    .mockResolvedValueOnce(testingRanks);                                                                // testingRanks
+    .mockResolvedValueOnce(testingRanks)                                                                // testingRanks
+    .mockResolvedValueOnce([]);                                                                         // session_groups/player_group_assignments
 }
 const pct = (rank, total) => ((total - rank) / (total - 1)) * 100;
 
@@ -128,7 +129,8 @@ describe("testing percentile trusts the sheet's own competition ranking", () => 
       .mockResolvedValueOnce([{ count: 0 }])
       .mockResolvedValueOnce([{ count: ranks.length }])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(ranks);
+      .mockResolvedValueOnce(ranks)
+      .mockResolvedValueOnce([]);
     const r = await computeCategoryRankings(95, {});
 
     const tiedA = r.athletes.find(a => a.id === 1);

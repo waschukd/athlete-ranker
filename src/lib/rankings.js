@@ -359,25 +359,30 @@ export async function computeCategoryRankings(catId, opts = {}) {
   const ranked = rankGroup(buildTotals(athletes.filter(a => !isGoalie(a)), sessions), sessions);
   const rankedGoalies = rankGroup(buildTotals(athletes.filter(isGoalie), goalieSessions), goalieSessions);
 
-  // Tournament format: each session_number is ONE GAME between two of the
-  // category's teams, not an event the whole roster attends -- a 43-player
-  // category with 3 teams sees ~28 players in any given game, never 70% of
-  // the full 43. Scoping "complete" to the roster this session's game(s)
-  // actually involve fixes that.
+  // Every format: each session_number's real roster is whoever is actually
+  // assigned to that session's groups, not the whole category. This started
+  // as a tournament-only carve-out (a 43-player category with 3 teams sees
+  // ~28 players in any given game, never 70% of the full 43) but the same
+  // gap applies to a "standard" category just as much -- SPS Fuzion U13 runs
+  // ~30-33 players per scrimmage session by design (some sit out on
+  // purpose), and sessions 2, 4 and 6 all read as permanently "in progress"
+  // under the whole-roster check for exactly that reason, even once every
+  // player who actually played was fully scored.
   //
   // That roster comes from player_group_assignments, NOT by re-resolving the
-  // matchup label against CURRENT team names/membership. assignMatchupRoster
-  // already snapshots the roster into player_group_assignments the moment a
-  // matchup is set, so it stays correct even after teams are later renamed,
-  // reseeded, or deleted entirely (e.g. consolidating 5 teams down to 2
-  // post-cut) -- which used to make an already-complete early session
+  // matchup label against CURRENT team names/membership (tournament) or
+  // re-deriving who "should" have played (standard). assignMatchupRoster
+  // already snapshots a tournament roster into player_group_assignments the
+  // moment a matchup is set, so it stays correct even after teams are later
+  // renamed, reseeded, or deleted entirely (e.g. consolidating 5 teams down
+  // to 2 post-cut) -- which used to make an already-complete early session
   // (scored against teams that no longer exist under those names) fall back
   // to comparing against the CURRENT, larger, post-cut roster and read as
   // stuck "in progress" forever. A session with no snapshot yet (matchup
-  // never resolved, e.g. "Post-cut: White vs Blue" before it's picked on the
-  // schedule) has no entry here and falls back to the whole-roster check below.
+  // never resolved for tournament, or groups never built for standard) has
+  // no entry here and falls back to the whole-roster check below.
   let expectedBySession = null;
-  if (category?.eval_format === "round_robin") {
+  {
     const assignments = await sql`
       SELECT sg.session_number, pga.athlete_id
       FROM session_groups sg

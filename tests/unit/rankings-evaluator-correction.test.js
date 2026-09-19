@@ -47,10 +47,10 @@ function mockRankings(evalFormat) {
     .mockResolvedValueOnce([{ count: 16 }])                                                             // category_scores count
     .mockResolvedValueOnce([{ count: 0 }])                                                              // testing_drill_results count
     .mockResolvedValueOnce(scoreRows())                                                                 // allEvalScores
-    .mockResolvedValueOnce([]);                                                                         // testingRanks
-  // round_robin fetches session_groups/player_group_assignments to scope
-  // per-session "complete" status to that session's actual roster.
-  if (evalFormat === "round_robin") sql.mockResolvedValueOnce([]);
+    .mockResolvedValueOnce([])                                                                         // testingRanks
+    // Every format fetches session_groups/player_group_assignments to scope
+    // per-session "complete" status to that session's actual roster.
+    .mockResolvedValueOnce([]);
 }
 
 describe("evaluator score correction (round_robin only)", () => {

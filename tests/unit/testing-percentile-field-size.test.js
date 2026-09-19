@@ -36,7 +36,8 @@ function mockScoredWithTesting() {
     .mockResolvedValueOnce([                                                                          // testingRanks
       { athlete_id: 1, session_number: 1, overall_rank: 1 },
       { athlete_id: 2, session_number: 1, overall_rank: 2 },
-    ]);
+    ])
+    .mockResolvedValueOnce([]);                                                                       // session_groups/player_group_assignments
 }
 
 describe("testing percentile uses the actual per-session tester count, not the whole roster", () => {
