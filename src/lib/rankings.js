@@ -129,7 +129,7 @@ export async function computeCategoryRankings(catId, opts = {}) {
   // below (previously a second, near-identical query did the session-average
   // aggregation in SQL) -- pulling session_number/evaluator_id onto the same
   // rows lets the evaluator-correction above apply consistently to both.
-  const [allEvalScores, testingRanks] = await Promise.all([
+  const [allEvalScores, testingRanks, groupAssignments] = await Promise.all([
     sql`
       SELECT athlete_id, scoring_category_id, session_number, evaluator_id, score
       FROM category_scores
@@ -143,7 +143,22 @@ export async function computeCategoryRankings(catId, opts = {}) {
       WHERE age_category_id = ${catId}
       ORDER BY athlete_id, session_number
     `,
+    sql`
+      SELECT pga.athlete_id, sg.session_number, sg.group_number
+      FROM session_groups sg
+      JOIN player_group_assignments pga ON pga.session_group_id = sg.id
+      WHERE sg.age_category_id = ${catId}
+    `,
   ]);
+
+  // Which group an athlete sat in for a given session — surfaced on every
+  // session_scores entry below so a director looking at a score (in the app or
+  // in an export) can always tell which group/day produced it, same roster
+  // source as expectedBySession further down.
+  const groupMap = {};
+  for (const g of groupAssignments) {
+    (groupMap[g.athlete_id] ||= {})[g.session_number] = g.group_number;
+  }
 
   const scoreRows = category?.eval_format === "round_robin"
     ? applyEvaluatorCorrection(allEvalScores, scale)
@@ -204,6 +219,7 @@ export async function computeCategoryRankings(catId, opts = {}) {
       avg_score: round1(parseFloat(s.avg_score)),
       evaluator_count: parseInt(s.evaluator_count),
       source: "skills",
+      group_number: groupMap[s.athlete_id]?.[s.session_number] ?? null,
     };
   }
 
@@ -261,6 +277,7 @@ export async function computeCategoryRankings(catId, opts = {}) {
         normalized_score: round1(percentile),
         overall_rank: rawRank,
         source: "testing",
+        group_number: groupMap[t.athlete_id]?.[t.session_number] ?? null,
       };
     });
   }
@@ -381,19 +398,13 @@ export async function computeCategoryRankings(catId, opts = {}) {
   // stuck "in progress" forever. A session with no snapshot yet (matchup
   // never resolved for tournament, or groups never built for standard) has
   // no entry here and falls back to the whole-roster check below.
+  // Derived from groupAssignments (fetched above) instead of a second query —
+  // same session_groups/player_group_assignments join, no need to hit the DB twice.
   let expectedBySession = null;
-  {
-    const assignments = await sql`
-      SELECT sg.session_number, pga.athlete_id
-      FROM session_groups sg
-      JOIN player_group_assignments pga ON pga.session_group_id = sg.id
-      WHERE sg.age_category_id = ${catId}
-    `;
-    if (assignments.length) {
-      expectedBySession = {};
-      for (const row of assignments) {
-        (expectedBySession[row.session_number] ||= new Set()).add(row.athlete_id);
-      }
+  if (groupAssignments.length) {
+    expectedBySession = {};
+    for (const row of groupAssignments) {
+      (expectedBySession[row.session_number] ||= new Set()).add(row.athlete_id);
     }
   }
 
