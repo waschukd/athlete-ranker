@@ -117,7 +117,7 @@ function resolveTeamsForMatchup(matchup, teams) {
   return a && b ? [a, b] : [];
 }
 
-function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, teamColorsFor, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId, watchSession, watchIds, toggleWatch }) {
+function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, teams, groups, groupPlayers, rankMap, lastSkateGroupMap, teamColorsFor, jerseyMode, setColor, setJerseyNumber, onMatchupSaved, onTeamsChanged, onMovePlayer, movingAthleteId, watchSession, watchIds, toggleWatch }) {
   // athlete_id -> team, so every player row can show (and change) which team
   // they're actually on right here -- this was the whole point of asking
   // "where is team info live" while looking at a game's roster, not the
@@ -207,6 +207,7 @@ function TournamentGamesGrid({ catId, orgId, selectedSession, scheduleRows, team
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{player.last_name}, {player.first_name}</div>
                       {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#0b5cd6]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
+                      {lastSkateGroupMap?.[String(player.athlete_id)] != null && <span className="text-[10px] text-gray-400 ml-1">(Group {lastSkateGroupMap[String(player.athlete_id)]} last skate)</span>}
                     </div>
                     {player.position && (
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${POSITION_COLORS[player.position] || "bg-gray-100 text-gray-600"}`}>
@@ -783,6 +784,26 @@ function GroupsManagerInner() {
   // Goalies carry their own (goalie-pool) ranking too — shown on their names like skaters.
   (rankingsData?.goalies || []).forEach(a => { rankMap[String(a.id)] = { rank: a.rank, total: a.weighted_total, goalie: true }; });
 
+  // Which group each player sat in for their last real skate, shown small on the
+  // card while building THIS session's groups. Only looks at sessions before the
+  // one selected, and skips testing sessions on purpose — a testing session has no
+  // real "group" placement (it's a rotation through stations, not a skill-matched
+  // group), so it's not a meaningful signal for where to place someone next.
+  const lastSkateGroupMap = {};
+  [...rankedAthletes, ...(rankingsData?.goalies || [])].forEach(a => {
+    const scores = a.session_scores || {};
+    let best = null;
+    for (const key of Object.keys(scores)) {
+      const n = parseInt(key);
+      if (n >= selectedSession) continue;
+      if (sessions.find(s => s.session_number === n)?.session_type === "testing") continue;
+      const g = scores[key].group_number;
+      if (g == null) continue;
+      if (!best || n > best.session) best = { session: n, group: g };
+    }
+    if (best) lastSkateGroupMap[String(a.id)] = best.group;
+  });
+
   return (
     <div data-theme={theme} className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -949,6 +970,7 @@ function GroupsManagerInner() {
             groups={groups}
             groupPlayers={groupPlayers}
             rankMap={rankMap}
+            lastSkateGroupMap={lastSkateGroupMap}
             teamColorsFor={teamColorsFor}
             watchSession={watchSession} watchIds={watchIds} toggleWatch={toggleWatch}
             jerseyMode={jerseyMode}
@@ -1220,6 +1242,7 @@ function GroupsManagerInner() {
                             <div className="flex items-center gap-1.5 mt-0.5">
                               {(() => { const rm = rankMap[String(player.athlete_id)]; return rm ? <span className="text-xs font-bold text-[#0b5cd6]">#{rm.rank}{rm.total ? <span className="text-gray-400 font-normal ml-1">{rm.total.toFixed(1)}</span> : null}</span> : null; })()}
                               {player.external_id && <span className="text-xs text-gray-300 ml-1">{player.external_id}</span>}
+                              {lastSkateGroupMap[String(player.athlete_id)] != null && <span className="text-[10px] text-gray-400 ml-1">(Group {lastSkateGroupMap[String(player.athlete_id)]} last skate)</span>}
                             </div>
                           </div>
 
