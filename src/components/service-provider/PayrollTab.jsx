@@ -12,6 +12,7 @@ export default function PayrollTab({ spUrl }) {
     queryFn: async () => { const r = await fetch(spUrl("/api/service-provider/payroll")); return r.json(); },
   });
   const [busy, setBusy] = useState(null);
+  const [showSettled, setShowSettled] = useState(false);
   const act = async (user_id, action) => {
     setBusy(`${action}-${user_id}`);
     try { await fetch(spUrl("/api/service-provider/payroll"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id, action }) }); } catch {}
@@ -20,6 +21,14 @@ export default function PayrollTab({ spUrl }) {
   };
   const people = data?.people || [];
   const totals = data?.totals || { owed: 0, pending: 0, paid: 0 };
+  // Settled = fully paid out with nothing in flight; they only clutter the list,
+  // so hide them by default but keep them one click away (their paid history and
+  // the "Paid to date" total already include them).
+  const isSettled = (p) => !p.owed && !p.pending_amount
+    && !p.testing_hours.pending && !p.testing_hours.approved
+    && !p.eval_hours.pending && !p.eval_hours.approved;
+  const settledCount = people.filter(isSettled).length;
+  const visible = showSettled ? people : people.filter(p => !isSettled(p));
   const $ = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const hrs = (h) => `${Number(h || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}h`;
   const roleTag = (p) => p.is_evaluator && p.is_tester ? "Eval + Tester" : p.is_tester ? "Tester" : "Evaluator";
@@ -40,11 +49,20 @@ export default function PayrollTab({ spUrl }) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-900">Payroll by person</h3><p className="text-xs text-gray-400 mt-0.5">Testing hours pay at the testing rate, evaluation hours at the evaluation rate — across all your associations and testing events.</p></div>
+        <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+          <div><h3 className="text-sm font-semibold text-gray-900">Payroll by person</h3><p className="text-xs text-gray-400 mt-0.5">Testing hours pay at the testing rate, evaluation hours at the evaluation rate — across all your associations and testing events.</p></div>
+          {settledCount > 0 && (
+            <button onClick={() => setShowSettled(s => !s)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 whitespace-nowrap shrink-0">
+              {showSettled ? "Hide settled" : `Show settled (${settledCount})`}
+            </button>
+          )}
+        </div>
         {isLoading ? (
           <div className="px-5 py-10 text-center text-sm text-gray-400">Loading…</div>
         ) : people.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-gray-400">No hours yet. Once your people work sessions, what you owe shows up here.</div>
+        ) : visible.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-gray-400">Everyone is paid up. Nothing owed and nothing awaiting approval.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -59,7 +77,7 @@ export default function PayrollTab({ spUrl }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {people.map(p => (
+                {visible.map(p => (
                   <tr key={p.id}>
                     <td className="px-5 py-3"><div className="font-medium text-ink">{p.name}</div><div className="text-[11px] text-gray-400">{roleTag(p)}{p.email ? ` · ${p.email}` : ""}</div></td>
                     <td className="px-4 py-3 text-gray-600">{p.is_tester ? <>{hrs(p.testing_hours.pending + p.testing_hours.approved)} <span className="text-gray-400">@ {p.tester_rate != null ? `$${p.tester_rate}` : "—"}</span></> : <span className="text-gray-300">—</span>}</td>
