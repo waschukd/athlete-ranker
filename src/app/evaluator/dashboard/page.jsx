@@ -11,6 +11,7 @@ import { isSessionPast, pickScoreNow } from "@/lib/sessionTiming";
 import { useTrackPageView } from "@/lib/useAnalytics";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
+import EmailInvoiceButton from "@/components/EmailInvoiceButton";
 import { useTheme } from "@/lib/useTheme";
 import { arenaLabel } from "@/lib/arenas";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -734,6 +735,10 @@ function HoursAndPaySection() {
                 <p className="mt-3 text-xs text-gray-400 italic">
                   Your provider hasn&apos;t set a pay rate yet.
                 </p>
+              )}
+
+              {(org.hourly_rate != null || org.tester_hourly_rate != null) && Number(org.approved_hours) > 0 && (
+                <EmailInvoiceButton orgId={org.org_id} orgName={org.org_name} />
               )}
             </div>
           );

@@ -7,6 +7,7 @@ import BatchSignupPrompt from "@/components/BatchSignupPrompt";
 import { contiguousBlock } from "@/lib/sessionBlocks";
 import { useTheme } from "@/lib/useTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import EmailInvoiceButton from "@/components/EmailInvoiceButton";
 import NotificationBell from "@/components/NotificationBell";
 import InstallAppButton from "@/components/InstallAppButton";
 import { isSessionPast } from "@/lib/sessionTiming";
@@ -268,6 +269,9 @@ function HoursPay() {
               <span className="text-gray-500 inline-flex items-center gap-1"><DollarSign size={14} /> Earned</span>
               <span className="font-bold text-ink">${o.earned}{o.paid_amount ? <span className="text-xs font-normal text-gray-400"> · ${o.paid_amount} paid</span> : null}</span>
             </div>
+          )}
+          {(o.hourly_rate != null || o.tester_hourly_rate != null) && Number(o.approved_hours) > 0 && (
+            <EmailInvoiceButton orgId={o.org_id} orgName={o.org_name} />
           )}
         </div>
       ))}
