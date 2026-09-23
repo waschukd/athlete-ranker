@@ -2,6 +2,9 @@ const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // pdfkit ships standard-font data files the bundler mangles — leave it
+  // unbundled so the invoice PDF route can load them at runtime.
+  serverExternalPackages: ["pdfkit"],
   async headers() {
     return [
       {
