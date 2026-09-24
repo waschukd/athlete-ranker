@@ -45,8 +45,9 @@ export async function GET(request, { params }) {
       ORDER BY t.rank_order, t.name
     `;
 
-    const rosters = await sql`
+    const rosterRows = await sql`
       SELECT tr.*, a.first_name, a.last_name, a.external_id, a.position, a.non_contact,
+        a.parent_email, a.parent_email_2,
         t.name as team_name, t.id as team_id
       FROM team_rosters tr
       JOIN athletes a ON a.id = tr.athlete_id
@@ -54,6 +55,11 @@ export async function GET(request, { params }) {
       WHERE t.age_category_id = ${catId}
       ORDER BY t.rank_order, tr.team_rank
     `;
+    // Parent contact info is admin/director-level: authorizeCategoryAccess also
+    // admits plain evaluators, who get the roster without the emails.
+    const rosters = MANAGE_ROLES.has(session.role)
+      ? rosterRows
+      : rosterRows.map(({ parent_email, parent_email_2, ...r }) => r);
 
     // Get unassigned goalies
     const goalies = await sql`

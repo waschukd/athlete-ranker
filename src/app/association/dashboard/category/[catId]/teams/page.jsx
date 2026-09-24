@@ -256,6 +256,30 @@ function TeamGeneratorInner() {
     a.click();
   };
 
+  // Flat one-row-per-player CSV with parent emails, for mail merges and league
+  // registration. The API only returns the email columns to admin/director
+  // sessions, so `canExportContacts` below hides the button from anyone else.
+  const exportWithParentEmails = () => {
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = ["Team,Rank,First,Last,Position,HC#,Contact,Parent Email 1,Parent Email 2"];
+    for (const team of teams) {
+      const players = rosters.filter(r => r.team_id === team.id).sort((a, b) => a.team_rank - b.team_rank);
+      players.forEach(p => lines.push([
+        team.name, p.team_rank, p.first_name, p.last_name, p.position || "",
+        p.external_id || "", p.non_contact ? "NBC" : "BC",
+        p.parent_email || "", p.parent_email_2 || "",
+      ].map(q).join(",")));
+    }
+    // BOM so Excel opens accented names cleanly; CRLF for the same reason.
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${category?.name || "teams"}_teams_with_parent_emails.csv`;
+    a.click();
+  };
+  const canExportContacts = rosters.some(r => r.parent_email !== undefined);
+
   return (
     <div data-theme={theme} className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -581,6 +605,12 @@ function TeamGeneratorInner() {
                 className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
                 <Download size={16} /> Export Team Sheets CSV
               </button>
+              {canExportContacts && (
+                <button onClick={exportWithParentEmails}
+                  className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
+                  <Download size={16} /> Export w/ Parent Emails
+                </button>
+              )}
               <button onClick={openNotify}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0b5cd6] to-[#3b82f6] text-white rounded-xl font-semibold hover:shadow-lg transition-shadow">
                 <Mail size={16} /> Notify players of teams
