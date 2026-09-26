@@ -318,6 +318,57 @@ export async function emailStrikeRemoved({ name, email, orgName, sessionLabel })
   return sendEmail(email, `Strike Removed — ${orgName}`, html);
 }
 
+// ── End-of-season debrief templates ─────────────────────────────────────
+// Three distinct audiences, three distinct asks. All reply to REPLY_TO
+// (dan@competitivethread.com) so a reply reaches a real person, not a bounce.
+
+export async function emailAssociationDebrief({ name, email, orgName }) {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">Wrapping up ${esc(orgName)}'s season</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hi <strong style="color:${INK};">${esc(name)}</strong>, tryouts are done and teams are set — thank you for trusting Competitive Thread with this again this year.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">I'd like to grab 15-20 minutes for a quick debrief while it's all still fresh: what worked well, what didn't, and anything you'd want done differently next season. It's the single biggest input into what we build and change before next year.</p>
+    <div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:10px;padding:16px 20px;margin:0 0 24px;">
+      <p style="margin:0;font-size:13px;color:${GOLD_DEEP};">Just reply to this email with a time that works, or with your thoughts directly — either is great.</p>
+    </div>
+    <p style="margin:0;font-size:14px;color:${MUTED};line-height:1.6;">Thanks again for a great season.</p>
+    <p style="margin:16px 0 0;font-size:14px;color:${INK};">— Dan Waschuk<br/><span style="color:${MUTED};font-size:13px;">Competitive Thread</span></p>
+  `);
+  return sendEmail(email, `Wrapping up ${orgName}'s season — quick debrief?`, html);
+}
+
+export async function emailParentReportFollowUp({ name, email, athleteName, orgName }) {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">Thanks for grabbing ${esc(athleteName)}'s report</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hi <strong style="color:${INK};">${esc(name)}</strong>, thank you for picking up ${esc(athleteName)}'s Development Report from ${esc(orgName)}'s tryouts this season.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hope it gave you a clear, honest picture of where ${esc(athleteName)} stands and what to work on before next season. That report is still yours to revisit any time — the link never expires.</p>
+    <div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:10px;padding:16px 20px;margin:0 0 24px;">
+      <p style="margin:0;font-size:13px;color:${GOLD_DEEP};">If anything in it was confusing, or there's a question the report didn't answer, just reply here — I read every one of these myself.</p>
+    </div>
+    <p style="margin:0;font-size:14px;color:${MUTED};line-height:1.6;">Thanks again, and good luck to ${esc(athleteName)} this season.</p>
+    <p style="margin:16px 0 0;font-size:14px;color:${INK};">— Dan Waschuk<br/><span style="color:${MUTED};font-size:13px;">Competitive Thread</span></p>
+  `);
+  return sendEmail(email, `Thanks for grabbing ${athleteName}'s Development Report`, html);
+}
+
+export async function emailEvaluatorThankYou({ name, email, orgNames }) {
+  const orgLine = Array.isArray(orgNames) && orgNames.length
+    ? (orgNames.length > 1
+        ? `${orgNames.slice(0, -1).map(esc).join(", ")} and ${esc(orgNames[orgNames.length - 1])}`
+        : esc(orgNames[0]))
+    : null;
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">Thank you for a great season</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hi <strong style="color:${INK};">${esc(name)}</strong>, I wanted to reach out personally before the season wraps up completely.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">${orgLine ? `Between ${orgLine}, you` : "This season, you"} were one of the most reliable, consistent evaluators we had out there — showed up prepared, scored on time, and it showed in the data. That matters more than most people realize, and it doesn't go unnoticed.</p>
+    <div style="background:${GOLD_SOFT};border:1px solid ${GOLD_LINE};border-radius:10px;padding:16px 20px;margin:0 0 24px;">
+      <p style="margin:0;font-size:13px;color:${GOLD_DEEP};">We'd love to have you back next season — I'll be in touch when scheduling opens up.</p>
+    </div>
+    <p style="margin:0;font-size:14px;color:${MUTED};line-height:1.6;">Thanks again for the work you put in.</p>
+    <p style="margin:16px 0 0;font-size:14px;color:${INK};">— Dan Waschuk<br/><span style="color:${MUTED};font-size:13px;">Competitive Thread</span></p>
+  `);
+  return sendEmail(email, `Thank you for a great season, ${name.split(" ")[0]}`, html);
+}
+
 export async function emailStrike2Suspended({ name, email, orgName }) {
   const html = emailWrapper(`
     <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#dc2626;">Account Suspended</h2>
