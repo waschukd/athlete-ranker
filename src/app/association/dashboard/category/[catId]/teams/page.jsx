@@ -437,9 +437,9 @@ function TeamGeneratorInner() {
                 </div>
                 <button
                   onClick={() => setPositionBalanced(!positionBalanced)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${positionBalanced ? "bg-[#0b5cd6]" : "bg-gray-200"}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${positionBalanced ? "bg-[#0b5cd6]" : "bg-gray-200 toggle-track-off"}`}
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${positionBalanced ? "translate-x-6" : "translate-x-1"}`} />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white toggle-knob shadow transition-transform ${positionBalanced ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
               </div>
             </div>

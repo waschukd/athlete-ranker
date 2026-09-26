@@ -181,6 +181,15 @@ body {
 [data-theme="premium"] .bg-gray-200             { background:var(--p-well) !important; }
 [data-theme="premium"] .hover\:bg-gray-300:hover { background:var(--p-hover) !important; }
 
+/* toggle switches: bg-gray-200 (off track) -> --p-well and bg-white (knob) ->
+   --p-card above both land within a few shades of #1a1a1a-#1f1f1f -- track,
+   knob and the card behind them all blend into one another, which is exactly
+   the "can't see the toggle" report. These two classes (added alongside the
+   existing bg-gray-200/bg-white on every toggle in the app) pull the off
+   track and the knob to opposite ends of the palette instead. */
+[data-theme="premium"] .toggle-track-off { background:var(--p-line) !important; }
+[data-theme="premium"] .toggle-knob      { background:var(--p-ink) !important; }
+
 /* ============================================================
    PREMIUM LIGHT — the toggle's light mode. Keeps the original
    light surfaces (white cards, gray page) but swaps the ice-blue

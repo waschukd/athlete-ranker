@@ -188,8 +188,8 @@ function SkaterScoringStep({ scoring, setScoring }) {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-semibold text-gray-700">Position Tagging</label>
-          <button onClick={() => setScoring(prev => ({ ...prev, position_tagging: !prev.position_tagging }))} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.position_tagging ? "bg-accent" : "bg-gray-200"}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scoring.position_tagging ? "translate-x-6" : "translate-x-1"}`} />
+          <button onClick={() => setScoring(prev => ({ ...prev, position_tagging: !prev.position_tagging }))} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scoring.position_tagging ? "bg-accent" : "bg-gray-200 toggle-track-off"}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white toggle-knob shadow transition-transform ${scoring.position_tagging ? "translate-x-6" : "translate-x-1"}`} />
           </button>
         </div>
         <p className="text-xs text-gray-500">{scoring.position_tagging ? "Tag players by position (Forward, Defense, Goalie) so rankings can be filtered by position. Goalies are evaluated in their own stream — configured on the next step." : "Player positions are not tracked. All athletes ranked together."}</p>

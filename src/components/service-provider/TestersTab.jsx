@@ -95,8 +95,8 @@ export default function TestersTab({ spUrl, spName, openSpots, sessionsNeeding }
             <p className="text-xs text-gray-400 mt-0.5">Testers run your objective testing sessions — a separate pool from evaluators that associations never see. Approve a tester as an evaluator once they're ready; it doesn't work the other way around.</p>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer flex-shrink-0">
-            <button onClick={() => act({ action: "set_self_tester", on: !meIsTester })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${meIsTester ? "bg-[#0b5cd6]" : "bg-gray-200"}`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${meIsTester ? "translate-x-6" : "translate-x-1"}`} />
+            <button onClick={() => act({ action: "set_self_tester", on: !meIsTester })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${meIsTester ? "bg-[#0b5cd6]" : "bg-gray-200 toggle-track-off"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white toggle-knob shadow transition-transform ${meIsTester ? "translate-x-6" : "translate-x-1"}`} />
             </button>
             I'm a tester too
           </label>

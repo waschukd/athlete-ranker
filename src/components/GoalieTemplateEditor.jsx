@@ -105,8 +105,8 @@ export default function GoalieTemplateEditor({ orgId, context = "association", o
             <label className="text-sm font-semibold text-gray-700">Let skater evaluators also score goalies</label>
             <p className="text-xs text-gray-500 mt-0.5">Off by default. Turn on only if you don't have dedicated goalie evaluators.</p>
           </div>
-          <button type="button" onClick={() => upd({ players_eval_goalies: !t.players_eval_goalies })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${t.players_eval_goalies ? "bg-accent" : "bg-gray-200"}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${t.players_eval_goalies ? "translate-x-6" : "translate-x-1"}`} />
+          <button type="button" onClick={() => upd({ players_eval_goalies: !t.players_eval_goalies })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${t.players_eval_goalies ? "bg-accent" : "bg-gray-200 toggle-track-off"}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white toggle-knob shadow transition-transform ${t.players_eval_goalies ? "translate-x-6" : "translate-x-1"}`} />
           </button>
         </div>
       )}
