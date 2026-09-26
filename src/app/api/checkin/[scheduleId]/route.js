@@ -36,7 +36,7 @@ async function authorizeCheckin(scheduleId) {
   const session = await getSession();
   if (session) {
     const auth = await authorizeCategoryAccess(session, ageCategoryId);
-    if (auth.authorized) return { ok: true, ageCategoryId };
+    if (auth.authorized) return { ok: true, ageCategoryId, email: session.email };
   }
 
   // Path 2: walk-up volunteer with a checkin-token cookie
@@ -74,6 +74,22 @@ export async function GET(request, { params }) {
     const { scheduleId } = params;
     const auth = await authorizeCheckin(scheduleId);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+    // Stamp the moment this evaluator first opened this session's check-in/
+    // roster screen -- a no-op UPDATE (0 rows) for anyone without a signup row
+    // here (admins, directors, walk-up volunteers), so it's safe to run on
+    // every poll. COALESCE makes it a true first-open timestamp; NOW() is a
+    // real server instant, immune to the evaluator's own device clock/timezone
+    // being wrong. evaluator_timezone is purely informational (see migration).
+    if (auth.email) {
+      const tz = new URL(request.url).searchParams.get("tz");
+      await sql`
+        UPDATE evaluator_session_signups
+        SET opened_at = COALESCE(opened_at, NOW()), evaluator_timezone = COALESCE(evaluator_timezone, ${tz})
+        WHERE schedule_id = ${scheduleId}
+          AND user_id = (SELECT id FROM users WHERE email = ${auth.email})
+      `.catch(() => {}); // never let telemetry break check-in
+    }
 
     const scheduleInfo = await sql`
       SELECT sch.*, ac.id as category_id, ac.name as category_name,

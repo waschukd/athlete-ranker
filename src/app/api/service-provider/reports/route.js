@@ -151,10 +151,31 @@ export async function POST(request) {
           COUNT(DISTINCT ef_late.id) as late_scoring_flags,
           COUNT(DISTINCT ef_incomplete.id) as incomplete_flags,
 
-          -- Scoring timing: avg minutes from session start to first score
-          AVG(EXTRACT(EPOCH FROM (ess.first_score_at - (
-            es.scheduled_date::date + es.start_time::time
-          )))/60) FILTER (WHERE ess.first_score_at IS NOT NULL AND es.start_time IS NOT NULL) as avg_mins_to_first_score,
+          -- Scoring timing: avg minutes from session start to first score.
+          -- first_score_at/opened_at are TIMESTAMPTZ (or, for first_score_at,
+          -- a naive column written via NOW() on a GMT-timezone DB session --
+          -- "AT TIME ZONE 'UTC'" reads that naive value back as the real
+          -- instant it actually is). scheduled_date/start_time are naive
+          -- MOUNTAIN wall-clock, so they need "AT TIME ZONE 'America/Edmonton'"
+          -- to become a comparable instant -- same convention the cron job's
+          -- auto_close job already relies on. Subtracting the two RAW naive
+          -- values (the previous version of this query) silently compared a
+          -- UTC clock reading against a Mountain clock reading and was off by
+          -- the zone offset (~6-7 hours) on every single row.
+          AVG(EXTRACT(EPOCH FROM (
+            (ess.first_score_at AT TIME ZONE 'UTC') -
+            ((es.scheduled_date::date + es.start_time::time) AT TIME ZONE 'America/Edmonton')
+          ))/60) FILTER (WHERE ess.first_score_at IS NOT NULL AND es.start_time IS NOT NULL) as avg_mins_to_first_score,
+
+          -- Session start -> evaluator opened the check-in/roster screen, and
+          -- opened -> first score entered, as two separate intervals. Only
+          -- populated going forward from when opened_at started recording.
+          AVG(EXTRACT(EPOCH FROM (
+            ess.opened_at - ((es.scheduled_date::date + es.start_time::time) AT TIME ZONE 'America/Edmonton')
+          ))/60) FILTER (WHERE ess.opened_at IS NOT NULL AND es.start_time IS NOT NULL) as avg_mins_to_open,
+          AVG(EXTRACT(EPOCH FROM (
+            (ess.first_score_at AT TIME ZONE 'UTC') - ess.opened_at
+          ))/60) FILTER (WHERE ess.opened_at IS NOT NULL AND ess.first_score_at IS NOT NULL) as avg_mins_open_to_first_score,
 
           -- Scoring spread: avg % of session time used
           AVG(
@@ -197,7 +218,7 @@ export async function POST(request) {
           es.scheduled_date, es.session_number, es.group_number,
           o.name as org_name, ac.name as category_name,
           ess.status, ess.completed, ess.no_show,
-          ess.first_score_at, ess.last_score_at, ess.athletes_scored,
+          ess.opened_at, ess.first_score_at, ess.last_score_at, ess.athletes_scored,
           eh.hours_worked, eh.status as hours_status
         FROM evaluator_session_signups ess
         JOIN users u ON u.id = ess.user_id

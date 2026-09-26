@@ -254,7 +254,12 @@ function ScoringInterface() {
   const { data: sessionData, isLoading, refetch: refetchSession } = useQuery({
     queryKey: ["score-session", scheduleId],
     queryFn: async () => {
-      const res = await fetch(`/api/checkin/${scheduleId}`);
+      // tz lets the server log which timezone this evaluator's own device
+      // reported at open time (informational only -- see the opened_at
+      // migration; lateness itself is always measured off the server clock).
+      let tz = "";
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch {}
+      const res = await fetch(`/api/checkin/${scheduleId}${tz ? `?tz=${encodeURIComponent(tz)}` : ""}`);
       return res.json();
     },
   });

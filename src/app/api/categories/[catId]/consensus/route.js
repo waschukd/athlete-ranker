@@ -258,7 +258,19 @@ export async function POST(request, { params }) {
         const schedInfo = await sql`
           SELECT es.start_time, es.end_time, es.scheduled_date, es.session_number, es.group_number,
             ac.organization_id,
-            COUNT(pc.id) as total_checked_in
+            COUNT(pc.id) as total_checked_in,
+            -- Real instants, not naive strings -- scheduled_date/start_time/
+            -- end_time are naive MOUNTAIN wall-clock, so AT TIME ZONE
+            -- 'America/Edmonton' is required to compare them against
+            -- first_score_at/last_score_at below (real timestamps, read back
+            -- correctly as instants). Building these via new Date() from the
+            -- naive strings in JS previously compared a Mountain wall-clock
+            -- reading against a real instant with no conversion -- off by the
+            -- zone offset (~6-7 hours) on every session, which meant "late
+            -- scoring" (minsLate > 15) fired on essentially every closed
+            -- session regardless of actual lateness.
+            (es.scheduled_date::date + es.start_time::time) AT TIME ZONE 'America/Edmonton' AS start_instant,
+            (es.scheduled_date::date + es.end_time::time) AT TIME ZONE 'America/Edmonton' AS end_instant
           FROM evaluation_schedule es
           JOIN age_categories ac ON ac.id = es.age_category_id
           LEFT JOIN player_checkins pc ON pc.schedule_id = es.id AND pc.checked_in = true
@@ -288,9 +300,7 @@ export async function POST(request, { params }) {
 
             // CHECK 0: Too fast — scored everyone in < 25% of session time
             if (sched.start_time && sched.end_time && totalCheckedIn >= 5) {
-              const sessionStart = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.start_time}`);
-              const sessionEnd = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.end_time}`);
-              const sessionDurationMins = (sessionEnd - sessionStart) / 60000;
+              const sessionDurationMins = (new Date(sched.end_instant) - new Date(sched.start_instant)) / 60000;
               const scoringDurationMins = (new Date(ev.last_score_at) - new Date(ev.first_score_at)) / 60000;
               const pctOfSession = sessionDurationMins > 0 ? (scoringDurationMins / sessionDurationMins) * 100 : 100;
               const scoredAll = parseInt(ev.athletes_scored || 0) >= totalCheckedIn;
@@ -307,8 +317,7 @@ export async function POST(request, { params }) {
 
             // CHECK 1: Late scoring — last score after session end
             if (sched.end_time) {
-              const sessionEnd = new Date(`${sched.scheduled_date?.toString().split("T")[0]}T${sched.end_time}`);
-              const minsLate = Math.round((new Date(ev.last_score_at) - sessionEnd) / 60000);
+              const minsLate = Math.round((new Date(ev.last_score_at) - new Date(sched.end_instant)) / 60000);
               if (minsLate > 15) {
                 await sql`
                   INSERT INTO evaluator_flags (evaluator_id, organization_id, schedule_id, flag_type, severity, details)
