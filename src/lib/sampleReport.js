@@ -94,38 +94,48 @@ export const SAMPLE_REPORT_DATA_MILLWOODS = {
   ],
   goalieSkillsProfile: [],
 
+  // Objective testing sits noticeably further off the pace than the skill
+  // grades alone would suggest -- per Dan: an average-GRADED skater is
+  // usually further from the top on the clock than on the eye test, since
+  // the timed drills are a harder, more objective bar than a subjective
+  // in-game read. Player times sit toward the back half of the field here,
+  // not dead-center on group_avg the first pass used.
   testingProfile: [
-    { test_name: "Forward Sprint", player_best: 5.10, group_avg: 5.08, group_best: 4.55, lower_is_better: true },
-    { test_name: "Backward Sprint", player_best: 6.35, group_avg: 6.32, group_best: 5.60, lower_is_better: true },
-    { test_name: "Weave Agility w/ Puck", player_best: 11.40, group_avg: 11.30, group_best: 10.05, lower_is_better: true },
-    { test_name: "Transition Agility L", player_best: 6.90, group_avg: 6.80, group_best: 6.05, lower_is_better: true },
-    { test_name: "Stop & Start", player_best: 4.42, group_avg: 4.38, group_best: 3.90, lower_is_better: true },
+    { test_name: "Forward Sprint", player_best: 5.35, group_avg: 5.08, group_best: 4.55, lower_is_better: true },
+    { test_name: "Backward Sprint", player_best: 6.65, group_avg: 6.32, group_best: 5.60, lower_is_better: true },
+    { test_name: "Weave Agility w/ Puck", player_best: 11.95, group_avg: 11.30, group_best: 10.05, lower_is_better: true },
+    { test_name: "Transition Agility L", player_best: 7.20, group_avg: 6.80, group_best: 6.05, lower_is_better: true },
+    { test_name: "Stop & Start", player_best: 4.65, group_avg: 4.38, group_best: 3.90, lower_is_better: true },
   ],
 
+  // Genuinely uneven session to session -- real inconsistency, not a smooth
+  // climb -- while the group's own average holds steadier. That variance IS
+  // what "average" usually looks like in practice: not a flat, dependable
+  // 5-out-of-10 every night, but flashes mixed with quiet stretches.
   progress: [
-    { session_number: 1, player: 4.8, group: 5.0 },
-    { session_number: 2, player: 5.0, group: 5.0 },
-    { session_number: 3, player: 5.1, group: 5.1 },
+    { session_number: 1, player: 5.5, group: 5.1 },
+    { session_number: 2, player: 4.2, group: 5.0 },
+    { session_number: 3, player: 5.2, group: 5.1 },
   ],
 
-  // Every note here describes a solid, dependable, well-rounded player --
-  // consistent with the flat, near-group-average scores above (no note
-  // claims a standout strength or a glaring weakness the numbers don't
-  // back up), same internal-consistency rule the real contradiction guard
-  // enforces for live reports.
+  // Per Dan: an average player reads as INCONSISTENT, not steady/dependable
+  // -- flashes mixed with stretches where they're not a factor, a different
+  // player from shift to shift. No note uses words like "solid," "reliable,"
+  // "dependable" or "consistent" -- that's the opposite of what average
+  // actually looks like on the ice.
   notes: [
-    { session_number: 1, note_text: "Solid all-around game — skates well, competes hard, nothing that jumps off the page but nothing missing either." },
-    { session_number: 1, note_text: "Reliable positionally and works hard every shift. Shot could use more power to become a real weapon." },
-    { session_number: 1, note_text: "Good habits, good compete level. Right in the middle of this group skill-wise across the board." },
-    { session_number: 2, note_text: "Dependable player — reads the play reasonably well and rarely gets caught out of position." },
-    { session_number: 2, note_text: "Keeps pace with the group. Puck skills are functional but not a separator yet — needs more reps under pressure." },
-    { session_number: 2, note_text: "Competes every shift and does the simple things right. A go-to middle-of-the-lineup type of player." },
-    { session_number: 3, note_text: "Consistent effort across all three sessions — exactly the kind of steady, well-rounded game you can build around." },
-    { session_number: 3, note_text: "No real weaknesses, no real separator yet either. Shooting is the clearest area to focus development on." },
+    { session_number: 1, note_text: "Up and down all game — a couple of shifts with real jump, then long stretches where he wasn't really a factor." },
+    { session_number: 1, note_text: "Flashed some good hands a few times but it didn't carry — hard to get a consistent read on him." },
+    { session_number: 1, note_text: "Some good pushes with the puck mixed in, but he disappears for chunks of the game in between." },
+    { session_number: 2, note_text: "Different player shift to shift tonight — competed hard a few times, coasted through several others." },
+    { session_number: 2, note_text: "Effort came and went. When he's engaged he's fine, but that wasn't every shift." },
+    { session_number: 2, note_text: "A rough night overall — a couple flashes of what he can do, but mostly quiet." },
+    { session_number: 3, note_text: "Better tonight in stretches, but still up and down — a strong shift here and there surrounded by shifts on the perimeter." },
+    { session_number: 3, note_text: "Mixed bag again across the session — needs to find that level every shift, not just some of them." },
   ],
   curatedNotes: null,
 
-  narrativeSummary: "Tyler's evaluation paints an honest, consistent picture: a well-rounded player who sits right at the group average across every skill category, with no major strength to lean on yet and no real weakness holding him back either. Evaluators independently used the same words — \"solid,\" \"dependable,\" \"consistent\" — night after night, and the testing numbers back that up, landing within a hair of the group average on every drill. Shooting is the one area that graded slightly below the rest of his game and is the clearest next step. This is exactly the profile of a player who improves fastest with focused reps rather than a single glaring fix — there's no one thing broken, just room to sharpen everything.",
+  narrativeSummary: "Tyler's evaluation is honest about what it shows: an inconsistent, up-and-down game rather than a steady one. Evaluators kept landing on the same read across all three sessions — flashes of real ability mixed with long stretches where he wasn't a factor — and the session-to-session numbers back that up, bouncing rather than holding a flat line the way the group's own average did. The clock tells a similar story: his testing times sit further off the pace than his in-game skill grades alone would suggest, which is common for a player whose tools haven't caught up to what shows up in game action yet. There's no standout strength to lean on and no single glaring weakness either — the real target is showing up at the level he's already flashed on a more consistent, shift-to-shift basis.",
 
   trainingProviders: [],
 };
