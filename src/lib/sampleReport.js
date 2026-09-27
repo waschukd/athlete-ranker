@@ -82,27 +82,30 @@ export const SAMPLE_REPORT_DATA_MILLWOODS = {
   ranking: null,
   total_athletes: 40,
 
+  // A genuine blend of 4.5s/5s/5.5s -- true middle of a 10-point scale, not
+  // the 6-6.5 range the first pass used (that reads as above average, not
+  // average). Group values sit close by design, same reasoning.
   skillProfile: [
-    { scoring_category_id: "sample-skating", name: "Skating", display_order: 1, player: 6.5, group: 6.4, top: 9.0 },
-    { scoring_category_id: "sample-puck", name: "Puck Skills", display_order: 2, player: 6.0, group: 6.1, top: 8.8 },
-    { scoring_category_id: "sample-sense", name: "Hockey Sense", display_order: 3, player: 6.5, group: 6.3, top: 8.6 },
-    { scoring_category_id: "sample-shooting", name: "Shooting", display_order: 4, player: 5.5, group: 5.9, top: 8.2 },
-    { scoring_category_id: "sample-compete", name: "Compete & Effort", display_order: 5, player: 6.5, group: 6.5, top: 9.2 },
+    { scoring_category_id: "sample-skating", name: "Skating", display_order: 1, player: 5.0, group: 5.2, top: 9.0 },
+    { scoring_category_id: "sample-puck", name: "Puck Skills", display_order: 2, player: 4.5, group: 4.6, top: 8.8 },
+    { scoring_category_id: "sample-sense", name: "Hockey Sense", display_order: 3, player: 5.5, group: 5.3, top: 8.6 },
+    { scoring_category_id: "sample-shooting", name: "Shooting", display_order: 4, player: 4.5, group: 4.8, top: 8.2 },
+    { scoring_category_id: "sample-compete", name: "Compete & Effort", display_order: 5, player: 5.0, group: 5.1, top: 9.2 },
   ],
   goalieSkillsProfile: [],
 
   testingProfile: [
-    { test_name: "Forward Sprint", player_best: 5.05, group_avg: 5.08, group_best: 4.55, lower_is_better: true },
-    { test_name: "Backward Sprint", player_best: 6.30, group_avg: 6.32, group_best: 5.60, lower_is_better: true },
-    { test_name: "Weave Agility w/ Puck", player_best: 11.35, group_avg: 11.30, group_best: 10.05, lower_is_better: true },
-    { test_name: "Transition Agility L", player_best: 6.85, group_avg: 6.80, group_best: 6.05, lower_is_better: true },
-    { test_name: "Stop & Start", player_best: 4.40, group_avg: 4.38, group_best: 3.90, lower_is_better: true },
+    { test_name: "Forward Sprint", player_best: 5.10, group_avg: 5.08, group_best: 4.55, lower_is_better: true },
+    { test_name: "Backward Sprint", player_best: 6.35, group_avg: 6.32, group_best: 5.60, lower_is_better: true },
+    { test_name: "Weave Agility w/ Puck", player_best: 11.40, group_avg: 11.30, group_best: 10.05, lower_is_better: true },
+    { test_name: "Transition Agility L", player_best: 6.90, group_avg: 6.80, group_best: 6.05, lower_is_better: true },
+    { test_name: "Stop & Start", player_best: 4.42, group_avg: 4.38, group_best: 3.90, lower_is_better: true },
   ],
 
   progress: [
-    { session_number: 1, player: 6.2, group: 6.2 },
-    { session_number: 2, player: 6.4, group: 6.3 },
-    { session_number: 3, player: 6.4, group: 6.4 },
+    { session_number: 1, player: 4.8, group: 5.0 },
+    { session_number: 2, player: 5.0, group: 5.0 },
+    { session_number: 3, player: 5.1, group: 5.1 },
   ],
 
   // Every note here describes a solid, dependable, well-rounded player --
