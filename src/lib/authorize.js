@@ -1,5 +1,17 @@
 import sql from "./db";
 
+// Per-(user, organization) access block for an otherwise-authorized SP admin
+// -- narrower than suspending the user, which would cut off every OTHER
+// association they administer too. Real case: Tyler Hennessey blocked from
+// KC North specifically while every other CT-linked association (and his
+// own BAHA association_admin role) stays untouched. Checked ahead of the
+// normal SP-admin grant in every place that grant is computed, so it wins
+// regardless of how the admin would otherwise reach the org.
+async function spRestriction(userId, orgId) {
+  const rows = await sql`SELECT message FROM sp_access_restrictions WHERE user_id = ${userId} AND organization_id = ${orgId}`;
+  return rows[0]?.message || null;
+}
+
 /**
  * Check if a user session has access to a specific age category.
  * Returns { authorized: true, orgId } or { authorized: false }.
@@ -36,6 +48,9 @@ export async function authorizeCategoryAccess(session, catId) {
   // second SP admin). Without the user_organization_roles arm, only the original
   // contact could reach client data.
   if (session.role === "service_provider_admin") {
+    const blockedMessage = await spRestriction(userId, orgId);
+    if (blockedMessage) return { authorized: false, blockedMessage };
+
     const linked = await sql`
       SELECT 1 FROM sp_association_links sal
       JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
@@ -196,6 +211,7 @@ export async function authorizeOrgAccess(session, orgId) {
   // SP linked to association — recognise the SP via contact_email OR an
   // additional admin's user_organization_roles row.
   if (session.role === "service_provider_admin") {
+    if (await spRestriction(userId, orgId)) return { authorized: false };
     const linked = await sql`
       SELECT 1 FROM sp_association_links sal
       JOIN organizations sp ON sp.id = sal.service_provider_id AND sp.type = 'service_provider'
@@ -333,12 +349,20 @@ export async function getAccessibleOrgIds(session) {
   if (!own.length) return [];
   const orgIds = new Set(own);
 
-  // For either SP type, include linked client associations.
+  // For either SP type, include linked client associations -- minus any this
+  // specific admin is individually restricted from (sp_access_restrictions),
+  // so a blocked org never even appears in their dashboard's org list, not
+  // just 403s if they guess the URL.
   if (session.role === "service_provider_admin" || session.role === "goalie_service_provider_admin") {
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email}`;
+    const userId = users[0]?.id;
+    const restricted = userId
+      ? new Set((await sql`SELECT organization_id FROM sp_access_restrictions WHERE user_id = ${userId}`).map(r => r.organization_id))
+      : new Set();
     const spOrgs = [...orgIds];
     for (const spId of spOrgs) {
       const linked = await sql`SELECT association_id FROM sp_association_links WHERE service_provider_id = ${spId}`;
-      linked.forEach(l => orgIds.add(l.association_id));
+      linked.forEach(l => { if (!restricted.has(l.association_id)) orgIds.add(l.association_id); });
     }
   }
 

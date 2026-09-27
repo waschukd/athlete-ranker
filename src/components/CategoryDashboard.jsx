@@ -861,6 +861,20 @@ export default function CategoryDashboard({
 
   if (!catId) return <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-theme="premium"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0b5cd6]" /></div>;
 
+  // A per-user org access block (sp_access_restrictions) -- setup/route.js
+  // marks its 403 body with restricted:true specifically so this reads as a
+  // clear, full-page notice instead of a blank/broken dashboard.
+  if (setupData?.restricted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <div className="text-sm font-semibold text-gray-900 mb-2">Access restricted</div>
+          <p className="text-sm text-gray-500">{setupData.error}</p>
+        </div>
+      </div>
+    );
+  }
+
   const displayName = category?.name || categoryName;
   const displayStatus = category?.status ?? status;
   // U15 and up run contact + non-contact divisions — surface the per-athlete

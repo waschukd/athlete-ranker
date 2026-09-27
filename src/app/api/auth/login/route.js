@@ -120,6 +120,19 @@ export async function POST(request) {
     }
     const appUsers = await sql`SELECT * FROM users WHERE LOWER(email) = LOWER(${email})`;
     const appUser = appUsers[0];
+
+    // Correct password, but the account itself is suspended -- reject here,
+    // before a token is ever issued, so the person sees why immediately
+    // instead of getting a working cookie that only fails on their next
+    // click (getSession() re-validates is_suspended on every request, but
+    // that path has no way to show a specific reason).
+    if (appUser?.is_suspended) {
+      return NextResponse.json(
+        { error: appUser.suspension_message || "Your account has been suspended. Please contact your administrator." },
+        { status: 403 },
+      );
+    }
+
     const role = appUser?.role || "association_evaluator";
     const token = await signToken({
       userId: authUser.id,

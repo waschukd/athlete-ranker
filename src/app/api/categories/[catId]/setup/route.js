@@ -16,7 +16,11 @@ export async function GET(request, { params }) {
     const { catId } = params;
 
     const auth = await authorizeCategoryAccess(session, catId);
-    if (!auth.authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // blockedMessage (sp_access_restrictions) is surfaced here specifically --
+    // this is the dashboard's own first data call on every page load, so it's
+    // the one place a per-user org block reliably reaches the screen the
+    // admin is actually looking at, not just a generic "Forbidden" toast.
+    if (!auth.authorized) return NextResponse.json({ error: auth.blockedMessage || "Forbidden", restricted: !!auth.blockedMessage }, { status: 403 });
 
     const cats = await sql`SELECT * FROM age_categories WHERE id = ${catId}`;
     if (!cats.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
