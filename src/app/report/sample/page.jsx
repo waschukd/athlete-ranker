@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
-import { SAMPLE_REPORT_DATA } from "@/lib/sampleReport";
+import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
 
 const GOLD = "#cda434";
 const BG = "#0b0b0d";
@@ -14,8 +16,17 @@ const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', s
 // category's real report links so a parent can see exactly what they'd be
 // buying before the season's own reports are even ready. Mirrors the real
 // paywall page's marketing framing, minus the paywall itself.
-export default function SampleReportLanding() {
-  const { athlete, category, org_name, skillProfile } = SAMPLE_REPORT_DATA;
+//
+// ?org=millwoods swaps in an org-branded, deliberately AVERAGE sample
+// (Millwoods asked their members be shown a middle-of-the-pack profile, not
+// the generic "hidden gem" story) -- no token, no athlete_id, nothing tied to
+// a real kid, so there's nothing here for anyone to guess or enumerate their
+// way into a real report from. Every other association's existing shared
+// link (no query param) is completely unaffected.
+function SampleReportContent() {
+  const params = useSearchParams();
+  const data = params.get("org") === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : SAMPLE_REPORT_DATA;
+  const { athlete, category, org_name, skillProfile } = data;
   const scale = category?.scoring_scale || 10;
   const firstName = athlete?.first_name;
 
@@ -72,7 +83,7 @@ export default function SampleReportLanding() {
           <div style={{ width: 52, height: 52, borderRadius: 14, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Sparkles size={22} color="#141414" /></div>
           <h3 style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 900, color: "#fff", margin: "0 0 6px" }}>This is a real, full sample</h3>
           <p style={{ fontSize: 13, color: "#b8bcc4", maxWidth: 420, margin: "0 auto 18px", lineHeight: 1.55 }}>Every section your athlete's real report includes — objective testing, full skill profile, session-by-session progress, evaluator notes, and a personalized development plan — built with realistic sample data so you know exactly what you'd be getting.</p>
-          <a href="/report/sample/pdf" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 30px", background: GOLD, color: "#141414", borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+          <a href={`/report/sample/pdf${params.get("org") === "millwoods" ? "?org=millwoods" : ""}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 30px", background: GOLD, color: "#141414", borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
             View the full sample report <ArrowRight size={16} />
           </a>
           <p style={{ fontSize: 11, color: "#6b7078", marginTop: 14 }}>No account or purchase needed.</p>
@@ -81,5 +92,13 @@ export default function SampleReportLanding() {
         <div style={{ borderTop: `1px solid ${LINE}`, padding: "18px 0 28px", textAlign: "center", fontSize: 11, color: "#6b7078" }}>Powered by Sideline Star · sidelinestar.com</div>
       </div>
     </div>
+  );
+}
+
+export default function SampleReportLanding() {
+  return (
+    <Suspense fallback={null}>
+      <SampleReportContent />
+    </Suspense>
   );
 }

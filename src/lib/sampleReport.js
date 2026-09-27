@@ -65,3 +65,64 @@ export const SAMPLE_REPORT_DATA = {
 
   trainingProviders: [],
 };
+
+// A second static sample, org-branded and deliberately built around a
+// genuinely AVERAGE player -- no standout skill, no glaring weakness -- for
+// an association (Millwoods) that wants to show members what a middle-of-
+// the-pack report looks like, not just the "hidden gem" story above.
+// "Tyler Bennett" is fictional; any resemblance is coincidental. Selected via
+// /report/sample?org=millwoods (see page.jsx / pdf/page.jsx) -- the default,
+// unparameterized link is untouched and still shows Davey Donald above.
+export const SAMPLE_REPORT_DATA_MILLWOODS = {
+  athlete: { first_name: "Tyler", last_name: "Bennett", position: "Forward", external_id: null },
+  category: { name: "U13", scoring_scale: 10 },
+  org_name: "Millwoods Hockey",
+  serviceProvider: null,
+  standing: { percentile: 51, tier: "Average", band: "Middle Third", total: 40 },
+  ranking: null,
+  total_athletes: 40,
+
+  skillProfile: [
+    { scoring_category_id: "sample-skating", name: "Skating", display_order: 1, player: 6.5, group: 6.4, top: 9.0 },
+    { scoring_category_id: "sample-puck", name: "Puck Skills", display_order: 2, player: 6.0, group: 6.1, top: 8.8 },
+    { scoring_category_id: "sample-sense", name: "Hockey Sense", display_order: 3, player: 6.5, group: 6.3, top: 8.6 },
+    { scoring_category_id: "sample-shooting", name: "Shooting", display_order: 4, player: 5.5, group: 5.9, top: 8.2 },
+    { scoring_category_id: "sample-compete", name: "Compete & Effort", display_order: 5, player: 6.5, group: 6.5, top: 9.2 },
+  ],
+  goalieSkillsProfile: [],
+
+  testingProfile: [
+    { test_name: "Forward Sprint", player_best: 5.05, group_avg: 5.08, group_best: 4.55, lower_is_better: true },
+    { test_name: "Backward Sprint", player_best: 6.30, group_avg: 6.32, group_best: 5.60, lower_is_better: true },
+    { test_name: "Weave Agility w/ Puck", player_best: 11.35, group_avg: 11.30, group_best: 10.05, lower_is_better: true },
+    { test_name: "Transition Agility L", player_best: 6.85, group_avg: 6.80, group_best: 6.05, lower_is_better: true },
+    { test_name: "Stop & Start", player_best: 4.40, group_avg: 4.38, group_best: 3.90, lower_is_better: true },
+  ],
+
+  progress: [
+    { session_number: 1, player: 6.2, group: 6.2 },
+    { session_number: 2, player: 6.4, group: 6.3 },
+    { session_number: 3, player: 6.4, group: 6.4 },
+  ],
+
+  // Every note here describes a solid, dependable, well-rounded player --
+  // consistent with the flat, near-group-average scores above (no note
+  // claims a standout strength or a glaring weakness the numbers don't
+  // back up), same internal-consistency rule the real contradiction guard
+  // enforces for live reports.
+  notes: [
+    { session_number: 1, note_text: "Solid all-around game — skates well, competes hard, nothing that jumps off the page but nothing missing either." },
+    { session_number: 1, note_text: "Reliable positionally and works hard every shift. Shot could use more power to become a real weapon." },
+    { session_number: 1, note_text: "Good habits, good compete level. Right in the middle of this group skill-wise across the board." },
+    { session_number: 2, note_text: "Dependable player — reads the play reasonably well and rarely gets caught out of position." },
+    { session_number: 2, note_text: "Keeps pace with the group. Puck skills are functional but not a separator yet — needs more reps under pressure." },
+    { session_number: 2, note_text: "Competes every shift and does the simple things right. A go-to middle-of-the-lineup type of player." },
+    { session_number: 3, note_text: "Consistent effort across all three sessions — exactly the kind of steady, well-rounded game you can build around." },
+    { session_number: 3, note_text: "No real weaknesses, no real separator yet either. Shooting is the clearest area to focus development on." },
+  ],
+  curatedNotes: null,
+
+  narrativeSummary: "Tyler's evaluation paints an honest, consistent picture: a well-rounded player who sits right at the group average across every skill category, with no major strength to lean on yet and no real weakness holding him back either. Evaluators independently used the same words — \"solid,\" \"dependable,\" \"consistent\" — night after night, and the testing numbers back that up, landing within a hair of the group average on every drill. Shooting is the one area that graded slightly below the rest of his game and is the clearest next step. This is exactly the profile of a player who improves fastest with focused reps rather than a single glaring fix — there's no one thing broken, just room to sharpen everything.",
+
+  trainingProviders: [],
+};

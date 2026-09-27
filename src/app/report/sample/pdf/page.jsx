@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import DevelopmentReport, { ReportFonts } from "@/components/DevelopmentReport";
-import { SAMPLE_REPORT_DATA } from "@/lib/sampleReport";
+import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
 
 // Public, unauthenticated, no purchase required — the "see what you're
 // buying" link Directors/SPs share alongside a category's real report
@@ -9,11 +11,17 @@ import { SAMPLE_REPORT_DATA } from "@/lib/sampleReport";
 // deliberately part of the print layout (not hidden like the theme
 // toggle button), so a printed or forwarded copy can never be mistaken
 // for a real athlete's real report.
+//
+// ?org=millwoods swaps in the Millwoods-branded, deliberately average
+// sample (see sampleReport.js) -- same no-token, no-athlete-id shape as the
+// default, so there's nothing tied to a real kid for anyone to guess at.
 function safePrint() {
   try { window.print(); return true; } catch { return false; }
 }
 
-export default function SampleReportPDF() {
+function SampleReportPDFContent() {
+  const params = useSearchParams();
+  const data = params.get("org") === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : SAMPLE_REPORT_DATA;
   return (
     <>
       <div
@@ -36,7 +44,15 @@ export default function SampleReportPDF() {
         </button>
       </div>
       <ReportFonts />
-      <DevelopmentReport data={SAMPLE_REPORT_DATA} />
+      <DevelopmentReport data={data} />
     </>
+  );
+}
+
+export default function SampleReportPDF() {
+  return (
+    <Suspense fallback={null}>
+      <SampleReportPDFContent />
+    </Suspense>
   );
 }
