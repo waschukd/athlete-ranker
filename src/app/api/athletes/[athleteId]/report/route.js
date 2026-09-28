@@ -63,6 +63,18 @@ export async function GET(request, { params }) {
       WHERE pn.athlete_id = ${athleteId} AND pn.age_category_id = ${catId}
       ORDER BY pn.session_number, pn.created_at
     `;
+    // Which group this athlete sat in for each session -- directors asked to
+    // see this next to the score/weighting/notes for that session, since a
+    // player's group can matter to how a score reads (e.g. an unusually
+    // strong or weak group that night).
+    const groupAssignmentRows = await sql`
+      SELECT sg.session_number, sg.group_number
+      FROM player_group_assignments pga
+      JOIN session_groups sg ON sg.id = pga.session_group_id
+      WHERE pga.athlete_id = ${athleteId} AND sg.age_category_id = ${catId}
+      ORDER BY sg.session_number
+    `;
+    const groupAssignments = Object.fromEntries(groupAssignmentRows.map(r => [r.session_number, r.group_number]));
     // Same non-contradictory note curation the parent report uses (see
     // parentNarrative.js) -- no report_links row exists for this internal
     // preview, so nothing is cached and this re-runs on every load. Fed
@@ -89,7 +101,7 @@ export async function GET(request, { params }) {
 
     // ranking already computed inside buildAthleteReport — reuse it (don't run
     // computeCategoryRankings twice; that was the report-load stall).
-    return NextResponse.json({ ...report, sessions, scores, testing, notes, narrativeSummary, curatedNotes });
+    return NextResponse.json({ ...report, sessions, scores, testing, notes, narrativeSummary, curatedNotes, groupAssignments });
   } catch (error) {
     console.error("Player report error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

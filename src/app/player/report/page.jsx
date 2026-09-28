@@ -189,7 +189,8 @@ function PlayerReportInner() {
     </div>
   );
 
-  const { athlete, sessions, scores, notes, ranking, total_athletes, testing } = data;
+  const { athlete, sessions, scores, notes, ranking, total_athletes, testing, groupAssignments } = data;
+  const groupFor = (sessionNumber) => groupAssignments?.[sessionNumber];
 
   // Calculate inter-rater agreement per session
   const scale = data.category?.scoring_scale || 10;
@@ -370,7 +371,7 @@ function PlayerReportInner() {
                           <div className={`w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold ${sd ? "bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6]" : "bg-gray-200"}`}>
                             {s.session_number}
                           </div>
-                          <span className="text-sm text-gray-700">{s.name} <span className="text-xs text-gray-400 capitalize">({s.session_type})</span></span>
+                          <span className="text-sm text-gray-700">{s.name} <span className="text-xs text-gray-400 capitalize">({s.session_type}{groupFor(s.session_number) ? ` · Group ${groupFor(s.session_number)}` : ""})</span></span>
                         </div>
                         <span className="text-sm font-bold text-gray-900">
                           {sd ? `${sd.normalized_score?.toFixed(1)}/100` : "—"}
@@ -406,7 +407,7 @@ function PlayerReportInner() {
                     </div>
                     <div>
                       <div className="font-semibold text-gray-900">{session.name}</div>
-                      <div className="text-xs text-gray-400 capitalize">{session.session_type} · {session.weight_percentage}% weight</div>
+                      <div className="text-xs text-gray-400 capitalize">{session.session_type} · {session.weight_percentage}% weight{groupFor(session.session_number) ? ` · Group ${groupFor(session.session_number)}` : ""}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -492,7 +493,7 @@ function PlayerReportInner() {
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0b5cd6] to-[#3b82f6] flex items-center justify-center text-white text-xs font-bold">
                           {s.session_number}
                         </div>
-                        <span className="text-sm font-semibold text-gray-700">{s.name} <span className="text-gray-400 font-normal capitalize">· {s.session_type}</span></span>
+                        <span className="text-sm font-semibold text-gray-700">{s.name} <span className="text-gray-400 font-normal capitalize">· {s.session_type}{groupFor(s.session_number) ? ` · Group ${groupFor(s.session_number)}` : ""}</span></span>
                       </div>
                       <div className="divide-y divide-gray-50">
                         {sessionNotes.map((n, i) => (
