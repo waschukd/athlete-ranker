@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DevelopmentReport, { ReportFonts } from "@/components/DevelopmentReport";
 import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
+import SampleReportDisclaimerGate from "@/components/SampleReportDisclaimerGate";
 
 // Public, unauthenticated, no purchase required — the "see what you're
 // buying" link Directors/SPs share alongside a category's real report
@@ -52,7 +53,9 @@ function SampleReportPDFContent() {
 export default function SampleReportPDF() {
   return (
     <Suspense fallback={null}>
-      <SampleReportPDFContent />
+      <SampleReportDisclaimerGate>
+        <SampleReportPDFContent />
+      </SampleReportDisclaimerGate>
     </Suspense>
   );
 }

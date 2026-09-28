@@ -127,6 +127,11 @@ export async function POST(request) {
     // click (getSession() re-validates is_suspended on every request, but
     // that path has no way to show a specific reason).
     if (appUser?.is_suspended) {
+      // Separate from login_attempts (which feeds the brute-force rate
+      // limiter) -- this is a real, correct-password attempt, not a failure
+      // to guard against, and answers "did they try to log in" directly
+      // instead of by inference from a runtime-log gap.
+      await sql`INSERT INTO suspended_login_attempts (user_id, email, ip) VALUES (${appUser.id}, ${email}, ${ip})`.catch(() => {});
       return NextResponse.json(
         { error: appUser.suspension_message || "Your account has been suspended. Please contact your administrator." },
         { status: 403 },

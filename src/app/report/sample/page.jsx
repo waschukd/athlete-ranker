@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
+import SampleReportDisclaimerGate from "@/components/SampleReportDisclaimerGate";
 
 const GOLD = "#cda434";
 const BG = "#0b0b0d";
@@ -98,7 +99,9 @@ function SampleReportContent() {
 export default function SampleReportLanding() {
   return (
     <Suspense fallback={null}>
-      <SampleReportContent />
+      <SampleReportDisclaimerGate>
+        <SampleReportContent />
+      </SampleReportDisclaimerGate>
     </Suspense>
   );
 }
