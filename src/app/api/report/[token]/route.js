@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
     if (!rl.allowed) return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
 
     const link = await sql`
-      SELECT rl.*, o.name as org_name
+      SELECT rl.*, o.name as org_name, o.independent_report_provider
       FROM report_links rl
       JOIN organizations o ON o.id = rl.organization_id
       WHERE rl.token = ${token} AND rl.is_active = true
@@ -76,6 +76,7 @@ export async function GET(request, { params }) {
       athlete,
       category: report.category ? { name: report.category.name, scoring_scale: report.category.scoring_scale } : null,
       org_name: link[0].org_name,
+      independentReportProvider: !!link[0].independent_report_provider,
       total_athletes: report.total_athletes,
       purchased,
       purchasable,

@@ -15,11 +15,14 @@ async function ctx(session, catId) {
   const auth = await authorizeCategoryAccess(session, catId);
   if (!auth.authorized) return null;
   const cat = await sql`
-    SELECT ac.name, ac.teams_finalized_at, o.name AS org_name
+    SELECT ac.name, ac.teams_finalized_at, o.name AS org_name, o.independent_report_provider
     FROM age_categories ac JOIN organizations o ON o.id = ac.organization_id
     WHERE ac.id = ${catId}
   `;
-  return { auth, orgName: cat[0]?.org_name || "Your association", teamsFinalized: !!cat[0]?.teams_finalized_at };
+  return {
+    auth, orgName: cat[0]?.org_name || "Your association", teamsFinalized: !!cat[0]?.teams_finalized_at,
+    independent: !!cat[0]?.independent_report_provider,
+  };
 }
 
 // Dry-run: how many parents would be emailed, AND the actual list -- sending
@@ -114,7 +117,7 @@ export async function POST(request, { params }) {
       const res = await sendParentReportEmail({
         to, playerName, orgName: c.orgName, spName,
         reportUrl: `${baseUrl}/report/${token}`,
-        priceStr,
+        priceStr, independent: c.independent,
       });
       const status = res?.ok ? "sent" : (res?.skipped ? "skipped" : "failed");
       if (res?.ok) sent++; else if (res?.skipped) skipped++; else failed++;

@@ -743,9 +743,14 @@ function checklistTable(items) {
 
 // ── Parent paywall delivery: "your child's report is ready" + preview/buy CTA ──
 // fromLine reads "<SP> on behalf of <Association>" when an SP name is provided.
-export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _sp, reportUrl, priceStr }) {
+export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _sp, reportUrl, priceStr, independent }) {
   const playerName = esc(_pn), orgName = esc(_on), spName = _sp ? esc(_sp) : _sp;
-  const fromLine = spName ? `${spName} on behalf of ${orgName}` : orgName;
+  // independent (organizations.independent_report_provider): the association
+  // negotiated that these reports be unmistakably NOT theirs -- e.g. EFHA,
+  // which agreed to let reports go out only on the condition it's clear they
+  // have no part in it, get no revenue from it, and don't want to be the
+  // ones fielding questions about it.
+  const fromLine = independent ? "Competitive Thread — Evaluation Team" : (spName ? `${spName} on behalf of ${orgName}` : orgName);
   return emailWrapper(`
     ${emailHeader(fromLine, `${esc(playerName)}'s Development Report is ready`)}
     <p style="margin:14px auto 26px;max-width:444px;font-size:14.5px;color:#5b606b;line-height:1.7;text-align:center;">${esc(playerName)}'s evaluation is complete. The Development Report breaks down their objective testing results, how the evaluators graded each skill, what a top mark looks like, how they progressed session over session, what the evaluators saw, and a clear plan of exactly what to work on first.</p>
@@ -765,11 +770,12 @@ export function parentReportEmailHtml({ playerName: _pn, orgName: _on, spName: _
     <p style="margin:16px 0 0;font-size:12px;color:${MUTED};text-align:center;line-height:1.6;">A free preview is open right now — unlocking the full report is secure payment via Stripe, no account needed.</p>
     <p style="margin:14px 0 0;font-size:12.5px;color:#5b606b;text-align:center;line-height:1.6;">Not sure what's inside? <a href="${BASE_URL}/report/sample" style="color:${GOLD_DEEP};font-weight:700;text-decoration:none;border-bottom:1px solid ${GOLD_LINE};">See a full sample report first →</a></p>
     <p style="margin:18px 0 0;font-size:11px;color:${MUTED};text-align:center;line-height:1.6;border-top:1px solid #ece9e2;padding-top:14px;">This report is for development purposes — an honest picture of where a player stands and what to work on next. Some categories evaluate well over 100 athletes at once, so a small-looking gap in these numbers can be a real, meaningful one. It is not a tool for disputing a team selection, an evaluator, or the association, and it will not be treated as one — rosters are final.</p>
+    ${independent ? `<p style="margin:10px 0 0;font-size:11px;color:${MUTED};text-align:center;line-height:1.6;">This report is provided independently by Competitive Thread and its evaluators — ${orgName} is not affiliated with, does not endorse, and receives no portion of this purchase. Questions about this report should be directed to Competitive Thread, not the association. Competitive Thread does not discuss rankings, team selections, or roster decisions in these conversations.</p>` : ""}
   `);
 }
 
-export async function sendParentReportEmail({ to, playerName, orgName, spName, reportUrl, priceStr }) {
-  const html = parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr });
+export async function sendParentReportEmail({ to, playerName, orgName, spName, reportUrl, priceStr, independent }) {
+  const html = parentReportEmailHtml({ playerName, orgName, spName, reportUrl, priceStr, independent });
   return sendEmail(to, `${playerName}'s Development Report — ${orgName}`, html);
 }
 

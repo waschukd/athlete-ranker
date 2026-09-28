@@ -101,7 +101,7 @@ export default function ReportClient({ params }) {
     </div>
   );
 
-  const { athlete, category, org_name, standing, purchased, price } = data;
+  const { athlete, category, org_name, independentReportProvider, standing, purchased, price } = data;
   const scale = category?.scoring_scale || 10;
   const skillProfile = data.skillProfile || [];
   const priceStr = `$${((price || 3499) / 100).toFixed(2)}`;
@@ -123,6 +123,15 @@ export default function ReportClient({ params }) {
             {org_name && <span style={{ border: "1px solid rgba(255,255,255,0.18)", padding: "3px 12px", borderRadius: 99 }}>{org_name}</span>}
           </div>
         </div>
+
+        {/* Independence notice -- per-org flag (see organizations.independent_report_provider).
+            Real case: EFHA agreed to let these go out only on the condition
+            that it's unmistakably clear the association has no part in it. */}
+        {independentReportProvider && (
+          <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${LINE}`, borderRadius: 12, padding: "12px 16px", marginBottom: 16, fontSize: 12, color: "#b8bcc4", lineHeight: 1.6 }}>
+            This report is provided independently by Competitive Thread and its evaluators. {org_name ? `${org_name} is not affiliated with, does not endorse, and receives no portion of this purchase. ` : ""}Questions about this report go to Competitive Thread, not the association.
+          </div>
+        )}
 
         {/* Payment banners */}
         {paymentStatus === "success" && !purchased && (
@@ -187,6 +196,7 @@ export default function ReportClient({ params }) {
               />
               <span style={{ fontSize: 11.5, color: "#b8bcc4", lineHeight: 1.5 }}>
                 I'm purchasing this report for development purposes — to understand where {firstName} stands and what to work on. Not to dispute a team selection, an evaluator, or the association's decision. Rosters are final.
+                {independentReportProvider && ` I understand this report is provided independently by Competitive Thread, that ${org_name || "the association"} is not affiliated with it and receives no portion of this purchase, and that any questions about it go to Competitive Thread rather than the association.`}
               </span>
             </label>
 
