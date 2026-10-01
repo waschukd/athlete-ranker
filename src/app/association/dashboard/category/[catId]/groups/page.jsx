@@ -322,17 +322,17 @@ function GroupsManagerInner() {
   // Tournament format: this page becomes "pick which two teams play each game"
   // instead of drag/auto-assign — group membership is a snapshot of the two
   // teams' rosters (set via the matchup picker), not a manually built split.
-  const isTournament = setupData?.category?.eval_format === "round_robin";
+  const isTournamentCategory = setupData?.category?.eval_format === "round_robin";
   const { data: scrimmageTeamsData, refetch: refetchScrimmageTeams } = useQuery({
     queryKey: ["scrimmage-teams", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/scrimmage-teams`); return res.json(); },
-    enabled: !!catId && isTournament,
+    enabled: !!catId && isTournamentCategory,
   });
   const tournamentTeams = scrimmageTeamsData?.teams || [];
   const { data: scheduleData, refetch: refetchSchedule } = useQuery({
     queryKey: ["groups-schedule", catId],
     queryFn: async () => { const res = await fetch(`/api/categories/${catId}/schedule`); return res.json(); },
-    enabled: !!catId && isTournament,
+    enabled: !!catId && isTournamentCategory,
   });
   const scheduleRows = scheduleData?.schedule || [];
 
@@ -367,6 +367,17 @@ function GroupsManagerInner() {
   };
 
   const sessions = setupData?.sessions || [];
+  // A tournament category still runs sessions that are NOT team-vs-team: VMHA
+  // U13 opens with a skills skate split into two groups before the round robin
+  // starts. Rendering that as a matchup forced a director to express "who is
+  // in each skills group" as "which two teams play", which it isn't -- so the
+  // game grid is scoped to the GAME sessions, and a skills/testing session
+  // keeps the ordinary group editor (drag, auto-assign, lock) even here.
+  const gameSession = (n) => {
+    const t = sessions.find(s => Number(s.session_number) === Number(n))?.session_type;
+    return !t || t === "scrimmage";
+  };
+  const isTournament = isTournamentCategory && gameSession(selectedSession);
   const groups = groupsData?.groups || [];
   const assignments = groupsData?.assignments || [];
   const teamColorsBySchedule = groupsData?.team_colors_by_schedule || {};
