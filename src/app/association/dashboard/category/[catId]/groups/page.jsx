@@ -1156,7 +1156,30 @@ function GroupsManagerInner() {
                               </div>
                             </div>
                           ))}
-                          <p className="text-[11px] text-gray-400 mt-2">Same setting as the check-in screen — changing it at the door still works too.</p>
+                          {/* A session is not always two sides. VMHA U13 runs
+                              three tournament teams but only two skills groups,
+                              and wanted every player in the jersey they will
+                              wear for the games -- which needs three colours on
+                              a skate with two groups. The palette has always
+                              stored 2-6; there was simply no way to add a slot. */}
+                          <div className="flex items-center gap-2 mt-2">
+                            {groupPalette.length < 6 && (
+                              <button disabled={savingPalette}
+                                onClick={() => setGroupPalette(scheduleId, [...groupPalette, PRESET_TEAM_COLORS.find(p => !groupPalette.some(c => c.name.toLowerCase() === p.name.toLowerCase()))].filter(Boolean))}
+                                className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                                + Add colour
+                              </button>
+                            )}
+                            {groupPalette.length > 2 && (
+                              <button disabled={savingPalette}
+                                title={`Remove ${groupPalette[groupPalette.length - 1].name}`}
+                                onClick={() => setGroupPalette(scheduleId, groupPalette.slice(0, -1))}
+                                className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                                Remove {groupPalette[groupPalette.length - 1].name}
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-2">Same setting as the check-in screen — changing it at the door still works too. Two to six colours; add one when more teams share the ice than there are groups.</p>
                         </>
                       )}
                     </div>

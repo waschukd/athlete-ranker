@@ -284,6 +284,26 @@ function CheckinPageInner() {
                     </div>
                   </div>
                 ))}
+                {/* Two to six. More teams than groups is a real shape -- three
+                    tournament teams blended into two skills groups, everyone
+                    still in their game jersey. */}
+                <div className="flex items-center gap-2 mt-2">
+                  {teamColors.length < 6 && (
+                    <button disabled={savingColors}
+                      onClick={() => setSessionColors([...teamColors, PRESET_TEAM_COLORS.find(p => !teamColors.some(c => c.name.toLowerCase() === p.name.toLowerCase()))].filter(Boolean))}
+                      className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                      + Add colour
+                    </button>
+                  )}
+                  {teamColors.length > 2 && (
+                    <button disabled={savingColors}
+                      title={`Remove ${teamColors[teamColors.length - 1].name}`}
+                      onClick={() => setSessionColors(teamColors.slice(0, -1))}
+                      className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                      Remove {teamColors[teamColors.length - 1].name}
+                    </button>
+                  )}
+                </div>
                 <p className="text-[11px] text-gray-400 mt-2">
                   Applies to this session only. Players already checked in move with their team.
                 </p>
