@@ -244,12 +244,18 @@ export async function GET(request, { params }) {
       } catch (e) { console.error("checkin: team_name lookup failed:", e?.message); }
     }
 
-    // Tournament opt-in: carry a player's jersey number forward from their most
-    // recent earlier session in this category, pre-filling it here (still fully
+    // Opt-in: carry a player's jersey number forward from their most recent
+    // earlier session in this category, pre-filling it here (still fully
     // editable via the normal jersey field) rather than starting blank every
     // session. Never touches anyone already checked in, and never overwrites a
     // number already set for this session.
-    if (sched.eval_format === "round_robin" && sched.sticky_jersey_numbers && athletes.length) {
+    //
+    // This used to additionally require eval_format = 'round_robin', which was
+    // an arbitrary line: a house player keeps the same number across a weekend
+    // exactly like a tournament player does. VMHA U11 M is what showed it --
+    // 26 numbers entered in session 1, 25 in session 2, 16 in session 3, the
+    // door re-typing them every time and losing ground each session.
+    if (sched.sticky_jersey_numbers && athletes.length) {
       try {
         const needsFill = athletes.filter(a => !a.jersey_number && !a.checked_in).map(a => a.id);
         if (needsFill.length) {
