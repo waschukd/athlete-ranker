@@ -70,7 +70,7 @@ export async function GET(request) {
            COALESCE(es.age_label, 'Testing') AS category_name,
            COALESCE(es.client_label, 'Testing') AS org_name, 'testing' AS session_type
     FROM evaluation_schedule es
-    WHERE es.service_provider_id = ${spId} AND es.status != 'cancelled'
+    WHERE es.service_provider_id = ${spId} AND es.age_category_id IS NULL AND es.status != 'cancelled'
     ORDER BY es.scheduled_date, es.start_time`;
 
   const all = [...sessions, ...spEvents];

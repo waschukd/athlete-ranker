@@ -71,7 +71,13 @@ export async function GET(request) {
         0 as evaluators_signed_up, 0 as checked_in_count, true as sp_owned
       FROM evaluation_schedule es
       LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id
-      WHERE es.service_provider_id = ${spId} AND es.scheduled_date BETWEEN ${from} AND ${to}
+      -- SP-OWNED ONLY. Without the age_category_id guard this also swept up
+      -- association sessions that happen to carry a service_provider_id, and
+      -- the SP schedule then showed them TWICE -- once as the real session,
+      -- once as a phantom "Testing" event. VMHA deleted one of those phantoms
+      -- and lost the real 11:15 skills session with it.
+      WHERE es.service_provider_id = ${spId} AND es.age_category_id IS NULL
+        AND es.scheduled_date BETWEEN ${from} AND ${to}
       GROUP BY es.id
       ORDER BY es.scheduled_date, es.start_time`;
     const combined = [...schedule, ...spEvents];

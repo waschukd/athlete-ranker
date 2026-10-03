@@ -75,6 +75,7 @@ export async function GET(request) {
       FROM evaluation_schedule es
       LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id AND tss.status = 'signed_up'
       WHERE es.service_provider_id = ANY(${spIds})
+        AND es.age_category_id IS NULL
         AND es.scheduled_date >= CURRENT_DATE
         AND es.status = 'scheduled'
         AND es.id NOT IN (SELECT schedule_id FROM tester_session_signups WHERE user_id = ${userId} AND status != 'cancelled')
@@ -111,7 +112,7 @@ export async function POST(request) {
       WHERE es.id = ${scheduleId}
         AND (
           (sal.service_provider_id = ANY(${cap.testerOrgIds}) AND COALESCE(cs.session_type, '') = 'testing')
-          OR es.service_provider_id = ANY(${cap.testerOrgIds})
+          OR (es.service_provider_id = ANY(${cap.testerOrgIds}) AND es.age_category_id IS NULL)
         )`;
     if (!ok.length) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

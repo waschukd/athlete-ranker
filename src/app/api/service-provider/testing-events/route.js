@@ -26,7 +26,7 @@ export async function GET(request) {
         COUNT(DISTINCT tss.id) FILTER (WHERE tss.status = 'signed_up') as testers_signed_up
       FROM evaluation_schedule es
       LEFT JOIN tester_session_signups tss ON tss.schedule_id = es.id
-      WHERE es.service_provider_id = ${g.spId}
+      WHERE es.service_provider_id = ${g.spId} AND es.age_category_id IS NULL
       GROUP BY es.id
       ORDER BY es.scheduled_date, es.start_time`;
     return NextResponse.json({ events });

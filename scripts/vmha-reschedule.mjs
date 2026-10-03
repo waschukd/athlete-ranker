@@ -27,6 +27,11 @@
 // silently dropped them from sessions they are rostered on.
 //
 // All ice is at the Stadium (the sheets' only venue column).
+//
+// service_provider_id stays NULL on these rows. It marks a schedule row as an
+// SP's OWN testing event (a testing-only client with no association), and the
+// SP dashboard lists those separately -- setting it on an association session
+// made each new row appear twice, once real and once as "Testing".
 import { neon } from "@neondatabase/serverless";
 import { readFileSync } from "node:fs";
 
@@ -112,7 +117,7 @@ for (const p of plan) {
   if (p.action === "insert") {
     const [row] = await sql`
       INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, status, evaluators_required, service_provider_id)
-      VALUES (${p.cat}, ${p.sn}, ${p.g}, ${p.date}, ${DOW(p.date)}, ${p.start}, ${p.end}, ${LOC}, 'scheduled', 4, 16)
+      VALUES (${p.cat}, ${p.sn}, ${p.g}, ${p.date}, ${DOW(p.date)}, ${p.start}, ${p.end}, ${LOC}, 'scheduled', 4, NULL)
       RETURNING id`;
     console.log(`inserted ${NAMES[p.cat]} S${p.sn} G${p.g} -> id ${row.id}`);
   } else {
