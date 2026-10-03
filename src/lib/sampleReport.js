@@ -139,3 +139,59 @@ export const SAMPLE_REPORT_DATA_MILLWOODS = {
 
   trainingProviders: [],
 };
+
+// A third static sample, for associations that run NO objective testing --
+// VMHA's U11 M shape: one skills skate and two games, four evaluator criteria,
+// 26 skaters, nothing on the clock. Worth its own sample because the absence
+// changes how the report reads: with no testing section there is no objective
+// counterweight to the evaluator grades, so the narrative has to carry more of
+// the explanation and the progress line does more of the work.
+//
+// "Elliot Vance" is fictional; the surname appears nowhere in any roster.
+export const SAMPLE_REPORT_DATA_VMHA = {
+  athlete: { first_name: "Elliot", last_name: "Vance", position: "Forward", external_id: null },
+  category: { name: "U11 M", scoring_scale: 10 },
+  org_name: "Vermilion Minor Hockey",
+  serviceProvider: null,
+  standing: { percentile: 62, tier: "Solid Contributor", band: "Top 40%", total: 26 },
+  ranking: null,
+  total_athletes: 26,
+
+  // The four criteria VMHA actually scores. A genuinely common U11 profile:
+  // the effort is there every shift and the hands are behind the motor.
+  skillProfile: [
+    { scoring_category_id: "sample-vmha-skating", name: "Skating", display_order: 1, player: 7.0, group: 6.3, top: 8.5 },
+    { scoring_category_id: "sample-vmha-puck", name: "Puck Skills", display_order: 2, player: 5.0, group: 6.1, top: 8.0 },
+    { scoring_category_id: "sample-vmha-compete", name: "Effort / Compete", display_order: 3, player: 8.0, group: 6.6, top: 8.5 },
+    { scoring_category_id: "sample-vmha-sense", name: "Hockey Sense", display_order: 4, player: 6.5, group: 6.2, top: 8.0 },
+  ],
+  goalieSkillsProfile: [],
+
+  // No testing -- the report drops that whole section rather than showing an
+  // empty one, which is exactly what a VMHA parent will see.
+  testingProfile: [],
+
+  // One skills skate, then two games. The skills skate grades a touch lower
+  // for everyone (drills expose hands), which is why the group line moves too.
+  progress: [
+    { session_number: 1, player: 6.3, group: 6.1 },
+    { session_number: 2, player: 6.8, group: 6.3 },
+    { session_number: 3, player: 7.0, group: 6.4 },
+  ],
+
+  notes: [
+    { session_number: 1, note_text: "Works hard through every drill, first one moving on the whistle. Puck handling breaks down when he has to do it at speed." },
+    { session_number: 1, note_text: "Good posture and strong edges for this age. Hands are a step behind his feet -- loses the puck on tight turns." },
+    { session_number: 1, note_text: "Compete level stands out. Needs reps stickhandling with his head up rather than watching the puck." },
+    { session_number: 2, note_text: "Relentless on the forecheck, forced two turnovers on his own. Rushes the play once he gets it instead of making a simple pass." },
+    { session_number: 2, note_text: "Honest two-way shift every time out. Puck skills under pressure are the limiting factor right now." },
+    { session_number: 2, note_text: "Reads the play better than most in this group -- supports his defence without being told. Hands need to catch up to his motor." },
+    { session_number: 3, note_text: "Best game of the three. Kept his feet moving and made a good read on the backcheck. Still fumbles the first touch on a hard pass." },
+    { session_number: 3, note_text: "Coachable and competes. If the puck skills come along he is a real player -- everything else is already there." },
+  ],
+  curatedNotes: null,
+
+  narrativeSummary: "Elliot's three skates tell a consistent story, and every evaluator landed on the same two things. What stands out first is the compete -- he graded 8.0 there, comfortably the highest of his four marks and well clear of the group, and the notes back it up shift after shift: first to move, forcing turnovers, honest on the backcheck. His skating is a genuine asset too. The gap is his hands. Puck skills came in at 5.0, the one mark below the group average, and it is the same note in all three sessions -- the puck gets away from him when he has to handle it at speed or take a hard first pass. That is the single thing holding the rest of his game back, and it is also the most trainable thing on this list at his age. He got better across the weekend, finishing his strongest in the last game, which is exactly the direction you want to see.",
+
+  trainingProviders: [],
+};

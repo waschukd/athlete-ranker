@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
-import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
+import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS, SAMPLE_REPORT_DATA_VMHA } from "@/lib/sampleReport";
 import SampleReportDisclaimerGate from "@/components/SampleReportDisclaimerGate";
 
 const GOLD = "#cda434";
@@ -26,9 +26,12 @@ const SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', s
 // link (no query param) is completely unaffected.
 function SampleReportContent() {
   const params = useSearchParams();
-  const data = params.get("org") === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : SAMPLE_REPORT_DATA;
+  const org = params.get("org");
+  const data = org === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : org === "vmha" ? SAMPLE_REPORT_DATA_VMHA : SAMPLE_REPORT_DATA;
   const { athlete, category, org_name, skillProfile } = data;
   const scale = category?.scoring_scale || 10;
+  // An association that runs no objective testing must not be promised it.
+  const hasTesting = (data.testingProfile || []).length > 0;
   const firstName = athlete?.first_name;
 
   const Fonts = () => <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />;
@@ -63,7 +66,7 @@ function SampleReportContent() {
           <div style={{ width: 1, alignSelf: "stretch", background: GOLD_LINE }} />
           <div>
             <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, color: "#fff" }}>What to work on next</div>
-            <div style={{ color: "#b8bcc4", fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>Objective testing, evaluator skill scores and session-by-session progress — with what a top mark looks like and the exact plan to get there. This is a full, real example of what your athlete's report will look like.</div>
+            <div style={{ color: "#b8bcc4", fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>{hasTesting ? "Objective testing, evaluator" : "Evaluator"} skill scores and session-by-session progress — with what a top mark looks like and the exact plan to get there. This is a full, real example of what your athlete's report will look like.</div>
           </div>
         </div>
 
@@ -83,8 +86,8 @@ function SampleReportContent() {
         <div style={{ border: `1px solid ${GOLD_LINE}`, borderRadius: 18, padding: "26px 24px", textAlign: "center", background: "linear-gradient(180deg,#16140e,#0d0d10)", marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Sparkles size={22} color="#141414" /></div>
           <h3 style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 900, color: "#fff", margin: "0 0 6px" }}>This is a real, full sample</h3>
-          <p style={{ fontSize: 13, color: "#b8bcc4", maxWidth: 420, margin: "0 auto 18px", lineHeight: 1.55 }}>Every section your athlete's real report includes — objective testing, full skill profile, session-by-session progress, evaluator notes, and a personalized development plan — built with realistic sample data so you know exactly what you'd be getting.</p>
-          <a href={`/report/sample/pdf${params.get("org") === "millwoods" ? "?org=millwoods" : ""}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 30px", background: GOLD, color: "#141414", borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+          <p style={{ fontSize: 13, color: "#b8bcc4", maxWidth: 420, margin: "0 auto 18px", lineHeight: 1.55 }}>Every section your athlete's real report includes — {hasTesting ? "objective testing, " : ""}full skill profile, session-by-session progress, evaluator notes, and a personalized development plan — built with realistic sample data so you know exactly what you'd be getting.</p>
+          <a href={`/report/sample/pdf${org ? `?org=${org}` : ""}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 30px", background: GOLD, color: "#141414", borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
             View the full sample report <ArrowRight size={16} />
           </a>
           <p style={{ fontSize: 11, color: "#6b7078", marginTop: 14 }}>No account or purchase needed.</p>

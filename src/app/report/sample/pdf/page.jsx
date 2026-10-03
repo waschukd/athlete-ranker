@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DevelopmentReport, { ReportFonts } from "@/components/DevelopmentReport";
-import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS } from "@/lib/sampleReport";
+import { SAMPLE_REPORT_DATA, SAMPLE_REPORT_DATA_MILLWOODS, SAMPLE_REPORT_DATA_VMHA } from "@/lib/sampleReport";
 import SampleReportDisclaimerGate from "@/components/SampleReportDisclaimerGate";
 
 // Public, unauthenticated, no purchase required — the "see what you're
@@ -22,7 +22,8 @@ function safePrint() {
 
 function SampleReportPDFContent() {
   const params = useSearchParams();
-  const data = params.get("org") === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : SAMPLE_REPORT_DATA;
+  const org = params.get("org");
+  const data = org === "millwoods" ? SAMPLE_REPORT_DATA_MILLWOODS : org === "vmha" ? SAMPLE_REPORT_DATA_VMHA : SAMPLE_REPORT_DATA;
   return (
     <>
       <div
