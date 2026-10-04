@@ -34,6 +34,7 @@
 // made each new row appear twice, once real and once as "Testing".
 import { neon } from "@neondatabase/serverless";
 import { readFileSync } from "node:fs";
+import { randomInt } from "node:crypto";
 
 const env = readFileSync(new URL("../.env.production.local", import.meta.url), "utf8");
 for (const line of env.split("\n")) {
@@ -67,6 +68,18 @@ const NAMES = { [U11F]: "U11 F", [U11M]: "U11 M", [U13M]: "U13 M" };
 const DOW = (d) => ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date(d + "T12:00:00").getDay()];
 const hhmm = (t) => String(t).slice(0, 5);
 const pretty = (d, s, e) => `${DOW(d)} ${d.slice(5)} ${hhmm(s)}-${hhmm(e)}`;
+
+// Same alphabet and shape as generateCheckinCode in the app's schedule route.
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+async function uniqueCheckinCode(sn, g) {
+  for (;;) {
+    let suffix = "";
+    for (let i = 0; i < 6; i++) suffix += CODE_CHARS[randomInt(0, CODE_CHARS.length)];
+    const code = `S${sn}G${g}-${suffix}`;
+    const dup = await sql`SELECT id FROM evaluation_schedule WHERE checkin_code = ${code}`;
+    if (!dup.length) return code;
+  }
+}
 
 const existing = await sql`
   SELECT id, age_category_id cat, session_number sn, group_number g, scheduled_date::text date, start_time, end_time, location
@@ -115,11 +128,16 @@ const moved = [];
 for (const p of plan) {
   if (p.action === "unchanged") continue;
   if (p.action === "insert") {
+    // A row with no checkin_code cannot be opened at the door AT ALL -- the
+    // code is the only way in. The app's own schedule route always generates
+    // one; this script did not, and VMHA U13 game 3 reached its start time
+    // with no way to check anybody in.
+    const code = await uniqueCheckinCode(p.sn, p.g);
     const [row] = await sql`
-      INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, status, evaluators_required, service_provider_id)
-      VALUES (${p.cat}, ${p.sn}, ${p.g}, ${p.date}, ${DOW(p.date)}, ${p.start}, ${p.end}, ${LOC}, 'scheduled', 4, NULL)
+      INSERT INTO evaluation_schedule (age_category_id, session_number, group_number, scheduled_date, day_of_week, start_time, end_time, location, status, evaluators_required, service_provider_id, checkin_code, checkin_code_active)
+      VALUES (${p.cat}, ${p.sn}, ${p.g}, ${p.date}, ${DOW(p.date)}, ${p.start}, ${p.end}, ${LOC}, 'scheduled', 4, NULL, ${code}, true)
       RETURNING id`;
-    console.log(`inserted ${NAMES[p.cat]} S${p.sn} G${p.g} -> id ${row.id}`);
+    console.log(`inserted ${NAMES[p.cat]} S${p.sn} G${p.g} -> id ${row.id}, check-in code ${code}`);
   } else {
     await sql`
       UPDATE evaluation_schedule
