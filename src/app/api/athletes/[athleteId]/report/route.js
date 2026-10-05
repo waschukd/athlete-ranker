@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getAppUserId } from "@/lib/auth";
 import { authorizeCategoryAccess } from "@/lib/authorize";
+import { logEvent } from "@/lib/analytics";
 import { buildAthleteReport } from "@/lib/reportData";
 import { generateParentNarrative } from "@/lib/parentNarrative";
 
@@ -101,6 +102,14 @@ export async function GET(request, { params }) {
 
     // ranking already computed inside buildAthleteReport — reuse it (don't run
     // computeCategoryRankings twice; that was the report-load stall).
+    // Server-side record that someone pulled this player's full report -- the
+    // on-screen director view and its text export both come through here, so
+    // this is the one place a view can be counted (see also player.exported).
+    logEvent({
+      userId: await getAppUserId(session), role: session.role, orgId: auth.orgId || null,
+      event: "player_report.viewed", metadata: { athleteId: parseInt(athleteId, 10), catId: parseInt(catId, 10) },
+    });
+
     return NextResponse.json({ ...report, sessions, scores, testing, notes, narrativeSummary, curatedNotes, groupAssignments });
   } catch (error) {
     console.error("Player report error:", error);

@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, User, Users, FileText, BarChart3, Zap, Download, Loader } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
+import { logClientEvent } from "@/lib/useAnalytics";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const POSITION_COLORS = {
@@ -138,6 +139,7 @@ function PlayerReportInner() {
 
   const exportReport = () => {
     if (!data) return;
+    logClientEvent("player.exported", { metadata: { athleteId: parseInt(athleteId, 10), catId: parseInt(catId, 10) } });
     const a = data.athlete;
     const r = data.ranking;
     const lines = [

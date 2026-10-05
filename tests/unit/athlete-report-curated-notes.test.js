@@ -8,7 +8,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ getSession: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getSession: vi.fn(), getAppUserId: vi.fn(async () => 1) }));
+vi.mock("@/lib/analytics", () => ({ logEvent: vi.fn() }));
 vi.mock("@/lib/authorize", () => ({ authorizeCategoryAccess: vi.fn() }));
 vi.mock("@/lib/reportData", () => ({ buildAthleteReport: vi.fn() }));
 vi.mock("@/lib/parentNarrative", () => ({ generateParentNarrative: vi.fn() }));
