@@ -350,6 +350,20 @@ export async function emailParentReportFollowUp({ name, email, athleteName, orgN
   return sendEmail(email, `Thanks for grabbing ${athleteName}'s Development Report`, html);
 }
 
+// Season feedback survey invite. The link button is the only way in -- email
+// clients strip interactive forms, so the survey lives on our own page.
+export async function emailFeedbackSurvey({ name, email, audience, url }) {
+  const who = audience === "association_admin" ? "association" : "evaluator";
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">How the evaluations went</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hi <strong style="color:${INK};">${esc(name || "there")}</strong>, the evaluations are complete, and we want your honest read on how they went for ${who === "association" ? "your association" : "you as an evaluator"}.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">It takes about five minutes. Every question is optional, and there's an open comments box at the bottom for anything we didn't ask. Your answers go straight to Competitive Thread.</p>
+    <div style="text-align:center;margin:24px 0 8px;">${btn(url, "Share your feedback")}</div>
+    <p style="margin:18px 0 0;font-size:12px;color:${MUTED};line-height:1.6;">Questions about this survey? Reply to this email and it reaches Dan directly.</p>
+  `);
+  return sendEmail(email, "How the evaluations went — 5 minutes", html);
+}
+
 export async function emailEvaluatorThankYou({ name, email, orgNames }) {
   const orgLine = Array.isArray(orgNames) && orgNames.length
     ? (orgNames.length > 1
