@@ -350,6 +350,22 @@ export async function emailParentReportFollowUp({ name, email, athleteName, orgN
   return sendEmail(email, `Thanks for grabbing ${athleteName}'s Development Report`, html);
 }
 
+// Internal alert to Dan when a survey comes back. Goes to CT only.
+export async function emailFeedbackReceived({ respondentName, email, orgName, audienceLabel, questions, answers, comments }) {
+  const rows = questions
+    .filter(q => answers?.[q.key])
+    .map(q => `<p style="margin:0 0 4px;font-size:12px;color:${GOLD_DEEP};">${esc(q.text)}</p><p style="margin:0 0 14px;font-size:14px;color:${INK};line-height:1.6;white-space:pre-wrap;">${esc(answers[q.key])}</p>`)
+    .join("");
+  const commentsBlock = comments ? `<p style="margin:0 0 4px;font-size:12px;color:${GOLD_DEEP};">Open comments</p><p style="margin:0 0 14px;font-size:14px;color:${INK};line-height:1.6;white-space:pre-wrap;">${esc(comments)}</p>` : "";
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">Feedback received</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;"><strong style="color:${INK};">${esc(respondentName || email)}</strong>${orgName ? ` · ${esc(orgName)}` : ""} · ${esc(audienceLabel)} · ${esc(email)}</p>
+    ${rows}${commentsBlock}
+    <p style="margin:18px 0 0;font-size:12px;color:${MUTED};">All responses: sidelinestar.com/admin/feedback</p>
+  `);
+  return sendEmail("dan@competitivethread.com", `Feedback received: ${respondentName || email}${orgName ? ` (${orgName})` : ""}`, html);
+}
+
 // Season feedback survey invite. The link button is the only way in -- email
 // clients strip interactive forms, so the survey lives on our own page.
 export async function emailFeedbackSurvey({ name, email, audience, url }) {

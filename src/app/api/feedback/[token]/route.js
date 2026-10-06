@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { surveyFor } from "@/lib/feedbackSurveys";
 import { checkAndRecord, clientIp } from "@/lib/rateLimit";
+import { emailFeedbackReceived } from "@/lib/email";
 
 // Public, token-only (no account). The token is the credential: a random
 // UUID sent to one person. Responses never echo back anything but the survey
@@ -41,9 +42,24 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Please answer at least one question or leave a comment." }, { status: 400 });
   }
 
-  await sql`
+  const saved = await sql`
     UPDATE feedback_responses SET answers = ${JSON.stringify(answers)}, comments = ${comments || null}, submitted_at = NOW()
     WHERE id = ${rows[0].id} AND submitted_at IS NULL
+    RETURNING email, user_id, organization_id
   `;
+  if (saved.length) {
+    // Alert Dan. Never let a failed email fail the submission.
+    const [who] = await sql`
+      SELECT u.name, o.name AS org_name FROM feedback_responses fr
+      LEFT JOIN users u ON u.id = fr.user_id
+      LEFT JOIN organizations o ON o.id = fr.organization_id
+      WHERE fr.id = ${rows[0].id}
+    `;
+    emailFeedbackReceived({
+      respondentName: who?.name, email: saved[0].email, orgName: who?.org_name,
+      audienceLabel: rows[0].audience === "association_admin" ? "Association admin" : "Evaluator",
+      questions: survey.questions, answers, comments,
+    }).catch(e => console.error("feedback alert failed:", e?.message));
+  }
   return NextResponse.json({ success: true });
 }
