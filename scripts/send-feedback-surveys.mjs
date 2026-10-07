@@ -30,7 +30,7 @@ const APPROVED = {
     "jacobbodnaruk9@gmail.com", "rklinaker@gmail.com", "colelinaker@gmail.com",
     "p.basterash02@gmail.com", "bonciul@gmail.com", "nrd@ualberta.ca",
     "tyler.l.parks7@gmail.com", "donaldmmilburn@gmail.com", "waschukaj@gmail.com",
-    "hennessey.tyler@gmail.com",
+    "hennessey.tyler@gmail.com", "ryan.mccarville@ecsd.net", "ericpybus@hotmail.com",
   ],
 };
 const SP_ID = 16; // Competitive Thread

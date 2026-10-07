@@ -380,6 +380,18 @@ export async function emailFeedbackSurvey({ name, email, audience, url }) {
   return sendEmail(email, "How the evaluations went — 5 minutes", html);
 }
 
+export async function emailFeedbackSurveyReminder({ name, email, audience, url }) {
+  const who = audience === "association_admin" ? "association" : "evaluator";
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:${INK};">Quick reminder: how the evaluations went</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Hi <strong style="color:${INK};">${esc(name || "there")}</strong>, we haven't heard from you yet on how the evaluations went for ${who === "association" ? "your association" : "you as an evaluator"}. We'd still like your read before we close this out.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED};line-height:1.6;">Five minutes, every question optional, open comments box at the bottom. Your answers go straight to Competitive Thread.</p>
+    <div style="text-align:center;margin:24px 0 8px;">${btn(url, "Share your feedback")}</div>
+    <p style="margin:18px 0 0;font-size:12px;color:${MUTED};line-height:1.6;">Questions about this survey? Reply to this email and it reaches Dan directly.</p>
+  `);
+  return sendEmail(email, "Quick reminder: how the evaluations went", html);
+}
+
 export async function emailEvaluatorThankYou({ name, email, orgNames }) {
   const orgLine = Array.isArray(orgNames) && orgNames.length
     ? (orgNames.length > 1
